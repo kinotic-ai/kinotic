@@ -1,0 +1,338 @@
+package org.kinotic.test.tests.core.authz;
+
+import io.vertx.core.Future;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.kinotic.authz.api.model.AccessExplanation;
+import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.Consistency;
+import org.kinotic.authz.api.model.Grant;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.RoleDefinition;
+import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AuthzModelGenerator;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.AuthzModelRevision;
+import org.kinotic.domain.api.model.AuthzStore;
+import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.model.ReconcileState;
+import org.kinotic.domain.api.model.security.Group;
+import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
+import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
+import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.services.ApplicationService;
+import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.security.MemberService;
+import org.kinotic.management.api.services.security.PermissionService;
+import org.kinotic.test.support.kinotic.KinoticTestBase;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Verifies the console's access control over the system store: custom roles defined from the model's catalog
+ * and deleted once unused, grants reaching down the containment tree and stopping when revoked, groups granting
+ * through their members, and the caller's own access listed and explained.
+ */
+@SpringBootTest
+public class PermissionServiceTests extends KinoticTestBase {
+
+    @Autowired
+    private PermissionService permissions;
+
+    @Autowired
+    private ApplicationService applicationService;
+
+    @Autowired
+    private ProjectService projectService;
+
+    @Autowired
+    private ParticipantIdentityService identityService;
+
+    @Autowired
+    private OrganizationService organizationService;
+
+    @Autowired
+    private MemberService memberService;
+
+    @Autowired
+    private RelationshipService relationships;
+
+    @Autowired
+    private AuthzStoreRepository stores;
+
+    @Autowired
+    private AuthzModelGenerator modelGenerator;
+
+    @Autowired
+    private ServiceDirectory serviceDirectory;
+
+    // The master ticks every two seconds, then writes the model and brings the built-in roles in step, which
+    // every grant below binds on
+    @BeforeEach
+    public void awaitSystemModel() throws Exception {
+        AuthzModel model = modelGenerator.systemModel(await(serviceDirectory.findSystemDefinitions()));
+        assertTrue(awaitUntil(() -> reconciledTo(model.hash())), "the system store never reconciled to the directory's model");
+    }
+
+    @Test
+    public void customRolesAreDefinedFromTheCatalogAndDeletedOnceUnused() throws Exception {
+        Map<String, Set<String>> catalog = await(runAsOrganization(permissions::findPermissions));
+        assertTrue(catalog.get(ProjectService.RESOURCE_TYPE).contains("project_can_edit"));
+
+        RoleDefinition saved = await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(null, "Release Manager " + suffix(), "ships projects", false, ProjectService.RESOURCE_TYPE, null,
+                                   Set.of("project_can_edit", "project_can_read")))));
+        assertNotNull(saved.id());
+        assertEquals(ProjectService.RESOURCE_TYPE, AuthzUtil.roleHome(saved.id()));
+        assertFalse(saved.builtIn());
+        List<RoleDefinition> roles = await(runAsOrganization(permissions::findRoles));
+        RoleDefinition editor = roles.stream().filter(role -> role.id().equals("project.editor")).findFirst().orElseThrow();
+        assertTrue(editor.builtIn());
+        assertEquals("Project Editor", editor.name());
+        assertTrue(editor.permissions().contains("project_can_edit"));
+        RoleDefinition listed = roles.stream().filter(role -> role.id().equals(saved.id())).findFirst().orElseThrow();
+        assertEquals(Set.of("project_can_edit", "project_can_read"), listed.permissions());
+
+        // a permission the model does not have, one from above the role's home, a home outside the organization's
+        // tier, and a built-in role, are refused
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(null, "Pilot", null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_fly"))))));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(null, "Climber", null, false, ProjectService.RESOURCE_TYPE, null, Set.of("application_can_edit"))))));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(null, "Reader", null, false, AuthzConstants.SYSTEM_TYPE, null, Set.of("project_can_read"))))));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition("project.editor", "Project Editor", null, true, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_edit"))))));
+
+        // reshaping the role changes what it bundles
+        await(runAsOrganization(() -> permissions.saveRole(new RoleDefinition(saved.id(), saved.name(), null, false, null, null, Set.of("project_can_read")))));
+        assertEquals(Set.of("project_can_read"), bundled(saved.id()));
+
+        // a role a grant holds stays until the grant is revoked
+        Application application = application();
+        Resource onApplication = new Resource(AuthzConstants.APPLICATION_TYPE, application.getId());
+        Subject holder = user(member(TEST_ORG_ID, "permission"));
+        Grant grant = await(runAsOrganization(() -> permissions.grant(holder, saved.id(), onApplication)));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.deleteRole(saved.id()))));
+        await(runAsOrganization(() -> permissions.revoke(onApplication, grant.id())));
+        await(runAsOrganization(() -> permissions.deleteRole(saved.id())));
+        assertTrue(bundled(saved.id()).isEmpty());
+        assertFalse(await(runAsOrganization(permissions::findRoles)).stream().anyMatch(role -> role.id().equals(saved.id())));
+    }
+
+    @Test
+    public void theOrganizationsTierOffersAndAcceptsOnlyItsOwnRoles() throws Exception {
+        Set<String> tier = Set.of(AuthzConstants.ORGANIZATION_TYPE, AuthzConstants.APPLICATION_TYPE, ProjectService.RESOURCE_TYPE, AuthzConstants.ENTITY_DEFINITION_TYPE);
+        Map<String, Set<String>> catalog = await(runAsOrganization(permissions::findPermissions));
+        assertTrue(tier.containsAll(catalog.keySet()), catalog.keySet().toString());
+        List<RoleDefinition> roles = await(runAsOrganization(permissions::findRoles));
+        for (RoleDefinition role : roles) {
+            assertTrue(tier.contains(role.resourceType()), "role " + role.id() + " is homed outside the organization's tier");
+            assertTrue(tier.containsAll(role.grantableOn()), "role " + role.id() + " is grantable outside the organization's tier");
+        }
+        List<String> ids = roles.stream().map(RoleDefinition::id).toList();
+        assertFalse(ids.contains(AuthzConstants.SYSTEM_SUPPORT_ROLE), ids.toString());
+        assertFalse(ids.contains(AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN)), ids.toString());
+        assertFalse(ids.stream().anyMatch(id -> id.startsWith("vm_node.")), ids.toString());
+        RoleDefinition projectEditor = roles.stream().filter(role -> role.id().equals("project.editor")).findFirst().orElseThrow();
+        assertEquals(Set.of(AuthzConstants.ORGANIZATION_TYPE, AuthzConstants.APPLICATION_TYPE, ProjectService.RESOURCE_TYPE), projectEditor.grantableOn());
+
+        // a role homed above the resource, and a system role, are refused by the service
+        Project project = project(application());
+        Resource onProject = new Resource(ProjectService.RESOURCE_TYPE, project.getId());
+        Resource onOrganization = new Resource(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
+        Subject subject = user(member(TEST_ORG_ID, "tier"));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.grant(subject, AuthzConstants.ORGANIZATION_ADMIN_ROLE, onProject))));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.grant(subject, AuthzConstants.SYSTEM_SUPPORT_ROLE, onOrganization))));
+
+        // and by the engine for a writer that skips the service
+        String user = AuthzGraphUtil.authzUser(subject.id());
+        assertThrows(ExecutionException.class, () -> await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE, user,
+                                                                              AuthzGraphUtil.authzObject(TEST_ORG_ID, onProject))));
+        assertThrows(ExecutionException.class, () -> await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.SYSTEM_SUPPORT_ROLE, user,
+                                                                              AuthzGraphUtil.authzObject(TEST_ORG_ID, onOrganization))));
+    }
+
+    @Test
+    public void theOrganizationKeepsAnAdministratorWhoCanSignIn() throws Exception {
+        Organization organization = await(organizationService.createSync(new Organization().setName("Permission " + suffix()).setDescription("administrators")));
+        String organizationId = organization.getId();
+        Participant caller = new DefaultOrganizationParticipant("caller-" + suffix(), organizationId,
+                                                                Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                List.of());
+        Resource onOrganization = new Resource(AuthzConstants.ORGANIZATION_TYPE, organizationId);
+        OrganizationParticipantIdentity first = member(organizationId, "first-admin");
+        OrganizationParticipantIdentity disabled = member(organizationId, "disabled-admin");
+        Grant firstGrant = await(runAs(caller, () -> permissions.grant(user(first), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        Grant disabledGrant = await(runAs(caller, () -> permissions.grant(user(disabled), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        await(identityService.saveSync(disabled.setEnabled(false)));
+        // a pending user has yet to sign in, and its invitation may lapse unclaimed
+        OrganizationParticipantIdentity pending = member(organizationId, "pending-admin");
+        await(identityService.saveSync(pending.setPending(true)));
+        await(runAs(caller, () -> permissions.grant(user(pending), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+
+        // the last administrator who can sign in keeps the grant and stays an enabled member, and a disabled
+        // administrator's grant may go
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
+        assertRefusedAsLastAdministrator(() -> runAs(caller, () -> memberService.removeMember(first.getId())));
+        await(runAs(caller, () -> permissions.revoke(onOrganization, disabledGrant.id())));
+
+        // once another enabled member administers the organization, the first may go
+        OrganizationParticipantIdentity second = member(organizationId, "second-admin");
+        await(runAs(caller, () -> permissions.grant(user(second), AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
+        await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), true)));
+        await(runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
+    }
+
+    @Test
+    public void grantsReachDownTheTreeAndStopWhenRevoked() throws Exception {
+        Application application = application();
+        Project project = project(application);
+        OrganizationParticipantIdentity member = member(TEST_ORG_ID, "permission");
+        Subject subject = user(member);
+        Resource onApplication = new Resource(AuthzConstants.APPLICATION_TYPE, application.getId());
+        Resource onProject = new Resource(ProjectService.RESOURCE_TYPE, project.getId());
+
+        Grant grant = await(runAsOrganization(() -> permissions.grant(subject, "project.editor", onApplication)));
+        assertTrue(held(member, "project_can_edit", onProject), "an editor of the application's projects edits one inside it");
+
+        // the grant reaches the project from the application, which is where the listing says it was made; the
+        // organization's administrator binding reaches it from the organization
+        List<Grant> reaching = await(runAsOrganization(() -> permissions.findGrants(onProject)));
+        assertTrue(reaching.contains(grant), reaching.toString());
+        assertTrue(reaching.stream().allMatch(listed -> listed.equals(grant) || AuthzConstants.ORGANIZATION_TYPE.equals(listed.resource().type())),
+                   reaching.toString());
+        AccessExplanation edits = await(runAsOrganization(() -> permissions.explain(subject, AuthzConstants.CAN_EDIT, onProject)));
+        assertTrue(edits.allowed());
+        assertEquals(List.of(grant), edits.through());
+        AccessExplanation deletes = await(runAsOrganization(() -> permissions.explain(subject, AuthzConstants.CAN_DELETE, onProject)));
+        assertFalse(deletes.allowed());
+        assertTrue(deletes.through().isEmpty());
+
+        // a resource outside the organization, and a grant revoked anywhere but where it was made, are refused
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.grant(
+                subject, "project.editor", new Resource(ProjectService.RESOURCE_TYPE, "elsewhere-" + suffix())))));
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.revoke(onProject, grant.id()))));
+
+        await(runAsOrganization(() -> permissions.revoke(onApplication, grant.id())));
+        assertFalse(held(member, "project_can_edit", onProject));
+        assertFalse(await(runAsOrganization(() -> permissions.findGrants(onProject))).contains(grant));
+    }
+
+    @Test
+    public void groupsGrantThroughTheirMembers() throws Exception {
+        Group group = await(runAsOrganization(() -> permissions.saveGroup(new Group().setName("QA " + suffix()).setDescription("tests everything"))));
+        OrganizationParticipantIdentity member = member(TEST_ORG_ID, "permission");
+        await(runAsOrganization(() -> permissions.addGroupMember(group.getId(), member.getId())));
+        List<OrganizationParticipantIdentity> members = await(runAsOrganization(() -> permissions.findGroupMembers(group.getId())));
+        assertEquals(List.of(member.getId()), members.stream().map(OrganizationParticipantIdentity::getId).toList());
+        assertTrue(await(runAsOrganization(() -> permissions.findGroups(Pageable.ofSize(1000)))).getContent()
+                           .stream().anyMatch(listed -> listed.getId().equals(group.getId())));
+
+        Project project = project(application());
+        Resource onProject = new Resource(ProjectService.RESOURCE_TYPE, project.getId());
+        Grant grant = await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.GROUP, group.getId()), "project.viewer", onProject)));
+        assertTrue(held(member, "project_can_read", onProject), "a member reads what the group was granted");
+        AccessExplanation reads = await(runAsOrganization(() -> permissions.explain(user(member), AuthzConstants.CAN_READ, onProject)));
+        assertTrue(reads.allowed());
+        assertEquals(List.of(grant), reads.through());
+
+        await(runAsOrganization(() -> permissions.removeGroupMember(group.getId(), member.getId())));
+        assertFalse(held(member, "project_can_read", onProject));
+
+        // a group a grant holds stays until the grant is revoked
+        assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.deleteGroup(group.getId()))));
+        await(runAsOrganization(() -> permissions.revoke(onProject, grant.id())));
+        await(runAsOrganization(() -> permissions.deleteGroup(group.getId())));
+        assertFalse(await(runAsOrganization(() -> permissions.findGroups(Pageable.ofSize(1000)))).getContent()
+                            .stream().anyMatch(listed -> listed.getId().equals(group.getId())));
+    }
+
+    @Test
+    public void theCallerListsWhatItHolds() throws Exception {
+        Application application = application();
+        Project granted = project(application);
+        project(application);
+        OrganizationParticipantIdentity member = member(TEST_ORG_ID, "permission");
+        await(runAsOrganization(() -> permissions.grant(user(member), "project.viewer", new Resource(ProjectService.RESOURCE_TYPE, granted.getId()))));
+
+        DefaultOrganizationParticipant caller = new DefaultOrganizationParticipant(member.getId(), TEST_ORG_ID,
+                                                                                   Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                                          ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                                   List.of());
+        // the listing accepts the engine's cache window, so a grant just made may take a moment to show
+        assertTrue(awaitUntil(() -> List.of(granted.getId()).equals(
+                           await(runAs(caller, () -> permissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))))),
+                   "the caller never listed the project it was granted");
+    }
+
+    private boolean held(UserParticipantIdentity member, String permission, Resource resource) throws Exception {
+        return await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()), permission,
+                                                               AuthzGraphUtil.authzObject(TEST_ORG_ID, resource)),
+                                         Consistency.HIGHER_CONSISTENCY));
+    }
+
+    private Set<String> bundled(String roleId) throws Exception {
+        return await(relationships.read(AuthzStoreService.SYSTEM, AuthzUtil.roleObject(roleId)))
+                .stream().map(RelationshipTuple::relation).collect(java.util.stream.Collectors.toSet());
+    }
+
+    private Application application() throws Exception {
+        return await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Permission " + suffix(), "permissions", null)));
+    }
+
+    private Project project(Application application) throws Exception {
+        Project project = new Project();
+        project.setName("Permission Project " + suffix());
+        project.setOrganizationId(TEST_ORG_ID);
+        project.setApplicationId(application.getId());
+        return await(runAsOrganization(() -> projectService.createProjectIfNotExist(project)));
+    }
+
+
+    private static void assertRefusedAsLastAdministrator(Supplier<Future<?>> call) {
+        ExecutionException refused = assertThrows(ExecutionException.class, () -> await(call.get()));
+        assertInstanceOf(IllegalStateException.class, refused.getCause());
+    }
+
+    private static Subject user(UserParticipantIdentity member) {
+        return new Subject(SubjectType.USER, member.getId());
+    }
+
+    private boolean reconciledTo(String hash) throws Exception {
+        AuthzStore store = await(stores.findById(AuthzStore.SYSTEM));
+        ReconcileState<AuthzModelRevision> state = store.getState();
+        return state.isReconciled() && state.getObserved() != null && hash.equals(state.getObserved().hash());
+    }
+}

@@ -8,7 +8,7 @@ import org.kinotic.system.internal.api.services.SystemJob;
 import org.springframework.stereotype.Component;
 
 /**
- * The {@link WorkloadRetentionSweeper}'s sweep as a system job, so an operator can run it ahead of
+ * The {@link WorkloadRetentionSweeper}'s sweep as a system job, so a system user can run it ahead of
  * the hourly schedule. The run's sweep is the cluster singleton's, so it never races the hourly
  * sweep or another run's: one requested while a sweep is running joins it.
  */

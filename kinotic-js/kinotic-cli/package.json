@@ -22,8 +22,8 @@
     ],
     "dependencies": {
         "@inquirer/prompts": "^8.5.2",
-        "@kinotic-ai/core": "5.0.0-beta.29",
-        "@kinotic-ai/idl": "5.0.0-beta.6",
+        "@kinotic-ai/core": "5.0.0-beta.30",
+        "@kinotic-ai/idl": "5.0.0-beta.7",
         "@kinotic-ai/management-api": "5.0.0-beta.71",
         "@kinotic-ai/persistence": "5.0.0-beta.19",
         "@kinotic-ai/spawn": "5.0.0-beta.1",

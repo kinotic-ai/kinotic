@@ -9,6 +9,9 @@ import org.kinotic.persistence.api.model.QueryParameter;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
@@ -19,9 +22,18 @@ import java.util.List;
 /**
  * Provides access to entities for a given EntityDefinition.
  * Created by Nic Padilla 🤪on 6/18/23.
+ *
+ * Every function is checked on the definition the request names, for the permission of its rows the function
+ * needs: reading, listing, counting, querying and searching need {@code can_read}, saving and updating
+ * {@code can_edit}, since a save replaces a row of the same id, and deleting {@code can_delete}. Deleting implies
+ * updating, and updating reading. A tenant's user is checked on the
+ * definition within its tenant, so a grant made on the tenant, on the definition, on the definition within the
+ * tenant or on the application reaches it; a caller above every application is checked on the definition in
+ * the system's store.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)
+@AuthzResource(value = AuthzConstants.ENTITY_DEFINITION_TYPE, parent = AuthzConstants.APPLICATION_TYPE)
 public interface JsonEntitiesRepository {
 
     /**
@@ -32,6 +44,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} that will complete when all entities have been saved
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT, resourceId = "{entityDefinitionId}")
     Future<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, ScopedParticipant participant);
 
     /**
@@ -42,6 +55,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} that will complete when all entities have been saved
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT, resourceId = "{entityDefinitionId}")
     Future<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, ScopedParticipant participant);
 
     /**
@@ -51,6 +65,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Long> count(String entityDefinitionId, ScopedParticipant participant);
 
     /**
@@ -61,6 +76,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Long> countByQuery(String entityDefinitionId, String query, ScopedParticipant participant);
 
     /**
@@ -71,6 +87,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_DELETE, resourceId = "{entityDefinitionId}")
     Future<Void> deleteById(String entityDefinitionId, String id, ScopedParticipant participant);
 
     /**
@@ -81,6 +98,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_DELETE, resourceId = "{entityDefinitionId}")
     Future<Void> deleteByQuery(String entityDefinitionId, String query, ScopedParticipant participant);
 
     /**
@@ -91,6 +109,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Page<FastestType>> findAll(String entityDefinitionId, Pageable pageable, ScopedParticipant participant);
 
     /**
@@ -101,6 +120,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<FastestType> findById(String entityDefinitionId, String id, ScopedParticipant participant);
 
     /**
@@ -111,10 +131,13 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, ScopedParticipant participant);
 
     /**
      * Executes a named query.
+     * The caller needs {@code can_read} on the definition for a query that reads rows, {@code can_edit} for one
+     * that inserts or updates them, and {@code can_delete} for one that deletes them.
      *
      * @param entityDefinitionId     the id of the {@link EntityDefinition} that this named query is defined for
      * @param queryName       the name of {@link FunctionDefinition} that defines the query
@@ -122,6 +145,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(permissionResolver = AuthzConstants.NAMED_QUERY_PERMISSION_RESOLVER, resourceId = "{entityDefinitionId}")
     Future<List<RawJson>> namedQuery(String entityDefinitionId,
                                      String queryName,
                                      List<QueryParameter> queryParameters,
@@ -129,6 +153,8 @@ public interface JsonEntitiesRepository {
 
     /**
      * Executes a named query and returns a {@link Page} of results.
+     * The caller needs {@code can_read} on the definition for a query that reads rows, {@code can_edit} for one
+     * that inserts or updates them, and {@code can_delete} for one that deletes them.
      *
      * @param entityDefinitionId     the id of the {@link EntityDefinition} that this named query is defined for
      * @param queryName       the name of {@link FunctionDefinition} that defines the query
@@ -137,6 +163,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(permissionResolver = AuthzConstants.NAMED_QUERY_PERMISSION_RESOLVER, resourceId = "{entityDefinitionId}")
     Future<Page<RawJson>> namedQueryPage(String entityDefinitionId,
                                          String queryName,
                                          List<QueryParameter> queryParameters,
@@ -152,6 +179,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT, resourceId = "{entityDefinitionId}")
     Future<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
     /**
@@ -165,6 +193,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link Future} of a page of entities
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Page<FastestType>> search(String entityDefinitionId, String searchText, Pageable pageable, ScopedParticipant participant);
 
     /**
@@ -173,6 +202,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return a {@link Future} that will complete when the operation is complete
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT, resourceId = "{entityDefinitionId}")
     Future<Void> syncIndex(String entityDefinitionId, ScopedParticipant participant);
 
     /**
@@ -185,6 +215,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT, resourceId = "{entityDefinitionId}")
     Future<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
 }

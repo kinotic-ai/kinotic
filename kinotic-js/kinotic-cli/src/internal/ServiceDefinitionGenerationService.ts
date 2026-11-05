@@ -14,6 +14,7 @@ import fsPromises from 'fs/promises'
 import path from 'path'
 import {ClassDeclaration, Decorator, MethodDeclaration, Project, Type} from 'ts-morph'
 import {createConversionContext, IConversionContext} from './converter/IConversionContext'
+import {tsDecoratorToC3Decorator} from './converter/typescript/ConverterUtils'
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState'
 import {ServiceValueToC3Type} from './converter/typescript/ServiceValueToC3Type'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy'
@@ -33,9 +34,10 @@ const WARNINGS_METADATA_KEY = 'warnings'
 /**
  * Generates the definition of every service the project publishes, the classes decorated with @Publish under
  * the project's servicesPaths: one function per instance method of the class and the classes it extends, with
- * the parameters a request carries, typed as an entity's properties are. The definitions are written to the
- * ServiceDefinitions module, which declares them to the runtime so each service registers in the platform's
- * service directory as it comes online.
+ * the parameters a request carries, typed as an entity's properties are, and the AuthzResource, AuthzCheck and
+ * AuthzUnchecked declarations of the class and its methods. The definitions are written to the ServiceDefinitions
+ * module, which declares them to the runtime so each service registers in the system's service directory as it
+ * comes online.
  */
 export class ServiceDefinitionGenerationService {
 
@@ -109,6 +111,21 @@ export class ServiceDefinitionGenerationService {
         const ret = new ServiceDefinition(name, namespace as string)
         const service = `${namespace ? namespace + '.' : ''}${name}`
 
+        const resource = declaration.getDecorator('AuthzResource')
+        // the mark on the class is carried by each function, so the definition reads as one marked per function
+        const uncheckedClass = declaration.getDecorator('AuthzUnchecked')
+        if (uncheckedClass && resource) {
+            throw new Error(`${service} is marked @AuthzUnchecked beside the @AuthzResource its functions are checked on; mark the functions instead`)
+        }
+        // the gateway refuses every function its definition neither checks nor marks unchecked, so a class declaring
+        // neither could never be called through it
+        if (!uncheckedClass && !resource) {
+            throw new Error(`${service} declares no @AuthzResource and is not marked @AuthzUnchecked; declare the resource its functions act on, or mark the class @AuthzUnchecked`)
+        }
+        if (resource) {
+            ret.addDecorator(tsDecoratorToC3Decorator(resource)!)
+        }
+
         const state = new TypescriptConversionState(this.application)
         state.shouldAddSourcePathToMetadata = false
         // a union with no name of its own is named for the service and the function or parameter carrying it
@@ -122,7 +139,7 @@ export class ServiceDefinitionGenerationService {
                 // the runtime serves the methods on the prototype chain, which holds no ES private (#) method
                 if (!method.isOverload() && !method.getName().startsWith('#') && !converted.has(method.getName())) {
                     converted.add(method.getName())
-                    ret.addFunction(this.convertMethod(method, service, conversion))
+                    ret.addFunction(this.convertMethod(method, service, uncheckedClass, conversion))
                 }
             }
             current = current.getBaseClass()
@@ -132,9 +149,22 @@ export class ServiceDefinitionGenerationService {
 
     private convertMethod(method: MethodDeclaration,
                           service: string,
+                          uncheckedClass: Decorator | undefined,
                           conversion: IConversionContext<Type, C3Type, TypescriptConversionState>): FunctionDefinition {
         const ret = new FunctionDefinition(method.getName())
         const where = `${method.getName()} on ${service}`
+        const check = method.getDecorator('AuthzCheck')
+        const unchecked = method.getDecorator('AuthzUnchecked')
+        if (uncheckedClass && (check || unchecked)) {
+            throw new Error(`${where} declares a check, but the service is marked @AuthzUnchecked as a whole`)
+        }
+        if (check && unchecked) {
+            throw new Error(`${where} is marked @AuthzUnchecked beside the @AuthzCheck it declares; an unchecked function has no check`)
+        }
+        const authz = check ?? unchecked ?? uncheckedClass
+        if (authz) {
+            ret.addDecorator(tsDecoratorToC3Decorator(authz)!)
+        }
         const parameters = method.getParameters()
         // the context a @Context method takes last is the platform's, not the caller's
         const carried = method.getDecorator('Context') ? parameters.slice(0, -1) : parameters

@@ -14,7 +14,7 @@ import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
 import type {ContextInterceptor, ServiceContext} from './ContextInterceptor'
 import type { ServiceDefinition } from '@kinotic-ai/idl'
-import { isAdvertised } from './KinoticDecorators'
+import { declaresAuthz, isAdvertised } from './KinoticDecorators'
 import type { ServiceDirectoryEntry } from './ServiceDirectoryEntry'
 
 /**
@@ -104,8 +104,10 @@ function servedFunctions(serviceInstance: object): string[] {
 /**
  * The directory entry of a service registered in an application's zone: the definition the project declared
  * for it, which names exactly the functions the instance serves, with what the registration adds. Null for a
- * service in no application's zone, or one the project declared no definition for.
- * @throws when the definition declares other functions than the instance serves
+ * service in no application's zone, or one the project declared no definition for, which the system refuses
+ * to serve, since no contract says how.
+ * @throws when the definition declares other functions than the instance serves, or the service declares a
+ *         resource or is marked unchecked and the project declares no definition for it
  */
 function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIdentifier): ServiceDirectoryEntry | null {
     let ret: ServiceDirectoryEntry | null = null
@@ -128,6 +130,9 @@ function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIde
                 advertised: isAdvertised(serviceInstance),
                 serviceDefinition: definition
             }
+        } else if (declaresAuthz(serviceInstance)) {
+            throw new Error(`${qualifiedName} declares a resource or is marked unchecked, but the project declares no definition for it;`
+                            + ' run kinotic sync and import the generated ServiceDefinitions module')
         }
     }
     return ret

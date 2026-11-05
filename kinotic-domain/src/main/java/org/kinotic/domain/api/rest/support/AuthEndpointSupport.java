@@ -335,7 +335,7 @@ public abstract class AuthEndpointSupport {
                 .put("expires_in", ACCESS_TOKEN_TTL_SECONDS)
                 .put("refresh_token", refreshToken);
         ctx.response().putHeader("Content-Type", "application/json")
-           // RFC 6749 §5.1 — a token response must never be cached by an intermediary
+           // a token response must never be cached by an intermediary
            .putHeader("Cache-Control", "no-store")
            .putHeader("Pragma", "no-cache")
            .end(body.encode());

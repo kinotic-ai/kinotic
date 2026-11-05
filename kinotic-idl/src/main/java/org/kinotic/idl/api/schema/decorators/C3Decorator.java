@@ -20,6 +20,8 @@ import java.util.List;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = NotNullC3Decorator.class, name = NotNullC3Decorator.type),
         @JsonSubTypes.Type(value = McpToolC3Decorator.class, name = McpToolC3Decorator.type),
+        @JsonSubTypes.Type(value = AuthzResourceC3Decorator.class, name = AuthzResourceC3Decorator.type),
+        @JsonSubTypes.Type(value = AuthzCheckC3Decorator.class, name = AuthzCheckC3Decorator.type),
 })
 @JsonInclude(JsonInclude.Include.NON_EMPTY) // do not include any empty or null fields
 @Getter

@@ -1,0 +1,81 @@
+# OpenFGA, the authorization engine every server checks against, with the Postgres it stores relationships
+# in. The migrate job prepares the schema before the engine starts, and openfga-init creates the system
+# store, which the servers look up by name and never create. The caches match what the servers are
+# tuned for: a check answers from cached subproblems, which the cache controller invalidates once it reads a
+# write from the store's changelog, so a cached answer can predate a write by the controller's interval, ten
+# seconds by default. A function declared consistent asks for higher consistency and skips the caches.
+# The integration tests switch the caches off through environment variables of the same names, so a check
+# sees a write at once.
+services:
+  openfga-db:
+    container_name: openfga-db
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: openfga
+      POSTGRES_USER: openfga
+      POSTGRES_PASSWORD: openfga
+    volumes:
+      # from Postgres 18 the image's data directory is /var/lib/postgresql/<major>/docker and its declared
+      # volume is /var/lib/postgresql; a mount at the older /var/lib/postgresql/data would persist nothing
+      - openfga-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openfga -d openfga"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openfga-migrate:
+    image: openfga/openfga:v1.21.0
+    command: migrate
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga@openfga-db:5432/openfga?sslmode=disable
+    depends_on:
+      openfga-db:
+        condition: service_healthy
+
+  openfga:
+    container_name: openfga
+    image: openfga/openfga:v1.21.0
+    command: run
+    environment:
+      OPENFGA_DATASTORE_ENGINE: postgres
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga@openfga-db:5432/openfga?sslmode=disable
+      OPENFGA_PLAYGROUND_ENABLED: "false"
+      OPENFGA_CHECK_QUERY_CACHE_ENABLED: ${OPENFGA_CHECK_QUERY_CACHE_ENABLED:-true}
+      OPENFGA_CHECK_ITERATOR_CACHE_ENABLED: ${OPENFGA_CHECK_ITERATOR_CACHE_ENABLED:-true}
+      OPENFGA_SHARED_ITERATOR_ENABLED: ${OPENFGA_SHARED_ITERATOR_ENABLED:-true}
+      OPENFGA_CACHE_CONTROLLER_ENABLED: ${OPENFGA_CACHE_CONTROLLER_ENABLED:-true}
+    ports:
+      - "127.0.0.1:8080:8080"  # HTTP API
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=openfga:8081"]
+      interval: 5s
+      timeout: 30s
+      retries: 3
+
+  # Creates the system store, the one store named kinotic-system, unless the engine has it; the servers
+  # wait for this to complete. Store names are not unique, so the listing is checked before the create, and
+  # a listing that fails stops the script rather than creating a second store.
+  openfga-init:
+    container_name: openfga-init
+    image: curlimages/curl:8.17.0
+    depends_on:
+      openfga:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        stores=$$(curl -sf 'http://openfga:8080/stores?name=kinotic-system')
+        if echo "$$stores" | grep -Eq '"name":[[:space:]]*"kinotic-system"'; then
+          echo 'The system store kinotic-system exists'
+        else
+          curl -sf -X POST http://openfga:8080/stores -H 'Content-Type: application/json' -d '{"name":"kinotic-system"}'
+          echo; echo 'Created the system store kinotic-system'
+        fi
+
+volumes:
+  openfga-db-data:

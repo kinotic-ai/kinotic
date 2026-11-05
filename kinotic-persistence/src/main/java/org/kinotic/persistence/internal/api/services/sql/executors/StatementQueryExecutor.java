@@ -48,7 +48,7 @@ public class StatementQueryExecutor extends AbstractQueryExecutor {
         String tenantId = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED ? writeTenant(context.getEntityContext()) : null;
         Statement confined = entityStatementResolver.confine(statement, entityDescriptor, tenantId, parameters);
         return KinoticUtil.toFuture(statementExecutor.executeQuery(confined, parameters))
-                                  .map(result -> List.of(countRow(result, type)));
+                          .map(result -> List.of(countRow(result, type)));
     }
 
     @Override

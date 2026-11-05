@@ -8,6 +8,10 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * Repository tier for entities that belong to a project within an application and organization.
  * Adds {@code projectId}-scoped query helpers, each with an {@code orgId}-aware overload.
@@ -29,6 +33,13 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     public Future<Page<T>> findAllForProject(String projectId, String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
+    }
+
+    /**
+     * The ids of the projects containing the documents with the given ids in {@code orgId}.
+     */
+    public Future<Set<String>> findProjectIdsOf(Collection<String> ids, String orgId) {
+        return findAllByIds(ids, orgId).map(found -> found.stream().map(ProjectScoped::getProjectId).collect(Collectors.toSet()));
     }
 
     protected Query projectIdFilter(String projectId) {

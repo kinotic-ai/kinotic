@@ -49,8 +49,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -716,17 +718,17 @@ public class CrudServiceTemplate {
      * @param paramsById     the values the script reads as {@code params.<name>}, by the id of the document
      * @param actionConsumer to customize each {@link UpdateAction}, such as a scripted upsert, or null if no
      *                       customization is needed
-     * @return a {@link Future} that will complete when every document is updated, or fail with the reasons the
-     * updates that failed give
+     * @return a {@link Future} that will complete with the ids of the documents the script changed once every
+     * document is updated, or fail with the reasons the updates that failed give
      */
     @SuppressWarnings("rawtypes")
-    public Future<Void> bulkScriptedUpdateSync(String indexName,
+    public Future<Set<String>> bulkScriptedUpdateSync(String indexName,
                                                String source,
                                                Map<String, Map<String, Object>> paramsById,
                                                Consumer<UpdateAction.Builder<Map, Map<String, Object>>> actionConsumer) {
         if (paramsById.isEmpty()) {
             // Elasticsearch rejects a bulk request with no operations
-            return Future.succeededFuture();
+            return Future.succeededFuture(Set.of());
         }
         List<BulkOperation> operations = new ArrayList<>(paramsById.size());
         paramsById.forEach((id, params) -> operations.add(BulkOperation.of(b -> b.<Map, Map<String, Object>>update(u -> u
@@ -746,15 +748,20 @@ public class CrudServiceTemplate {
         return KinoticUtil.toFuture(esAsyncClient.bulk(br -> br.operations(operations).refresh(Refresh.WaitFor)))
                           .compose(response -> {
                               List<String> failures = new ArrayList<>();
+                              Set<String> changed = new HashSet<>();
                               for (BulkResponseItem item : response.items()) {
-                                  if (item.error() != null && item.status() != 404) {
-                                      failures.add(item.id() + ": " + item.error().reason());
+                                  if (item.error() != null) {
+                                      if (item.status() != 404) {
+                                          failures.add(item.id() + ": " + item.error().reason());
+                                      }
+                                  } else if (!"noop".equals(item.result())) {
+                                      changed.add(item.id());
                                   }
                               }
                               return failures.isEmpty()
-                                      ? Future.<Void>succeededFuture()
-                                      : Future.<Void>failedFuture(new IllegalStateException("Bulk update of " + indexName
-                                                                                                    + " failed for " + failures));
+                                      ? Future.succeededFuture(changed)
+                                      : Future.<Set<String>>failedFuture(new IllegalStateException("Bulk update of " + indexName
+                                                                                                           + " failed for " + failures));
                           });
     }
 

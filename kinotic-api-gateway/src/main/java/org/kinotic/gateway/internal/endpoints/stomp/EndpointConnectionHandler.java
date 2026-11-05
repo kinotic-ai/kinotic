@@ -6,6 +6,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
@@ -26,7 +27,6 @@ import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.core.JacksonException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,6 +66,9 @@ public class EndpointConnectionHandler {
     private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private boolean sessionCreatedHere;
     private long sessionTimer = -1;
+    // completes once every service request and control event received so far has been handed to the event bus
+    // or refused, so each one waits for those before it and they leave in the order they arrived
+    private Future<Void> dispatched = Future.succeededFuture();
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
         this.services = services;
@@ -154,19 +157,28 @@ public class EndpointConnectionHandler {
                 if (connectedInfo.getReplyToId() == null) {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
-                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+                ret = services.stompAuthorizerFactory
+                        .create(connectedInfo)
+                        .recover(throwable -> Future.failedFuture(throwable instanceof IllegalArgumentException
+                                                                          ? new AuthenticationException("Invalid CONNECT frame", throwable)
+                                                                          : throwable))
+                        .compose(authorizer -> {
+                            // the zone rules resolve asynchronously, so the connection may have closed meanwhile
+                            if (connectedInfo == null) {
+                                return Future.failedFuture(new AuthenticationException("The connection closed before CONNECT completed"));
+                            }
+                            stompAuthorizer = authorizer;
 
-                signalActivity();
-                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
-                    // the upgrade response never reaches the store, so the connection's first write is this one
-                    touchSession();
-                    startSessionTouchTimer();
-                }
-                ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                    services.jsonMapper.writeValueAsString(connectedInfo)));
+                            signalActivity();
+                            if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                                // the upgrade response never reaches the store, so the connection's first write is this one
+                                touchSession();
+                                startSessionTouchTimer();
+                            }
+                            return Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                                 services.jsonMapper.writeValueAsString(connectedInfo)));
+                        });
             }
-        } catch (JacksonException e) {
-            ret = Future.failedFuture(e);
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
         }
@@ -224,28 +236,56 @@ public class EndpointConnectionHandler {
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
 
                 // A control event names a stream by correlation id and is published: the instance producing
-                // the stream is whichever one took the request, and the others ignore an id they do not hold
+                // the stream is whichever one took the request, and the others ignore an id they do not hold.
+                // It is published in turn, so a cancel never reaches the services before the request it cancels
                 if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
-                    if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
-                        // the cancel goes to the destination the request was sent to, not one the client names, so
-                        // the stream it ends is the one it forgets; a cancel for a request this connection does not
-                        // hold is dropped
-                        CRI destination = incomingInvocationTracker.cancel(correlationId);
-                        if (destination != null) {
-                            services.eventBusService.publish(Event.create(destination, incomingEvent.metadata(),
-                                                                          incomingEvent.data(), incomingEvent.sender()));
+                    Future<Void> ret = dispatched.transform(previous -> {
+                        if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
+                            // the cancel goes to the destination the request was sent to, not one the client names, so
+                            // the stream it ends is the one it forgets; a cancel for a request this connection does not
+                            // hold is dropped
+                            CRI destination = incomingInvocationTracker.cancel(correlationId);
+                            if (destination != null) {
+                                services.eventBusService.publish(Event.create(destination, incomingEvent.metadata(),
+                                                                              incomingEvent.data(), incomingEvent.sender()));
+                            } else {
+                                log.debug("Dropping a cancel of {}, which this connection does not hold", correlationId);
+                            }
                         } else {
-                            log.debug("Dropping a cancel of {}, which this connection does not hold", correlationId);
+                            services.eventBusService.publish(incomingEvent);
                         }
-                    } else {
-                        services.eventBusService.publish(incomingEvent);
-                    }
-                    return Future.succeededFuture();
+                        return Future.<Void>succeededFuture();
+                    });
+                    dispatched = ret;
+                    return ret;
                 }
 
                 incomingInvocationTracker.requestSent(incomingEvent);
-                return services.eventBusService
-                        .sendWithAck(incomingEvent)
+                // the zone admitted the destination; the function's own check decides the caller may invoke it.
+                // The check starts at once, and the request is sent once it passes and every earlier request
+                // has been sent
+                Future<Void> authorized = services.requestAuthorizer
+                        .authorize(incomingEvent.cri(),
+                                   connectedInfo.getParticipant(),
+                                   incomingEvent.metadata().get(EventConstants.CONTENT_TYPE_HEADER),
+                                   incomingEvent.data());
+                Promise<Void> handedOff = Promise.promise();
+                Future<Void> earlier = dispatched;
+                dispatched = handedOff.future();
+                return earlier.transform(previous -> authorized)
+                        .compose(v -> {
+                            Future<String> accepted;
+                            // the connection closed while the request waited for its check or an earlier request
+                            if (connectedInfo == null) {
+                                accepted = Future.failedFuture(new IllegalStateException("The connection closed before the request to "
+                                                                                                 + incomingEvent.cri() + " was sent"));
+                            } else {
+                                accepted = services.eventBusService.sendWithAck(incomingEvent);
+                            }
+                            handedOff.complete();
+                            return accepted;
+                        })
+                        .andThen(result -> handedOff.tryComplete())
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             // no reply will come for a request that never left

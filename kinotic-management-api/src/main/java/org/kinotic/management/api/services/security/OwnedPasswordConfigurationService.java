@@ -5,7 +5,10 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 /**
  * The caller's organization's {@link PasswordConfiguration}s: sign-in with an email and a password at its own login,
@@ -16,9 +19,11 @@ import org.kinotic.idl.api.annotations.McpTool;
  */
 @Publish
 @McpTool
+@AuthzResource(value = AuthzConstants.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface OwnedPasswordConfigurationService {
 
     /** The organization's configurations, of every scope and enabled or not, a page at a time. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
     Future<Page<PasswordConfiguration>> findAll(Pageable pageable);
 
     /**
@@ -33,12 +38,14 @@ public interface OwnedPasswordConfigurationService {
      *
      * @return the configuration as saved, with its id
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<PasswordConfiguration> save(PasswordConfiguration configuration);
 
     /**
      * Deletes the organization's configuration {@code id}, so its scope's login takes no password, refused as disabling
      * it is by {@link #save}; nothing happens for an id the organization has no configuration by.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<Void> deleteById(String id);
 
 }

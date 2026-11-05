@@ -2,6 +2,8 @@ import {FunctionDefinition, ServiceDefinition} from '@kinotic-ai/idl'
 import {Observable, of, Subject} from 'rxjs'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+    AuthzResource,
+    AuthzUnchecked,
     declareServiceDefinitions,
     Event,
     EventConstants,
@@ -87,7 +89,7 @@ function registry(connected: boolean): {registry: ServiceRegistry, bus: Recordin
  * Pins what a runtime registers in the platform's directory: an application service with the definition the
  * project declared for it, as it registers on a connected client or as the client connects; nothing for a
  * service outside an application's zone or one with no definition; and a refusal for a definition naming other
- * functions than the service serves.
+ * functions than the service serves, or for a service declaring a resource or marked unchecked with no definition.
  */
 describe('Kinotic JS', () => {
     describe('packages/core', () => {
@@ -131,6 +133,32 @@ describe('Kinotic JS', () => {
                 const {registry: services, bus} = registry(true)
 
                 expect(() => services.register(identifier('DriftedService'), new ReportService())).toThrowError(/kinotic sync/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('refuses a resource service the project declared no definition for', () => {
+                @AuthzResource('invoice')
+                class InvoiceService {
+                    findInvoices(): Promise<string[]> {
+                        return Promise.resolve([])
+                    }
+                }
+                const {registry: services, bus} = registry(true)
+
+                expect(() => services.register(identifier('InvoiceService'), new InvoiceService())).toThrowError(/declares a resource/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('refuses a service marked unchecked as a whole that the project declared no definition for', () => {
+                @AuthzUnchecked
+                class GreetingService {
+                    greet(): Promise<string> {
+                        return Promise.resolve('hello')
+                    }
+                }
+                const {registry: services, bus} = registry(true)
+
+                expect(() => services.register(identifier('GreetingService'), new GreetingService())).toThrowError(/marked unchecked/)
                 expect(bus.registrations()).toHaveLength(0)
             })
 

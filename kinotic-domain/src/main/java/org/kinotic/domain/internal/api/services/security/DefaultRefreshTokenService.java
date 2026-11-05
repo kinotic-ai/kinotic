@@ -99,17 +99,17 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                                 new IllegalArgumentException("Refresh token identity is missing or disabled"));
                     }
 
-                    // The presented token is consumed before the replacement is minted, under the replacement's
-                    // id, so two rotations presenting one token at once mint at most one replacement: the one
-                    // that finds the token consumed is a reuse. A consumed token whose replacement then fails to
-                    // mint sends the client back to sign in, which beats a lineage holding two live tokens.
+                    // The replacement is minted before the presented token is consumed, so a failure mid-rotation
+                    // never leaves the client without a usable token. Of two rotations presenting one token at once
+                    // exactly one consumes it; the other is a reuse, and the family it revokes already holds the
+                    // replacement the winner minted, and its own.
                     String replacementId = UUID.randomUUID().toString();
-                    return refreshTokenRepository.consume(current.getId(), replacementId)
-                            .compose(consumed -> consumed
-                                    ? mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(),
-                                           current.getLabel())
-                                            .map(plaintext -> new RefreshTokenRotation(identity, plaintext, current.getAudience()))
-                                    : reused(current));
+                    return mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(),
+                                current.getLabel())
+                            .compose(plaintext -> refreshTokenRepository.consume(current.getId(), replacementId)
+                                    .compose(consumed -> consumed
+                                            ? Future.succeededFuture(new RefreshTokenRotation(identity, plaintext, current.getAudience()))
+                                            : reused(current)));
                 });
     }
 

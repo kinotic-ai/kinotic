@@ -176,6 +176,39 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
+-- The authorization store of the system or of one application (AuthzStore): the model the directory implies
+-- for it, reconciled to the model the engine runs. The system's row exists before any server does.
+CREATE TABLE IF NOT EXISTS kinotic_authz_store (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (hash KEYWORD), observed OBJECT (hash KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN)
+);
+
+INSERT INTO kinotic_authz_store (id) VALUES ('system') WITH REFRESH, DOCUMENT_ID 'system';
+
+-- A custom role of an organization (Role): a name and a description for the bundle of permissions the role
+-- is in the authorization engine, where its grants are made. The built-in roles have no row.
+CREATE TABLE IF NOT EXISTS kinotic_role (
+    id KEYWORD,
+    organizationId KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    created DATE,
+    updated DATE
+);
+
+-- A group of an organization's members (Group): a name and a description for the membership the group has
+-- in the authorization engine, where a grant made to the group reaches its members.
+CREATE TABLE IF NOT EXISTS kinotic_group (
+    id KEYWORD,
+    organizationId KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    created DATE,
+    updated DATE
+);
+
 -- Create the service_directory table if it does not exist
 CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     id KEYWORD,

@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
+    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, LockKeyhole, Network, ScrollText, Server, Users
 } from '@lucide/vue'
 import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
@@ -175,6 +175,13 @@ const routes: RouteRecordRaw[] = [
                 path: 'members/machines',
                 component: () => import('./pages/MachinesPage.vue'),
                 meta: { sidebar: consoleItem('Machines', Cpu, 90, 'Members') }
+            },
+            // The system's grants: who runs it, and what each system user and machine may do
+            {
+                name: 'system-access',
+                path: 'members/access',
+                component: () => import('./pages/AccessPage.vue'),
+                meta: { sidebar: consoleItem('Access', LockKeyhole, 95, 'Members') }
             },
 
             {

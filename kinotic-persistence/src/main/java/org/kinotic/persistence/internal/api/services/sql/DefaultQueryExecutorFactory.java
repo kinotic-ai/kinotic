@@ -1,7 +1,6 @@
 package org.kinotic.persistence.internal.api.services.sql;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -88,7 +87,9 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,
                                                           String queryName,
                                                           String statements) {
-        Statement statement = entityStatementResolver.resolve(parse(statements, queryName), entityDescriptor).getFirst();
+        Statement statement = entityStatementResolver.resolve(List.of(migrationParser.parseStatement(statements, "Named query " + queryName)),
+                                                              entityDescriptor)
+                                                     .getFirst();
         return switch (statement) {
             case SelectStatement select -> new SelectQueryExecutor(entityDescriptor, queryName, select, crudServiceTemplate,
                                                                    readPreProcessor, readPostProcessor);
@@ -102,14 +103,6 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
                                                                   + statement.getClass().getSimpleName().replace("Statement", "")
                                                                   + " is not allowed");
         };
-    }
-
-    private List<Statement> parse(String statements, String queryName) {
-        // a named query is one statement, usually written without the terminator the grammar requires
-        String sql = statements.strip();
-        List<Statement> ret = migrationParser.parse(sql.endsWith(";") ? sql : sql + ";", queryName).statements();
-        Validate.isTrue(ret.size() == 1, "Named query %s must be one statement", queryName);
-        return ret;
     }
 
     @SuppressWarnings("unchecked")

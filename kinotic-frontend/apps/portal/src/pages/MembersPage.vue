@@ -1,6 +1,11 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader :title="title" :description="membersDescription" />
+    <PageHeader :title="title" :description="membersDescription">
+      <template v-if="props.applicationId !== null" #actions>
+        <Button label="End-user access" icon="pi pi-key" size="small" severity="secondary" outlined
+                @click="router.push({ name: 'application-users-access', params: { applicationId: props.applicationId } })" />
+      </template>
+    </PageHeader>
 
     <CrudTable
       ref="crudTable"
@@ -36,6 +41,11 @@
         <span v-if="selectedMember" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedMember.displayName || selectedMember.email }}</span>
       </template>
       <MemberDetail v-if="selectedMember" :member="selectedMember" :tint="memberTint" :index="position - 1" />
+      <!-- an application's user is granted in the application's own store; a member on the organization's Access tab -->
+      <div v-if="selectedMember && !selectedMember.pending && props.applicationId !== null" class="mt-4 flex justify-end">
+        <Button label="Manage access" icon="pi pi-key" size="small" severity="secondary" outlined
+                @click="router.push({ name: 'application-users-access', params: { applicationId: props.applicationId }, query: { subject: selectedMember.id } })" />
+      </div>
     </SteppingDrawer>
 
     <FormDrawer :visible="memberFormVisible" :title="addLabel" :description="addDescription" @close="memberFormVisible = false">
@@ -120,6 +130,7 @@
 
 <script setup lang="ts">
 import { computed, markRaw, onMounted, ref, type Component } from 'vue'
+import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
@@ -212,6 +223,7 @@ const tenantsRequired = ref(false)
 const tenancyKnown = ref(props.applicationId === null)
 const tenantSuggestions = ref<TenantOption[]>([])
 
+const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 const userState = KinoticStates.getUserState()

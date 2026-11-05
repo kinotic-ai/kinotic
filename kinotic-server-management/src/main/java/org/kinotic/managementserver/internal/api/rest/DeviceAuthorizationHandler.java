@@ -71,9 +71,9 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes, OAuthE
     }
 
     /**
-     * Answers a token request carrying the device-code grant — RFC 8628 §3.4/§3.5: the RFC's error
-     * for the code's state ({@code authorization_pending}, {@code slow_down}, {@code expired_token},
-     * {@code invalid_grant}), or, once the user has approved the code, a token pair acting as that user.
+     * Answers a token request carrying the device-code grant: the error for the code's state
+     * ({@code authorization_pending}, {@code slow_down}, {@code expired_token}, {@code invalid_grant}),
+     * or, once the user has approved the code, a token pair acting as that user.
      */
     @Override
     public void redeem(RoutingContext ctx) {
@@ -117,10 +117,10 @@ public class DeviceAuthorizationHandler implements SuppliesGatewayRoutes, OAuthE
     }
 
     /**
-     * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Serves the Kinotic
-     * CLI, a pre-registered public client, so {@code client_id} is required and must name it. A
-     * device grant has no redirect URI to protect; its authority is the browser approval on the
-     * {@code /device} page.
+     * {@code POST /api/auth/oauth/device_authorization}: starts a device grant and answers with its
+     * device code, user code and verification URI. Serves the Kinotic CLI, a pre-registered public
+     * client, so {@code client_id} is required and must name it. A device grant has no redirect URI
+     * to protect; its authority is the browser approval on the {@code /device} page.
      */
     private void handleDeviceAuthorization(RoutingContext ctx) {
         if (!CLI_CLIENT_ID.equals(ctx.request().getFormAttribute("client_id"))) {

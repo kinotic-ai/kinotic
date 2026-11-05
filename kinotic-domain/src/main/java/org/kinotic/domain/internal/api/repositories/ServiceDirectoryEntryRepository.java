@@ -96,16 +96,20 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * Publishes an entry's contract, leaving the liveness fields untouched so a re-registration never clobbers
      * the {@code online} state the liveness owner maintains; a contract equal to the one stored leaves the entry
      * as it is. Visible to search on completion.
+     *
+     * @return the ids of the entries whose contract was written, empty when the stored one was equal
      */
-    public Future<Void> upsertEntry(ServiceDirectoryEntry entry) {
+    public Future<Set<String>> upsertEntry(ServiceDirectoryEntry entry) {
         return upsertEntries(List.of(entry));
     }
 
     /**
      * Publishes the contracts of the given entries as {@link #upsertEntry(ServiceDirectoryEntry)} does each.
      * Visible to search on completion.
+     *
+     * @return the ids of the entries whose contract was written, leaving out those whose stored contract was equal
      */
-    public Future<Void> upsertEntries(Collection<ServiceDirectoryEntry> entries) {
+    public Future<Set<String>> upsertEntries(Collection<ServiceDirectoryEntry> entries) {
         Map<String, Map<String, Object>> paramsById = new HashMap<>();
         for (ServiceDirectoryEntry entry : entries) {
             @SuppressWarnings("unchecked")
@@ -153,7 +157,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         onlineByEntryId.forEach((entryId, online) -> paramsById.put(entryId, Map.of("online", online,
                                                                                     "lastStatusChange", when,
                                                                                     "verifiedAt", when.toEpochMilli())));
-        return crudServiceTemplate.bulkScriptedUpdateSync(indexName, SET_ONLINE, paramsById, null);
+        return crudServiceTemplate.bulkScriptedUpdateSync(indexName, SET_ONLINE, paramsById, null).mapEmpty();
     }
 
     /**
@@ -211,6 +215,14 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                 b.query(scopeFilter);
             }
         }).map(page -> page.<ServiceDirectoryEntry>map(record -> record));
+    }
+
+    /**
+     * Returns the entries of the system's own services, the ones with no owning organization.
+     */
+    public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
+        return findAll(pageable, b -> b.query(q -> q.bool(bq -> bq.mustNot(n -> n.exists(e -> e.field("organizationId"))))))
+                .map(page -> page.<ServiceDirectoryEntry>map(record -> record));
     }
 
     /**

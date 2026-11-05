@@ -6,7 +6,10 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 import java.util.List;
 
@@ -20,9 +23,11 @@ import java.util.List;
  */
 @Publish
 @McpTool
+@AuthzResource(value = AuthzConstants.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface OwnedOidcConfigurationService {
 
     /** The organization's configurations, of every kind and enabled or not, oldest first, a page at a time. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
     Future<Page<OwnedOidcConfiguration>> findAll(Pageable pageable);
 
     /**
@@ -31,9 +36,11 @@ public interface OwnedOidcConfigurationService {
      * provider's consent screen shows Kinotic's name. Any kind offered to organizations may use the application's own
      * registration instead.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
     Future<List<OidcProviderType>> findManagedProviders();
 
     /** The organization's configuration {@code id}, or {@code null} when the organization owns none by that id. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
     Future<OwnedOidcConfiguration> findById(String id);
 
     /**
@@ -43,6 +50,7 @@ public interface OwnedOidcConfigurationService {
      * flow through the configuration returns to it. {@code null} when the organization owns no configuration by
      * that id.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_ACCESS)
     Future<String> findCallbackUrl(String id);
 
     /**
@@ -62,6 +70,7 @@ public interface OwnedOidcConfigurationService {
      *                      configuration, if any; a new configuration saved without one is a public client
      * @return the configuration as saved, with its id
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<OwnedOidcConfiguration> save(OwnedOidcConfiguration configuration, String clientSecret);
 
     /**
@@ -70,6 +79,7 @@ public interface OwnedOidcConfigurationService {
      *
      * @return the configuration as saved, or {@code null} when the organization owns no configuration by that id
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<OwnedOidcConfiguration> deleteClientSecret(String id);
 
     /**
@@ -81,12 +91,14 @@ public interface OwnedOidcConfigurationService {
      *
      * @return the copy as saved
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<OwnedOidcConfiguration> copy(String sourceId, String applicationId);
 
     /**
      * Deletes the organization's configuration {@code id} and the client secret held for it, refused as disabling it is
      * by {@link #save}; nothing happens for an id the organization owns no configuration by.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
     Future<Void> deleteById(String id);
 
 }

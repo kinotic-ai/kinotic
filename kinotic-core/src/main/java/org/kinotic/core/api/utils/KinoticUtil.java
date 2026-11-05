@@ -138,11 +138,21 @@ public class KinoticUtil {
      * @return the tool name, made only of {@code [0-9a-z]}
      */
     public static String mcpToolName(String qualifiedName, String functionName) {
-        long[] hash = LongTupleHashFunction.xx128().hashChars(qualifiedName + "/" + functionName);
-        byte[] bytes = ByteBuffer.allocate(Long.BYTES * 2).putLong(hash[0]).putLong(hash[1]).array();
-        // signum 1 reads the 16 bytes as an unsigned 128-bit magnitude, so a high bit set in hash[0] stays a
+        // signum 1 reads the 16 bytes as an unsigned 128-bit magnitude, so a high bit set in the first byte stays a
         // positive value rather than becoming a two's-complement negative one
-        return new BigInteger(1, bytes).toString(36);
+        return new BigInteger(1, xx128(qualifiedName + "/" + functionName)).toString(36);
+    }
+
+    /**
+     * The 128-bit XXHash of the text's characters, its low 64 bits first: equal texts share it, and a changed
+     * text differs in it.
+     *
+     * @param text the text to hash
+     * @return the 16 bytes of the hash
+     */
+    public static byte[] xx128(CharSequence text) {
+        long[] hash = LongTupleHashFunction.xx128().hashChars(text);
+        return ByteBuffer.allocate(Long.BYTES * 2).putLong(hash[0]).putLong(hash[1]).array();
     }
 
     public static int getRandomNumberInRange(int max) {

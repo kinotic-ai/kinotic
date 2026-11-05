@@ -4,8 +4,12 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.idl.api.directory.SchemaService;
+import org.kinotic.idl.api.schema.ServiceDefinition;
 
 import io.vertx.core.Future;
+
+import java.util.List;
 
 /**
  * Keeps track of registered services, the platform's own and the ones an application's runtimes register, and
@@ -17,6 +21,12 @@ import io.vertx.core.Future;
  * Created by navid on 2019-06-11.
  */
 public interface ServiceDirectory {
+
+    /**
+     * The event bus address the directory publishes an entry's id on whenever it writes the entry's contract,
+     * so a node holding anything read from the contract drops it and reads the contract again.
+     */
+    String CONTRACT_CHANGED_ADDRESS = "kinotic.directory.contract-changed";
 
     /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so
@@ -32,17 +42,45 @@ public interface ServiceDirectory {
                                                             Pageable pageable);
 
     /**
+     * The definitions of the system's own services, the ones no organization owns, which the system's
+     * authorization model is generated from, as the directory holds them now.
+     * @return every system-scoped entry's definition
+     */
+    Future<List<ServiceDefinition>> findSystemDefinitions();
+
+    /**
+     * The definitions of one application's services, the ones registered in its scope, which the application's
+     * authorization model is generated from, as the directory holds them now.
+     * @param organizationId the application's organization
+     * @param applicationId the application
+     * @return every definition of the application's entries
+     */
+    Future<List<ServiceDefinition>> findApplicationDefinitions(String organizationId, String applicationId);
+
+    /**
+     * The entry of one service, by the id a registration gives it: the service's qualified name with its zone,
+     * {@code <zone>~<namespace>.<Name>}, or {@code <zone>~<Name>} for an application's service published in no
+     * namespace.
+     * @param entryId the entry's id
+     * @return the entry, or null when no service of that id has registered
+     */
+    Future<ServiceDirectoryEntry> findEntry(String entryId);
+
+    /**
      * Registers a service a runtime of an application serves, as the platform's own services are registered
      * when they start: the entry names the organization and application the service belongs to, its zone,
-     * version, description and whether it is advertised, and the definition the runtime declares. The directory
-     * derives the MCP tools its functions declare, and owns the entry's id, address and liveness, which follows
-     * the service's registrations on the event bus. An entry equal to the one stored leaves it as it is. A
-     * definition naming no namespace, a service published in none, is in its zone's namespace and addressed
-     * {@code <zone>~<Name>}, as the runtime serves it.
+     * version, description and whether it is advertised, and the definition the runtime declares, with the
+     * decorators it declares. The directory derives the checks of a service declaring a resource, as
+     * {@link SchemaService#deriveChecks} does, derives the MCP tools its functions declare, and owns the
+     * entry's id, address and liveness, which follows the service's registrations on the event bus. The
+     * application's store reconciles to a model carrying the service, and an entry equal to the one stored
+     * leaves it as it is. A definition naming no namespace, a service published in none, is in its zone's
+     * namespace and addressed {@code <zone>~<Name>}, as the runtime serves it.
      *
      * @param entry the service to register, as the runtime declares it
      * @return a future that completes once the entry is stored
-     * @throws IllegalStateException    when a function's tool declaration is one MCP cannot serve
+     * @throws IllegalStateException    when the definition does not derive, as {@link SchemaService#deriveChecks} says,
+     *                                  or a function's tool declaration is one MCP cannot serve
      * @throws IllegalArgumentException when the entry names no organization, application or zone, carries no
      *                                  definition, or the definition names no name
      */

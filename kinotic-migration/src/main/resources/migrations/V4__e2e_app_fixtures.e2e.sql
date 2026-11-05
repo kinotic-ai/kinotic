@@ -11,6 +11,8 @@ INSERT INTO kinotic_participant_identity (id, type, email, displayName, organiza
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000009', 'APPLICATION_USER', 'app-e2e-mcp-kinotic@test.local', 'e2e Mcp App User', 'test-org', 'e2e-mcp', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000014', 'APPLICATION_USER', 'app-e2e-migration-kinotic@test.local', 'e2e Migration App User', 'test-org', 'e2e-migration', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000015', 'APPLICATION_USER', 'app-e2e-admin-named-query-tenant01@test.local', 'e2e AdminNamedQuery App User', 'test-org', 'e2e-admin-named-query', 'tenant01', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000016', 'APPLICATION_USER', 'app-e2e-end-user-access-kinotic@test.local', 'e2e EndUserAccess App User', 'test-org', 'e2e-end-user-access', 'kinotic', true) WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000017', 'APPLICATION_USER', 'app-e2e-ts-service-kinotic@test.local', 'e2e TsService App User', 'test-org', 'e2e-ts-service', 'kinotic', true) WITH REFRESH;
 
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000003', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000005', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
@@ -19,6 +21,8 @@ INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000009', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000014', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000015', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000016', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000017', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 
 -- The applications above take their users' passwords, each through a PasswordConfiguration of the application's own
 -- login, which their tenants' logins take as well
@@ -29,6 +33,8 @@ INSERT INTO kinotic_password_configuration (id, organizationId, applicationId, e
 INSERT INTO kinotic_password_configuration (id, organizationId, applicationId, enabled, createUserOnSignIn, created, updated) VALUES ('test-org:e2e-mcp', 'test-org', 'e2e-mcp', true, false, '2026-01-01', '2026-01-01') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--test-org:e2e-mcp';
 INSERT INTO kinotic_password_configuration (id, organizationId, applicationId, enabled, createUserOnSignIn, created, updated) VALUES ('test-org:e2e-migration', 'test-org', 'e2e-migration', true, false, '2026-01-01', '2026-01-01') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--test-org:e2e-migration';
 INSERT INTO kinotic_password_configuration (id, organizationId, applicationId, enabled, createUserOnSignIn, created, updated) VALUES ('test-org:e2e-admin-named-query', 'test-org', 'e2e-admin-named-query', true, false, '2026-01-01', '2026-01-01') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--test-org:e2e-admin-named-query';
+INSERT INTO kinotic_password_configuration (id, organizationId, applicationId, enabled, createUserOnSignIn, created, updated) VALUES ('test-org:e2e-end-user-access', 'test-org', 'e2e-end-user-access', true, false, '2026-01-01', '2026-01-01') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--test-org:e2e-end-user-access';
+INSERT INTO kinotic_password_configuration (id, organizationId, applicationId, enabled, createUserOnSignIn, created, updated) VALUES ('test-org:e2e-ts-service', 'test-org', 'e2e-ts-service', true, false, '2026-01-01', '2026-01-01') WITH REFRESH, ROUTING 'test-org', DOCUMENT_ID 'test-org--test-org:e2e-ts-service';
 
 -- APPLICATION-scope machine identity for the machine connection e2e tests
 -- (clientId: the identity id below, clientSecret: kinotic)
@@ -54,7 +60,7 @@ INSERT INTO kinotic_tenant (id, organizationId, applicationId, name, description
 -- A second organization whose login takes passwords, with a member under the e2e organization user's email that holds
 -- no password: a user of each organization is its own, so the test-org member's password does not sign in here
 INSERT INTO kinotic_organization (id, name, description) VALUES ('e2e-second', 'e2e-second', 'Second organization, with a member under the email of the e2e organization user') WITH REFRESH;
-INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-000000000016', 'ORGANIZATION_USER', 'kinotic@kinotic.local', 'Kinotic Test', 'e2e-second', true, '2026-01-01') WITH REFRESH;
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-000000000018', 'ORGANIZATION_USER', 'kinotic@kinotic.local', 'Kinotic Test', 'e2e-second', true, '2026-01-01') WITH REFRESH;
 INSERT INTO kinotic_password_configuration (id, organizationId, enabled, createUserOnSignIn, created, updated) VALUES ('e2e-second', 'e2e-second', true, false, '2026-01-01', '2026-01-01') WITH REFRESH, ROUTING 'e2e-second', DOCUMENT_ID 'e2e-second--e2e-second';
 
 -- An organization whose login takes no password
@@ -69,3 +75,9 @@ INSERT INTO kinotic_oidc_configuration (id, type, organizationId, providerAccoun
 -- vouch for it
 INSERT INTO kinotic_organization (id, name, description) VALUES ('e2e-other', 'e2e-other', 'Organization the e2e organization user does not belong to') WITH REFRESH;
 INSERT INTO kinotic_oidc_configuration (id, type, organizationId, providerAccount, confidentialClient, createUserOnSignIn, name, provider, clientId, authority, enabled, created, updated) VALUES ('e2e-other-okta', 'ORGANIZATION', 'e2e-other', 'other.okta.com', false, false, 'Other Okta', 'okta', 'other-client', 'https://other.okta.com', true, '2026-01-01', '2026-01-01') WITH REFRESH;
+
+
+-- A member of test-org holding no role (password: kinotic), for the e2e suites asserting what a member is refused
+-- until granted
+INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-000000000004', 'ORGANIZATION_USER', 'sally@kinotic.local', 'Sally', 'test-org', true, '2026-01-01') WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000004', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;

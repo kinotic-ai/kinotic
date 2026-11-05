@@ -1,9 +1,11 @@
-# Minimal compose for the e2e tests: Elasticsearch + migration + the three servers (no Kibana, OTEL, gen-schemas).
+# Minimal compose for the e2e tests: Elasticsearch + migration + OpenFGA + the three servers (no Kibana, OTEL,
+# gen-schemas).
 # kinotic-server-app-2 is a second app server node of the same cluster; only the node-failure suite starts it.
 include:
   - compose.elasticsearch.yml
   - compose.elasticsearch-test-settings.yml
   - compose.kinotic-migration.yml
+  - compose.openfga.yml
   - compose.kinotic-servers.yml
 
 # Environment every server node of the e2e stack runs with, on top of compose.kinotic-servers.yml.

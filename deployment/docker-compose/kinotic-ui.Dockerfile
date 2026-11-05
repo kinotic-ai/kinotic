@@ -4,7 +4,16 @@
 # Build with the repository root as the context, which holds kinotic-frontend, the server script and the Worker
 # whose rules it serves by:
 #   docker build -f deployment/docker-compose/kinotic-ui.Dockerfile -t kinoticai/kinotic-ui .
+# Branch-only: builds the first-party packages kinotic-frontend's pnpm overrides link to, at the place the links
+# name, so this branch needs no npm publish. Never merge into develop.
+FROM oven/bun:1-slim AS js
+WORKDIR /kinotic-js/workspace
+COPY kinotic-js/workspace/ ./
+RUN bun install --frozen-lockfile && bunx bunup
+
 FROM node:24.17.0-slim AS build
+# Branch-only, with the stage above. Never merge into develop.
+COPY --from=js /kinotic-js/workspace /kinotic-js/workspace
 WORKDIR /kinotic-frontend
 # corepack runs the pnpm release package.json pins as its packageManager, downloading it without asking
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0

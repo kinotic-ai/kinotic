@@ -1,8 +1,8 @@
 # The development server on Proxmox
 
 One Proxmox host runs the platform's services: a container per service — the org, system and
-app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, Loki,
-Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
+app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, OpenFGA
+with its Postgres, Loki, Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
 HAProxy container that passes each TLS connection on the router's forwarded 443 to the server
 its SNI names. The portal and the system console are served by the sites Worker from the Azure
 root's sites account (`deployment/terraform/azure/deploy-ui.sh dev-server dev-server` uploads
@@ -201,9 +201,10 @@ terraform init
 
 The apply creates the private network, pulls the images, creates every container stopped,
 uploads the manifests, and runs the applier over them in startup order: the three
-Elasticsearch nodes, then Loki, Tempo and Mimir, then the migration, which waits for
-the cluster to be healthy, runs to completion, and is verified against the
-`migration_history` index, then the three servers, which form one Ignite cluster over their
+Elasticsearch nodes, then OpenFGA's Postgres, its one-shot schema migration, the engine and
+the one-shot creation of the system store, `openfga-init`, verified by listing the store, then
+Loki, Tempo and Mimir, then the migration, which waits for the cluster to be healthy,
+runs to completion, and is verified against the `migration_history` index, then the three servers, which form one Ignite cluster over their
 private addresses, then the edge.
 
 The servers are on `https://dev-api.kinotic.ai` (org), `https://dev-system-api.kinotic.ai`
@@ -245,7 +246,7 @@ uploaded them.
    ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2
    ```
 
-   Further operators and machines come from the system console's **Members** pages.
+   Further system users and machines come from the system console's **Members** pages.
 
    The node appears `ONLINE` in the console with no health message. A first deployment lands
    on the first `ONLINE` node with room for it.
@@ -322,7 +323,12 @@ uploaded them.
 - **Starting over** with an empty cluster, for a migration that edits `V1__init.sql`: remove the
   servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
   stop them, empty `/es1/data`, `/es2/data` and `/es3/data`, and remove
-  `/var/lib/kinotic/state/120.ran` and `images.deployed`. `redeploy.sh`, under the wrapper, then replaces the
+  `/var/lib/kinotic/state/120.ran` and `images.deployed`. The authorization relationships go
+  with the cluster: remove `openfga-db`'s and `openfga`'s markers (114, 116), stop them, empty
+  `/var/lib/kinotic/data/openfga-db`, remove `/var/lib/kinotic/state/115.ran` and `117.ran`, and
+  bring them back in startup order, which the applier takes from the order of its arguments:
+  `ssh root@<host> 'cd /var/lib/vz/snippets && python3 kinotic-apply-container.py kinotic-openfga-db.manifest.json kinotic-openfga-migrate.manifest.json kinotic-openfga.manifest.json kinotic-openfga-init.manifest.json'`.
+  `redeploy.sh`, under the wrapper, then replaces the
   servers and runs the migration against the empty cluster; then `bootstrap-identities.sh`
   (to keep the system user's password, read its `kinotic_identity_credential` `secretHash`
   before emptying the cluster and pass it as `ADMIN_SECRET_HASH`),

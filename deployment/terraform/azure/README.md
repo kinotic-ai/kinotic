@@ -21,6 +21,7 @@ deployment/terraform/azure/
 │   ├── keyvault.tf
 │   ├── kinotic.tf
 │   ├── observability.tf
+│   ├── openfga.tf             # OpenFGA, the authorization engine, on a managed Postgres
 │   ├── nodepools.tf
 │   ├── firecracker.tf
 │   ├── load-generator.tf
@@ -208,6 +209,7 @@ terraform apply -var="beta_mode=false"
 | VNet, subnet, identities | `cluster/` | Disposable |
 | cert-manager + TLS cert | `cluster/` | Disposable (re-issued on rebuild) |
 | Elasticsearch + ECK | `cluster/` | Disposable (data lost on destroy) |
+| OpenFGA + its Azure Database for PostgreSQL (the authorization relationships) | `cluster/` | Disposable (relationships lost on destroy) |
 | The Kinotic servers (org, system, app) | `cluster/` | Disposable |
 | Observability (Loki, Tempo, Mimir, Alloy) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |

@@ -9,6 +9,8 @@ import {
     C3Type,
     DateC3Type,
     AsyncC3Type,
+    AuthzCheckDecorator,
+    AuthzResourceDecorator,
     EnumC3Type,
     IntC3Type,
     MapC3Type,
@@ -23,7 +25,7 @@ import {KinoticProjectConfig} from '@kinotic-ai/management-api'
 import {ConsoleLogger} from '../../src/internal/Logger.js'
 import {SERVICE_DEFINITIONS_MODULE, ServiceDefinitionGenerationService} from '../../src/internal/ServiceDefinitionGenerationService.js'
 
-const SERVICE_SOURCE = `import {Context, Publish, type ServiceContext} from '@kinotic-ai/core'
+const SERVICE_SOURCE = `import {AuthzCheck, AuthzResource, AuthzUnchecked, Context, Publish, type ServiceContext} from '@kinotic-ai/core'
 
 export interface Report {
     id: string
@@ -45,17 +47,20 @@ class BaseReportService {
 }
 
 @Publish('com.acme.reports')
+@AuthzResource({value: 'report', parent: 'tenant', roles: [{id: 'report.generator', permissions: ['can_generate']}]})
 export class ReportService extends BaseReportService {
 
     override async findReports(): Promise<Report[]> {
         return []
     }
 
+    @AuthzCheck({permission: 'can_generate', consistent: true})
     async generate(reportId: string, options = {draft: false}): Promise<void> {
         void reportId
         void options
     }
 
+    @AuthzUnchecked
     ping(): Promise<string> {
         return Promise.resolve('pong')
     }
@@ -75,6 +80,7 @@ export class ReportService extends BaseReportService {
 }
 
 @Publish(null, 'Probe', true)
+@AuthzUnchecked
 export class ProbeService {
     echo(value: string): string {
         return value
@@ -99,7 +105,7 @@ export class HelperService {
 }
 `
 
-const SHAPES_SOURCE = `import {Publish} from '@kinotic-ai/core'
+const SHAPES_SOURCE = `import {AuthzUnchecked, Publish} from '@kinotic-ai/core'
 
 export interface Report {
     id: string
@@ -128,6 +134,7 @@ export class ReportModel {
 }
 
 @Publish('com.acme.shapes')
+@AuthzUnchecked
 export class ShapesService {
     async page(page: number): Promise<Page<Report>> {
         return {content: [], total: page}
@@ -250,12 +257,20 @@ describe('ServiceDefinitionGenerationService', () => {
         return ret!
     }
 
-    it('generates the definition of every published service with its functions', async () => {
+    it('generates the definition of every published service with its functions and declarations', async () => {
         const definitions = await generate()
 
         expect(definitions.map(d => d.name)).to.deep.equal(['ReportService', 'Probe'])
         const reports = definitions[0]
         expect(reports.namespace).to.equal('com.acme.reports')
+        expect(reports.decorators).to.have.length(1)
+        const resource = reports.decorators![0] as AuthzResourceDecorator
+        expect(resource.type).to.equal('AuthzResource')
+        expect(resource.resourceType).to.equal('report')
+        expect(resource.parent).to.equal('tenant')
+        expect(resource.resourceId).to.be.null
+        expect(resource.permission).to.be.null
+        expect(resource.roles).to.deep.equal([{id: 'report.generator', permissions: ['can_generate']}])
         // the class's own methods first, then the ones it inherits and does not override
         expect(reports.functions.map(f => f.name)).to.deep.equal(['findReports', 'generate', 'ping', 'describe', 'archive', 'watch', 'countReports'])
 
@@ -266,6 +281,20 @@ describe('ServiceDefinitionGenerationService', () => {
         expect((generateFn.parameters[1].type as ObjectC3Type).properties.map(p => p.name)).to.deep.equal(['draft'])
         expect(generateFn.returnType).to.be.instanceOf(AsyncC3Type)
         expect((generateFn.returnType as AsyncC3Type).valueType).to.be.instanceOf(VoidC3Type)
+        expect(generateFn.decorators).to.have.length(1)
+        const check = generateFn.decorators![0] as AuthzCheckDecorator
+        expect(check.type).to.equal('AuthzCheck')
+        expect(check.permission).to.equal('can_generate')
+        expect(check.resource).to.be.null
+        expect(check.resourceId).to.be.null
+        expect(check.implies).to.deep.equal([])
+        expect(check.consistent).to.equal(true)
+        expect(check.unchecked).to.equal(false)
+
+        expect((fn(reports, 'ping').decorators![0] as AuthzCheckDecorator).unchecked).to.equal(true)
+        // a function declaring nothing carries no check, which the system derives when the service registers
+        expect(fn(reports, 'findReports').decorators).to.not.exist
+        expect(fn(reports, 'countReports').decorators).to.not.exist
 
         // the context a @Context method takes last is the platform's, not the caller's
         expect(fn(reports, 'describe').parameters.map(p => p.name)).to.deep.equal(['reportId'])
@@ -295,6 +324,8 @@ describe('ServiceDefinitionGenerationService', () => {
         expect(module).to.contain("import {declareServiceDefinitions} from '@kinotic-ai/core'")
         expect(module).to.contain('declareServiceDefinitions(JSON.parse(`')
         expect(module).to.contain('"name": "ReportService"')
+        expect(module).to.contain('"type": "AuthzResource"')
+        expect(module).to.contain('"type": "AuthzCheck"')
         expect(module).to.not.contain('HelperService')
     })
 
@@ -371,9 +402,10 @@ describe('ServiceDefinitionGenerationService', () => {
         ['(value: string) => void', 'a caller cannot send or receive one']
     ]) {
         it(`refuses a parameter typed ${declared}`, async () => {
-            writeService(`import {Publish} from '@kinotic-ai/core'
+            writeService(`import {AuthzUnchecked, Publish} from '@kinotic-ai/core'
 
 @Publish('com.acme.shapes')
+@AuthzUnchecked
 export class RefusedService {
     async take(value: ${declared}): Promise<void> {
         void value
@@ -385,6 +417,72 @@ export class RefusedService {
 
             expect(message).to.contain('Could not convert parameter value of take on com.acme.shapes.RefusedService')
                            .and.to.contain(reason)
+        })
+    }
+
+    it('refuses a service declaring no resource and not marked unchecked', async () => {
+        writeService(`import {Publish} from '@kinotic-ai/core'
+
+@Publish('com.acme.greetings')
+export class GreetingService {
+    greet(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+`)
+
+        expect(await generateError()).to.contain('com.acme.greetings.GreetingService')
+                                     .and.to.contain('declares no @AuthzResource and is not marked @AuthzUnchecked')
+    })
+
+    it('marks every function of a service marked @AuthzUnchecked as a whole, inherited ones included', async () => {
+        writeService(`import {AuthzUnchecked, Publish} from '@kinotic-ai/core'
+
+class BaseGreetingService {
+    hello(): Promise<string> {
+        return Promise.resolve('hello')
+    }
+}
+
+@Publish('com.acme.greetings')
+@AuthzUnchecked
+export class GreetingService extends BaseGreetingService {
+    greet(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+`)
+
+        const greetings = (await generate()).find(d => d.name === 'GreetingService')!
+
+        expect(greetings.decorators).to.not.exist
+        for (const name of ['greet', 'hello']) {
+            const decorators = fn(greetings, name).decorators!
+            expect(decorators).to.have.length(1)
+            expect((decorators[0] as AuthzCheckDecorator).type).to.equal('AuthzCheck')
+            expect((decorators[0] as AuthzCheckDecorator).unchecked).to.equal(true)
+        }
+    })
+
+    for (const [refused, declarations, reason] of [
+        ['a service marked @AuthzUnchecked beside @AuthzResource', ["@AuthzUnchecked\n@AuthzResource('greeting')", ''], 'mark the functions instead'],
+        ['a check on a function of a service marked @AuthzUnchecked', ['@AuthzUnchecked', "@AuthzCheck({permission: 'can_greet'})"], 'marked @AuthzUnchecked as a whole'],
+        ['a function marked @AuthzUnchecked beside its @AuthzCheck', ["@AuthzResource('greeting')", "@AuthzUnchecked\n    @AuthzCheck({permission: 'can_greet'})"], 'an unchecked function has no check']
+    ] as const) {
+        it(`refuses ${refused}`, async () => {
+            writeService(`import {AuthzCheck, AuthzResource, AuthzUnchecked, Publish} from '@kinotic-ai/core'
+
+@Publish('com.acme.greetings')
+${declarations[0]}
+export class GreetingService {
+    ${declarations[1]}
+    greet(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+`)
+
+            expect(await generateError()).to.contain('com.acme.greetings.GreetingService').and.to.contain(reason)
         })
     }
 

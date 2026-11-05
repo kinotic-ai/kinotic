@@ -4,6 +4,8 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.Organization;
@@ -14,12 +16,15 @@ import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.OrganizationDnsRecordProvisioner;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.internal.api.repositories.PasswordConfigurationRepository;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -40,6 +45,7 @@ public class DefaultSignUpService implements SignUpService {
     private final EmailService emailService;
     private final KinoticDomainProperties domainProperties;
     private final OrganizationDnsRecordProvisioner dnsRecordProvisioner;
+    private final RelationshipService relationships;
 
     @Override
     public Future<String> initiateLocalSignUp(String email, String displayName, EmailTemplate emailTemplate) {
@@ -155,6 +161,12 @@ public class DefaultSignUpService implements SignUpService {
                     return created
                             .compose(founder -> organizationService.save(savedOrg.setCreatedBy(founder.getId()))
                                                                    .compose(v -> takeFounderPassword(savedOrg.getId(), pending))
+                                                                   // the founder administers the organization: a binding of the
+                                                                   // organization admin role on it, which reaches everything inside it
+                                                                   .compose(v -> relationships.bind(AuthzStoreService.SYSTEM,
+                                                                                                    AuthzConstants.ORGANIZATION_ADMIN_ROLE,
+                                                                                                    AuthzGraphUtil.authzUser(founder.getId()),
+                                                                                                    AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, savedOrg.getId())))
                                                                    .map(DomainUtil.createParticipant(founder))
                                                                    // a founder whose organization could not be completed goes
                                                                    // too: left behind, it could not sign in

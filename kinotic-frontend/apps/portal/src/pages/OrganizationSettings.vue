@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader title="Organization settings" description="Settings that apply to everyone in your organization." />
+    <PageHeader title="Organization settings" description="Settings that apply to everyone in your organization: its integrations, sign-in providers, roles, groups and access." />
 
     <Tabs lazy :value="activeTab" @update:value="selectTab">
       <TabList>
@@ -24,6 +24,17 @@
         <TabPanel value="authentication">
           <SignInProvidersPanel :application-id="null" />
         </TabPanel>
+        <TabPanel value="roles">
+          <RolesTab />
+        </TabPanel>
+        <TabPanel value="groups">
+          <GroupsTab />
+        </TabPanel>
+        <TabPanel value="access">
+          <div class="pt-4">
+            <AccessPanel :resource="{ type: 'organization', id: organizationId }" :tint="TINTS.green" />
+          </div>
+        </TabPanel>
         <TabPanel v-for="tab in upcomingTabs" :key="tab.id" :value="tab.id">
           <FeatureEmptyState badge="coming-soon" :icon="tab.icon" :tint="tab.upcoming.tint" :title="tab.upcoming.title"
                            :description="tab.upcoming.description" :points="tab.upcoming.points"
@@ -38,20 +49,6 @@
                   <ArrowRight :size="14" :stroke-width="1.75" class="text-surface-400" />
                   <span :class="['w-fit rounded-md px-2 py-1 text-[11px] font-medium', mapping.tint]">{{ mapping.role }}</span>
                 </template>
-              </div>
-
-              <div v-else-if="tab.id === 'roles'" :class="PREVIEW_CARD">
-                <div class="grid grid-cols-[1fr_repeat(3,3rem)] items-center gap-y-2.5 text-[11px]">
-                  <span />
-                  <span v-for="role in ROLES" :key="role" class="text-center font-semibold text-surface-950 dark:text-surface-0">{{ role }}</span>
-                  <template v-for="permission in PERMISSIONS" :key="permission.name">
-                    <span class="text-surface-700 dark:text-surface-200">{{ permission.name }}</span>
-                    <span v-for="(granted, index) in permission.grants" :key="index" class="flex justify-center">
-                      <CircleCheck v-if="granted" :size="16" :stroke-width="2" class="text-green-600 dark:text-green-400" />
-                      <Minus v-else :size="16" :stroke-width="2" class="text-surface-300 dark:text-surface-600" />
-                    </span>
-                  </template>
-                </div>
               </div>
 
               <div v-else :class="PREVIEW_CARD">
@@ -87,7 +84,7 @@
 <script setup lang="ts">
 import { markRaw, onMounted, ref, type Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
-import { ArrowRight, CircleCheck, CreditCard, IdCard, KeyRound, Minus, Plug, ShieldCheck } from '@lucide/vue'
+import { ArrowRight, CreditCard, IdCard, KeyRound, LockKeyhole, Plug, ShieldCheck, UsersRound } from '@lucide/vue'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
@@ -95,8 +92,12 @@ import TabPanels from 'primevue/tabpanels'
 import Tabs from 'primevue/tabs'
 import Tag from 'primevue/tag'
 import { PageHeader, TINTS } from '@kinotic-ai/frontend-common'
+import AccessPanel from '@/components/access/AccessPanel.vue'
+import GroupsTab from '@/components/access/GroupsTab.vue'
+import RolesTab from '@/components/access/RolesTab.vue'
 import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
 import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
+import { KinoticStates } from '@/states'
 import { RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
 import { repositoryHost } from '@/util/repositoryHost'
 import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
@@ -115,7 +116,7 @@ interface UpcomingFeature {
 
 /** A tab of the settings page; one with upcoming set is not built yet and says what it will hold. */
 interface SettingsTab {
-  id: 'integrations' | 'authentication' | 'identity-mapping' | 'roles' | 'billing'
+  id: 'integrations' | 'authentication' | 'roles' | 'groups' | 'access' | 'identity-mapping' | 'billing'
   label: string
   icon: Component
   upcoming?: UpcomingFeature
@@ -124,6 +125,9 @@ interface SettingsTab {
 const TABS: SettingsTab[] = [
   { id: 'integrations', label: 'Integrations', icon: markRaw(Plug) },
   { id: 'authentication', label: 'Authentication providers', icon: markRaw(KeyRound) },
+  { id: 'roles', label: 'Roles', icon: markRaw(ShieldCheck) },
+  { id: 'groups', label: 'Groups', icon: markRaw(UsersRound) },
+  { id: 'access', label: 'Access', icon: markRaw(LockKeyhole) },
   {
     id: 'identity-mapping', label: 'Identity mapping', icon: markRaw(IdCard),
     upcoming: {
@@ -136,20 +140,6 @@ const TABS: SettingsTab[] = [
         'Keep access in step as people join or leave groups'
       ],
       meanwhile: { label: 'manage your members', to: '/members' }
-    }
-  },
-  {
-    id: 'roles', label: 'Roles & permissions', icon: markRaw(ShieldCheck),
-    upcoming: {
-      tint: TINTS.green,
-      title: 'Decide who can do what',
-      description: 'Define roles and control what each one can do across your organization\'s applications and projects.',
-      points: [
-        'Group permissions into roles you name',
-        'Scope access to an application or a project',
-        'See every member\'s access at a glance'
-      ],
-      meanwhile: { label: 'review your members', to: '/members' }
     }
   },
   {
@@ -176,14 +166,9 @@ const MAPPINGS = [
   { group: 'design', role: 'Viewer', tint: TINTS.green },
   { group: 'contractors', role: 'Viewer', tint: TINTS.green }
 ]
-const ROLES = ['Admin', 'Dev', 'Viewer']
-const PERMISSIONS = [
-  { name: 'Manage applications', grants: [true, false, false] },
-  { name: 'Deploy projects', grants: [true, true, false] },
-  { name: 'Invite members', grants: [true, false, false] },
-  { name: 'View dashboards', grants: [true, true, true] }
-]
 const USAGE_BARS = ['72%', '45%', '28%']
+
+const organizationId = KinoticStates.getUserState().getOrganizationId()
 
 const upcomingTabs = TABS.filter((tab): tab is SettingsTab & { upcoming: UpcomingFeature } => tab.upcoming !== undefined)
 
