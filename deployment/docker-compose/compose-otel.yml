@@ -33,9 +33,10 @@ services:
       - "127.0.0.1:3100:3100"  # Loki API (logs) — also serves /otlp for OTLP ingestion
     # Multi-tenant: X-Scope-OrgID routes each org's workload logs to its own tenant;
     # multi-tenant queries let system users read across tenants (orgA|kinotic-system).
-    # The compactor's retention and delete request store enable the deletion API, which deletes a
-    # workload's logs with its record.
-    command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true -compactor.retention-enabled=true -compactor.delete-request-store=filesystem -compactor.delete-request-cancel-period=1h -compactor.working-directory=/tmp/loki/compactor
+    # The compactor's retention deletes logs older than 30 days (-store.retention), as Tempo keeps
+    # traces and Mimir keeps metrics; with the delete request store it enables the deletion API,
+    # which deletes a workload's logs with its record.
+    command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true -store.retention=720h -compactor.retention-enabled=true -compactor.delete-request-store=filesystem -compactor.delete-request-cancel-period=1h -compactor.working-directory=/tmp/loki/compactor
 
   mimir:
     # Canonical Mimir version: helm/mimir/values.yaml pins the same tag
@@ -48,28 +49,6 @@ services:
       - "127.0.0.1:9009:9009"  # Mimir HTTP
       - "127.0.0.1:9095:9095"  # Mimir gRPC
 
-  grafana:
-    image: grafana/grafana:12.3.1
-    ports:
-      - "127.0.0.1:3000:3000"  # Grafana UI (logs, metrics, traces)
-    depends_on:
-      - loki
-      - mimir
-      - tempo
-    environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      # Land on the server dashboard instead of the empty stock home page
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/kinotic-server.json
-    volumes:
-      - ./grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
-      - ./grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
-      - ./dashboards:/var/lib/grafana/dashboards
-      # Grafana 12 downloads the Drilldown apps on first start; keeping /var/lib/grafana
-      # means a container recreate doesn't re-fetch them (and works offline afterwards).
-      - grafana-data:/var/lib/grafana
-
 volumes:
   tempo-data:
   mimir-data:
-  grafana-data:

@@ -33,7 +33,7 @@ helm/
 ├── es-secret-sync/     # ES credential copy (elastic → kinotic namespace)
 ├── mimir/              # Mimir in monolithic mode (-target=all) on a persistent volume
 ├── load-generator/     # Load testing Job
-└── observability/      # Loki, Tempo, Alloy, Grafana values + Alloy pipeline config
+└── observability/      # Loki, Tempo and Alloy values + Alloy pipeline config
 ```
 
 Charts use a **layered values** pattern. The base `values.yaml` contains the defaults. Environment-specific files override what differs (resource limits, TLS, service type, storage classes, node topology).
@@ -49,7 +49,7 @@ The Azure cluster uses this layout:
 | `elastic-system` | ECK operator |
 | `elastic` | Elasticsearch cluster |
 | `kinotic` | The Kinotic servers, OpenFGA, TLS certs, load generator |
-| `observability` | Loki, Tempo, Mimir, Alloy, Grafana |
+| `observability` | Loki, Tempo, Mimir, Alloy |
 
 ## Network Policy
 
@@ -78,7 +78,7 @@ automatically: Reloader restarts the pods.
 
 ## Observability
 
-Centralized logs, traces and metrics using Grafana's stack:
+Centralized logs, traces and metrics, each in a multi-tenant store the servers read:
 
 - **Alloy** — DaemonSet on each node, collects pod logs, ships to Loki under the `kinotic-system` tenant. Pipeline config in `helm/observability/alloy-config.alloy`.
 - **Loki** — Multi-tenant log storage (`auth_enabled: true`): one tenant per organization for workload logs, plus the reserved `kinotic-system` tenant for system logs. Azure Blob Storage.
@@ -86,7 +86,6 @@ Centralized logs, traces and metrics using Grafana's stack:
 - **Mimir** — Multi-tenant metrics storage, the local `helm/mimir` chart running one monolithic process. It receives OTLP at `/otlp` and serves the Prometheus API under `/prometheus` on 9009. Blocks are kept 30 days in Azure Blob Storage (`helm/mimir/values-azure.yaml`).
 
 On Azure the three stores share one storage account, `st<prefix>obs`, each in containers of its own (`loki-chunks`, `loki-ruler`, `tempo-traces`, `mimir-blocks`, `mimir-ruler`), and each authenticates as a workload identity of its own (`id-<prefix>-loki`, `-tempo`, `-mimir`) holding Storage Blob Data Contributor on its containers alone. The account takes no public traffic and no shared keys: the stores reach it through its private endpoint in the VNet's private-endpoints subnet, resolved by the `privatelink.blob.core.windows.net` zone linked to the VNet, with Entra ID tokens. Terraform manages it through the resource manager alone (`data_plane_available = false` in the cluster root's provider). Their persistent volumes hold only write-ahead logs and caches.
-- **Grafana** — Query and dashboards, with Loki, Tempo and Mimir datasources linked to each other. Each datasource browses the `kinotic-system` tenant by default; Loki's multi-tenant queries accept pipe-separated ids (`acme|kinotic-system`). Entra ID (Azure AD) login.
 
 Each server runs the OpenTelemetry Java agent its image embeds, exporting its traces to Tempo and its metrics to Mimir over OTLP/HTTP under the `kinotic-system` tenant (`otel.*` in the kinotic chart's values); its logs go through Alloy, so the agent exports none.
 

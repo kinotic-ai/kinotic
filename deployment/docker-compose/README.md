@@ -34,7 +34,7 @@ copy left from an earlier version; `KINOTIC_PULL_POLICY=always docker compose up
 | `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:58503`, `kinotic-server-system:58504`, `kinotic-server-app:58505` (REST and STOMP) |
 | `compose.ui.yml` | The portal and the system console, the `kinotic-ui` image built from `kinotic-ui.Dockerfile`, which builds `kinotic-frontend` and serves both through `kinotic-ui.ts`. `docker compose up --build` builds it from the working tree | `kinotic-ui:9090` (portal), `kinotic-ui:9091` (system console) |
 | `compose.openfga.yml` | OpenFGA, the authorization engine, with its Postgres, its schema migration and `openfga-init`, which creates the system store | `openfga:8080`; one-shot `openfga-init`, whose `service_completed_successfully` the servers wait on |
-| `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
+| `compose-otel.yml` | OpenTelemetry collector + Tempo + Loki + Mimir | `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.sample-data.yml` | Layered onto `compose.yml`: `kinotic-sample-data` runs the migration with the `fixtures` profile, and `kinotic-gen-schemas` publishes sample entity definitions | See [Sample data](#sample-data) |
 | `compose.sites.yml` | Where published UIs are stored and served: the Azurite emulator, and the local edge, the `kinotic-sites-edge` image built from `sites-edge.Dockerfile`, which runs the Cloudflare sites Worker (`../cloudflare/sites-worker/worker.js`) over it through `sites-edge.ts`. `docker compose up --build` builds it from the working tree | `kinotic-azurite:10000`, `kinotic-sites-edge:8088` |
 | `compose.gitea.yml` | The Gitea server the demonstration server hosts projects' repositories on, in place of GitHub: it creates the `kinotic_admin` administrator the servers act as on first start | `kinotic-gitea:3000` |
@@ -87,7 +87,6 @@ docker compose -p docker-compose down
 | A published UI | `http://<app>--<ui>.<org>.sites.kinotic.localhost:8088` | Served by `kinotic-sites-edge` from Azurite; the project's deployment page links it. Chrome, Edge and Firefox resolve `*.localhost` to this machine. The sites and the API hosts are both under `kinotic.localhost`, so the browser treats a site and its application's API as one site and sends the `SameSite=Lax` session cookie between them, as under `kinotic.ai` in production |
 | Azurite | <http://localhost:10000/devstoreaccount1> | Azurite's `devstoreaccount1` development account, which the publish and removal workloads upload to and delete from |
 | Gitea | <http://localhost:3001> | Every project's repository, in the Gitea organization named by its Kinotic organization's id. Sign in as `kinotic_admin` / `kinotic-gitea-admin` to browse them |
-| Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
 | Keycloak | <http://keycloak:8888> | When `compose.keycloak.yml` is included; requires `127.0.0.1 keycloak` in `/etc/hosts` per `KEYCLOAK_HOSTS_SETUP.md` |
 
 ## Sample data
@@ -188,35 +187,39 @@ docker compose up -d
 
 Rebuild an image and run `docker compose up -d` again to replace its container.
 
-### Traces, metrics, and logs in Grafana
+### Traces, metrics, and logs
 
-Add `compose-otel.yml` to bring up the collector and the Grafana stack next to Elasticsearch:
+Add `compose-otel.yml` to bring up the collector and the three stores next to Elasticsearch:
 
 ```bash
 docker compose -f compose-otel.yml -f compose.elasticsearch.yml -f compose.kibana.yml up -d
 ```
 
-The compose servers export to the collector, `otel-collector:4317` on the compose network.
+The compose servers export to the collector, `otel-collector:4317` on the compose network. A
+stack that ran an earlier `compose-otel.yml` still has its Grafana container; `docker compose
+-f compose-otel.yml up -d --remove-orphans` removes it and frees port 3000.
 
-Grafana is at <http://localhost:3000> (anonymous Admin, no login) and opens on the **Kinotic
-Server** dashboard — JVM, HTTP RED metrics, span rates from the traces themselves, and a log
-panel, all provisioned from `dashboards/kinotic-server.json`. Beyond the dashboard:
+Each store's API is on the host and takes the tenant in an `X-Scope-OrgID` header; `curl -G`
+with `--data-urlencode` sends a selector's braces and quotes as they are:
 
-| Signal | Datasource | Where to look |
-|---|---|---|
-| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server-management`, `kinotic-server-system` or `kinotic-server-app` (tenant `kinotic-system`) |
-| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server-management"}` (tenant `kinotic-system`) |
-| Logs | Loki | Explore → Loki, `{service_name="kinotic-server-management"}`, one node by adding `service_instance_id` (tenant `kinotic-system`) |
+```bash
+# traces: the recent traces of one server, then one of them
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:3200/api/search \
+     --data-urlencode 'tags=service.name=kinotic-server-management' | jq '.traces[].traceID'
+curl -s -H 'X-Scope-OrgID: kinotic-system' http://localhost:3200/api/traces/<traceID> | jq
+# metrics: the Prometheus API under /prometheus
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:9009/prometheus/api/v1/query \
+     --data-urlencode 'query=jvm_memory_used_bytes{job="kinotic-server-management"}' | jq
+# logs: one server's lines of the last hour; one node by adding service_instance_id to the selector
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:3100/loki/api/v1/query_range \
+     --data-urlencode 'query={service_name="kinotic-server-management"}' \
+     --data-urlencode "start=$(date -u -d '1 hour ago' +%s)000000000" | jq '.data.result[].values'
+```
 
 All three run multi-tenant. The server's own telemetry lands in the `kinotic-system` tenant —
 the collector stamps it on pushes that name none — and each organization's workload telemetry
-in a tenant named by the organization id, pushed by the vm-manager on every node. The Grafana
-datasources browse `kinotic-system`; change the `X-Scope-OrgID` header on a datasource to browse
-an organization, or query it in the portal, which reads the tenant the signed-in user may see.
-
-Grafana 12 preinstalls the Drilldown apps (Metrics, Logs, Traces) and downloads them from
-grafana.com on first start — the **Drilldown** nav section needs no configuration beyond the
-datasources above, and the `grafana-data` volume keeps them across container recreates.
+in a tenant named by the organization id, pushed by the vm-manager on every node. The portal
+reads an organization's tenant for the signed-in user.
 
 ### How the signals name themselves
 
@@ -272,23 +275,23 @@ docker compose -f compose-otel.yml restart mimir tempo
 To see what's actually stored rather than what should be:
 
 ```bash
-curl -s 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | jq -r '.data[]' | grep -E 'jvm|http|traces_'
+curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | jq -r '.data[]' | grep -E 'jvm|http|traces_'
 curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/labels' | jq
 ```
 
 ### Correlation between signals
 
-- **Log → trace**: expand a log line in Explore or the dashboard's log panel; the `TraceID`
-  derived field links into Tempo. It matches the `trace_id` structured-metadata key, not the
-  line text — OTLP log records carry the trace context as metadata, so a body regex finds
-  nothing.
-- **Metric → trace**: exemplar dots on the p95 latency panel jump to the trace behind the
-  sample. Requires `max_global_exemplars_per_user` above 0 in `mimir.yml` — Mimir's default of
-  `0` disables exemplar ingestion outright, unlike the series limits where `0` means unlimited.
-- **Trace → logs / metrics**: a span in Tempo has *Logs for this span* and the span-metrics
-  queries wired through `tracesToLogsV2` / `tracesToMetrics`.
-- **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
-  `service-graphs` processor writing `traces_service_graph_*` into Mimir.
+- **Log → trace**: a log record carries `trace_id` and `span_id` as structured metadata, not in
+  the line, so a Loki query reads them with the selector (`{service_name="kinotic-server-app"} | trace_id != ""`)
+  and the trace is `GET /api/traces/<trace_id>` on Tempo; a body regex finds nothing.
+- **Metric → trace**: Mimir keeps an exemplar per histogram bucket naming the trace behind the
+  sample, read with `GET /prometheus/api/v1/query_exemplars`. Requires
+  `max_global_exemplars_per_user` above 0 in `mimir.yml` — Mimir's default of `0` disables
+  exemplar ingestion outright, unlike the series limits where `0` means unlimited.
+- **Trace → logs / metrics**: the span's `trace_id` selects its logs in Loki as above, and its
+  `service.name` is the `service` label of the span metrics the metrics-generator writes.
+- **Service graph**: the `service-graphs` processor writes `traces_service_graph_*` series into
+  Mimir, one per calling and called service pair, which a Prometheus query reads like any other.
 
 The servers send no email: each link a person must open is logged and shown in the portal
 ([Demonstration server](../../website/content/04.platform/03.configuration.md)).

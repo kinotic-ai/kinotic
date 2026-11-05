@@ -211,7 +211,7 @@ terraform apply -var="beta_mode=false"
 | Elasticsearch + ECK | `cluster/` | Disposable (data lost on destroy) |
 | OpenFGA + its Azure Database for PostgreSQL (the authorization relationships) | `cluster/` | Disposable (relationships lost on destroy) |
 | The Kinotic servers (org, system, app) | `cluster/` | Disposable |
-| Observability (Loki, Tempo, Mimir, Alloy, Grafana) | `cluster/` | Disposable |
+| Observability (Loki, Tempo, Mimir, Alloy) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |
 | Sites account, Cloudflare sites Worker (kinotic.io), portal.kinotic.ai and console.kinotic.ai | `cluster/` | Disposable; `deploy-ui.sh cluster azure` uploads the UIs again |
 | Development server: sites account, Cloudflare sites Worker (dev.kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
