@@ -1,7 +1,7 @@
 # ── Kinotic Enterprise License signing key ────────────────────────────────────
 # The EC P-256 key that signs Kinotic Enterprise License keys with ES256. Key Vault generates it
 # and keeps the private key: a license key is issued by calling the vault's sign operation, and
-# the private key cannot be exported. The public key is the one kinotic-ee's LicenseVerifier
+# the private key cannot be exported. The public key is the one Kinotic's license verifier
 # trusts, read from the license_signing_public_key_pem output. The servers' identity holds only
 # Key Vault Secrets User on this vault, which cannot sign.
 
@@ -40,6 +40,6 @@ resource "azurerm_key_vault_key" "license_signing" {
 }
 
 output "license_signing_public_key_pem" {
-  description = "Public key of the Kinotic Enterprise License signing key, which kinotic-ee's LicenseVerifier trusts"
+  description = "Public key of the Kinotic Enterprise License signing key, which Kinotic's license verifier trusts"
   value       = azurerm_key_vault_key.license_signing.public_key_pem
 }

@@ -27,9 +27,9 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing support.
 
-## Enterprise Features live in kinotic-ee
+## Enterprise Features live in `ee` packages
 
-The root `LICENSE.md` licenses everything under the Elastic License 2.0 with the Kinotic Additional Limitations, except `kinotic-ee/`, which holds the Enterprise Features under the Kinotic Enterprise License (`kinotic-ee/LICENSE`), and Kinotic RPC, under the Apache License 2.0 (see below). Every interface in an ELv2 package with an `ee` segment (`org.kinotic.domain.api.ee.services.SecretStorageBackend`) is an Enterprise Extension Point whose production implementations are Enterprise Features. To make a capability enterprise-only, put its interface in the module's `api/ee/` tree, mirroring `api/` (`api/ee/services/`), and put its implementations in `kinotic-ee`, never in an ELv2 module. The package name is the license designation, so an `ee` package may hold a single file.
+The root `LICENSE.md` licenses everything under the Elastic License 2.0 with the Kinotic Additional Limitations, except Kinotic RPC, under the Apache License 2.0 (see below), and Enterprise Implementations, under the Kinotic Enterprise License (`LICENSE-ENTERPRISE`). An Enterprise Implementation is any file in a Java package with a segment named `ee`. To make a capability enterprise-only, put its classes in the `internal/api/ee/` tree of the module the capability belongs to, mirroring `internal/api/` (`internal/api/ee/services/`). Never create an interface just to mark a capability as Enterprise: free code that can use an Enterprise class injects it with `ObjectProvider<T>` and uses it only when the bean exists (`DefaultOidcConfigurationService` with `EnterpriseIdentityProviders`). Only where an interface already has a free implementation and an Enterprise one does that interface live in `api/ee/` (`SecretStorageBackend`, with `InMemoryBackend` and `AzureKeyVaultBackend`). The package name is the license designation, so an `ee` package may hold a single file. Never put Enterprise code in a Kinotic RPC module.
 
 ## Kinotic RPC stands alone
 

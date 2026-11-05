@@ -19,11 +19,13 @@ Enterprise Features are made available in source-available form. They are not op
 
 “Enterprise Extension Point” means a type of the Kinotic software that the Kinotic Additional Limitations designate as an Enterprise Extension Point.
 
-“Enterprise Feature” means any component, module, feature, or functionality of the Kinotic software that Minds Ignited designates as an Enterprise Feature, including in the applicable source repository, in the software itself, in its documentation, or in a Component Exhibit. Enterprise Features include the contents of the `kinotic-ee` module and the capability every Enterprise Extension Point provides. Enterprise Features are identified by designation and not by name in this License.
+“Enterprise Feature” means any component, module, feature, or functionality of the Kinotic software that Minds Ignited designates as an Enterprise Feature, including in the applicable source repository, in the software itself, in its documentation, or in a Component Exhibit. Enterprise Features include every Enterprise Implementation and the capability every Enterprise Extension Point provides. Enterprise Features are identified by designation and not by name in this License.
+
+“Enterprise Implementation” means any file in a Java package that has a segment named `ee`, or in a directory named `ee`, other than an Enterprise Extension Point.
 
 “License Key” means a credential issued by Minds Ignited that enables one or more Enterprise Features and records the scope, permitted purpose, and expiry of that enablement.
 
-“Production Use” means any use of an Enterprise Feature other than Development and Testing, including any use that serves, supports, or processes the data of your end users, customers or business operations.
+“Production Use” means any use of an Enterprise Feature other than Development and Testing, including any use that serves, supports, or processes the data of your end users, customers or business operations. An Enterprise Feature that is present in a copy of the software but not enabled is not in Production Use.
 
 3. LICENSE GRANT.
 3.1. Development and Testing.  Subject to your compliance with this License, Minds Ignited grants you a non-exclusive, non-transferable, non-sublicensable, revocable right to use, build, and modify the Enterprise Features for your own Development and Testing, and to submit patches to Minds Ignited for inclusion in the upstream Kinotic software under the Kinotic Contributor License Agreement.
@@ -35,7 +37,7 @@ Production Use of an Enterprise Feature in the absence of either condition is un
 3.3. Modifications.  You may modify the Enterprise Features for your own Development and Testing. You agree that Minds Ignited and its licensors, as applicable, retain all right, title, and interest in and to all such modifications. Nothing in this Section grants you the right to make Production Use of a modification, which remains governed by Section 3.2.
 3.4. Reservation of Rights.  You are granted no rights other than those expressly stated in this License. Minds Ignited and its licensors retain all right, title, and interest in and to the Enterprise Features, including all intellectual property rights in them.
 3.5. Restrictions.  Except as this License or Your Agreement expressly permits, you must not:
-(a) copy, merge, publish, distribute, sublicense, sell, rent, lease, or otherwise make available any Enterprise Feature to any third party;
+(a) copy, merge, publish, distribute, sublicense, sell, rent, lease, or otherwise make available any Enterprise Feature to any third party, except that you may distribute the Enterprise Features, unmodified and accompanied by this License, as part of a copy of the Kinotic software that you distribute under the Elastic License 2.0;
 (b) make an Enterprise Feature available to third parties as a hosted or managed service;
 (c) remove, obscure, or alter any copyright, trademark, license, or other proprietary notice in or on an Enterprise Feature;
 (d) circumvent, disable, or interfere with any License Key, entitlement check, or other technical measure by which Minds Ignited enables or verifies an Enterprise Feature, or use an Enterprise Feature without a License Key where a License Key is required; or
