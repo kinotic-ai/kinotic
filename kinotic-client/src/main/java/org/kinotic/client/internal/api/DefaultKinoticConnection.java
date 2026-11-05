@@ -112,7 +112,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.notNull(options.getOpenTelemetry(), "openTelemetry must not be null");
         Validate.isTrue(options.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
         Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
-        Validate.isTrue(options.getMaxFrameSize() >= 1, "maxFrameSize must be at least 1 byte");
+        Validate.isTrue(options.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
         ReconnectOptions reconnect = options.getReconnect();
         Validate.isTrue(reconnect.getMaxAttempts() >= 0, "reconnect.maxAttempts must not be negative");
         // Vert.x schedules no timer under a millisecond, so the delays and the timeout are at least that
@@ -146,7 +146,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         this.livenessWatcher = new ConnectionLivenessWatcher(vertx);
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME,
                                                options.getReconnect().getConnectionTimeout().toMillis());
-        KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxFrameSize());
+        KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxBodyLength());
         this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, options.getOpenTelemetry(),
                                                        properties, jsonMapper, NODE_NAME);
         // the CONNECTED frame is the client's own protocol, read by a mapper the customizer never touched
@@ -163,7 +163,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         initialConnect = promise;
         context.runOnContext(v -> {
             stompClient = StompClient.create(vertx, new StompClientOptions()
-                    .setMaxFrameSize(options.getMaxFrameSize())
+                    .setMaxBodyLength(options.getMaxBodyLength())
                     .setConnectTimeout(options.getReconnect().getConnectionTimeout().toMillis()));
             attemptConnection();
         });
