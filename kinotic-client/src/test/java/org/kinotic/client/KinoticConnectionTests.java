@@ -146,7 +146,10 @@ public class KinoticConnectionTests {
 
     @Test
     public void testProxyReleasedBeforeItsSubscriptionIsReceiptedKeepsTheConnection() throws Exception {
-        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET));
+        // a subscription the gateway never receipts loses the connection after the connection timeout, which the
+        // observation below outlasts
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET)
+                                                       .setReconnect(reconnectOptions().setConnectionTimeout(Duration.ofMillis(500))));
         List<ConnectionState> states = Collections.synchronizedList(new ArrayList<>());
         connection.stateHandler(states::add);
         ClientTestService service = connection.serviceProxy(ClientTestService.class).getService();
