@@ -42,14 +42,13 @@ public class ConnectionLivenessWatcher implements RequestLivenessWatcher {
         if (connectionId.equals(liveConnectionId)) {
             liveConnectionId = null;
         }
-        List<String> lost = new ArrayList<>();
-        watches.forEach((requestKey, watch) -> {
-            if (watch.connectionId().equals(connectionId)) {
-                lost.add(requestKey);
-            }
-        });
         List<Future<Void>> callbacks = new ArrayList<>();
-        lost.forEach(requestKey -> callbacks.add(connectionLost(requestKey)));
+        // a snapshot, since connectionLost removes the watch
+        for (Map.Entry<String, ConnectionWatch> watch : new ArrayList<>(watches.entrySet())) {
+            if (watch.getValue().connectionId().equals(connectionId)) {
+                callbacks.add(connectionLost(watch.getKey()));
+            }
+        }
         return Future.all(callbacks).mapEmpty();
     }
 

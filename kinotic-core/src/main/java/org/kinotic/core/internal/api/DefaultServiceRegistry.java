@@ -125,20 +125,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
-        RpcArgumentConverter rpcArgumentConverter = rpcArgumentConverterResolver.resolve(MimeTypeUtils.APPLICATION_JSON_VALUE);
-        return new DefaultRpcServiceProxyHandle<>(serviceIdentifier,
-                                                  kinotic.serverInfo().getNodeName(),
-                                                  serviceInterface,
-                                                  rpcArgumentConverter,
-                                                  rpcReturnValueHandlerFactory,
-                                                  eventBusService,
-                                                  securityContext::currentParticipant,
-                                                  serviceDirectoryProvider::getIfAvailable,
-                                                  requestLivenessWatcher,
-                                                  vertx,
-                                                  Thread.currentThread().getContextClassLoader(),
-                                                  openTelemetry,
-                                                  traceLogFilter);
+        return serviceProxy(serviceIdentifier, serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
     }
 
     @Override

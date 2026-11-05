@@ -1,10 +1,9 @@
 package org.kinotic.client.internal.api;
 
-import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.internal.ContextInternal;
 import io.vertx.ext.stomp.lite.client.StompClientConnection;
 import io.vertx.ext.stomp.lite.client.StompErrorException;
 import io.vertx.ext.stomp.lite.frame.Frame;
@@ -46,7 +45,7 @@ public class StompRpcTransport implements RpcTransport {
     // the scope discriminator of the reply-to a control event carries, which nothing is subscribed under
     private static final String CONTROL_REPLY_DISCRIMINATOR = "control";
 
-    private final Context context;
+    private final ContextInternal context;
     private final String serverUrl;
     private final String nodeName;
     // how long the gateway has to receipt a subscription before the connection counts as lost
@@ -90,14 +89,14 @@ public class StompRpcTransport implements RpcTransport {
     @Override
     public EventConsumer listen(CRI cri) {
         StompReplyConsumer consumer = new StompReplyConsumer(cri, this);
-        runOnContext(() -> consumers.put(cri.raw(), consumer));
+        context.execute(() -> consumers.put(cri.raw(), consumer));
         return consumer;
     }
 
     @Override
     public Future<String> sendWithAck(Event<byte[]> event) {
         CompletableFuture<String> result = new CompletableFuture<>();
-        runOnContext(() -> {
+        context.execute(() -> {
             if (connection == null) {
                 result.completeExceptionally(new RpcServiceUnavailableException(
                         "Not connected to " + serverUrl + ", the request to " + event.cri().raw() + " was not sent"));
@@ -124,7 +123,7 @@ public class StompRpcTransport implements RpcTransport {
 
     @Override
     public void publish(Event<byte[]> event) {
-        runOnContext(() -> {
+        context.execute(() -> {
             if (connection == null) {
                 log.debug("Not connected to {}, dropping the control event for {}", serverUrl, event.cri());
             } else {
@@ -140,7 +139,7 @@ public class StompRpcTransport implements RpcTransport {
 
     // a consumer is subscribed once it has a handler, like a Vert.x consumer registers on its first handler
     void consumerReady(StompReplyConsumer consumer) {
-        runOnContext(() -> {
+        context.execute(() -> {
             if (connection != null && consumer.destination() == null) {
                 subscribe(consumer);
             }
@@ -149,7 +148,7 @@ public class StompRpcTransport implements RpcTransport {
 
     Future<Void> remove(StompReplyConsumer consumer) {
         Promise<Void> promise = Promise.promise();
-        runOnContext(() -> {
+        context.execute(() -> {
             consumers.remove(consumer.listenAddress().raw());
             Future<Void> ret;
             if (connection != null && consumer.subscriptionId() != null) {
@@ -238,14 +237,6 @@ public class StompRpcTransport implements RpcTransport {
                                                              + destination.raw() + " was acknowledged", cause);
         }
         return ret;
-    }
-
-    private void runOnContext(Runnable task) {
-        if (Vertx.currentContext() == context) {
-            task.run();
-        } else {
-            context.runOnContext(v -> task.run());
-        }
     }
 
 }
