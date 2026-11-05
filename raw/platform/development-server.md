@@ -211,7 +211,7 @@ owns it, and `smartd` on the host watches each drive.
     </td>
     
     <td>
-      Proxmox, every container's root filesystem, the Loki/Tempo/Mimir/Grafana data under <code>
+      Proxmox, every container's root filesystem, the Loki/Tempo/Mimir data under <code>
         /var/lib/kinotic/data
       </code>
     </td>
@@ -466,10 +466,6 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
       , <code>
         mimir
       </code>
-      
-      , <code>
-        grafana
-      </code>
     </td>
     
     <td>
@@ -477,11 +473,11 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
     </td>
     
     <td>
-      2, 2, 2, 1
+      2, 2, 2
     </td>
     
     <td>
-      1, 1, 2, 0.5 GB
+      1, 1, 2 GB
     </td>
     
     <td>
@@ -537,16 +533,15 @@ deployment/terraform/proxmox/
   haproxy.cfg.tftpl                  # the edge: one route per server hostname, by SNI
   host/prepare-host.sh               # once on the host: ZFS pools, directories, sysctl, keepalive timer
   host/kinotic-apply-container.py    # on the host after every apply: environment, config files, ownership
-  generate-secrets.sh                # a JWT key set per server, the master key, Grafana's password
+  generate-secrets.sh                # a JWT key set per server, the master key
   sync-secrets.sh                    # copies them to the host and re-applies the containers that read them
 deployment/docker-compose/
-  tempo.yml, mimir.yml, grafana-*.yaml, dashboards/   # the stores' config files, addresses substituted
+  tempo.yml, mimir.yml               # the stores' config files, addresses substituted
 kinotic-{org,system,app}-server/src/main/resources/
   application-dev-server.yml         # each server's dev-server profile: what is fixed for this shape
 /etc/kinotic/secrets/                # on the host, placed by hand
   kinotic-servers.env                # AZURE_CLIENT_SECRET, merged into every server's environment
   kinotic-{org,system,app}-server/   # mounted at /etc/kinotic in that server: secrets.yml, platform-secrets/, certs/
-  grafana.env                        # the admin password
 /var/lib/kinotic/{config,data}/<service>, /es{1,2,3}/data   # each container's files and state
 ```
 
@@ -1602,14 +1597,13 @@ storage backend, and one shard and one replica. It serves `8080` with TLS (`summ
 certificate of its own mounted from `/etc/kinotic/secrets/summit-42/certs`. The system LLM
 configuration named `summit-42`, which the system console adds, holds the model and its API key.
 
-### Loki, Tempo, Mimir, Grafana
+### Loki, Tempo, Mimir
 
-Four containers on the LAN, running the config files from `deployment/docker-compose` with
+Three containers on the LAN, running the config files from `deployment/docker-compose` with
 the compose service names replaced by the containers' addresses — one definition of each
 store for local development and the development server. Loki's 3100, Tempo's 4318, and
-Mimir's 9009 are what the node's Alloy ships to; Grafana on 3000 asks for a login, since the
-LAN reaches it. Their data lives under `/var/lib/kinotic/data`, so a container replaced for a
-newer image keeps it.
+Mimir's 9009 are what the node's Alloy ships to. Their data lives under
+`/var/lib/kinotic/data`, so a container replaced for a newer image keeps it.
 
 ### TLS
 

@@ -403,19 +403,31 @@ That brings up the whole platform from published images:
   
   <tr>
     <td>
-      OpenTelemetry collector, Tempo, Loki, Mimir, Grafana
+      OpenTelemetry collector, Tempo, Loki, Mimir
     </td>
     
     <td>
       <code>
-        localhost:3000
+        localhost:3200
       </code>
       
-       (Grafana)
+       (Tempo), <code>
+        localhost:3100
+      </code>
+      
+       (Loki), <code>
+        localhost:9009
+      </code>
+      
+       (Mimir)
     </td>
     
     <td>
-      The servers' traces, logs and metrics
+      The servers' traces, logs and metrics, under the <code>
+        kinotic-system
+      </code>
+      
+       tenant
     </td>
   </tr>
 </tbody>
