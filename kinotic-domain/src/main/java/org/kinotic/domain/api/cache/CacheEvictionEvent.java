@@ -10,13 +10,11 @@ import java.util.Set;
 /**
  * Cache eviction event specifically for caches that need to be evicted
  * This is used when a {@link EntityDefinition} or named query is updated and related caches need to be evicted.
- * It is delivered to the nodes running the persistence module, where the entity services that hold the caches run.
+ * It is delivered to every node: the persistence module's entity services and the gateway's named query permissions
+ * hold caches of these definitions.
  */
 @Data
 public class CacheEvictionEvent implements ClusterEvent {
-
-    // advertised by every node running kinotic-persistence, from the module's META-INF/kinotic-persistence.properties
-    private static final String PERSISTENCE_NODE_ATTRIBUTE = "kinotic.persistence";
 
     private final EvictionSourceType evictionSourceType;
 
@@ -45,6 +43,6 @@ public class CacheEvictionEvent implements ClusterEvent {
 
     @Override
     public Set<String> nodeAttributeFilter() {
-        return Set.of(PERSISTENCE_NODE_ATTRIBUTE);
+        return Set.of();
     }
 }
