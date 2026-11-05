@@ -20,7 +20,7 @@ so humans and AI can build enterprise software at internet scale.
 
 [Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results) · [Videos](https://www.youtube.com/@Kinoticsoftware)
 
-<a href="https://www.youtube.com/watch?v=PLiqZyAafiU"><img src="https://img.youtube.com/vi/PLiqZyAafiU/maxresdefault.jpg" width="640" alt="Watch the Kinotic demo video"></a>
+<a href="https://www.youtube.com/watch?v=rApdW9iKt3g"><img src="https://img.youtube.com/vi/rApdW9iKt3g/maxresdefault.jpg" width="640" alt="Watch Why Kinotic?"></a>
 
 If Kinotic is useful or interesting to you, please ⭐ star the repo. It helps others find it.
 
