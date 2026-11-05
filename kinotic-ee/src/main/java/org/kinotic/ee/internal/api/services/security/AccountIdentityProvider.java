@@ -1,15 +1,15 @@
 package org.kinotic.ee.internal.api.services.security;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.ee.services.OrganizationIdentityProvider;
+import org.kinotic.domain.api.ee.services.OwnedIdentityProvider;
 
 import java.util.regex.Pattern;
 
 /**
- * An {@link OrganizationIdentityProvider} with one issuer per account at the provider, built from an issuer template
+ * An {@link OwnedIdentityProvider} with one issuer per account at the provider, built from an issuer template
  * the account fills, where the account must match a pattern that keeps the issuer on the provider's own hosts.
  */
-public abstract class AccountIdentityProvider implements OrganizationIdentityProvider {
+public abstract class AccountIdentityProvider implements OwnedIdentityProvider {
 
     private static final String PROVIDER_ACCOUNT_PLACEHOLDER = "{providerAccount}";
 

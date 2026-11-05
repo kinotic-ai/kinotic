@@ -2,7 +2,7 @@ package org.kinotic.test.support.kinotic;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.healthchecks.HealthChecks;
-import org.kinotic.domain.api.ee.services.OrganizationIdentityProvider;
+import org.kinotic.domain.api.ee.services.OwnedIdentityProvider;
 import org.kinotic.ee.internal.api.services.security.EntraIdentityProvider;
 import org.kinotic.ee.internal.api.services.security.OktaIdentityProvider;
 import org.springframework.context.annotation.Bean;
@@ -25,12 +25,12 @@ public class KinoticTestBeansConfiguration {
     }
 
     @Bean
-    public OrganizationIdentityProvider entraIdentityProvider() {
+    public OwnedIdentityProvider entraIdentityProvider() {
         return new EntraIdentityProvider();
     }
 
     @Bean
-    public OrganizationIdentityProvider oktaIdentityProvider() {
+    public OwnedIdentityProvider oktaIdentityProvider() {
         return new OktaIdentityProvider();
     }
 }

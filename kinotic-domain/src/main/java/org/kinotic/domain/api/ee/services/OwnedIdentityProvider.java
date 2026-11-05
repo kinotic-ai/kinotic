@@ -3,8 +3,9 @@ package org.kinotic.domain.api.ee.services;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 
 /**
- * An identity provider an organization may sign its people in with through a client of its own registration, at
- * its own login, an application's login or a tenant's login. The provider turns the organization's account at the
+ * An identity provider an {@link org.kinotic.domain.api.model.security.OwnedOidcConfiguration} may sign people in
+ * with through a client of the organization's own registration, at the organization's login, an application's login
+ * or a tenant's login. The provider turns the organization's account at the
  * provider into the issuer URL the server connects to, so an organization never names a URL and the server only
  * ever connects to the provider's own hosts.
  *
@@ -12,7 +13,7 @@ import org.kinotic.domain.api.model.security.OidcProviderType;
  * {@code kinotic-ee} or the unmodified {@code GoogleIdentityProvider} requires a Kinotic Enterprise License. See the
  * Kinotic Additional Limitations in {@code LICENSE.md}.
  */
-public interface OrganizationIdentityProvider {
+public interface OwnedIdentityProvider {
 
     /**
      * The provider type this provider signs in with; one provider exists for each type offered to organizations.

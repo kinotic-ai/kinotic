@@ -1,7 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.ee.services.OrganizationIdentityProvider;
+import org.kinotic.domain.api.ee.services.OwnedIdentityProvider;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.springframework.stereotype.Component;
 
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * Google, whose Workspace and consumer accounts share one issuer, so an organization names no account.
  */
 @Component
-public class GoogleIdentityProvider implements OrganizationIdentityProvider {
+public class GoogleIdentityProvider implements OwnedIdentityProvider {
 
     private static final String AUTHORITY = "https://accounts.google.com";
 

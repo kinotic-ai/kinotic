@@ -18,7 +18,7 @@ import java.util.Set;
  * same path when binding from helm values or env vars.
  * <p>
  * The types an organization may configure for itself with a client of its own registration are the ones an
- * {@link org.kinotic.domain.api.ee.services.OrganizationIdentityProvider} exists for, which turns the organization's
+ * {@link org.kinotic.domain.api.ee.services.OwnedIdentityProvider} exists for, which turns the organization's
  * account at the provider into the issuer URL.
  */
 public enum OidcProviderType {

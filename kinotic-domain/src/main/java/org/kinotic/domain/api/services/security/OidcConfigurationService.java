@@ -26,7 +26,7 @@ import java.util.Collection;
  * {@link OwnedOidcConfiguration} by an organization participant of the organization it names, and an
  * {@link ApplicationOidcConfiguration} must name an application of that organization. An organization's
  * configuration signing in through a client of its own must name a provider type an
- * {@link org.kinotic.domain.api.ee.services.OrganizationIdentityProvider} exists for and its account there in the
+ * {@link org.kinotic.domain.api.ee.services.OwnedIdentityProvider} exists for and its account there in the
  * form that provider expects; its authority is derived from the two on every save. An application's configuration
  * that starts signing in through Kinotic's registration
  * ({@link ClientRegistrationType#MANAGED}) must name a provider kind the system holds an enabled

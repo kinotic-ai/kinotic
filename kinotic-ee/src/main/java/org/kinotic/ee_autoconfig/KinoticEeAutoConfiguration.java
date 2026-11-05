@@ -4,7 +4,7 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
-import org.kinotic.domain.api.ee.services.OrganizationIdentityProvider;
+import org.kinotic.domain.api.ee.services.OwnedIdentityProvider;
 import org.kinotic.ee.internal.api.services.AzureKeyVaultBackend;
 import org.kinotic.ee.internal.api.services.security.EntraIdentityProvider;
 import org.kinotic.ee.internal.api.services.security.OktaIdentityProvider;
@@ -41,13 +41,13 @@ public class KinoticEeAutoConfiguration {
 
     @Bean
     @ConditionalOnEnterpriseFeature(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS)
-    public OrganizationIdentityProvider entraIdentityProvider() {
+    public OwnedIdentityProvider entraIdentityProvider() {
         return new EntraIdentityProvider();
     }
 
     @Bean
     @ConditionalOnEnterpriseFeature(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS)
-    public OrganizationIdentityProvider oktaIdentityProvider() {
+    public OwnedIdentityProvider oktaIdentityProvider() {
         return new OktaIdentityProvider();
     }
 }

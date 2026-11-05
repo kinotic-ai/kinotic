@@ -18,7 +18,7 @@ import org.kinotic.domain.api.model.OrganizationScoped;
  * callback URL.
  *
  * <p>The organization names no URL. It chooses a {@link OidcProviderType} that an
- * {@link org.kinotic.domain.api.ee.services.OrganizationIdentityProvider} exists for and gives its
+ * {@link org.kinotic.domain.api.ee.services.OwnedIdentityProvider} exists for and gives its
  * {@link #providerAccount} at that provider; the provider derives the authority from the account when the
  * configuration is saved, replacing any value sent, so the server connects to the provider's own hosts
  * only.
