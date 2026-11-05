@@ -2,6 +2,7 @@ package org.kinotic.client.gateway;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 
@@ -25,7 +26,7 @@ public class TestGatewaySecurityService implements SecurityService {
     public static final AtomicInteger rejections = new AtomicInteger();
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo, AuthenticationContext context) {
         Map<String, String> info = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         if (authenticationInfo != null) {
             info.putAll(authenticationInfo);
