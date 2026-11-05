@@ -23,6 +23,11 @@ import org.springframework.validation.annotation.Validated;
 public class KinoticProperties {
 
     /**
+     * The default of {@link #getMaxEventPayloadSize()}, 2 MB.
+     */
+    public static final int DEFAULT_MAX_EVENT_PAYLOAD_SIZE = 1024 * 1024 * 2;
+
+    /**
      * CORS configuration of every Vert.x HTTP server that exposes browser-facing routes. Its allowed origins are also
      * the UIs a server's browser flows may return to with their outcomes.
      */
@@ -73,7 +78,7 @@ public class KinoticProperties {
      * connection can demand and must be raised together with {@code -XX:MaxDirectMemorySize}.
      * NOTE: {@code -XX:MaxDirectMemorySize} will need to be maxEventPayloadSize x (maxNumberOfConnections sending frames at this size)
      */
-    private int maxEventPayloadSize = 1024 * 1024 * 2; // 2MB
+    private int maxEventPayloadSize = DEFAULT_MAX_EVENT_PAYLOAD_SIZE;
 
     /**
      * The maximum number of CPU cores if not set or less than 1, this will default to the available number of cores.

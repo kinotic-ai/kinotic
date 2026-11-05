@@ -115,6 +115,35 @@ public class KinoticConnectionTests {
     }
 
     @Test
+    public void testReplyOverTheBodyLimitFailsTheCallAndTheConnectionRecovers() throws Exception {
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET).setMaxBodyLength(1024));
+        assertCallLostToTheReplyAndTheConnectionRecovers(connection);
+    }
+
+    @Test
+    public void testReplyOverTheWebSocketFrameLimitFailsTheCallAndTheConnectionRecovers() throws Exception {
+        // the gateway writes the reply in one WebSocket frame, over the limit, which the transport refuses
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET).setMaxWebSocketFrameSize(2048));
+        assertCallLostToTheReplyAndTheConnectionRecovers(connection);
+    }
+
+    private void assertCallLostToTheReplyAndTheConnectionRecovers(KinoticConnection connection) throws Exception {
+        List<ConnectionState> states = Collections.synchronizedList(new ArrayList<>());
+        connection.stateHandler(states::add);
+        ClientTestService service = connection.serviceProxy(ClientTestService.class).getService();
+
+        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                             () -> service.pad(8192).get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+        Assertions.assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
+        // the reply ended the connection, which the client re-establishes
+        Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                  .until(() -> states.indexOf(ConnectionState.RECONNECTING) >= 0
+                          && states.lastIndexOf(ConnectionState.CONNECTED) > states.indexOf(ConnectionState.RECONNECTING));
+        Assertions.assertEquals("Hello Bob", service.greet("Bob").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    }
+
+    @Test
     public void testMapperCustomizerConvertsWhatTheDefaultMapperCannot() throws Exception {
         // the gateway serializes the Circle; a Shape return type converts only once a module names the Circle
         KinoticConnection plain = connect(options(TestGatewayApplication.CLIENT_SECRET));

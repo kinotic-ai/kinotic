@@ -46,14 +46,14 @@ public class ConnectOptions {
      * larger than the gateway's {@code kinotic.maxEventPayloadSize} is refused by the gateway. Defaults to that
      * property's default.
      */
-    private int maxBodyLength = new KinoticProperties().getMaxEventPayloadSize();
+    private int maxBodyLength = KinoticProperties.DEFAULT_MAX_EVENT_PAYLOAD_SIZE;
 
     /**
      * The largest WebSocket frame the client accepts, in bytes; a larger one ends the connection. The gateway writes a
      * reply in WebSocket frames of at most its {@code kinotic.maxEventPayloadSize}, so this is at least that. Defaults
      * to that property's default.
      */
-    private int maxWebSocketFrameSize = new KinoticProperties().getMaxEventPayloadSize();
+    private int maxWebSocketFrameSize = KinoticProperties.DEFAULT_MAX_EVENT_PAYLOAD_SIZE;
 
     /**
      * How the connection retries connecting.

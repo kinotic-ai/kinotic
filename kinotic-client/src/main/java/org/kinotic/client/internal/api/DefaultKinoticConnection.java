@@ -38,7 +38,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Default {@link KinoticConnection}: a STOMP connection to the gateway's WebSocket endpoint, kept alive across
@@ -250,22 +249,16 @@ public class DefaultKinoticConnection implements KinoticConnection {
             }
             options.getAuthHeaders().forEach(webSocketOptions::putHeader);
 
-            // the attempt as a whole is bounded by the connection timeout; a connection the gateway accepts after
-            // the attempt was settled belongs to no attempt and is closed
-            Future<StompClientConnection> attempt = stompClient.connect(webSocketOptions, CONNECT_HEADERS);
-            attempt.timeout(reconnect.getConnectionTimeout().toMillis(), TimeUnit.MILLISECONDS)
-                   .onComplete(ar -> {
-                       if (ar.succeeded()) {
-                           connectionAccepted(ar.result());
-                       } else {
-                           attemptFailed(ar.cause());
-                       }
-                   });
-            attempt.onSuccess(connection -> {
-                if (connection != current) {
-                    connection.close();
-                }
-            });
+            // the handshake is bounded by the WebSocket options' timeout and the gateway's answer to CONNECT by the
+            // STOMP client's, each with the connection timeout
+            stompClient.connect(webSocketOptions, CONNECT_HEADERS)
+                       .onComplete(ar -> {
+                           if (ar.succeeded()) {
+                               connectionAccepted(ar.result());
+                           } else {
+                               attemptFailed(ar.cause());
+                           }
+                       });
         } catch (Exception e) {
             // a throw here would otherwise leave the attempt unsettled, which no caller can detect
             attemptFailed(e);
@@ -330,7 +323,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
             currentConnectionId = null;
             transport.disconnected();
             Future<Void> pendingFailed = livenessWatcher.connectionEnded(connectionId);
-            if (!closing) {
+            if (closing) {
+                if (cause != null) {
+                    log.warn("The connection to {} did not close cleanly", options.getServerUrl(), cause);
+                }
+            } else {
                 log.warn("The connection to {} was lost, reconnecting", options.getServerUrl(), cause);
                 // reported once every pending call has failed, on whichever context its caller's watch ran that,
                 // unless a connection was established or the close began in the meantime
