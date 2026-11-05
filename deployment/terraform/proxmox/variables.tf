@@ -44,7 +44,7 @@ variable "snippets_dir" {
 # ── Network ───────────────────────────────────────────────────────────────────
 
 variable "bridge" {
-  description = "The LAN bridge: the edge, Loki, Tempo, Mimir and Grafana attach to it"
+  description = "The LAN bridge: the edge, Loki, Tempo and Mimir attach to it"
   type        = string
   default     = "vmbr0"
 }
@@ -87,11 +87,6 @@ variable "tempo_ip" {
 
 variable "mimir_ip" {
   description = "Mimir's LAN address in CIDR notation"
-  type        = string
-}
-
-variable "grafana_ip" {
-  description = "Grafana's LAN address in CIDR notation"
   type        = string
 }
 
@@ -161,11 +156,6 @@ variable "tempo_version" {
 variable "mimir_version" {
   type    = string
   default = "2.14.3"
-}
-
-variable "grafana_version" {
-  type    = string
-  default = "12.3.1"
 }
 
 variable "haproxy_version" {
