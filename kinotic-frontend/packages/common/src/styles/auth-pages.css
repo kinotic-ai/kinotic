@@ -205,6 +205,20 @@
   background: var(--lp-input-border);
 }
 
+/* The organizations a social identity signs in to, offered as a choice */
+.login-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2.25rem;
+}
+
+.login-choices__hint {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  color: var(--lp-text);
+}
+
 .login-back-link {
   display: inline-flex;
   width: 100%;

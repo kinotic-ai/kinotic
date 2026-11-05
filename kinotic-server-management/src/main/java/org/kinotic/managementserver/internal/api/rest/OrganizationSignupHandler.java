@@ -1,5 +1,6 @@
 package org.kinotic.managementserver.internal.api.rest;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -12,6 +13,7 @@ import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIde
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.managementserver.api.config.ManagementServerProperties;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,6 +35,7 @@ import java.util.Map;
 public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
 
     private final SignUpService signUpService;
+    private final ParticipantIdentityService identityService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
     private final KinoticManagementApiProperties managementApiProperties;
@@ -156,7 +160,9 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
 
     /**
      * Turns a verified social identity into a {@link PendingSignUp} carrying it and redirects the browser to the
-     * org-naming page of the UI the sign-up returns to, which posts back to {@link #handleSocialCompleteOrg}.
+     * org-naming page of the UI the sign-up returns to, which posts back to {@link #handleSocialCompleteOrg}. The
+     * organizations the identity already signs in to are offered to that page through
+     * {@code GET /api/auth/org/login/choices}, so a person who meant to sign in can do so instead.
      */
     @Override
     public void complete(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
@@ -183,6 +189,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         pending.setEmail(email);
         pending.setDisplayName(displayName);
         signUpService.createOidcPending(pending)
+              .compose(created -> offerExistingOrganizations(ctx, result.origin(), config.getId(), sub).map(created))
               .onSuccess(created -> redirectToCompleteOrg(ctx, result.origin(), created.getVerificationToken()))
               .onFailure(ex -> {
                   log.warn("Signup resolution failed: {}", ex.getMessage());
@@ -211,8 +218,27 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         }
 
         signUpService.completeOidcWithNewOrg(token, orgName, orgDescription)
-              .onSuccess(founder -> authEndpointSupport.respondSuccess(ctx, founder))
+              .onSuccess(founder -> {
+                  OrganizationChoices.end(ctx);
+                  authEndpointSupport.respondSuccess(ctx, founder);
+              })
               .onFailure(ex -> authEndpointSupport.respondError(ctx, 400, ex.getMessage()));
+    }
+
+    // the identity has just proven who it is, so the page it returns to may offer the organizations it signs in to,
+    // as the landing page's sign-in does; an offer is made even when there are none, replacing one an earlier
+    // round-trip on this page left behind
+    private Future<Void> offerExistingOrganizations(RoutingContext ctx, String origin, String oidcConfigId, String subject) {
+        return identityService.findOrganizationUsersByOidcIdentity(oidcConfigId, subject)
+                              .map(users -> users.stream().filter(OrganizationParticipantIdentity::isEnabled).toList())
+                              // the offer only helps a person who meant to sign in, so a failed lookup leaves the
+                              // sign-up to go on without one
+                              .recover(err -> {
+                                  log.warn("Could not find the organizations of the identity signing up: {}", err.getMessage());
+                                  return Future.succeededFuture(List.of());
+                              })
+                              .onSuccess(users -> OrganizationChoices.offer(ctx, origin, users))
+                              .mapEmpty();
     }
 
     /**

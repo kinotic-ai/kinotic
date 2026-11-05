@@ -1,4 +1,6 @@
-import { apiUrl } from '@kinotic-ai/frontend-common'
+import { apiUrl, createDebug } from '@kinotic-ai/frontend-common'
+
+const debug = createDebug('organization-login')
 
 /** A sign-in provider an organization's login offers, as `GET /api/auth/org/login/:orgId/providers` lists it. */
 export interface LoginProvider {
@@ -60,6 +62,27 @@ export const UNKNOWN_ORGANIZATION_STATE = 'unknownOrganization'
 /** The portal path of an organization's login page. */
 export function organizationLoginPath(organizationId: string): string {
     return '/login/' + encodeURIComponent(organizationId)
+}
+
+/**
+ * The ids of the organizations the social identity this page last sent to its provider signs in to, offered for
+ * two minutes after the round-trip: after a landing-page sign-in that found several, and on a sign-up's org-naming
+ * page. Null when the request itself failed, where an empty list is the server's answer.
+ */
+export async function loadOrganizationChoices(): Promise<string[] | null> {
+    let ret: string[] | null = null
+    try {
+        const res = await fetch(apiUrl('/api/auth/org/login/choices'), { credentials: 'include' })
+        if (res.ok) {
+            const data = await res.json()
+            ret = Array.isArray(data) ? data.filter((id): id is string => typeof id === 'string' && id.length > 0) : []
+        } else {
+            debug('Organization choices returned %d', res.status)
+        }
+    } catch (err) {
+        debug('Failed to load the organization choices: %O', err)
+    }
+    return ret
 }
 
 /**
