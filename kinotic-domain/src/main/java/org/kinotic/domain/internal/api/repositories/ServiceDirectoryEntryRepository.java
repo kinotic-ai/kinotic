@@ -13,6 +13,7 @@ import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.ServiceDirectoryRecord;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -175,7 +176,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     public Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when) {
         // reads the directory page by page, so a directory of any size is read whole, and writes only an
         // entry whose liveness disagrees with the snapshot
-        return CursorPage.forEachPage(pageable -> findAll(pageable, b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress", "online")))),
+        return CursorPaging.forEachPage(pageable -> findAll(pageable, b -> b.source(sc -> sc.filter(f -> f.includes("id", "serviceAddress", "online")))),
                                       LIVENESS_PAGE_SIZE,
                                       Sort.by("id"),
                                       entries -> {

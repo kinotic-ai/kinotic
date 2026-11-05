@@ -7,10 +7,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterNode;
 import org.kinotic.core.api.KinoticNodeAttributes;
-import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.ServerSbom;
 import org.kinotic.domain.api.repositories.ServerSbomRepository;
+import org.kinotic.domain.api.utils.CursorPaging;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -89,7 +89,7 @@ public class ServerSbomRecorder {
     // The rows are listed before the topology is read: a node whose row the listing holds joined the
     // cluster before writing it, so one missing from the topology read after the listing has left
     private void deleteSbomsOfNodesGone() {
-        CursorPage.readAll(repository::findAllIds, ID_PAGE_SIZE, Sort.by("id"))
+        CursorPaging.readAll(repository::findAllIds, ID_PAGE_SIZE, Sort.by("id"))
                   .compose(sboms -> {
                       Set<String> running = ignite.cluster().nodes().stream()
                                                   .map(node -> node.id().toString())
