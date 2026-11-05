@@ -7,7 +7,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.ee.services.OwnedIdentityProvider;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
 import org.kinotic.domain.api.model.security.ApplicationSocialOidcConfiguration;
 import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
@@ -24,8 +23,10 @@ import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.SecretStorageService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
+import org.kinotic.domain.internal.api.ee.services.security.EnterpriseIdentityProviders;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -45,7 +46,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     private final SecretStorageService secretStorageService;
     private final SecurityContext securityContext;
     private final OrganizationSignInGuard signInGuard;
-    private final Map<OidcProviderType, OwnedIdentityProvider> identityProviders;
+    private final GoogleIdentityProvider googleIdentityProvider;
+    private final ObjectProvider<EnterpriseIdentityProviders> enterpriseIdentityProviders;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            ApplicationRepository applicationRepository,
@@ -53,7 +55,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                            SecretStorageService secretStorageService,
                                            SecurityContext securityContext,
                                            OrganizationSignInGuard signInGuard,
-                                           List<OwnedIdentityProvider> identityProviders) {
+                                           GoogleIdentityProvider googleIdentityProvider,
+                                           ObjectProvider<EnterpriseIdentityProviders> enterpriseIdentityProviders) {
         super(repository);
         this.oidcRepository = repository;
         this.applicationRepository = applicationRepository;
@@ -61,8 +64,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         this.secretStorageService = secretStorageService;
         this.securityContext = securityContext;
         this.signInGuard = signInGuard;
-        this.identityProviders = identityProviders.stream()
-                                                  .collect(Collectors.toMap(OwnedIdentityProvider::type, provider -> provider));
+        this.googleIdentityProvider = googleIdentityProvider;
+        this.enterpriseIdentityProviders = enterpriseIdentityProviders;
     }
 
     @Override
@@ -84,7 +87,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 // a configuration signing in through its own client names it, or every sign-in fails at the provider
                 Validate.isTrue(StringUtils.isNotBlank(owned.getClientId()),
                                 "%s needs the client id of its registration with the provider", owned.getClass().getSimpleName());
-                owned.setAuthority(requireIdentityProvider(owned.getProvider()).authority(owned.getProviderAccount()));
+                owned.setAuthority(authorityOf(owned.getProvider(), owned.getProviderAccount()));
             }
             if (owned instanceof OrganizationOidcConfiguration) {
                 // an organization's members are added by its administrators, whom its provider then signs in
@@ -138,10 +141,17 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                         : Future.succeededFuture()));
     }
 
-    private OwnedIdentityProvider requireIdentityProvider(OidcProviderType provider) {
-        OwnedIdentityProvider ret = identityProviders.get(provider);
-        Validate.isTrue(ret != null, "An organization cannot configure a %s provider with a client of its own on this server;"
-                + " Okta and Microsoft Entra are Kinotic Enterprise Features", provider.key());
+    private String authorityOf(OidcProviderType provider, String providerAccount) {
+        String ret;
+        EnterpriseIdentityProviders enterprise = enterpriseIdentityProviders.getIfAvailable();
+        if (provider == OidcProviderType.GOOGLE) {
+            ret = googleIdentityProvider.authority(providerAccount);
+        } else if (enterprise != null && enterprise.supports(provider)) {
+            ret = enterprise.authority(provider, providerAccount);
+        } else {
+            throw new IllegalArgumentException(("An organization cannot configure a %s provider with a client of its own on this server;"
+                    + " Okta and Microsoft Entra are Kinotic Enterprise Features").formatted(provider.key()));
+        }
         return ret;
     }
 

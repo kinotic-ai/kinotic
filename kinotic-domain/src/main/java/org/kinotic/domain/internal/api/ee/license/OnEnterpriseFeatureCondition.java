@@ -1,4 +1,4 @@
-package org.kinotic.ee.internal.license;
+package org.kinotic.domain.internal.api.ee.license;
 
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;

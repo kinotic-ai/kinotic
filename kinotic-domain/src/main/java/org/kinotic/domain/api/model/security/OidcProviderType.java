@@ -17,9 +17,9 @@ import java.util.Set;
  * round-trip through the key in both directions, and Spring's relaxed binder uses the
  * same path when binding from helm values or env vars.
  * <p>
- * The types an organization may configure for itself with a client of its own registration are the ones an
- * {@link org.kinotic.domain.api.ee.services.OwnedIdentityProvider} exists for, which turns the organization's
- * account at the provider into the issuer URL.
+ * Every organization may configure {@link #GOOGLE} for itself with a client of its own registration;
+ * {@link #OKTA} and {@link #AZURE_AD} are Kinotic Enterprise Features. The server turns the organization's account
+ * at the provider into the issuer URL.
  */
 public enum OidcProviderType {
 

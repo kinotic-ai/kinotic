@@ -1,4 +1,4 @@
-package org.kinotic.ee.internal.license;
+package org.kinotic.domain.internal.api.ee.license;
 
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;

@@ -17,11 +17,11 @@ import org.kinotic.domain.api.model.OrganizationScoped;
  * configuration into that scope, and each copy is registered with the provider under its own
  * callback URL.
  *
- * <p>The organization names no URL. It chooses a {@link OidcProviderType} that an
- * {@link org.kinotic.domain.api.ee.services.OwnedIdentityProvider} exists for and gives its
- * {@link #providerAccount} at that provider; the provider derives the authority from the account when the
- * configuration is saved, replacing any value sent, so the server connects to the provider's own hosts
- * only.
+ * <p>The organization names no URL. It chooses {@link OidcProviderType#GOOGLE}, which every organization may
+ * configure, or {@link OidcProviderType#OKTA} or {@link OidcProviderType#AZURE_AD}, which are Kinotic Enterprise
+ * Features, and gives its {@link #providerAccount} at that provider; the server derives the authority from the
+ * account when the configuration is saved, replacing any value sent, so the server connects to the provider's own
+ * hosts only.
  *
  * <p>The client secret is given to {@code OidcConfigurationService.save(configuration, clientSecret)}
  * and held in the owning organization's scope of the secret storage, keyed by the configuration's
