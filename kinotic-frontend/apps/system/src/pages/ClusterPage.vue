@@ -38,7 +38,7 @@
             </span>
           </div>
           <VulnerabilityFindingsTable :items="advisoryRows" data-key="finding.advisoryId"
-                                      empty-hint="No advisory affects the libraries of the running server builds.">
+                                      :empty-title="advisoryEmpty.title" :empty-hint="advisoryEmpty.hint">
             <template #columns>
               <Column header="Builds" style="width: 18%">
                 <template #body="{ data }">
@@ -340,6 +340,20 @@ function nodeTitle(node: KinoticNodeInfo): string {
 function releaseOf(version: string | null): string {
   return version?.split('#')[0] || UNKNOWN_VERSION
 }
+
+/** What the advisory table shows with no row: a clean result only when every build was checked. */
+const advisoryEmpty = computed(() => {
+  const unchecked = (servers.value ?? []).filter(server => buildState(server) === BuildState.UNCHECKED).length
+  let ret: { title: string, hint: string }
+  if (unchecked === 0) {
+    ret = { title: 'No known vulnerabilities', hint: 'No advisory affects the libraries of the running server builds.' }
+  } else if (unchecked === servers.value?.length) {
+    ret = { title: 'Not checked', hint: "No running build's libraries could be checked; hover a build above for why." }
+  } else {
+    ret = { title: 'No known vulnerabilities in the builds checked', hint: 'Some builds could not be checked; hover a grey build above for why.' }
+  }
+  return ret
+})
 
 // a malicious package ranks above every severity
 function severityRank(finding: VulnerabilityFinding): number {
