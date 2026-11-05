@@ -1,5 +1,5 @@
 # Shared Tempo base values (grafana/tempo chart, single binary).
-# Mirrors deployment/docker-compose/tempo.yml with production retention and a persistent volume.
+# Mirrors deployment/docker-compose/tempo.yml with a persistent volume.
 # Environment-specific overrides layer on top.
 
 tempo:

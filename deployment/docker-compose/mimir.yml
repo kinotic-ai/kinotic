@@ -31,6 +31,8 @@ limits:
   # unit and _total suffixes and leaves every stock dashboard and PromQL example matching
   # nothing.
   otel_metric_suffixes_enabled: true
+  # 30 days, as Loki keeps logs and Tempo keeps traces
+  compactor_blocks_retention_period: 720h
 
 compactor:
   compaction_interval: 10m

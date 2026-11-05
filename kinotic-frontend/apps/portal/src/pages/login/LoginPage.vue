@@ -17,11 +17,11 @@
         <p class="login-choices__hint">You belong to several organizations. Choose one to sign in to.</p>
         <Button
           v-for="choice in organizationChoices"
-          :key="choice"
-          :label="choice"
+          :key="choice.id"
+          :label="choice.name"
           class="login-submit login-choices__choice"
           severity="secondary"
-          @click="continueTo(choice)"
+          @click="continueTo(choice.id)"
         />
         <div class="login-divider"><span>or</span></div>
       </div>
@@ -106,7 +106,7 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
+import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 import { emailNotVerifiedMessage, providerDisplayName } from '@/util/oidcConfigurations'
 
 const debug = createDebug('login')
@@ -145,7 +145,7 @@ declare global {
 const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 let turnstileLoading: Promise<Turnstile> | null = null
 const providers = ref<string[]>([])
-const organizationChoices = ref<string[]>([])
+const organizationChoices = ref<OrganizationChoice[]>([])
 
 const organizationInput = ref<any>()
 const emailInput = ref<any>()
@@ -272,7 +272,7 @@ async function consumeUrlError() {
   if (error !== 'multiple_organizations') {
     displayError(errorCodeToMessage(error, provider))
   } else {
-    const choices = await loadChoices()
+    const choices = await loadOrganizationChoices()
     if (choices === null) {
       displayError('Could not load your organizations. Please sign in again.')
     } else if (choices.length === 0) {
@@ -290,24 +290,6 @@ async function consumeUrlError() {
 function unknownOrganization(): string | null {
   const name = window.history.state?.[UNKNOWN_ORGANIZATION_STATE]
   return typeof name === 'string' && name ? name : null
-}
-
-// The organizations the sign-in found, offered for a short while after it; null when the request
-// itself failed, where an empty list is the server's answer.
-async function loadChoices(): Promise<string[] | null> {
-  let ret: string[] | null = null
-  try {
-    const res = await fetch(apiUrl('/api/auth/org/login/choices'), { credentials: 'include' })
-    if (res.ok) {
-      const data = await res.json()
-      ret = Array.isArray(data) ? data.filter((id): id is string => typeof id === 'string' && id.length > 0) : []
-    } else {
-      debug('Organization choices returned %d', res.status)
-    }
-  } catch (err) {
-    debug('Failed to load the organization choices: %O', err)
-  }
-  return ret
 }
 
 function urlParam(name: string): string | null {
@@ -433,19 +415,6 @@ function displayError(text: string) {
 .login-form :deep(input:-webkit-autofill) {
   box-shadow: 0 0 0 1000px var(--lp-input-bg) inset;
   -webkit-text-fill-color: var(--lp-input-color);
-}
-
-.login-choices {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 2.25rem;
-}
-
-.login-choices__hint {
-  margin: 0 0 0.5rem;
-  text-align: center;
-  color: var(--lp-text);
 }
 
 .login-find {

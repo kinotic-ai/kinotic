@@ -49,9 +49,6 @@ helm upgrade es-secret-sync ../../helm/es-secret-sync -n kinotic
 kubectl rollout restart deployment kinotic-server-management kinotic-server-system kinotic-server-app -n kinotic
 ```
 
-**Grafana Entra ID:**
-Managed by terraform — `terraform apply` refreshes the app registration and client secret.
-
 **User tenant assignment:**
 ```bash
 terraform output set_user_tenant_id
@@ -60,10 +57,13 @@ terraform output set_user_tenant_id
 
 ## Monitoring
 
-**Grafana:** port-forward only (no external LB)
+**Loki:** no external LB; forward its service and query it with the tenant header, which Loki
+requires (`auth_enabled: true`, no gateway):
 ```bash
-kubectl port-forward svc/grafana -n observability 3000:3000
-# Then open http://localhost:3000 (Entra ID login)
+kubectl port-forward svc/loki -n observability 3100:3100
+curl -sG -H 'X-Scope-OrgID: kinotic-system' http://localhost:3100/loki/api/v1/query_range \
+     --data-urlencode 'query={namespace="kinotic"} | json | level="ERROR"' \
+     --data-urlencode "start=$(date -u -d '1 hour ago' +%s)000000000" | jq '.data.result[].values'
 ```
 
 **Useful Loki queries:**
