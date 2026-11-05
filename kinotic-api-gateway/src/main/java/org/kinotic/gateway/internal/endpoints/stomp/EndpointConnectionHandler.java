@@ -356,16 +356,20 @@ public class EndpointConnectionHandler {
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
         }
-        // a subscription id the client reuses ends the consumer it named before, whatever its scheme
+        // a subscription id the client reuses ends the consumer it named before, whatever its scheme, and the
+        // receipt waits for that consumer to be gone as well as for the new one to be registered
         EventConsumer previous = subscriptions.put(subscriptionIdentifier, eventConsumer);
+        Future<Void> ret;
         if (previous != null) {
-            previous.unregister();
+            ret = Future.all(previous.unregister(), eventConsumer.completion()).mapEmpty();
+        } else {
+            ret = eventConsumer.completion();
         }
         log.debug("New subscription cri: {} id: {} for login: {}",
                   cri.raw(),
                   subscriptionIdentifier,
                   connectedInfo.getParticipant());
-        return eventConsumer.completion();
+        return ret;
     }
 
     /**

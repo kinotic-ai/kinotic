@@ -403,6 +403,26 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
+    public void testReusedSubscriptionIdIsRegisteredOnceThePreviousConsumerIsUnregistered() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Promise<Void> unregistration = Promise.promise();
+        when(replyConsumer.unregister()).thenReturn(unregistration.future());
+
+        Future<Void> subscribed = handler.subscribe(CRI.create(replyTo), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+
+        Assertions.assertFalse(subscribed.isComplete(), "the subscription completed before the previous consumer was unregistered");
+        unregistration.complete();
+        Assertions.assertTrue(subscribed.succeeded());
+    }
+
+    @Test
     public void testSubscriptionIdReusedAcrossSchemesEndsThePreviousConsumer() throws Exception {
         EndpointConnectionHandler handler = connect(Map.of());
         handler.subscribe(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0"), "sub-1", new StompSubscriptionHandler() {
