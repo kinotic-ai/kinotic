@@ -13323,7 +13323,7 @@ Kinotic's Google and Microsoft registrations (`ApplicationSocialOidcConfiguratio
 Every sign-up founds a new organization with the founder as its first user. The portal's `/signup` page offers GitHub only, because every Kinotic project lives in a GitHub repository:
 
 1. **Sign up with GitHub** starts the provider round-trip; GitHub must report a verified email.
-2. The portal's `/register` page asks for the organization's name.
+2. The portal's `/register` page asks for the organization's name. When the GitHub identity already signs in to organizations, the page lists them by name first, each linking to its login, so a person who meant to sign in can; naming a new organization still founds another.
 3. The organization and its founder are created, the founder bound to their GitHub identity, and the browser is signed in.
 4. The page then offers **Continue to GitHub** to install the Kinotic GitHub App, which project creation needs.
 
@@ -13847,7 +13847,11 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      The organizations a landing-page sign-in found, for two minutes
+      The organizations a landing-page sign-in or a GitHub sign-up found the identity signs in to, <code>
+        [{id, name}]
+      </code>
+      
+      , to the page that started it: for two minutes after a sign-in, and while the sign-up's link is valid after a sign-up
     </td>
   </tr>
   
