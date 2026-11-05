@@ -29,9 +29,9 @@ public class LicenseVerifier {
     /** The property holding the server's license key. */
     public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";
 
-    // X.509 SubjectPublicKeyInfo of Minds Ignited's EC P-256 license signing key, Base64 without the PEM armor.
-    // TODO before merge: replace this throwaway key, whose private key was discarded, with Minds Ignited's public key
-    private static final String TRUSTED_PUBLIC_KEY = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkYFsxwbhq11bFWK1REL7m2yyP4K/ukypr6iwbLufkrjG4cG+Fq6PnMQcVGV/XwoIU8zS9Im1sw5Q0MfvkQIqVA==";
+    // X.509 SubjectPublicKeyInfo of Minds Ignited's EC P-256 license signing key (the kinotic-license-signing key in
+    // the platform Key Vault, deployment/terraform/azure/global/license.tf), Base64 without the PEM armor
+    private static final String TRUSTED_PUBLIC_KEY = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE/z6wLmdRF5jILGpPRiy97WHd5XsuLxhZHyKz0t5GTMUPtSNSYiIuPBVFrr4U8BQz86QtihaP+BU+JlPkKaX5g==";
 
     private static final String FEATURES_CLAIM = "features";
 
