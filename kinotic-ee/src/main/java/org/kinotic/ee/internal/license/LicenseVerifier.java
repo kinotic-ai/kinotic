@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Verifies Kinotic Enterprise License keys. A key is a JWT signed with ES256 by Minds Ignited's EC P-256 license
  * signing key: its {@code sub} names the licensee, its {@code exp} is when the license expires, and its {@code features} claim
- * lists the {@link EnterpriseFeature} names it turns on.
+ * lists the {@link EnterpriseFeature} names it turns on, or {@value #ALL_FEATURES} for every feature the server knows.
  */
 @Slf4j
 public class LicenseVerifier {
@@ -34,6 +34,9 @@ public class LicenseVerifier {
     private static final String TRUSTED_PUBLIC_KEY = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE/z6wLmdRF5jILGpPRiy97WHd5XsuLxhZHyKz0t5GTMUPtSNSYiIuPBVFrr4U8BQz86QtihaP+BU+JlPkKaX5g==";
 
     private static final String FEATURES_CLAIM = "features";
+
+    /** The {@code features} entry that turns on every Enterprise Feature. */
+    public static final String ALL_FEATURES = "*";
 
     private static final Map<String, Optional<License>> VERIFIED = new ConcurrentHashMap<>();
 
@@ -95,12 +98,17 @@ public class LicenseVerifier {
     // a key may name features a newer server knows; this server turns on the ones it knows
     private static Set<EnterpriseFeature> features(Claims claims) {
         List<?> named = claims.get(FEATURES_CLAIM, List.class);
-        Set<EnterpriseFeature> ret = EnumSet.noneOf(EnterpriseFeature.class);
-        if (named != null) {
-            for (Object name : named) {
-                for (EnterpriseFeature feature : EnterpriseFeature.values()) {
-                    if (feature.name().equals(name)) {
-                        ret.add(feature);
+        Set<EnterpriseFeature> ret;
+        if (named != null && named.contains(ALL_FEATURES)) {
+            ret = EnumSet.allOf(EnterpriseFeature.class);
+        } else {
+            ret = EnumSet.noneOf(EnterpriseFeature.class);
+            if (named != null) {
+                for (Object name : named) {
+                    for (EnterpriseFeature feature : EnterpriseFeature.values()) {
+                        if (feature.name().equals(name)) {
+                            ret.add(feature);
+                        }
                     }
                 }
             }

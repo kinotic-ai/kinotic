@@ -13,6 +13,7 @@ import java.security.spec.ECGenParameterSpec;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +49,17 @@ class LicenseVerifierTest {
         assertEquals(Set.of(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS), license.features());
         assertTrue(license.allows(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS));
         assertFalse(license.allows(EnterpriseFeature.AZURE_KEY_VAULT));
+    }
+
+    @Test
+    void theWildcardTurnsOnEveryFeature() {
+        String key = Jwts.builder()
+                         .subject("Kinotic Evaluation")
+                         .expiration(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)))
+                         .claim("features", List.of(LicenseVerifier.ALL_FEATURES))
+                         .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
+                         .compact();
+        assertEquals(EnumSet.allOf(EnterpriseFeature.class), verifier.verify(key).features());
     }
 
     @Test
