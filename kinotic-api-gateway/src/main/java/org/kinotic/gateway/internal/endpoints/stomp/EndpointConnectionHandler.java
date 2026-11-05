@@ -318,10 +318,10 @@ public class EndpointConnectionHandler {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
         }
 
-        Future<Void> ret;
+        EventConsumer eventConsumer;
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventBusService.listen(cri);
+            eventConsumer = services.eventBusService.listen(cri);
             eventConsumer.handler(event -> {
                         // An invocation with a correlation id awaits a reply until its terminal one, and its
                         // replies are allowed for that long. Any other event carrying a reply-to gets one
@@ -343,42 +343,29 @@ public class EndpointConnectionHandler {
                     })
                     .exceptionHandler(subscriptionHandler::handleError);
 
-            replaceSubscription(subscriptionIdentifier, eventConsumer);
-            ret = eventConsumer.completion();
-
-            log.debug("New Service Subscription cri: {} id: {} for login: {}",
-                      cri.raw(),
-                      subscriptionIdentifier,
-                      connectedInfo.getParticipant());
-
-
         } else if (cri.scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventStreamService.listen(cri);
+            eventConsumer = services.eventStreamService.listen(cri);
             eventConsumer.handler(subscriptionHandler::handleEvent)
                          .exceptionHandler(subscriptionHandler::handleError);
 
-            replaceSubscription(subscriptionIdentifier, eventConsumer);
-            ret = eventConsumer.completion();
-
-            log.debug("New Event Subscription cri: {} id: {} for login: {}",
-                      cri.raw(),
-                      subscriptionIdentifier,
-                      connectedInfo.getParticipant());
-
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            ret = incomingInvocationTracker.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
-
-            log.debug("New Reply Subscription cri: {} id: {} for login: {}",
-                      cri.raw(),
-                      subscriptionIdentifier,
-                      connectedInfo.getParticipant());
+            eventConsumer = incomingInvocationTracker.listenForReplies(cri, subscriptionHandler);
 
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
         }
-        return ret;
+        // a subscription id the client reuses ends the consumer it named before, whatever its scheme
+        EventConsumer previous = subscriptions.put(subscriptionIdentifier, eventConsumer);
+        if (previous != null) {
+            previous.unregister();
+        }
+        log.debug("New subscription cri: {} id: {} for login: {}",
+                  cri.raw(),
+                  subscriptionIdentifier,
+                  connectedInfo.getParticipant());
+        return eventConsumer.completion();
     }
 
     /**
@@ -391,25 +378,15 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        Future<Void> ret = incomingInvocationTracker.unsubscribeReplies(subscriptionIdentifier);
-        if (ret == null) {
-            EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
-            if (consumer != null) {
-                ret = consumer.unregister();
-            } else {
-                log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
-                ret = Future.succeededFuture();
-            }
+        EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
+        Future<Void> ret;
+        if (consumer != null) {
+            ret = consumer.unregister();
+        } else {
+            log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
+            ret = Future.succeededFuture();
         }
         return ret;
-    }
-
-    // a subscription id the client reuses ends the consumer it named before
-    private void replaceSubscription(String subscriptionIdentifier, EventConsumer eventConsumer) {
-        EventConsumer previous = subscriptions.put(subscriptionIdentifier, eventConsumer);
-        if (previous != null) {
-            previous.unregister();
-        }
     }
 
     private Map<String, String> toCaseInsensitiveMap(MultiMap headers) {

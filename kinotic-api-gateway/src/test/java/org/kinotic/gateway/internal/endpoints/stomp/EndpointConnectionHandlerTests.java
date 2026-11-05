@@ -403,6 +403,23 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
+    public void testSubscriptionIdReusedAcrossSchemesEndsThePreviousConsumer() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        handler.subscribe(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0"), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+        subscribeReplies(handler);
+        verify(replyConsumer, times(1)).unregister();
+
+        handler.unsubscribe("sub-1");
+        verify(replyConsumer, times(2)).unregister();
+    }
+
+    @Test
     public void testUnsubscribeCompletesWithTheConsumersUnregistration() throws Exception {
         EndpointConnectionHandler handler = connect(Map.of());
         subscribeReplies(handler);

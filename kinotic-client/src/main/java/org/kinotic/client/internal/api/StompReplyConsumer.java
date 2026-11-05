@@ -127,7 +127,7 @@ public class StompReplyConsumer implements EventConsumer {
     @Override
     public Future<Void> unregister() {
         registered = false;
-        completion.tryFail(new IllegalStateException("The consumer for " + address + " was unregistered before a subscription was receipted"));
+        completion.tryFail("The consumer for " + address + " was unregistered before a subscription was receipted");
         Future<Void> ret = transport.remove(this);
         Handler<Void> onEnd = endHandler;
         if (onEnd != null) {
