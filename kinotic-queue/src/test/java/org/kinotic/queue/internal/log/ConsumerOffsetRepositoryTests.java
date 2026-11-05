@@ -2,7 +2,6 @@ package org.kinotic.queue.internal.log;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.kinotic.queue.api.config.QueueProperties;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class ConsumerOffsetRepositoryTests {
 
-    private static final QueueProperties ONE_SECOND = new QueueProperties().setRetentionPeriod(Duration.ofSeconds(1));
+    private static final Duration ONE_SECOND = Duration.ofSeconds(1);
 
     @TempDir
     private Path directory;

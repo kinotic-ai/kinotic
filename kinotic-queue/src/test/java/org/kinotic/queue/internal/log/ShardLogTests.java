@@ -293,6 +293,22 @@ public class ShardLogTests {
     }
 
     @Test
+    public void aQueueFileThisVersionDidNotWriteIsRefused() throws Exception {
+        Path queueDirectory = Files.createDirectories(directory.resolve("orders"));
+        Files.writeString(queueDirectory.resolve("queue"), "first 2");
+
+        assertThrows(IllegalStateException.class, () -> QueueLog.findDefinition(queueDirectory));
+    }
+
+    @Test
+    public void aStoredQueueWithOtherWriteSyncingThanTheClusterDefinesIsRefused() {
+        QueueLog.openOrCreate(directory.resolve("orders"), new QueueDefinition("orders", 2, false), "first", PROPERTIES).close();
+
+        assertThrows(IllegalStateException.class,
+                     () -> QueueLog.openOrCreate(directory.resolve("orders"), new QueueDefinition("orders", 2, true), "first", PROPERTIES));
+    }
+
+    @Test
     public void aClosedQueueAndItsShardsChangeNothingOnDisk() throws Exception {
         Path queueDirectory = directory.resolve("orders");
         QueueLog queueLog = QueueLog.openOrCreate(queueDirectory, new QueueDefinition("orders", 2), "first", PROPERTIES);

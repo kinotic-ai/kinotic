@@ -11,7 +11,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.queue.api.model.QueueDefinition;
 import org.kinotic.queue.api.services.QueueService;
 import org.kinotic.queue.internal.cluster.message.AppendRequest;
 import org.kinotic.queue.internal.cluster.message.FetchRequest;
@@ -329,8 +328,8 @@ public class QueueNode {
         }
     }
 
-    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's shard count and
-    // syncWrites when this node does not know it yet
+    // Appends a record to the group's dead-letter queue, creating the queue with the source queue's settings when this
+    // node does not know it yet
     private Future<Void> deadLetter(String queue, String groupName, ShardEntry entry) {
         String deadLetterQueue = QueueService.deadLetterQueue(queue, groupName);
         StoredQueue known = definitions.findKnown(deadLetterQueue);
@@ -339,8 +338,7 @@ public class QueueNode {
             if (source == null) {
                 throw QueueFailure.NO_QUEUE.exception("No queue named " + queue);
             }
-            QueueDefinition definition = source.definition();
-            return localQueues.saveIfAbsent(new QueueDefinition(deadLetterQueue, definition.shardCount(), definition.syncWrites()));
+            return localQueues.saveIfAbsent(source.definition().withName(deadLetterQueue));
         }, false);
         return client.append(deadLetterQueue, stored, entry.key(), entry.payload())
                      .onSuccess(position -> metrics.recordDeadLetter(queue, groupName))

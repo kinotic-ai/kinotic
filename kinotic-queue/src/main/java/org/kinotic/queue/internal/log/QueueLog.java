@@ -68,8 +68,8 @@ public final class QueueLog implements AutoCloseable {
         this.properties = properties;
         this.shards = new ShardLog[definition.shardCount()];
         this.positionVersions = new AtomicLongArray(definition.shardCount());
-        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), positionVersions, definition.syncWrites(), properties);
-        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), positionVersions, definition.syncWrites(), properties);
+        this.consumerOffsets = new ConsumerOffsetRepository(directory.resolve("consumers"), positionVersions, definition.syncWrites(), properties.getRetentionPeriod());
+        this.groupOffsets = new ConsumerOffsetRepository(directory.resolve("groups"), positionVersions, definition.syncWrites(), properties.getRetentionPeriod());
     }
 
     /**
@@ -95,7 +95,7 @@ public final class QueueLog implements AutoCloseable {
      *
      * @param incarnation tells this queue from earlier ones of the same name
      * @param properties  the queue storage settings the shards follow
-     * @throws IllegalStateException when the directory holds the queue with a different shard count
+     * @throws IllegalStateException when the directory holds the queue with a different shard count or write syncing
      */
     public static QueueLog openOrCreate(Path directory, QueueDefinition definition, String incarnation, QueueProperties properties) {
         // Anything else there belongs to an earlier queue, or to a deletion a crash interrupted
@@ -106,6 +106,10 @@ public final class QueueLog implements AutoCloseable {
         if (stored != null && stored.shardCount() != definition.shardCount()) {
             throw new IllegalStateException(directory + " holds queue " + definition.name() + " with " + stored.shardCount()
                                                     + " shards, but the cluster defines it with " + definition.shardCount());
+        }
+        if (stored != null && stored.syncWrites() != definition.syncWrites()) {
+            throw new IllegalStateException(directory + " holds queue " + definition.name() + " with syncWrites " + stored.syncWrites()
+                                                    + ", but the cluster defines it with " + definition.syncWrites());
         }
         if (stored == null) {
             DurableFiles.writeDurably(directory.resolve(QUEUE_FILE), incarnation + " " + definition.shardCount() + " " + definition.syncWrites());
@@ -161,12 +165,23 @@ public final class QueueLog implements AutoCloseable {
      * Reads the definition of the queue stored in {@code directory}.
      *
      * @return the definition, or null when no queue is stored there
+     * @throws IllegalStateException when the directory's queue file is not one this version writes
      */
     public static QueueDefinition findDefinition(Path directory) {
         String name = directory.getFileName().toString();
-        String stored = isValidName(name) ? DurableFiles.read(directory.resolve(QUEUE_FILE)) : null;
-        String[] fields = stored != null ? stored.split(" ") : null;
-        return fields != null ? new QueueDefinition(name, Integer.parseInt(fields[1]), Boolean.parseBoolean(fields[2])) : null;
+        Path file = directory.resolve(QUEUE_FILE);
+        String stored = isValidName(name) ? DurableFiles.read(file) : null;
+        QueueDefinition ret = null;
+        if (stored != null) {
+            String[] fields = stored.split(" ");
+            // Boolean.parseBoolean reads anything but "true" as false, which would turn a damaged file into a queue
+            // without write syncing
+            if (fields.length != 3 || !(fields[2].equals("true") || fields[2].equals("false"))) {
+                throw new IllegalStateException(file + " does not hold '<incarnation> <shard count> <sync writes>': " + stored);
+            }
+            ret = new QueueDefinition(name, Integer.parseInt(fields[1]), Boolean.parseBoolean(fields[2]));
+        }
+        return ret;
     }
 
     /**

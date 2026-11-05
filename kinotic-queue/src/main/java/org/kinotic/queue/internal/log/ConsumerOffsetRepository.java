@@ -2,7 +2,6 @@ package org.kinotic.queue.internal.log;
 
 import lombok.Getter;
 import org.apache.commons.io.IOUtils;
-import org.kinotic.queue.api.config.QueueProperties;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -69,14 +68,14 @@ public final class ConsumerOffsetRepository implements AutoCloseable {
      * @param versions   one counter per shard, which every change of a position stored for the shard increments; it may
      *                   be shared with other repositories, so one version covers their positions too
      * @param syncWrites whether each save is forced to disk before it returns
-     * @param properties the retention period after which an unused position expires
+     * @param expiry     the queue's retention period, after which an unused position expires
      */
-    ConsumerOffsetRepository(Path directory, AtomicLongArray versions, boolean syncWrites, QueueProperties properties) {
+    ConsumerOffsetRepository(Path directory, AtomicLongArray versions, boolean syncWrites, Duration expiry) {
         this.directory = directory;
         this.shardCount = versions.length();
         this.versions = versions;
         this.syncWrites = syncWrites;
-        this.expiry = properties.getRetentionPeriod();
+        this.expiry = expiry;
         this.refreshInterval = refreshInterval(expiry);
     }
 

@@ -20,4 +20,11 @@ public record QueueDefinition(String name, int shardCount, boolean syncWrites) {
     public QueueDefinition(String name, int shardCount) {
         this(name, shardCount, true);
     }
+
+    /**
+     * @return a queue with the name and this queue's settings
+     */
+    public QueueDefinition withName(String name) {
+        return new QueueDefinition(name, shardCount, syncWrites);
+    }
 }
