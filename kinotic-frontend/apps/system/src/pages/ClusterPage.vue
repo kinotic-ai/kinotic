@@ -54,12 +54,12 @@
       </DashboardSection>
 
       <DashboardSection :icon="Server" :tint="TINTS.ink" title="Server nodes" :count="cluster?.nodes.length"
-                        description="Logs follows that node's logs. Logging opens its logger levels and trace-log filters.">
-        <!-- the cluster's shape at a glance: its nodes in the order they joined, linked, with a pulse
-             running between them while the cluster serves -->
-        <div v-if="orderedNodes.length > 0"
+                        description="Each server and how many nodes run it; select one to list only its nodes. Logs follows a node's logs. Logging opens its logger levels and trace-log filters.">
+        <!-- the cluster's shape at a glance: its servers in the order their first node joined, linked,
+             with a pulse running between them while the cluster serves -->
+        <div v-if="serverGroups.length > 0"
              class="topology flex items-center gap-0 overflow-x-auto border-b border-surface-200 px-5 py-5 dark:border-surface-700">
-          <template v-for="(node, position) in orderedNodes" :key="node.nodeId">
+          <template v-for="(group, position) in serverGroups" :key="group.name">
             <div v-if="position > 0" class="relative h-px min-w-8 flex-1 overflow-visible bg-surface-300 dark:bg-surface-600" aria-hidden="true">
               <!-- the pulse: a streak of light fading out at both ends, its bright head leading -->
               <span v-if="cluster?.active" class="topology__pulse absolute -top-[2px] flex h-[5px] w-16 items-center">
@@ -68,18 +68,30 @@
                 <span class="h-px w-3 bg-gradient-to-r from-purple-500 to-transparent" />
               </span>
             </div>
-            <div class="flex shrink-0 items-center gap-2.5 rounded-xl border border-surface-200 bg-surface-0 px-3 py-2 shadow-sm dark:border-surface-700 dark:bg-surface-900">
+            <button type="button" :aria-pressed="serverFilter === group.name" @click="toggleServerFilter(group.name)"
+                    :class="['flex shrink-0 items-center gap-2.5 rounded-xl border bg-surface-0 px-3 py-2 text-left shadow-sm dark:bg-surface-900',
+                             serverFilter === group.name ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-surface-200 dark:border-surface-700']">
               <span :class="['flex h-7 w-7 items-center justify-center rounded-md', TINTS.ink]">
                 <Server :size="14" :stroke-width="1.75" aria-hidden="true" />
               </span>
               <div class="leading-tight">
-                <div class="text-[0.8125rem] font-semibold text-surface-950 dark:text-surface-0">{{ nodeTitle(node) }}</div>
-                <div class="font-mono text-[0.6875rem] text-muted-color">#{{ node.order }} · {{ primaryAddress(node.addresses) }}</div>
+                <div class="text-[0.8125rem] font-semibold text-surface-950 dark:text-surface-0">{{ group.name }}</div>
+                <div class="text-[0.6875rem] text-muted-color">
+                  {{ group.nodes.length }} {{ group.nodes.length === 1 ? 'node' : 'nodes' }}<span v-if="group.behind" class="text-orange-600 dark:text-orange-400"> · {{ group.behind }} behind</span>
+                </div>
               </div>
-            </div>
+            </button>
           </template>
         </div>
-        <DataTable :value="cluster?.nodes ?? []" size="small" class="text-sm" data-key="nodeId">
+        <div v-if="orderedNodes.length > 0" class="flex flex-wrap items-center gap-3 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
+          <IconField class="w-full sm:w-80">
+            <InputIcon class="pi pi-search" />
+            <InputText v-model="nodeSearch" placeholder="Search by name, address or id" size="small" class="w-full" />
+          </IconField>
+          <Button v-if="serverFilter" :label="`Only ${serverFilter}`" icon="pi pi-times" icon-pos="right" severity="secondary"
+                  size="small" outlined @click="serverFilter = null" />
+        </div>
+        <DataTable :value="pageNodes" size="small" class="text-sm" data-key="nodeId">
           <template #empty>
             <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Loading cluster topology…</div>
             <EmptyChartCharacter v-else class="py-6" title="No server nodes reported" />
@@ -129,6 +141,9 @@
             </template>
           </Column>
         </DataTable>
+        <TablePaginator v-if="visibleNodes.length" class="border-t border-surface-200 px-5 py-3 dark:border-surface-700"
+                        :first="nodeFirst" :rows="nodePageSize" :total-records="visibleNodes.length"
+                        :rows-per-page-options="NODE_PAGE_SIZES" @page="onNodePage" />
       </DashboardSection>
 
       <div class="grid gap-4 lg:grid-cols-2">
@@ -181,19 +196,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, markRaw, onMounted, ref, type Component } from 'vue'
+import { computed, markRaw, onMounted, ref, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
+import type { PageState } from 'primevue/paginator'
 import Tag from 'primevue/tag'
 import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, ShieldAlert, Tag as TagIcon } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator } from '@kinotic-ai/frontend-common'
 import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
@@ -258,6 +277,44 @@ const SIGNALS = [
 
 const orderedNodes = computed(() => [...(cluster.value?.nodes ?? [])].sort((a, b) => a.order - b.order))
 
+const NODE_PAGE_SIZES = [10, 25, 50, 100]
+
+/** The server, by name, whose nodes alone the node list shows, or null for every server's. */
+const serverFilter = ref<string | null>(null)
+const nodeSearch = ref('')
+const nodeFirst = ref(0)
+const nodePageSize = ref(NODE_PAGE_SIZES[0])
+
+/** The cluster's nodes grouped by the server they run, in the order each server's first node joined. */
+const serverGroups = computed(() => {
+  const byName = new Map<string, { name: string, nodes: KinoticNodeInfo[], behind: number }>()
+  for (const node of orderedNodes.value) {
+    const name = serverOf(node)
+    let group = byName.get(name)
+    if (!group) {
+      group = { name, nodes: [], behind: 0 }
+      byName.set(name, group)
+    }
+    group.nodes.push(node)
+    if (commonVersion.value && node.version !== commonVersion.value) {
+      group.behind++
+    }
+  }
+  return [...byName.values()]
+})
+
+const visibleNodes = computed(() => {
+  const needle = nodeSearch.value.trim().toLowerCase()
+  return orderedNodes.value.filter(node => (serverFilter.value === null || serverOf(node) === serverFilter.value)
+    && (!needle || [nodeTitle(node), node.nodeId, ...node.addresses, ...node.hostNames].some(text => text.toLowerCase().includes(needle))))
+})
+
+const pageNodes = computed(() => visibleNodes.value.slice(nodeFirst.value, nodeFirst.value + nodePageSize.value))
+
+watch([nodeSearch, serverFilter], () => {
+  nodeFirst.value = 0
+})
+
 /** The system's own workloads, null until they load or when they fail to. */
 const systemWorkloads = ref<Workload[] | null>(null)
 const systemRunning = computed(() => systemWorkloads.value?.filter(w => w.status === WorkloadStatus.RUNNING).length ?? 0)
@@ -321,6 +378,20 @@ function buildProblem(server: ServerVulnerabilities): string | undefined {
     ret = 'This build was started without the library list a server build packages, so there are no libraries to check.'
   }
   return ret
+}
+
+// a node that names no server is grouped under its own title, so it never merges with another
+function serverOf(node: KinoticNodeInfo): string {
+  return node.serverName || nodeTitle(node)
+}
+
+function toggleServerFilter(name: string): void {
+  serverFilter.value = serverFilter.value === name ? null : name
+}
+
+function onNodePage(state: PageState): void {
+  nodeFirst.value = state.first
+  nodePageSize.value = state.rows
 }
 
 function shortId(id: string): string {
