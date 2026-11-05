@@ -102,6 +102,7 @@ Placed on the host before the first apply, so the servers start with everything 
 ```bash
 ./generate-secrets.sh ./dev-server-secrets
 (cd ../azure/dev-server && terraform output -raw secrets_env) > ./dev-server-secrets/kinotic-servers.env   # the principal's secret and the Cloudflare DNS token
+# A Kinotic Enterprise License key that turns on AZURE_KEY_VAULT → kinotic.ee.licenseKey in every server's secrets.yml
 # The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-server-management/secrets.yml
 # and dev-server-secrets/kinotic-server-system/secrets.yml, the servers that load the GitHub module
 ./sync-secrets.sh ./dev-server-secrets <host>
