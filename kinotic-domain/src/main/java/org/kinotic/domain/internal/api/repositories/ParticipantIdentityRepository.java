@@ -27,6 +27,11 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
     // the most organizations one email is a member of
     private static final int MAX_ORGANIZATIONS_PER_EMAIL = 100;
 
+    private static final String RESTORE_PENDING_SCRIPT = """
+            ctx._source.pending = true;
+            ctx._source.updated = params.updated
+            """;
+
     // a disabled user is left as it is, so an administrator's enabled=false written meanwhile is never overwritten
     private static final String CLEAR_PENDING_SCRIPT = """
             if (ctx._source.pending != true || ctx._source.enabled != true) {
@@ -57,6 +62,18 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
         params.put("updated", new Date());
         params.put("displayName", displayName);
         return crudServiceTemplate.scriptedUpdateSync(indexName, id, CLEAR_PENDING_SCRIPT, params);
+    }
+
+    /**
+     * Returns the user to pending, visible to search when the future completes: the acceptance that claimed it
+     * could not finish, so the invitation can be accepted again.
+     *
+     * @param id the user
+     */
+    public Future<Void> restorePending(String id) {
+        Validate.notBlank(id, "id cannot be blank");
+        return crudServiceTemplate.scriptedUpdateSync(indexName, id, RESTORE_PENDING_SCRIPT, Map.of("updated", new Date()))
+                                  .mapEmpty();
     }
 
     /** The system user with the email, or {@code null}. */

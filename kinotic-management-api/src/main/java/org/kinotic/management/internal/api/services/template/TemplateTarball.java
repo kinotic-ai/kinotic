@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.template;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -22,6 +23,9 @@ public final class TemplateTarball {
     public static final int MAX_FILE_BYTES = 8 * 1024 * 1024;
     /** The most file content a template repository holds in all. */
     public static final long MAX_TOTAL_BYTES = 128L * 1024 * 1024;
+    // the decompressed archive as a whole: the files, their headers and padding, and the entries skipped as
+    // directories, links or outside the root, which the file limits never count
+    private static final long MAX_ARCHIVE_BYTES = 2 * MAX_TOTAL_BYTES;
     /** The most files a template repository holds. */
     public static final int MAX_FILES = 10_000;
 
@@ -36,8 +40,13 @@ public final class TemplateTarball {
     public static Map<String, TarballFile> parse(byte[] tarGz) {
         Map<String, TarballFile> files = new LinkedHashMap<>();
         long totalBytes = 0;
-        try (TarArchiveInputStream tar = new TarArchiveInputStream(
-                new GzipCompressorInputStream(new ByteArrayInputStream(tarGz)))) {
+        try (TarArchiveInputStream tar = new TarArchiveInputStream(BoundedInputStream.builder()
+                .setInputStream(new GzipCompressorInputStream(new ByteArrayInputStream(tarGz)))
+                .setMaxCount(MAX_ARCHIVE_BYTES)
+                .setOnMaxCount((max, count) -> {
+                    throw new IllegalArgumentException("The repository tarball decompresses to more than " + max + " bytes");
+                })
+                .get())) {
             TarArchiveEntry entry;
             while ((entry = tar.getNextEntry()) != null) {
                 if (!entry.isFile()) {

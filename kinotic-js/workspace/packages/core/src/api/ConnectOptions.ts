@@ -43,8 +43,10 @@ export class ServerInfo {
  * TLS appends {@code s}, and the port is omitted when absent so the scheme default applies.
  */
 export function buildServerUrl(server: ServerInfo, scheme: 'ws' | 'http'): string {
+    // a bare IPv6 literal such as ::1 is bracketed, or its colons would read as the port's
+    const host = server.host.includes(':') && !server.host.startsWith('[') ? '[' + server.host + ']' : server.host
     return scheme + (server.useSSL ? 's' : '')
-        + '://' + server.host
+        + '://' + host
         + (server.port ? ':' + server.port : '')
 }
 

@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
@@ -107,11 +108,15 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     /**
-     * Deletes every document the query matches, visible to search when the future completes. Subclasses use this
+     * Deletes every document the query matches, visible to search when the future completes; a document another
+     * writer changes while the request runs is skipped rather than failing the cascade. Subclasses use this
      * overload to cascade a deletion over the documents that name a deleted parent.
      */
     protected Future<Void> deleteByQuery(Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
-        return crudServiceTemplate.deleteByQuery(indexName, builderConsumer)
+        return crudServiceTemplate.deleteByQuery(indexName, builder -> {
+                                      builder.refresh(true).conflicts(Conflicts.Proceed);
+                                      builderConsumer.accept(builder);
+                                  })
                                   .mapEmpty();
     }
 

@@ -33,7 +33,13 @@ public class ConnectionRegistry {
      */
     public Runnable register(ConnectionRevocationType type, String id, Consumer<Throwable> close) {
         String key = key(type, id);
-        connections.computeIfAbsent(key, k -> new CopyOnWriteArraySet<>()).add(close);
+        // added under the key's lock, so a revoke or an unregister detaching the set cannot slip in between
+        // finding the set and adding to it and leave the closer in a set nothing reads
+        connections.compute(key, (k, closers) -> {
+            Set<Consumer<Throwable>> registered = closers != null ? closers : new CopyOnWriteArraySet<>();
+            registered.add(close);
+            return registered;
+        });
         return () -> connections.computeIfPresent(key, (k, closers) -> {
             closers.remove(close);
             return closers.isEmpty() ? null : closers;

@@ -400,9 +400,9 @@ public class CrudServiceTemplate {
     }
 
     /**
-     * Deletes every document the query matches, with the deletions visible to search when the future completes.
-     * A document another writer changes while the request runs is skipped rather than failing the request. Also
-     * allows for customization of the {@link DeleteByQueryRequest}.
+     * Deletes every document the query matches. Also allows for customization of the {@link DeleteByQueryRequest},
+     * the refresh and the conflict handling among it: by default a document another writer changes while the
+     * request runs fails the request, as Elasticsearch has it.
      *
      * @param indexName       name of the index to delete from
      * @param builderConsumer to customize the {@link DeleteByQueryRequest}: the query, at least
@@ -411,9 +411,7 @@ public class CrudServiceTemplate {
     public Future<DeleteByQueryResponse> deleteByQuery(String indexName,
                                                        Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
         return KinoticUtil.toFuture(esAsyncClient.deleteByQuery(builder -> {
-            builder.index(indexName)
-                   .refresh(true)
-                   .conflicts(Conflicts.Proceed);
+            builder.index(indexName);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
             }

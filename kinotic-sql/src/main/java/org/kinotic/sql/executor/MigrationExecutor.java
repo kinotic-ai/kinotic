@@ -49,8 +49,9 @@ public class MigrationExecutor {
     /**
      * Ensures that the migration tracking index exists in Elasticsearch, with history keyed by organization and
      * project. An index from before history carried the organization gets the field mapped and its system rows
-     * attributed to the system organization; a project's rows name no organization and stay as they are, so that
-     * project's migrations read as unapplied until the cluster is rebuilt.
+     * attributed to the system organization; a project's rows name no organization, which nothing can attribute,
+     * so the future fails while any remain rather than let that project's migrations read as unapplied and run
+     * again: the cluster is rebuilt.
      * @return CompletableFuture<Boolean> that completes with true if index was created, false if it already existed
      */
     public CompletableFuture<Boolean> ensureMigrationIndexExists() {
@@ -89,7 +90,18 @@ public class MigrationExecutor {
                                                                 + response.failures().size() + " failure(s), timed out: " + response.timedOut());
                             }
                             return false;
-                        });
+                        })
+                        .thenCompose(created -> client.count(c -> c.index(MIGRATION_INDEX)
+                                                                   .query(q -> q.bool(b -> b.mustNot(m -> m.exists(e -> e.field("organizationId"))))))
+                                                      .thenApply(unattributed -> {
+                                                          // a project's rows name no organization and are read as unapplied, so their
+                                                          // migrations would run again; only a rebuild of the cluster takes them
+                                                          if (unattributed.count() > 0) {
+                                                              throw new IllegalStateException("The migration history holds " + unattributed.count()
+                                                                      + " project row(s) naming no organization; rebuild the cluster before migrating");
+                                                          }
+                                                          return created;
+                                                      }));
             });
     }
 
