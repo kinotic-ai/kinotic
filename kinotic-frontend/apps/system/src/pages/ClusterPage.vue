@@ -321,6 +321,13 @@ watch([nodeSearch, serverFilter], () => {
   nodeFirst.value = 0
 })
 
+// a refresh can leave fewer nodes than the current page starts at
+watch(() => visibleNodes.value.length, length => {
+  if (nodeFirst.value >= length) {
+    nodeFirst.value = 0
+  }
+})
+
 /** The system's own workloads, null until they load or when they fail to. */
 const systemWorkloads = ref<Workload[] | null>(null)
 const systemRunning = computed(() => systemWorkloads.value?.filter(w => w.status === WorkloadStatus.RUNNING).length ?? 0)
