@@ -43,7 +43,7 @@
     "@opentelemetry/sdk-trace-node": "2.10.0",
     "@opentelemetry/semantic-conventions": "1.40.0",
     "p-queue": "^9.3.3",
-    "uuid": "^13.0.2",
+    "uuid": "^14.0.0",
     "ws": "^8.21.3"
   },
   "packageManager": "pnpm@10.33.0"
