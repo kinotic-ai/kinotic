@@ -171,7 +171,8 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
             authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.INVALID_TOKEN);
             return;
         }
-        if (!OAuth2Util.isEmailVerified(claims, config.getProvider())) {
+        // the founder's user is created under the email, so the email is held to the proof its configuration needs
+        if (!OAuth2Util.isEmailProven(claims, config)) {
             authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED, config.getProvider());
             return;
         }

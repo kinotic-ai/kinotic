@@ -216,14 +216,14 @@ describe('Kinotic JS', () => {
 
         expect(await stompHandshake(stompUrl(), tokens.access_token)).toBe('open')
 
-        // The device grant's token carries aud=kinotic, but no entry point verifies the claim, so
-        // it also calls MCP tools. Restoring the check (Jira KINOTIC-102) makes this a 401.
+        // the device grant's token carries the published services audience, which the MCP endpoint refuses:
+        // a token is accepted only by the surface it was minted for
         const mcpResponse = await fetch(`${restBase()}/mcp`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Authorization: `Bearer ${tokens.access_token}`},
             body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'tools/list'})
         })
-        expect(mcpResponse.status).toBe(200)
+        expect(mcpResponse.status).toBe(401)
 
         // rotation re-mints a token with the same reach
         const refreshed = await postForm(`${restBase()}/api/auth/oauth/token`,

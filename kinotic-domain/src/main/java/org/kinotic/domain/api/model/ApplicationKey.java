@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.model;
 
+import java.io.Serializable;
+
 import org.apache.commons.lang3.Validate;
 
 /**
@@ -9,7 +11,7 @@ import org.apache.commons.lang3.Validate;
  * @param organizationId the organization that owns the application
  * @param applicationId  the application's id within the organization
  */
-public record ApplicationKey(String organizationId, String applicationId) {
+public record ApplicationKey(String organizationId, String applicationId) implements Serializable {
 
     public ApplicationKey {
         Validate.notBlank(organizationId, "organizationId is required");

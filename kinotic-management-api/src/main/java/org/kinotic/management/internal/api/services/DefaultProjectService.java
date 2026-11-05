@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventType;
@@ -63,12 +64,29 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<Project> createProjectIfNotExist(Project project) {
         validateAndDeriveId(project);
         return findById(project.getId())
-                .compose(existing -> {
-                    if (existing != null) {
-                        return Future.succeededFuture(existing);
-                    }
-                    return repoProvisioner.provision(project).compose(this::save);
-                });
+                .compose(existing -> existing != null
+                        ? Future.succeededFuture(existing)
+                        : provisionAndWrite(project, super::create));
+    }
+
+    @Override
+    public Future<Project> save(Project project) {
+        return requireStored(project).compose(v -> super.save(project));
+    }
+
+    @Override
+    public Future<Project> saveSync(Project project) {
+        return requireStored(project).compose(v -> super.saveSync(project));
+    }
+
+    // A save never creates: a new project goes through create, which provisions its repository, so a member cannot
+    // write a project bound to a repository of their choosing and then have that repository's credentials issued
+    private Future<Void> requireStored(Project project) {
+        Validate.notNull(project, "Project cannot be null");
+        Validate.notNull(project.getId(), "Project id cannot be null");
+        return findById(project.getId()).compose(stored -> stored == null
+                ? Future.failedFuture(new IllegalArgumentException("Project for id " + project.getId() + " does not exist; a project is created, not saved"))
+                : Future.succeededFuture());
     }
 
     @Override
@@ -81,8 +99,21 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         if(project.getId() == null){
             project.setId(deriveId(project));
         }
+        // the id names the project's checkout directory on a node, so a saved id is held to the same grammar as a created one
+        DomainUtil.validateProjectId(project.getId());
         project.setUpdated(new Date());
-        return Future.succeededFuture();
+        // The repository binding is the provisioner's: a save keeps what is stored, so a member cannot
+        // point a project at another repository and have that repository's credentials issued
+        return findById(project.getId()).map(stored -> {
+            if (stored != null) {
+                project.setRepoFullName(stored.getRepoFullName());
+                project.setRepoId(stored.getRepoId());
+                project.setRepoDefaultBranch(stored.getRepoDefaultBranch());
+                project.setRepoPrivate(stored.isRepoPrivate());
+                project.setRepoConnectionStatus(stored.getRepoConnectionStatus());
+            }
+            return null;
+        });
     }
 
     @Override
@@ -153,7 +184,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                         "Project " + projectId + " is not awaiting initialization retry (status "
                         + project.getRepoConnectionStatus() + ")"));
             }
-            return repoProvisioner.reinitialize(project).compose(this::saveSync);
+            // written to the repository: the service's save keeps the stored repository binding, which the
+            // initialization retry changes
+            return repoProvisioner.reinitialize(project)
+                                  .compose(reinitialized -> {
+                                      reinitialized.setUpdated(new Date());
+                                      return projectRepository.saveSync(reinitialized, reinitialized.getOrganizationId());
+                                  });
         });
     }
 
@@ -182,6 +219,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         Validate.notNull(project.getName(), "Project name cannot be null");
         Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
         DomainUtil.validateApplicationId(project.getApplicationId());
+        // checked before the repository is provisioned under the project's organization, which the
+        // write's own organization check comes too late for
+        String organizationId = requireOrganizationId();
+        if (!organizationId.equals(project.getOrganizationId())) {
+            throw new AuthorizationException("Cannot create a project of organization '" + project.getOrganizationId()
+                                             + "' while authenticated as organization '" + organizationId + "'");
+        }
         if (project.getId() == null) {
             project.setId(deriveId(project));
         }

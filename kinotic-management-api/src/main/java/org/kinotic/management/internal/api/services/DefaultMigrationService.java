@@ -52,7 +52,7 @@ public class DefaultMigrationService implements MigrationService {
         log.debug("Executing {} migrations for project {}", migrationRequest.migrations().size(), projectId);
         return requireOwnedProject(projectId, participant)
                 .compose(project -> resolve(migrationRequest.migrations(), project))
-                .compose(migrations -> KinoticUtil.toFuture(migrationExecutor.executeProjectMigrations(migrations, projectId))
+                .compose(migrations -> KinoticUtil.toFuture(migrationExecutor.executeProjectMigrations(migrations, participant.getOrganizationId(), projectId))
                                                           .map(v -> MigrationResult.success(projectId, migrations.size())))
                 .otherwise(throwable -> {
                     log.debug("Failed to execute migrations for project {}: {}", projectId, throwable.getMessage(), throwable);
@@ -64,7 +64,7 @@ public class DefaultMigrationService implements MigrationService {
     public Future<Integer> getLastAppliedMigrationVersion(String projectId) {
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return requireOwnedProject(projectId, participant)
-                .compose(project -> KinoticUtil.toFuture(migrationExecutor.getLastAppliedMigrationVersion(projectId)));
+                .compose(project -> KinoticUtil.toFuture(migrationExecutor.getLastAppliedMigrationVersion(participant.getOrganizationId(), projectId)));
     }
 
     @Override
@@ -72,7 +72,7 @@ public class DefaultMigrationService implements MigrationService {
         Validate.notNull(version, "Migration version cannot be null");
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         return requireOwnedProject(projectId, participant)
-                .compose(project -> KinoticUtil.toFuture(migrationExecutor.isMigrationAppliedAsync(version, projectId)));
+                .compose(project -> KinoticUtil.toFuture(migrationExecutor.isMigrationAppliedAsync(version, participant.getOrganizationId(), projectId)));
     }
 
     /**
@@ -80,9 +80,6 @@ public class DefaultMigrationService implements MigrationService {
      */
     private Future<Project> requireOwnedProject(String projectId, OrganizationParticipant participant) {
         Validate.notNull(projectId, "Project ID cannot be null");
-        // the system migrations are recorded under this project id, so a project of that id would read and
-        // write their history
-        Validate.isTrue(!MigrationExecutor.SYSTEM_PROJECT.equals(projectId), "Project ID %s is not allowed", projectId);
         String organizationId = participant.getOrganizationId();
         // a missing project and another organization's fail the same way: no existence oracle
         return projectRepository.findById(projectId, organizationId)

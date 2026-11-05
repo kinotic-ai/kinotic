@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
  *       A cookie-auth client (the browser) uses this to decide whether to open the realtime
  *       WebSocket: a rejected WS upgrade is opaque to browsers, whereas this HTTP status is
  *       readable, so the SPA can fail fast instead of dialing an unauthenticated socket.</li>
- *   <li>{@code POST /api/auth/logout} — ends the calling page's login. The session, and its cookie, end
- *       once no page's login remains.</li>
+ *   <li>{@code POST /api/auth/logout} — ends the calling page's login. The session, and its cookie, end once no
+ *       page's login remains, and the realtime connections established on the session end with it.</li>
  * </ul>
  */
 @Component

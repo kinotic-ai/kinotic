@@ -80,7 +80,7 @@ class NamedParameterQueryTest extends KinoticTestBase {
                 active  BOOLEAN,
                 address OBJECT (street TEXT, city KEYWORD)
             );
-            """, migrationParser)), "np_param_project").get();
+            """, migrationParser)), "test-org", "np_param_project").get();
     }
 
     private <T extends Statement> T parse(String sql) {

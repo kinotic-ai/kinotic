@@ -55,6 +55,7 @@ export class MountQuotaManager {
      */
     public apply(directory: string, sizeLimitMb: number): number {
         const path = resolve(directory)
+        this.requireSingleArgument(path)
         const mountPoint = this.requireQuotaMountPoint(path)
         if (sizeLimitMb <= 0) {
             throw new Error(`A mount quota must be a positive size, got ${sizeLimitMb}MB for ${path}`)
@@ -88,6 +89,7 @@ export class MountQuotaManager {
         if (projectId === 0) {
             return
         }
+        this.requireSingleArgument(path)
         // Clearing the limit is what frees the id: an id with no limit is not reported as in
         // use, so nextFreeProjectId can hand it out again
         this.runQuota(mountPoint, `limit -p bhard=0 ${projectId}`, `clear the cap on project ${projectId}`)
@@ -159,6 +161,14 @@ export class MountQuotaManager {
             ret = ''
         }
         return ret
+    }
+
+    // xfs_quota splits its -c command on whitespace, so a path holding any would reach it as
+    // several arguments
+    private requireSingleArgument(path: string): void {
+        if (/\s/.test(path)) {
+            throw new Error(`Cannot manage the quota of ${path}: the path must not contain whitespace`)
+        }
     }
 
     private requireQuotaMountPoint(path: string): string {

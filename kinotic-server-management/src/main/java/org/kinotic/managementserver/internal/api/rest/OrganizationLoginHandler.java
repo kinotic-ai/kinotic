@@ -76,6 +76,8 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final TurnstileVerifier turnstileVerifier;
 
+    /** The longest address RFC 5321 allows. */
+    private static final int MAX_EMAIL_LENGTH = 254;
     private static final String ORGANIZATION_CHOICES = "organizationChoices";
     // long enough for the page the sign-in returns to to load and ask, short enough that the ids are gone
     // from a browser left on the landing page
@@ -179,6 +181,11 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
         String email = body.getString("email");
         if (email == null || email.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "email is required");
+            return;
+        }
+        // one address: a control character in it would read as a further log record when the send fails
+        if (email.length() > MAX_EMAIL_LENGTH || email.indexOf('@') < 1 || email.chars().anyMatch(c -> c <= ' ' || c == 0x7F)) {
+            authEndpointSupport.respondError(ctx, 400, "email is invalid");
             return;
         }
         turnstileVerifier.verify(body.getString("turnstileToken"))

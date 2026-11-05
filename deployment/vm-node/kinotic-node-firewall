@@ -46,6 +46,18 @@ BRIDGE_ADDRESS="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gat
 iptables -C INPUT -s "$BRIDGE_SUBNET" -d "$BRIDGE_ADDRESS" -p udp --dport 53 -j ACCEPT 2>/dev/null \
     || iptables -I INPUT -s "$BRIDGE_SUBNET" -d "$BRIDGE_ADDRESS" -p udp --dport 53 -j ACCEPT
 
+# --- peer isolation ------------------------------------------------------------------------
+# Docker's icc=false denies guest-to-guest traffic with a rule in FORWARD below the jump to
+# DOCKER-USER, so a per-workload ACCEPT whose destination covers the bridge, 0.0.0.0/0 or a
+# name an upstream resolver answered with a bridge address, would admit a peer before Docker
+# denies it. Inserted at the top of FORWARD, above that jump, where no per-workload grant
+# precedes it; host-bound traffic (the resolver, an OTLP receiver) passes INPUT, not FORWARD.
+# Docker puts its DOCKER-USER jump back at the top of FORWARD whenever it creates a network,
+# which leaves the drop below the jump, so the drop is removed and reinserted at the top on
+# every run rather than checked for presence
+while iptables -D FORWARD -s "$BRIDGE_SUBNET" -d "$BRIDGE_SUBNET" -j DROP 2>/dev/null; do :; done
+iptables -I FORWARD 1 -s "$BRIDGE_SUBNET" -d "$BRIDGE_SUBNET" -j DROP
+
 # --- Egress default-deny ------------------------------------------------------------------
 # Appended, so it sits BELOW any per-workload ACCEPT the vm-manager inserts with -I. A
 # workload whose rules were never applied — provider died mid-start, address recycled, a
@@ -56,4 +68,8 @@ iptables -C INPUT -s "$BRIDGE_SUBNET" -d "$BRIDGE_ADDRESS" -p udp --dport 53 -j 
 # this denies every workload. Enable with:  touch /etc/kinotic/egress-default-deny
 if [ -e /etc/kinotic/egress-default-deny ]; then
     append -s "$BRIDGE_SUBNET" -j DROP
+    # Docker creates DOCKER-USER with an unconditional RETURN, which must stay the last rule:
+    # anything appended after it is never evaluated, so it is moved back below the drop
+    while iptables -D DOCKER-USER -j RETURN 2>/dev/null; do :; done
+    iptables -A DOCKER-USER -j RETURN
 fi
