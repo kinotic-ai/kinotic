@@ -41,8 +41,9 @@ import java.util.UUID;
  */
 public class EndpointConnectionHandler {
 
-    // the surface this gateway serves, which a token presented at the handshake must have been minted for
-    private static final AuthenticationContext PUBLISHED_SERVICES = new AuthenticationContext(AuthenticationContext.PUBLISHED_SERVICES);
+    // what this gateway authenticates for: the published services surface, which a token presented at the
+    // handshake must have been minted for
+    private static final AuthenticationContext GATEWAY_CONTEXT = new AuthenticationContext(AuthenticationContext.PUBLISHED_SERVICES);
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
     /** Upgrade header carrying the client secret; also read by name in DefaultCredentialAuthenticationService. */
@@ -97,7 +98,7 @@ public class EndpointConnectionHandler {
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
-        return securityService.authenticate(authenticationInfo, PUBLISHED_SERVICES)
+        return securityService.authenticate(authenticationInfo, GATEWAY_CONTEXT)
                               .recover(throwable -> {
                                   Throwable cause;
                                   if(throwable instanceof AuthenticationException){

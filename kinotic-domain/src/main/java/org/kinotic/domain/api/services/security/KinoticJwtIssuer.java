@@ -12,6 +12,7 @@ import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.domain.api.config.VersionedKey;
 import org.kinotic.domain.api.config.VersionedKeySet;
 import org.kinotic.domain.api.model.security.KinoticAudience;
@@ -77,14 +78,15 @@ public class KinoticJwtIssuer {
     /**
      * Validates a token's signature against any key currently in the active set, dispatching on
      * the {@code kid} header to the key that signed it, and requires the token to have been minted
-     * for the surface {@code authenticationFor}: a token minted for another surface fails with an
+     * for the surface {@code context} names: a token minted for another surface fails with an
      * {@link AuthenticationException}, whoever presents it.
      *
-     * @param token             the compact JWT
-     * @param authenticationFor the surface the caller serves, which the token's {@code aud} claim must name
+     * @param token   the compact JWT
+     * @param context what the entry point authenticates for, whose surface the token's {@code aud} claim must name
      */
-    public Future<User> authenticate(String token, String authenticationFor) {
+    public Future<User> authenticate(String token, AuthenticationContext context) {
         State current = requireState();
+        String authenticationFor = context.getAuthenticationFor();
         return current.jwtAuth.authenticate(new TokenCredentials(token))
                               .compose(user -> audienceOf(user).contains(authenticationFor)
                                       ? Future.succeededFuture(user)

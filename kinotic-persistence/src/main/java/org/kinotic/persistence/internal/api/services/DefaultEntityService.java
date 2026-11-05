@@ -17,7 +17,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.persistence.api.model.*;
 import org.kinotic.domain.api.model.persistence.*;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
@@ -28,8 +27,6 @@ import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonPointer;
 import tools.jackson.databind.JsonNode;
@@ -46,8 +43,6 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class DefaultEntityService implements EntityService {
 
-    private static final Logger log = LoggerFactory.getLogger(DefaultEntityService.class);
-
     private final AuthorizationService<EntityOperation> authService;
     private final CrudServiceTemplate crudServiceTemplate;
     private final DelegatingUpsertPreProcessor delegatingUpsertPreProcessor;
@@ -57,7 +52,6 @@ public class DefaultEntityService implements EntityService {
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
     private final EntityDescriptor entityDescriptor;
-    private final DomainPersistenceProperties domainPersistenceProperties;
 
     @WithSpan
     @Override

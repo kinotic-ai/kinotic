@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.VersionedKey;
@@ -67,7 +68,7 @@ class KinoticJwtIssuerTest {
     @Test
     void aTokenAuthenticatesAtTheSurfaceItWasMintedFor() throws Exception {
         String token = issuer.sign(new JsonObject().put("sub", "delegate-1"), new JWTOptions(), KinoticAudience.MCP_TOOLS);
-        User user = await(issuer.authenticate(token, KinoticAudience.MCP_TOOLS.getClaim()));
+        User user = await(issuer.authenticate(token, new AuthenticationContext(KinoticAudience.MCP_TOOLS.getClaim())));
         assertEquals("delegate-1", user.principal().getString("sub"));
     }
 
@@ -75,7 +76,7 @@ class KinoticJwtIssuerTest {
     void aTokenMintedForAnotherSurfaceIsRefused() {
         String token = issuer.sign(new JsonObject().put("sub", "delegate-1"), new JWTOptions(), KinoticAudience.MCP_TOOLS);
         ExecutionException refusal = assertThrows(ExecutionException.class,
-                                                  () -> await(issuer.authenticate(token, KinoticAudience.PUBLISHED_SERVICES.getClaim())));
+                                                  () -> await(issuer.authenticate(token, new AuthenticationContext(KinoticAudience.PUBLISHED_SERVICES.getClaim()))));
         assertInstanceOf(AuthenticationException.class, refusal.getCause());
     }
 

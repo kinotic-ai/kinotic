@@ -24,9 +24,9 @@ public interface CredentialAuthenticationService {
     /**
      * Authenticates the credentials in {@code authenticationInfo} to the identity they prove and the participant
      * it acts as, admitting it only when {@code admitted} accepts the pair. An access token proves its identity
-     * only at the surface it was minted for: one minted for another surface than the context names is refused,
-     * whatever it carries. A client secret, a machine secret and a session are not minted for a surface and
-     * ignore it.
+     * only at the surface it was minted for: a token minted for any surface other than the one {@code context}
+     * names is refused, whatever it carries. A client secret, a machine secret and a session are not minted for
+     * a surface and ignore it.
      *
      * @param authenticationInfo the request headers, whose names are matched ignoring case
      * @param context            what the entry point asks for beside the credentials, the surface it serves among it
