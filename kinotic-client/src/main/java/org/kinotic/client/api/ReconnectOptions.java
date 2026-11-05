@@ -10,7 +10,10 @@ import java.time.Duration;
  * How a {@link KinoticConnection} retries connecting: on the initial connect until the gateway accepts it, and
  * after a connection is lost until it is re-established. The delay between attempts doubles from
  * {@link #getInitialDelay()} up to {@link #getMaxDelay()} and resets once a connection is established; after a
- * loss, a random jitter up to {@link #getMaxJitter()} is added so clients do not all return at once.
+ * loss, a random jitter up to {@link #getMaxJitter()} is added so clients do not all return at once. A gateway
+ * that cannot be reached, or answers the WebSocket upgrade with a 5xx status, is retried; a 4xx answer ends the
+ * connect, or the connection, for good, since no retry changes it, except that a reconnect retries a 401 within
+ * the attempt budget, because a gateway whose security service is failing answers every connection with one.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */

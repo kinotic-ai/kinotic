@@ -2,6 +2,8 @@ package org.kinotic.client;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.UpgradeRejectedException;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -232,6 +234,36 @@ public class KinoticConnectionTests {
             Assertions.assertThrows(IllegalArgumentException.class,
                                     () -> KinoticConnection.connect(vertx, options(TestGatewayApplication.CLIENT_SECRET).setServerUrl(serverUrl)),
                                     serverUrl);
+        }
+    }
+
+    @Test
+    public void testAuthHeaderWithAnInvalidNameIsRejected() {
+        ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET).setAuthHeaders(Map.of("client id", "java-client"));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> KinoticConnection.connect(vertx, options));
+    }
+
+    @Test
+    public void testInitialConnectEndsAtOnceOnARejectedUpgrade() throws Exception {
+        // a server answering the upgrade with a 404, as one with no gateway at the path does; a retried 404 would
+        // never complete the connect, since the attempt budget is unbounded
+        HttpServer server = vertx.createHttpServer()
+                                 .requestHandler(request -> request.response().setStatusCode(404).end())
+                                 .listen(0)
+                                 .toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        try {
+            ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET).setServerUrl("ws://localhost:" + server.actualPort());
+
+            ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                                 () -> KinoticConnection.connect(vertx, options)
+                                                                                        .toCompletionStage()
+                                                                                        .toCompletableFuture()
+                                                                                        .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+            Assertions.assertInstanceOf(UpgradeRejectedException.class, failure.getCause());
+            Assertions.assertEquals(404, ((UpgradeRejectedException) failure.getCause()).getStatus());
+        } finally {
+            server.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
     }
 

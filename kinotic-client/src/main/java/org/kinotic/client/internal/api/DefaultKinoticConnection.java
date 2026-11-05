@@ -2,8 +2,10 @@ package org.kinotic.client.internal.api;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.UpgradeRejectedException;
 import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
@@ -112,6 +114,10 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.notNull(options.getOpenTelemetry(), "openTelemetry must not be null");
         Validate.isTrue(options.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
         Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
+        // the upgrade request refuses a header name or value outside what HTTP allows, so they are checked here
+        // once rather than failing every attempt
+        MultiMap headers = HttpHeaders.headers();
+        options.getAuthHeaders().forEach(headers::add);
         Validate.isTrue(options.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
         Validate.isTrue(options.getMaxWebSocketFrameSize() >= 1, "maxWebSocketFrameSize must be at least 1 byte");
         ReconnectOptions reconnect = options.getReconnect();
@@ -370,11 +376,23 @@ public class DefaultKinoticConnection implements KinoticConnection {
         return ret;
     }
 
-    // Rejected credentials and a refused CONNECT frame end the initial connect, since neither changes on a retry.
-    // After an established connection the same answers can be a gateway recovering, whose security service maps a
-    // failure of its own to a 401, so a reconnect keeps retrying within the attempt budget
+    // A 4xx answer to the upgrade is the gateway's verdict on this client as configured, which no retry changes, so
+    // it ends the connect, or the connection, for good; a failure to reach the gateway or a 5xx answer is retried
+    // within the attempt budget. Rejected credentials and a refused CONNECT frame end the initial connect only:
+    // the STOMP server answers every failed handshake with a 401, so after an established connection they can be
+    // a gateway whose security service is failing, and a reconnect keeps retrying them within the budget
     private boolean isFatal(Throwable failure) {
-        return connections == 0 && (failure instanceof AuthenticationException || failure instanceof StompErrorException);
+        boolean ret;
+        if (failure instanceof AuthenticationException || failure instanceof StompErrorException) {
+            ret = connections == 0;
+        } else {
+            ret = failure instanceof UpgradeRejectedException rejected && isClientError(rejected.getStatus());
+        }
+        return ret;
+    }
+
+    private static boolean isClientError(int status) {
+        return status >= 400 && status < 500;
     }
 
     private void scheduleAttempt() {
