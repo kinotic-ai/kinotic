@@ -228,24 +228,52 @@ function attributesOf(list: any[] | undefined): Record<string, string> {
     return ret
 }
 
-function anyValueToString(value: any): string {
-    let ret: string
+// Lists and maps nested deeper than this are cut off, so an attribute cannot drive the conversion arbitrarily deep
+const ANY_VALUE_MAX_DEPTH = 32
+const ANY_VALUE_DEPTH_MARKER = '…'
+
+/** An OTLP AnyValue as the native value it encodes: scalars as they are, lists and maps converted recursively. */
+function anyValueToJson(value: any, depth: number = 0): unknown {
+    let ret: unknown
     if (value === null || value === undefined) {
-        ret = ''
+        ret = null
     } else if (value.stringValue !== undefined) {
         ret = String(value.stringValue)
     } else if (value.intValue !== undefined) {
-        ret = String(value.intValue)
+        // an int64 arrives as a number or, past the safe range, as its decimal string
+        ret = value.intValue
     } else if (value.doubleValue !== undefined) {
-        ret = String(value.doubleValue)
+        ret = value.doubleValue
     } else if (value.boolValue !== undefined) {
-        ret = String(value.boolValue)
+        ret = value.boolValue
+    } else if (depth >= ANY_VALUE_MAX_DEPTH) {
+        ret = ANY_VALUE_DEPTH_MARKER
     } else if (value.arrayValue !== undefined) {
-        ret = `[${((value.arrayValue.values ?? []) as any[]).map(anyValueToString).join(', ')}]`
+        ret = ((value.arrayValue.values ?? []) as any[]).map(entry => anyValueToJson(entry, depth + 1))
     } else if (value.kvlistValue !== undefined) {
-        ret = JSON.stringify(attributesOf(value.kvlistValue.values))
+        const map: Record<string, unknown> = {}
+        for (const entry of (value.kvlistValue.values ?? []) as any[]) {
+            if (entry?.key !== undefined) {
+                map[entry.key] = anyValueToJson(entry.value, depth + 1)
+            }
+        }
+        ret = map
     } else {
-        ret = JSON.stringify(value)
+        ret = value
+    }
+    return ret
+}
+
+// A list or map is serialised once, from the native value, so a nested value is never stringified twice
+function anyValueToString(value: any): string {
+    const json = anyValueToJson(value)
+    let ret: string
+    if (json === null) {
+        ret = ''
+    } else if (typeof json === 'string') {
+        ret = json
+    } else {
+        ret = JSON.stringify(json)
     }
     return ret
 }

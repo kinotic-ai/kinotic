@@ -1,140 +1,185 @@
 <template>
-<section id="partners" class="k-section partnership" aria-labelledby="partners-title">
-<div class="k-wrap">
-<div class="k-eyebrow">
-<span>BUILDING TOGETHER</span>
-</div>
-<h2 id="partners-title" class="k-heading partnership__title">The partners we’re<br>looking for</h2>
-<div class="partnership__layout">
-<div class="partnership__copy">
-<p>Between us, we’ve built successful software services businesses. Kinotic is our first software product business, and we recognize that building a great platform and building a repeatable path to market require different experience.</p>
-<p>We’re looking for investors who want to be actively involved: challenging our assumptions, helping us sharpen our business strategy, and mentoring us as we find our first customers and build market traction. Our commercial plan is still taking shape, and we want partners who bring experience, judgment, and relationships to help us develop and test it.</p>
-<p>We bring deep technical and design experience, a history of working together, and the commitment to execute. We’re seeking investors whose involvement goes beyond capital.</p>
-</div>
-<div class="partnership__graphic">
-<svg viewBox="0 0 500 440" role="img" aria-label="Our experience and your guidance join into a shared path toward market traction">
-<defs>
-<radialGradient id="pathGlow">
-<stop stop-color="#25e5a5" stop-opacity=".12"/>
-<stop offset="1" stop-color="#25e5a5" stop-opacity="0"/>
-</radialGradient>
-<pattern id="pathGrid" width="32" height="32" patternUnits="userSpaceOnUse">
-<path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity=".035"/>
-</pattern>
-</defs>
-<rect width="500" height="440" fill="url(#pathGrid)"/>
-<ellipse cx="250" cy="230" rx="240" ry="205" fill="url(#pathGlow)"/>
-<g fill="none" stroke-linecap="round" stroke-linejoin="round">
-<path d="M95 105V145C95 190 250 165 250 222" stroke="#25e5a5" stroke-width="3"/>
-<path d="M405 105V145C405 190 250 165 250 222" stroke="#ef1753" stroke-width="3"/>
-<path d="M250 222C250 258 305 252 305 282S220 302 220 334S250 351 250 375" stroke="#25e5a5" stroke-width="3"/>
-<path d="M242 366l8 9 8-9" stroke="#25e5a5" stroke-width="3"/>
-<circle cx="250" cy="222" r="12" fill="#0b1512" stroke="#25e5a5" stroke-width="2"/>
-<circle cx="250" cy="222" r="4" fill="#25e5a5" stroke="none"/>
-<circle cx="95" cy="105" r="5" fill="#25e5a5" stroke="none"/>
-<circle cx="405" cy="105" r="5" fill="#ef1753" stroke="none"/>
-</g>
-<g font-family="monospace" font-size="12" letter-spacing="1.3" text-anchor="middle">
-<text x="95" y="64" fill="#25e5a5">OUR EXPERIENCE</text>
-<text x="95" y="85" fill="#8e9794" font-size="10" letter-spacing=".4">Building &amp; delivering</text>
-<text x="405" y="64" fill="#ef527d">YOUR GUIDANCE</text>
-<text x="405" y="85" fill="#8e9794" font-size="10" letter-spacing=".4">Strategy &amp; mentorship</text>
-<text x="322" y="226" fill="#cbd4d0" font-size="10" text-anchor="start">TOGETHER</text>
-<text x="250" y="411" fill="#25e5a5">MARKET TRACTION</text>
-</g>
-</svg>
-</div>
-</div>
-</div>
-</section>
+  <section id="partners" class="partners" aria-labelledby="partners-title">
+    <div class="k-wrap partners__grid">
+      <div>
+        <div class="k-eyebrow partners__eyebrow" data-reveal>
+          <span>BUILDING TOGETHER</span>
+        </div>
+        <h2 id="partners-title" class="k-heading partners__title" data-reveal>The partners we’re looking for</h2>
+        <div class="partners__copy" data-reveal>
+          <p>
+            Between us, we’ve built successful software services businesses. Kinotic is our first
+            software product business, and we recognize that building a great platform and building a
+            repeatable path to market require different experience.
+          </p>
+          <p>
+            We’re looking for investors who want to be actively involved: challenging our assumptions,
+            helping us sharpen our business strategy, and mentoring us as we find our first customers
+            and build market traction. Our commercial plan is still taking shape, and we want partners
+            who bring experience, judgment, and relationships to help us develop and test it.
+          </p>
+          <p>
+            We bring deep technical and design experience, a history of working together, and the
+            commitment to execute. We’re seeking investors whose involvement goes beyond capital.
+          </p>
+        </div>
+      </div>
+
+      <div class="diagram" data-reveal>
+        <div class="diagram__grid" />
+        <div class="diagram__glow" />
+        <svg
+          viewBox="0 0 480 480"
+          fill="none"
+          role="img"
+          aria-label="Our experience and your guidance join into a shared path toward market traction"
+        >
+          <defs>
+            <linearGradient id="partners-out" x1="0" y1="262" x2="0" y2="396" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#28FEB4" stop-opacity=".55" />
+              <stop offset="1" stop-color="#28FEB4" />
+            </linearGradient>
+          </defs>
+          <g font-family="Fira Code, monospace" text-anchor="middle">
+            <text x="104" y="62" font-size="12.5" letter-spacing="2.2" fill="#28FEB4">OUR EXPERIENCE</text>
+            <text x="104" y="86" font-size="11" letter-spacing=".6" fill="#7C7C85">Building &amp; delivering</text>
+            <text x="376" y="62" font-size="12.5" letter-spacing="2.2" fill="#FF3D6E">YOUR GUIDANCE</text>
+            <text x="376" y="86" font-size="11" letter-spacing=".6" fill="#7C7C85">Strategy &amp; mentorship</text>
+          </g>
+          <path d="M104 116 V150 C104 214 240 192 240 250" stroke="#28FEB4" stroke-opacity=".18" stroke-width="8" stroke-linecap="round" />
+          <path d="M376 116 V150 C376 214 240 192 240 250" stroke="#EC1F52" stroke-opacity=".18" stroke-width="8" stroke-linecap="round" />
+          <path d="M104 116 V150 C104 214 240 192 240 250" stroke="#28FEB4" stroke-width="2" stroke-linecap="round" />
+          <path d="M376 116 V150 C376 214 240 192 240 250" stroke="#EC1F52" stroke-width="2" stroke-linecap="round" />
+          <path class="flow" d="M104 116 V150 C104 214 240 192 240 250" stroke="#E6FFF5" stroke-width="2" stroke-linecap="round" />
+          <path class="flow" d="M376 116 V150 C376 214 240 192 240 250" stroke="#FFE3EA" stroke-width="2" stroke-linecap="round" />
+          <circle cx="104" cy="116" r="4.5" fill="#28FEB4" />
+          <circle cx="376" cy="116" r="4.5" fill="#EC1F52" />
+          <path d="M240 280 V390" stroke="#28FEB4" stroke-opacity=".16" stroke-width="10" stroke-linecap="round" />
+          <path d="M240 280 V392" stroke="url(#partners-out)" stroke-width="2.5" stroke-linecap="round" />
+          <path class="flow flow--out" d="M240 280 V392" stroke="#E6FFF5" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M231 384 L240 394 L249 384" stroke="#28FEB4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="240" cy="265" r="15" fill="#08090A" stroke="#28FEB4" stroke-width="1.6" />
+          <circle cx="240" cy="265" r="24" stroke="#28FEB4" stroke-opacity=".18" stroke-width="1" />
+          <circle cx="240" cy="265" r="5" fill="#28FEB4" />
+          <line x1="268" y1="265" x2="296" y2="265" stroke="#3A3A42" stroke-width="1" />
+          <text x="306" y="269" font-family="Fira Code, monospace" font-size="11.5" letter-spacing="2.2" fill="#C9C9CE">TOGETHER</text>
+          <text x="240" y="436" text-anchor="middle" font-family="Fira Code, monospace" font-size="14" letter-spacing="2.6" fill="#28FEB4">MARKET TRACTION</text>
+        </svg>
+      </div>
+    </div>
+  </section>
 </template>
 
 <style scoped>
-
-.partnership {
-  padding:110px 0 100px;
-  border-top:1px solid #ffffff14;
-  border-bottom:1px solid #ffffff14;
-  background:radial-gradient(ellipse at 85% 60%,#0b211b55,transparent 55%)
+.partners {
+  padding: 110px 0 120px;
+  border-top: 1px solid var(--color-k-border);
+  scroll-margin-top: 76px;
 }
 
-
-.partnership__title {
-  font-size:clamp(38px,4.8vw,66px);
-  line-height:1.08;
-  letter-spacing:-.035em;
-  margin:30px 0 48px;
-  max-width:950px
+.partners__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 64px;
+  align-items: end;
 }
 
-
-.partnership__layout {
-  display:grid;
-  grid-template-columns:1.25fr 1fr;
-  gap:70px;
-  align-items:center
+.partners__eyebrow {
+  margin-bottom: 22px;
 }
 
-.partnership__copy {
-  font-size:18px;
-  line-height:1.8;
-  color:#a9abad;
-  max-width:690px
+.partners__title {
+  max-width: 560px;
+  margin-bottom: 48px;
+  font-size: clamp(36px, 4.6vw, 62px);
+  font-weight: 500;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
 }
 
-.partnership__copy p {
-  margin:0 0 27px
+.partners__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 560px;
 }
 
-
-.partnership__copy p:last-child {
-  margin-bottom:0
+.partners__copy p {
+  margin: 0;
+  color: var(--color-k-muted);
+  font-size: 16.5px;
+  line-height: 1.75;
+  text-wrap: pretty;
 }
 
-.partnership__graphic svg {
-  width:100%;
-  height:auto
+.diagram {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1 / 1;
+  justify-self: end;
 }
 
-.partnership .k-eyebrow {
-  color:#96999b
+.diagram__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 55%, #000 30%, transparent 78%);
 }
 
-
-@media(max-width:850px) {
-  .partnership {
-  padding:80px 0
+.diagram__glow {
+  position: absolute;
+  left: 20%;
+  top: 30%;
+  width: 60%;
+  height: 55%;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(40, 254, 180, 0.1), transparent 70%);
+  filter: blur(10px);
 }
 
-.partnership__layout {
-  grid-template-columns:1fr;
-  gap:36px
+.diagram svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.partnership__graphic {
-  max-width:430px;
-  margin:auto
+/* A single bright dash per 64-unit period, travelling along each path. */
+.flow {
+  stroke-dasharray: 1 63;
+  stroke-opacity: 0.9;
+  animation: partners-flow 2.4s linear infinite;
 }
 
-.partnership__copy {
-  font-size:17px
+.flow--out {
+  animation-delay: -0.8s;
 }
 
-
-.partnership__title {
-  margin-bottom:36px
+@keyframes partners-flow {
+  to {
+    stroke-dashoffset: -64;
+  }
 }
 
+@media (max-width: 930px) {
+  .partners__grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
 
+  .diagram {
+    max-width: 440px;
+    justify-self: center;
+  }
 }
 
-
-
-#partners  {
-   scroll-margin-top: 100px;
-
+@media (max-width: 768px) {
+  .partners {
+    padding: 64px 0;
+  }
 }
-
-
-
 </style>

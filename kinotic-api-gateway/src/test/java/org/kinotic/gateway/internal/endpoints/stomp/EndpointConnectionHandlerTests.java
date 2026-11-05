@@ -136,6 +136,7 @@ public class EndpointConnectionHandlerTests {
         JsonMapper jsonMapper = JsonMapper.builder().build();
         services = new Services();
         services.vertx = vertx;
+        services.connectionRegistry = new ConnectionRegistry();
         services.apiGatewayProperties = new ApiGatewayProperties();
         services.apiGatewayProperties.setSessionTimeout(SESSION_TIMEOUT_MS);
         services.jsonMapper = jsonMapper;
@@ -143,7 +144,7 @@ public class EndpointConnectionHandlerTests {
         services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
                                                                     participant -> Future.succeededFuture(ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))));
         services.securityService = mock(SecurityService.class);
-        when(services.securityService.authenticate(any())).thenReturn(Future.succeededFuture(participant()));
+        when(services.securityService.authenticate(any(), any())).thenReturn(Future.succeededFuture(participant()));
         services.requestAuthorizer = mock(RequestAuthorizer.class);
         when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(Future.succeededFuture());
         services.eventBusService = eventBusService;
@@ -716,7 +717,7 @@ public class EndpointConnectionHandlerTests {
         when(routingContext.request()).thenReturn(request);
 
         replyFlowControl = new ReplyFlowControl(services);
-        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, replyFlowControl);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, replyFlowControl, cause -> { });
         handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         handler.connect(connectHeaders).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         return handler;

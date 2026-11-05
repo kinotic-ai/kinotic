@@ -1,6 +1,8 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.model.RefreshToken;
@@ -14,51 +16,19 @@ import java.util.Map;
 @Component
 public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
 
-    // A token is revoked in the shard operation that reads whether it already is, so of two writers that both
-    // read it live, the script lets exactly one through
-    private static final String REVOKE = """
+    private static final String REVOKE_SCRIPT = "ctx._source.revoked = true";
+
+    private static final String CONSUME_SCRIPT = """
             if (ctx._source.revoked == true) {
-                ctx.op = 'noop';
+                ctx.op = 'noop'
             } else {
                 ctx._source.revoked = true;
-            }
-            """;
-    private static final String CONSUME = """
-            if (ctx._source.revoked == true) {
-                ctx.op = 'noop';
-            } else {
-                ctx._source.revoked = true;
-                ctx._source.lastUsedAt = params.lastUsedAt;
                 ctx._source.replacedById = params.replacedById;
-            }
-            """;
+                ctx._source.lastUsedAt = params.lastUsedAt
+            }""";
 
     public RefreshTokenRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_refresh_token", RefreshToken.class, crudServiceTemplate);
-    }
-
-    /**
-     * Revokes the token in favor of its replacement, recording when it was presented, unless it is revoked
-     * already. Of concurrent calls for one token exactly one revokes it. Visible to search on completion.
-     *
-     * @param id           the token to consume
-     * @param replacedById the token minted in its place
-     * @param usedAt       when it was presented
-     * @return true when this call revoked it, false when it was revoked already
-     */
-    public Future<Boolean> consume(String id, String replacedById, Date usedAt) {
-        return crudServiceTemplate.scriptedUpdateSync(indexName, id, CONSUME,
-                                                      Map.of("replacedById", replacedById, "lastUsedAt", usedAt));
-    }
-
-    /**
-     * Revokes the token unless it is revoked already. Visible to search on completion.
-     *
-     * @param id the token to revoke
-     * @return true when this call revoked it, false when it was revoked already
-     */
-    public Future<Boolean> revoke(String id) {
-        return crudServiceTemplate.scriptedUpdateSync(indexName, id, REVOKE, Map.of());
     }
 
     /** Finds the token whose plaintext hashes to {@code tokenHash}, or {@code null} if none matches. */
@@ -74,9 +44,44 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
                 .map(Page::getContent);
     }
 
-    /** Finds every token in the given rotation lineage. Used to revoke a family on reuse detection. */
-    public Future<List<RefreshToken>> findByFamilyId(String familyId) {
-        return findAll(Pageable.ofSize(1000), b -> b.query(termFilter("familyId", familyId)))
-                .map(Page::getContent);
+    /**
+     * Redeems token {@code id}: marks it revoked, used now and replaced by {@code replacedById}, which exactly one
+     * caller does, however many present the token at once. False when the token was revoked already, which is a
+     * reuse of a rotated token. The change is visible to search when the future completes.
+     */
+    public Future<Boolean> consume(String id, String replacedById) {
+        Validate.notBlank(id, "id cannot be blank");
+        Validate.notBlank(replacedById, "replacedById cannot be blank");
+        return crudServiceTemplate.scriptedUpdateSync(indexName, id, CONSUME_SCRIPT,
+                                                      Map.of("replacedById", replacedById, "lastUsedAt", new Date()));
+    }
+
+    /**
+     * Revokes every live token of rotation lineage {@code familyId} of identity {@code identityId}, however many
+     * the lineage holds; a family id of another identity's lineage revokes nothing. The change is visible to
+     * search when the future completes.
+     */
+    public Future<Void> revokeFamily(String identityId, String familyId) {
+        Validate.notBlank(identityId, "identityId cannot be blank");
+        Validate.notBlank(familyId, "familyId cannot be blank");
+        return revokeMatching(composeFilter(termFilter("identityId", identityId),
+                                            termFilter("familyId", familyId),
+                                            termFilter("revoked", false)));
+    }
+
+    /**
+     * Revokes every live token of identity {@code identityId}, in every lineage. The change is visible to search
+     * when the future completes.
+     */
+    public Future<Void> revokeAllFor(String identityId) {
+        Validate.notBlank(identityId, "identityId cannot be blank");
+        return revokeMatching(composeFilter(termFilter("identityId", identityId),
+                                            termFilter("revoked", false)));
+    }
+
+    private Future<Void> revokeMatching(Query live) {
+        return crudServiceTemplate.updateByQuery(indexName, b -> b.query(live)
+                                                                   .script(s -> s.source(src -> src.scriptString(REVOKE_SCRIPT))))
+                                  .mapEmpty();
     }
 }

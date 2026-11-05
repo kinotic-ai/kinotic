@@ -6,7 +6,6 @@ dependencies {
 	implementation project(':kinotic-authz')
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
-	implementation project(':kinotic-ee')
 	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-system-api')
 	implementation project(':kinotic-api-gateway')

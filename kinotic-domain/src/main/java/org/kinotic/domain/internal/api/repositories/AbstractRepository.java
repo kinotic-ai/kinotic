@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
@@ -97,18 +98,26 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     /**
-     * Deletes a single-use document, visible to search on completion. Of concurrent calls for one id exactly one
-     * completes with true, so the caller that gets true is the one that consumed it.
-     *
-     * @param id of the document to consume
-     * @return a {@link Future} that will complete with true when this call deleted the document, and false when
-     * there was no document to delete
+     * Deletes the document {@code id} and emits whether this call deleted it: true for exactly one caller, however
+     * many race for the same document, and false when the document was gone already. The deletion is visible to
+     * search when the future completes, so a one-time grant found by a search is spent by the call that gets true.
      */
-    public Future<Boolean> consumeByIdSync(String id) {
-        // Elasticsearch deletes a document in one operation on its primary shard, so of two deletes of one id
-        // the second finds it gone and reports not_found
+    public Future<Boolean> consume(String id) {
         return crudServiceTemplate.deleteByIdSync(indexName, id, null)
                                   .map(response -> response.result() == Result.Deleted);
+    }
+
+    /**
+     * Deletes every document the query matches, visible to search when the future completes; a document another
+     * writer changes while the request runs is skipped rather than failing the cascade. Subclasses use this
+     * overload to cascade a deletion over the documents that name a deleted parent.
+     */
+    protected Future<Void> deleteByQuery(Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
+        return crudServiceTemplate.deleteByQuery(indexName, builder -> {
+                                      builder.refresh(true).conflicts(Conflicts.Proceed);
+                                      builderConsumer.accept(builder);
+                                  })
+                                  .mapEmpty();
     }
 
     public Future<Page<T>> findAll(Pageable pageable) {

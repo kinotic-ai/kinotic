@@ -29,11 +29,7 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
     public Future<List<MicroserviceDeployment>> findAllForProject(String projectId) {
         Validate.notBlank(projectId, "projectId is required");
         OrganizationParticipant participant = requireOrgParticipant();
-        // rows carry the organization, so a project of another organization lists nothing
-        return microserviceDeploymentRepository.findAllForProject(projectId)
-                .map(deployments -> deployments.stream()
-                                               .filter(deployment -> participant.getOrganizationId().equals(deployment.getOrganizationId()))
-                                               .toList());
+        return microserviceDeploymentRepository.findAllForProject(projectId, participant.getOrganizationId());
     }
 
     @Override

@@ -48,6 +48,10 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
 
             if(property.hasDecorators()){
 
+                // recorded whatever mapping the field gets, so a decorator that does not affect the mapping, a field
+                // policy for one, is never lost to the mapping branch
+                processDecorators(property, state, builder);
+
                 if(property.containsDecorator(NestedDecorator.class)) {
 
                     if (type instanceof ArrayC3Type arrayC3Type) {
@@ -70,6 +74,10 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
                     if(!(type instanceof StringC3Type)){
                         throw new IllegalArgumentException("Text decorator can only be applied to String fields");
                     }
+                    // the tenant filter is a term query on the field, which an analyzed value would match by token
+                    if(state.getCurrentJsonPath().equals(state.getTenantIdFieldName())){
+                        throw new IllegalArgumentException("The TenantId field cannot be Text; it is matched exactly, at: " + state.getCurrentJsonPath());
+                    }
 
                     builder.properties(fieldName, TextProperty.of(f -> f)._toProperty());
 
@@ -84,9 +92,6 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
                                                                              .index(decorator.isIndex()))
                                                                    ._toProperty());
                 } else {
-
-                    // Handle other decorators that do not affect mapping
-                    processDecorators(property, state, builder);
 
                     builder.properties(fieldName, conversionContext.convert(type));
                 }

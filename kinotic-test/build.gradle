@@ -37,6 +37,8 @@ dependencies {
 	testImplementation 'io.vertx:vertx-web'
 
 	testImplementation 'io.projectreactor:reactor-test'
+	// ClusterEventTests reads the local node's attributes
+	testImplementation 'org.apache.ignite:ignite-core'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'

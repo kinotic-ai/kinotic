@@ -99,10 +99,7 @@ export class CloudHypervisorProvider implements IVmProvider {
      * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
      * the workload declares its own. The environment is the guest's finished one.
      */
-    private buildCreateOptions(workload: Workload, environment: Record<string, string>): ContainerCreateOptions {
-        // A workload deserialized from the wire or a persisted state file may predate the
-        // network field, whose absence means the policy the model defaults to
-        const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+    private buildCreateOptions(workload: Workload, networkMode: NetworkMode, environment: Record<string, string>): ContainerCreateOptions {
         const logPolicy = workload.logPolicy ?? { maxSizeMb: 10, maxFiles: 3 }
 
         const exposedPorts: Record<string, Record<string, never>> = {}
@@ -236,7 +233,9 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.prepareEgressPolicy(workload)
             // The receiver is bound to the gateway, which is also where the guest reaches it
             const container = await this.docker.createContainer(
-                this.buildCreateOptions(workload, AlloyManager.guestEnvironment(workload, otlp?.listenAddress ?? '', otlp)))
+                this.buildCreateOptions(workload,
+                                        this.networkModeOf(workload, otlp !== null),
+                                        AlloyManager.guestEnvironment(workload, otlp?.listenAddress ?? '', otlp)))
             await container.start()
 
             const info = await container.inspect()
@@ -458,6 +457,24 @@ export class CloudHypervisorProvider implements IVmProvider {
             throw new Error(`Workload ${workload.id} needs ${grants.join(' and ')}, but this node does not `
                             + 'deny workload egress by default, so it cannot grant them')
         }
+    }
+
+    /**
+     * The network the workload's container is created with. On a node that does not deny by
+     * default, a network-enabled workload whose policy grants nothing is created with no network
+     * at all: the bridge would hand it unrestricted egress with no firewall to withhold the rest,
+     * so its deny-all policy is honoured by keeping it off the bridge instead. Requires
+     * {@link requireEnforcement} to have passed.
+     */
+    private networkModeOf(workload: Workload, holdsEndpoint: boolean): NetworkMode {
+        // A workload deserialized from the wire or a persisted state file may predate the
+        // network field, whose absence means the policy the model defaults to
+        let ret = workload.network?.mode ?? NetworkMode.ENABLED
+        const grantsNothing = (workload.network?.allowedHosts ?? []).length === 0 && !holdsEndpoint
+        if (ret === NetworkMode.ENABLED && grantsNothing && !this.egress.enforces()) {
+            ret = NetworkMode.DISABLED
+        }
+        return ret
     }
 
     /**

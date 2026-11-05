@@ -118,6 +118,10 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
                 if(tenantId == null){
                     throw new IllegalArgumentException("Could not find TenantId for Entity");
                 }
+                // the document id is <tenantId>:<id>, so a tenant id holding the separator could collide with another pair
+                if(tenantId.contains(":")){
+                    throw new IllegalArgumentException("TenantId must not contain ':'");
+                }
 
                 context.getTenantSelection().add(tenantId);
 

@@ -10,6 +10,7 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -29,9 +30,12 @@ import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.IdentityCredential;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
+import org.kinotic.domain.internal.api.repositories.DeviceCodeGrantRepository;
+import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepository;
 import org.kinotic.domain.internal.api.repositories.OidcBindingRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
@@ -60,20 +64,72 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
     private final OidcBindingRepository bindingRepository;
+    private final DeviceCodeGrantRepository deviceCodeGrantRepository;
+    private final OAuthAuthorizationGrantRepository oauthAuthorizationGrantRepository;
+    private final RefreshTokenService refreshTokenService;
     private final ApplicationRepository applicationRepository;
     private final RelationshipService relationships;
+    private final ConnectionRevocationService connectionRevocationService;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                              IdentityCredentialRepository credentialRepository,
                                              OidcBindingRepository bindingRepository,
+                                             DeviceCodeGrantRepository deviceCodeGrantRepository,
+                                             OAuthAuthorizationGrantRepository oauthAuthorizationGrantRepository,
+                                             RefreshTokenService refreshTokenService,
                                              ApplicationRepository applicationRepository,
+                                             ConnectionRevocationService connectionRevocationService,
                                              RelationshipService relationships) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
         this.bindingRepository = bindingRepository;
+        this.deviceCodeGrantRepository = deviceCodeGrantRepository;
+        this.oauthAuthorizationGrantRepository = oauthAuthorizationGrantRepository;
+        this.refreshTokenService = refreshTokenService;
         this.applicationRepository = applicationRepository;
         this.relationships = relationships;
+        this.connectionRevocationService = connectionRevocationService;
+    }
+
+    // A connection is authenticated once, when it is established, so an identity that is disabled or deleted keeps
+    // the connections it holds until they are ended here. The revocation follows the write, so a reconnect finds
+    // the stored state and is refused.
+    @Override
+    public Future<ParticipantIdentity> save(ParticipantIdentity value) {
+        return super.save(value).compose(this::revokeConnectionsIfDisabled);
+    }
+
+    @Override
+    public Future<ParticipantIdentity> saveSync(ParticipantIdentity value) {
+        return super.saveSync(value).compose(this::revokeConnectionsIfDisabled);
+    }
+
+    @Override
+    public Future<Void> deleteById(String id) {
+        return super.deleteById(id).compose(v -> connectionRevocationService.revoke(id));
+    }
+
+    @Override
+    public Future<Void> deleteByIdSync(String id) {
+        return super.deleteByIdSync(id).compose(v -> connectionRevocationService.revoke(id));
+    }
+
+    // A delegate's connection is registered under the delegate's own id and acts with its owner's authority, so a
+    // disabled owner's delegates lose their connections with it
+    private Future<ParticipantIdentity> revokeConnectionsIfDisabled(ParticipantIdentity saved) {
+        Future<ParticipantIdentity> ret;
+        if (saved.isEnabled()) {
+            ret = Future.succeededFuture(saved);
+        } else {
+            ret = connectionRevocationService.revoke(saved.getId())
+                    .compose(v -> identityRepository.findAllDelegatesByOwner(saved.getId(), Pageable.create(0, 1000, Sort.by("created"))))
+                    .compose(delegates -> Future.all(delegates.getContent().stream()
+                                                              .map(delegate -> connectionRevocationService.revoke(delegate.getId()))
+                                                              .toList()))
+                    .map(saved);
+        }
+        return ret;
     }
 
     @Override
@@ -312,9 +368,10 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         });
     }
 
-    // a user with a sign-in method is pending no longer; sync so the member list shows it at once
+    // a user with a sign-in method is pending no longer; the flag alone is written, so an administrator's change to
+    // the user meanwhile stands, and sync so the member list shows it at once
     private Future<Void> signsIn(UserParticipantIdentity user) {
-        return user.isPending() ? saveSync(user.setPending(false)).mapEmpty() : Future.succeededFuture();
+        return user.isPending() ? identityRepository.clearPending(user.getId(), null).mapEmpty() : Future.succeededFuture();
     }
 
     // a system user signs in to the system console with a password alone
@@ -749,16 +806,19 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     protected Future<Void> beforeDelete(String id) {
-        // Cascade the IdentityCredential. Credential lookups are by id (realtime GETs), so the
-        // credential delete never needs to wait for search visibility.
-        // Delegates owned by the deleted identity go with it — a delegate must not outlive
-        // the authority it wields (resolveParticipant would reject it anyway; this is hygiene).
-        // the bindings go with the user as well: they mean nothing without it
+        // Everything that signs the identity in or that it authorized goes with it: its credential, read by id
+        // so its delete never waits for search visibility; its bindings; the device-code and authorization-code
+        // grants it approved, which would otherwise redeem to a deleted identity until they expire; and its
+        // refresh tokens, revoked so a rotation of one fails. Delegates it owns go with it as well — a delegate
+        // must not outlive the authority it wields (resolveParticipant would reject it anyway; this is hygiene).
+        // It also leaves the authorization stores it is held in, so one created again under its id starts with no grants.
         return identityRepository.findById(id)
                 .compose(this::withdrawn)
                 .compose(v -> credentialRepository.deleteById(id))
-                .compose(v -> bindingRepository.findByIdentity(id))
-                .compose(bindings -> Future.all(bindings.stream().map(binding -> bindingRepository.deleteById(binding.getId())).toList()))
+                .compose(v -> bindingRepository.deleteByIdentity(id))
+                .compose(v -> deviceCodeGrantRepository.deleteByIdentity(id))
+                .compose(v -> oauthAuthorizationGrantRepository.deleteByIdentity(id))
+                .compose(v -> refreshTokenService.revokeAllFor(id))
                 .compose(v -> identityRepository.findAllDelegatesByOwner(id, Pageable.create(0, 1000, Sort.by("created"))))
                 .compose(delegates -> {
                     List<Future<Void>> deletes = delegates.getContent().stream()

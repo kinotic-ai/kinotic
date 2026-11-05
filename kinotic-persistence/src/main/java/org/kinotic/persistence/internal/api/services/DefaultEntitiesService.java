@@ -37,16 +37,9 @@ public class DefaultEntitiesService implements EntitiesService {
      */
     @EventListener
     public void handleEntityDefinitionCacheEviction(CacheEvictionEvent event) {
-
-        try {
-
-            if(event.getEvictionSourceType() == EvictionSourceType.ENTITY_DEFINITION){
-                this.entityServiceCache.evict(event.getApplicationKey().organizationId(), event.getEntityDefinitionId());
-            }
-
-        } catch (Exception e) {
-            log.error("failed to handle EntityDefinition cache eviction (source: {})",
-                     event.getEvictionSource().getDisplayName(), e);
+        // a failure propagates to the cluster event task, so the publisher retries the node instead of counting it as handled
+        if(event.getEvictionSourceType() == EvictionSourceType.ENTITY_DEFINITION){
+            this.entityServiceCache.evict(event.getApplicationKey().organizationId(), event.getEntityDefinitionId());
         }
     }
 

@@ -127,9 +127,10 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                     if (grant == null) {
                         return Future.failedFuture(new IllegalArgumentException("Unknown authorization code"));
                     }
-                    // consume the grant before judging it, so a failed exchange burns the code too. Of two
-                    // exchanges racing for one code only the one that consumed it goes on
-                    return grantRepository.consumeByIdSync(grant.getId())
+                    // consume the grant before judging it, so a failed exchange burns the code too; of two
+                    // exchanges presenting one code at once, the one that consumed it is the only one that
+                    // can succeed, and the other finds the code unknown
+                    return grantRepository.consume(grant.getId())
                                           .compose(consumed -> {
                         if (!consumed) {
                             return Future.failedFuture(new IllegalArgumentException("Unknown authorization code"));

@@ -81,7 +81,7 @@ deployment/terraform/set-dev-server-secret.sh kinotic-cloudflare-dns-api-token
 deployment/terraform/set-dev-server-secret.sh kinotic-proxmox-password
 ```
 
-`set-dev-server-secret.sh` reads the value without echo and replaces an existing entry, so a
+`set-dev-server-secret.sh` prompts for the value without echo and replaces an existing entry, so a
 rotation is the same command. Every `terraform plan` or `apply` in either root, and
 `redeploy.sh`, runs under the wrapper; `terraform output` and the scripts that only read outputs
 need no secrets:
@@ -102,6 +102,7 @@ Placed on the host before the first apply, so the servers start with everything 
 ```bash
 ./generate-secrets.sh ./dev-server-secrets
 (cd ../azure/dev-server && terraform output -raw secrets_env) > ./dev-server-secrets/kinotic-servers.env   # the principal's secret and the Cloudflare DNS token
+# A Kinotic Enterprise License key that turns on AZURE_KEY_VAULT → kinotic.ee.licenseKey in every server's secrets.yml
 # The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-server-management/secrets.yml
 # and dev-server-secrets/kinotic-server-system/secrets.yml, the servers that load the GitHub module
 ./sync-secrets.sh ./dev-server-secrets <host>
@@ -177,6 +178,21 @@ grafana_ip        = "192.168.1.24/24"
 gateway           = "192.168.1.1"
 dns_servers       = ["192.168.1.1"]
 ```
+
+The provider verifies the API's TLS certificate, and the installer's is issued by the host's own
+cluster CA, so before the first plan the operator's machine must trust that CA: copy
+`/etc/pve/pve-root-ca.pem` from the host and add it as a trusted root, which an import alone does
+not do:
+
+```bash
+scp root@192.168.1.10:/etc/pve/pve-root-ca.pem /tmp/pve-root-ca.pem
+security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db /tmp/pve-root-ca.pem
+```
+
+The host's certificate names the host by its hostname and address, so `proxmox_host` must be one of
+those, or the check fails on the name even with the CA trusted. Installing a certificate the machine
+already trusts on the host is the alternative. Until either is done, `-var proxmox_insecure=true` on
+each command skips the check for that one run.
 
 ```bash
 cd deployment/terraform/proxmox

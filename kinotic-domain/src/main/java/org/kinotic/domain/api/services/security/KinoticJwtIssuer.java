@@ -2,6 +2,7 @@ package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
@@ -10,6 +11,8 @@ import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.domain.api.config.VersionedKey;
 import org.kinotic.domain.api.config.VersionedKeySet;
 import org.kinotic.domain.api.model.security.KinoticAudience;
@@ -74,11 +77,34 @@ public class KinoticJwtIssuer {
 
     /**
      * Validates a token's signature against any key currently in the active set, dispatching on
-     * the {@code kid} header to the key that signed it.
+     * the {@code kid} header to the key that signed it, and requires the token to have been minted
+     * for the surface {@code context} names: a token minted for another surface fails with an
+     * {@link AuthenticationException}, whoever presents it.
+     *
+     * @param token   the compact JWT
+     * @param context what the entry point authenticates for, whose surface the token's {@code aud} claim must name
      */
-    public Future<User> authenticate(String token) {
+    public Future<User> authenticate(String token, AuthenticationContext context) {
         State current = requireState();
-        return current.jwtAuth.authenticate(new TokenCredentials(token));
+        String authenticationFor = context.getAuthenticationFor();
+        return current.jwtAuth.authenticate(new TokenCredentials(token))
+                              .compose(user -> audienceOf(user).contains(authenticationFor)
+                                      ? Future.succeededFuture(user)
+                                      : Future.failedFuture(new AuthenticationException("Token was not issued for " + authenticationFor)));
+    }
+
+    // RFC 7519 section 4.1.3: aud is a single string or an array of them
+    private static List<String> audienceOf(User user) {
+        Object aud = user.principal().getValue("aud");
+        List<String> ret;
+        if (aud instanceof String single) {
+            ret = List.of(single);
+        } else if (aud instanceof JsonArray many) {
+            ret = many.stream().filter(String.class::isInstance).map(String.class::cast).toList();
+        } else {
+            ret = List.of();
+        }
+        return ret;
     }
 
     private State requireState() {

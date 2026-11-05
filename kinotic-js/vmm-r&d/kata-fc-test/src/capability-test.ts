@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 // Can Kata Containers on Firecracker back the kinotic vm-manager's IVmProvider?
 //
@@ -139,10 +142,11 @@ function phaseSharing(): void {
     // Accepting a -v flag proves nothing: Firecracker has no shared_fs, and kata satisfies the
     // mount by copying the directory in at boot. That reads exactly like a working bind mount
     // until something writes, so test propagation in both directions rather than visibility.
-    const shared = `/tmp/kata-fc-share-${RUN}`;
+    // A private directory of this run's own, and markers that must not already exist: the
+    // probe runs as root, so it never writes through a path another user could have planted
+    const shared = fs.mkdtempSync(path.join(os.tmpdir(), "kata-fc-share-"));
     const name = `share-${RUN}`;
-    run("mkdir", ["-p", shared]);
-    run("sh", ["-c", `echo before-start > ${shared}/before.txt`]);
+    fs.writeFileSync(path.join(shared, "before.txt"), "before-start\n", { flag: "wx" });
 
     const started = kata(["-d", "--name", name, "-v", `${shared}:/shared`, IMAGE, "sleep", "180"]);
     if (started.code !== 0) {
@@ -159,7 +163,7 @@ function phaseSharing(): void {
     record("volumes", before.stdout.includes("before-start"));
 
     // A live share shows each side the other's later writes; a boot-time copy shows neither
-    run("sh", ["-c", `echo after-start > ${shared}/after.txt`]);
+    fs.writeFileSync(path.join(shared, "after.txt"), "after-start\n", { flag: "wx" });
     run("sleep", ["2"]);
     const hostToGuest = nerdctl(["exec", name, "sh", "-c", "cat /shared/after.txt 2>/dev/null || echo NOT-VISIBLE"]);
     console.log(`  host write -> guest    : ${hostToGuest.stdout}`);
