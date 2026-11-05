@@ -48,7 +48,7 @@
           v-for="choice in organizationChoices"
           :key="choice.id"
           :label="choice.name"
-          class="login-submit"
+          class="login-submit login-choices__choice"
           severity="secondary"
           @click="signInTo(choice.id)"
         />

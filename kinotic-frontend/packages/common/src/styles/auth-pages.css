@@ -222,6 +222,20 @@
   color: var(--lp-text);
 }
 
+/* a choice is the secondary action beside the page's own form, so it takes the social buttons' surface in place of
+   the primary fill .login-submit paints */
+.login-choices__choice.p-button {
+  background: var(--lp-provider-bg);
+  border: 1px solid var(--lp-provider-border);
+  color: var(--lp-provider-color);
+}
+
+.login-choices__choice.p-button:hover {
+  background: var(--lp-provider-bg-hover);
+  border-color: var(--lp-provider-border-hover);
+  color: var(--lp-provider-color);
+}
+
 .login-back-link {
   display: inline-flex;
   width: 100%;
