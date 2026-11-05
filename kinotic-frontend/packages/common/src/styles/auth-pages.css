@@ -39,7 +39,10 @@
   align-items: center;
   justify-items: center;
   background: var(--lp-panel-bg);
-  overflow: hidden;
+  /* the page is fixed to the viewport, so content taller than it (a long list of organization choices on a short
+     screen) scrolls here */
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 2rem 0 1.25rem;
 }
 
@@ -203,6 +206,34 @@
   flex: 1;
   height: 1px;
   background: var(--lp-input-border);
+}
+
+/* The organizations a social identity signs in to, offered as a choice */
+.login-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2.25rem;
+}
+
+.login-choices__hint {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  color: var(--lp-text);
+}
+
+/* a choice is the secondary action beside the page's own form, so it takes the social buttons' surface in place of
+   the primary fill .login-submit paints */
+.login-choices__choice.p-button {
+  background: var(--lp-provider-bg);
+  border: 1px solid var(--lp-provider-border);
+  color: var(--lp-provider-color);
+}
+
+.login-choices__choice.p-button:hover {
+  background: var(--lp-provider-bg-hover);
+  border-color: var(--lp-provider-border-hover);
+  color: var(--lp-provider-color);
 }
 
 .login-back-link {
