@@ -18,7 +18,6 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
@@ -57,8 +56,6 @@ public class EndpointConnectionHandler {
     // the revocation that named this connection before its CONNECT frame arrived, which connect then refuses
     private Throwable revocation;
     private Session session;
-    // the browser login the connection was established with, or null for a client outside a browser
-    private String loginId;
     private long lastSessionFlush = 0;
     private ConnectedInfo connectedInfo;
     private StompAuthorizer stompAuthorizer;
@@ -78,7 +75,6 @@ public class EndpointConnectionHandler {
         session = routingContext.session();
         // the login the upgrading page made, carried by its session cookie
         this.connectedInfo = SessionBinding.connectedInfo(routingContext);
-        loginId = SessionBinding.loginId(routingContext);
         // an upgrade that presented no session cookie got a session created for it
         sessionCreatedHere = !SessionBinding.sessionPresented(routingContext);
 
@@ -121,21 +117,17 @@ public class EndpointConnectionHandler {
                               });
     }
 
-    // The participant is authenticated once, in the handshake, so a revocation of the identity or of the browser
-    // login ends the connection through the registry from this point on: one that arrives before the CONNECT
-    // frame is recorded and refused there. A revocation arrives on the event bus consumer's context, and the
-    // connection's state is touched only on its own event loop, so the close is dispatched onto it
+    // The participant is authenticated once, in the handshake, so a revocation of the identity ends the connection
+    // through the registry from this point on: one that arrives before the CONNECT frame is recorded and refused
+    // there. A revocation arrives on the event bus consumer's context, and the connection's state is touched only
+    // on its own event loop, so the close is dispatched onto it
     private void registerForRevocation() {
         Context context = services.vertx.getOrCreateContext();
         Consumer<Throwable> closeOnContext = cause -> context.runOnContext(v -> {
             revocation = cause;
             close.accept(cause);
         });
-        registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
-                                                               connectedInfo.getParticipant().getId(), closeOnContext));
-        if (loginId != null) {
-            registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN, loginId, closeOnContext));
-        }
+        registrations.add(services.connectionRegistry.register(connectedInfo.getParticipant().getId(), closeOnContext));
     }
 
     public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {

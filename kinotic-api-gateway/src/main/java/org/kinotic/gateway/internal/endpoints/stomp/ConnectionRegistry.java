@@ -3,7 +3,6 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectionRevocation;
-import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
@@ -14,8 +13,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 
 /**
- * The connections open on this node, by the identity they are authenticated as and by the browser login that
- * established them, so a revocation delivered to the cluster ends the ones it names.
+ * The connections open on this node, by the identity they are authenticated as, so a revocation delivered to the
+ * cluster ends the ones of the identity it names.
  */
 @Slf4j
 @Component
@@ -24,15 +23,14 @@ public class ConnectionRegistry {
     private final Map<String, Set<Consumer<Throwable>>> connections = new ConcurrentHashMap<>();
 
     /**
-     * Registers a connection under the identity or login named, to be ended when a revocation names it.
+     * Registers a connection under the identity it is authenticated as, to be ended when a revocation names it.
      *
-     * @param type  what {@code id} names
-     * @param id    the identity or login
-     * @param close ends the connection with the cause given
+     * @param identityId the identity
+     * @param close      ends the connection with the cause given
      * @return removes the registration, once the connection has ended
      */
-    public Runnable register(ConnectionRevocationType type, String id, Consumer<Throwable> close) {
-        String key = key(type, id);
+    public Runnable register(String identityId, Consumer<Throwable> close) {
+        String key = identityId;
         // added under the key's lock, so a revoke or an unregister detaching the set cannot slip in between
         // finding the set and adding to it and leave the closer in a set nothing reads
         connections.compute(key, (k, closers) -> {
@@ -49,15 +47,11 @@ public class ConnectionRegistry {
     /** Ends every connection the revocation names; one that names none is handled as nothing. */
     @EventListener
     public void revoke(ConnectionRevocation revocation) {
-        Set<Consumer<Throwable>> closers = connections.remove(key(revocation.getType(), revocation.getId()));
+        Set<Consumer<Throwable>> closers = connections.remove(revocation.getIdentityId());
         if (closers != null) {
-            log.debug("Ending {} connection(s) of {} {}", closers.size(), revocation.getType(), revocation.getId());
+            log.debug("Ending {} connection(s) of identity {}", closers.size(), revocation.getIdentityId());
             closers.forEach(close -> close.accept(new AuthenticationException("The connection's authorization was revoked")));
         }
-    }
-
-    private static String key(ConnectionRevocationType type, String id) {
-        return type + ":" + id;
     }
 
 }

@@ -11,8 +11,8 @@ import org.kinotic.core.api.event.ClusterEvent;
 import java.util.Set;
 
 /**
- * A revocation delivered to every node running the API gateway: the connections of the named identity or login
- * end.
+ * A revocation delivered to every node running the API gateway: every connection authenticated as the identity
+ * ends.
  */
 @Getter
 @Setter
@@ -21,8 +21,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class ConnectionRevocation implements ClusterEvent {
 
-    private ConnectionRevocationType type;
-    private String id;
+    private String identityId;
 
     @Override
     public Set<String> nodeAttributeFilter() {

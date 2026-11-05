@@ -92,12 +92,12 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     public Future<Void> deleteById(String id) {
-        return super.deleteById(id).compose(v -> connectionRevocationService.revokeIdentity(id));
+        return super.deleteById(id).compose(v -> connectionRevocationService.revoke(id));
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return super.deleteByIdSync(id).compose(v -> connectionRevocationService.revokeIdentity(id));
+        return super.deleteByIdSync(id).compose(v -> connectionRevocationService.revoke(id));
     }
 
     // A delegate's connection is registered under the delegate's own id and acts with its owner's authority, so a
@@ -107,10 +107,10 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         if (saved.isEnabled()) {
             ret = Future.succeededFuture(saved);
         } else {
-            ret = connectionRevocationService.revokeIdentity(saved.getId())
+            ret = connectionRevocationService.revoke(saved.getId())
                     .compose(v -> identityRepository.findAllDelegatesByOwner(saved.getId(), Pageable.create(0, 1000, Sort.by("created"))))
                     .compose(delegates -> Future.all(delegates.getContent().stream()
-                                                              .map(delegate -> connectionRevocationService.revokeIdentity(delegate.getId()))
+                                                              .map(delegate -> connectionRevocationService.revoke(delegate.getId()))
                                                               .toList()))
                     .map(saved);
         }
