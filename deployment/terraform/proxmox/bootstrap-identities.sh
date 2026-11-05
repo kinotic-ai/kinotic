@@ -83,6 +83,6 @@ for arg in "$@"; do
     "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineType\":\"CLIENT\",\"displayName\":\"$node vm-manager\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
     | bulk
   printf 'KINOTIC_CLIENT_ID=%s\nKINOTIC_CLIENT_SECRET=%s\n' "$machine_id" "$machine_secret" \
-    | ssh "$target" "sudo sh -c 'umask 077 && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"
+    | ssh "$target" "sudo sh -c 'umask 077 && rm -f /etc/kinotic/vm-manager.secrets.env && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"
   echo "==> Machine for $node installed on $target, its vm-manager restarted"
 done

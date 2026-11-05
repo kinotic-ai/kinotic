@@ -54,6 +54,8 @@ public class EndpointConnectionHandler {
     private final Consumer<Throwable> close;
     // the registrations with the node's ConnectionRegistry, removed when the connection ends
     private final List<Runnable> registrations = new ArrayList<>();
+    // the revocation that named this connection before its CONNECT frame arrived, which connect then refuses
+    private Throwable revocation;
     private Session session;
     // the browser login the connection was established with, or null for a client outside a browser
     private String loginId;
@@ -92,6 +94,7 @@ public class EndpointConnectionHandler {
         routingContext.request().headers().remove(CLIENT_SECRET_HEADER);
 
         if (connectedInfo != null && connectedInfo.getParticipant() != null) {
+            registerForRevocation();
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
@@ -113,13 +116,34 @@ public class EndpointConnectionHandler {
                                   if (SessionBinding.sessionPresented(routingContext)) {
                                       SessionBinding.bind(routingContext, SessionBinding.origin(routingContext), connectedInfo);
                                   }
+                                  registerForRevocation();
                                   return MultiMap.caseInsensitiveMultiMap();
                               });
+    }
+
+    // The participant is authenticated once, in the handshake, so a revocation of the identity or of the browser
+    // login ends the connection through the registry from this point on: one that arrives before the CONNECT
+    // frame is recorded and refused there. A revocation arrives on the event bus consumer's context, and the
+    // connection's state is touched only on its own event loop, so the close is dispatched onto it
+    private void registerForRevocation() {
+        Context context = services.vertx.getOrCreateContext();
+        Consumer<Throwable> closeOnContext = cause -> context.runOnContext(v -> {
+            revocation = cause;
+            close.accept(cause);
+        });
+        registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
+                                                               connectedInfo.getParticipant().getId(), closeOnContext));
+        if (loginId != null) {
+            registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN, loginId, closeOnContext));
+        }
     }
 
     public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {
         if (connectedInfo == null || connectedInfo.getParticipant() == null) {
             return Future.failedFuture(new AuthenticationException("Client must authenticate before sending a CONNECT frame"));
+        }
+        if (revocation != null) {
+            return Future.failedFuture(revocation);
         }
 
         Future<Map<String, String>> ret;
@@ -135,18 +159,6 @@ public class EndpointConnectionHandler {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
                 stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
-
-                // The participant is authenticated once, here, so a revocation of the identity or of the
-                // browser login ends the connection through the registry. A revocation arrives on the event
-                // bus consumer's context, and the connection's state is touched only on its own event loop,
-                // so the close is dispatched onto it
-                Context context = services.vertx.getOrCreateContext();
-                Consumer<Throwable> closeOnContext = cause -> context.runOnContext(v -> close.accept(cause));
-                registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
-                                                                       connectedInfo.getParticipant().getId(), closeOnContext));
-                if (loginId != null) {
-                    registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN, loginId, closeOnContext));
-                }
 
                 signalActivity();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {

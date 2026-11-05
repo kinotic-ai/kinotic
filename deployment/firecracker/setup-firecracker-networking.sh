@@ -161,6 +161,10 @@ EOF
         log "Nftables config already includes firecracker rules"
     else
         log "Adding include to $NFTABLES_CONF..."
+        # on its own line: a file whose last line is unterminated would otherwise absorb the directive
+        if [[ -s "$NFTABLES_CONF" && -n "$(tail -c1 "$NFTABLES_CONF")" ]]; then
+            echo | sudo tee -a "$NFTABLES_CONF" >/dev/null
+        fi
         echo "include \"$NFT_RULES_FILE\"" | sudo tee -a "$NFTABLES_CONF" >/dev/null
     fi
 

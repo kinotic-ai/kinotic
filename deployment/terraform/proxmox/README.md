@@ -178,11 +178,20 @@ gateway           = "192.168.1.1"
 dns_servers       = ["192.168.1.1"]
 ```
 
-The provider verifies the API's TLS certificate, and the installer's is self-signed, so before
-the first plan the operator's machine must trust it: import the host's certificate (**Datacenter →
-Node → System → Certificates**, or `/etc/pve/local/pve-ssl.pem` over SSH) into the operator's
-keychain, or install a certificate the machine already trusts on the host. Until then,
-`-var proxmox_insecure=true` on each command skips the check for that one run.
+The provider verifies the API's TLS certificate, and the installer's is issued by the host's own
+cluster CA, so before the first plan the operator's machine must trust that CA: copy
+`/etc/pve/pve-root-ca.pem` from the host and add it as a trusted root, which an import alone does
+not do:
+
+```bash
+scp root@192.168.1.10:/etc/pve/pve-root-ca.pem /tmp/pve-root-ca.pem
+security add-trusted-cert -r trustRoot -k ~/Library/Keychains/login.keychain-db /tmp/pve-root-ca.pem
+```
+
+The host's certificate names the host by its hostname and address, so `proxmox_host` must be one of
+those, or the check fails on the name even with the CA trusted. Installing a certificate the machine
+already trusts on the host is the alternative. Until either is done, `-var proxmox_insecure=true` on
+each command skips the check for that one run.
 
 ```bash
 cd deployment/terraform/proxmox

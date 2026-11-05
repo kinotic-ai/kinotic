@@ -74,6 +74,10 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
                     if(!(type instanceof StringC3Type)){
                         throw new IllegalArgumentException("Text decorator can only be applied to String fields");
                     }
+                    // the tenant filter is a term query on the field, which an analyzed value would match by token
+                    if(state.getCurrentJsonPath().equals(state.getTenantIdFieldName())){
+                        throw new IllegalArgumentException("The TenantId field cannot be Text; it is matched exactly, at: " + state.getCurrentJsonPath());
+                    }
 
                     builder.properties(fieldName, TextProperty.of(f -> f)._toProperty());
 

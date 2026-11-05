@@ -120,7 +120,10 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     // The connection's authorization ended: a revoked identity or login, or a session that is gone
     private void endConnection(Throwable cause) {
         log.info("Ending STOMP connection: {}", cause.getMessage());
-        stompServerConnection.sendErrorAndDisconnect(cause);
+        // between the handshake and the upgrade there is no connection yet; the recorded revocation refuses its CONNECT
+        if (stompServerConnection != null) {
+            stompServerConnection.sendErrorAndDisconnect(cause);
+        }
     }
 
     /**

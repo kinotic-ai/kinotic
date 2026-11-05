@@ -19,7 +19,16 @@ if ! security show-keychain-info "$KEYCHAIN" >/dev/null 2>&1; then
   security unlock-keychain "$KEYCHAIN"
 fi
 
-# With no -w, security prompts for the value itself, so it never appears in a process listing
-echo "$SERVICE:"
-security add-generic-password -U -a "$USER" -s "$SERVICE" "$KEYCHAIN"
+# The value is read here and handed to security on its stdin, so it is never an argument of any process;
+# without -w security stores an empty password, and -w prompts only as the last argument, where the
+# keychain cannot follow it
+printf '%s: ' "$SERVICE"
+IFS= read -rs SECRET
+echo
+[[ -n "$SECRET" ]] || { echo "No value given; nothing stored" >&2; exit 1; }
+# in interactive mode a double-quoted argument takes a backslash as escaping the next character
+ESCAPED=${SECRET//\\/\\\\}
+ESCAPED=${ESCAPED//\"/\\\"}
+printf 'add-generic-password -U -a "%s" -s "%s" -w "%s" "%s"\n' "$USER" "$SERVICE" "$ESCAPED" "$KEYCHAIN" | security -i
+unset SECRET ESCAPED
 echo "Stored $SERVICE in $KEYCHAIN"

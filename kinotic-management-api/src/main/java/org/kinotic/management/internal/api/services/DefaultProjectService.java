@@ -64,12 +64,29 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<Project> createProjectIfNotExist(Project project) {
         validateAndDeriveId(project);
         return findById(project.getId())
-                .compose(existing -> {
-                    if (existing != null) {
-                        return Future.succeededFuture(existing);
-                    }
-                    return repoProvisioner.provision(project).compose(this::save);
-                });
+                .compose(existing -> existing != null
+                        ? Future.succeededFuture(existing)
+                        : provisionAndWrite(project, super::create));
+    }
+
+    @Override
+    public Future<Project> save(Project project) {
+        return requireStored(project).compose(v -> super.save(project));
+    }
+
+    @Override
+    public Future<Project> saveSync(Project project) {
+        return requireStored(project).compose(v -> super.saveSync(project));
+    }
+
+    // A save never creates: a new project goes through create, which provisions its repository, so a member cannot
+    // write a project bound to a repository of their choosing and then have that repository's credentials issued
+    private Future<Void> requireStored(Project project) {
+        Validate.notNull(project, "Project cannot be null");
+        Validate.notNull(project.getId(), "Project id cannot be null");
+        return findById(project.getId()).compose(stored -> stored == null
+                ? Future.failedFuture(new IllegalArgumentException("Project for id " + project.getId() + " does not exist; a project is created, not saved"))
+                : Future.succeededFuture());
     }
 
     @Override

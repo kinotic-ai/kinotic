@@ -82,7 +82,14 @@ public class MigrationExecutor {
                                                           .mustNot(m -> m.exists(e -> e.field("organizationId")))))
                                 .script(s -> s.source(src -> src.scriptString("ctx._source.organizationId = params.organizationId"))
                                               .params("organizationId", JsonData.of(SYSTEM_ORGANIZATION)))))
-                        .thenApply(response -> false);
+                        .thenApply(response -> {
+                            // a partial backfill would read the rows it missed as unapplied and run their migrations again
+                            if (Boolean.TRUE.equals(response.timedOut()) || !response.failures().isEmpty()) {
+                                throw new IllegalStateException("The migration history backfill did not complete: "
+                                                                + response.failures().size() + " failure(s), timed out: " + response.timedOut());
+                            }
+                            return false;
+                        });
             });
     }
 

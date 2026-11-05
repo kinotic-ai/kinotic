@@ -52,8 +52,11 @@ iptables -C INPUT -s "$BRIDGE_SUBNET" -d "$BRIDGE_ADDRESS" -p udp --dport 53 -j 
 # name an upstream resolver answered with a bridge address, would admit a peer before Docker
 # denies it. Inserted at the top of FORWARD, above that jump, where no per-workload grant
 # precedes it; host-bound traffic (the resolver, an OTLP receiver) passes INPUT, not FORWARD.
-iptables -C FORWARD -s "$BRIDGE_SUBNET" -d "$BRIDGE_SUBNET" -j DROP 2>/dev/null \
-    || iptables -I FORWARD 1 -s "$BRIDGE_SUBNET" -d "$BRIDGE_SUBNET" -j DROP
+# Docker puts its DOCKER-USER jump back at the top of FORWARD whenever it creates a network,
+# which leaves the drop below the jump, so the drop is removed and reinserted at the top on
+# every run rather than checked for presence
+while iptables -D FORWARD -s "$BRIDGE_SUBNET" -d "$BRIDGE_SUBNET" -j DROP 2>/dev/null; do :; done
+iptables -I FORWARD 1 -s "$BRIDGE_SUBNET" -d "$BRIDGE_SUBNET" -j DROP
 
 # --- Egress default-deny ------------------------------------------------------------------
 # Appended, so it sits BELOW any per-workload ACCEPT the vm-manager inserts with -I. A
