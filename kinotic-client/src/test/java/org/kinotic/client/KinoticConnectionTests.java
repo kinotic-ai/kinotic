@@ -204,6 +204,15 @@ public class KinoticConnectionTests {
     }
 
     @Test
+    public void testServerUrlEndingInTheGatewayPathIsRejected() {
+        for (String serverUrl : List.of("ws://localhost:" + port + "/api/v1", "ws://localhost:" + port + "/api/v1/")) {
+            Assertions.assertThrows(IllegalArgumentException.class,
+                                    () -> KinoticConnection.connect(vertx, options(TestGatewayApplication.CLIENT_SECRET).setServerUrl(serverUrl)),
+                                    serverUrl);
+        }
+    }
+
+    @Test
     public void testRejectedCredentialsFailTheConnect() {
         ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
                                                              () -> KinoticConnection.connect(vertx, options("wrong-secret"))

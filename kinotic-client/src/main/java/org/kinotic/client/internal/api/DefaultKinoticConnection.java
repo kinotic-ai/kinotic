@@ -105,7 +105,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
                         "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
         Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
-        Validate.isTrue(!serverUri.getPath().endsWith(GATEWAY_PATH),
+        Validate.isTrue(!serverUri.getPath().replaceAll("/+$", "").endsWith(GATEWAY_PATH),
                         "serverUrl names the gateway without its %s path, which the client appends itself", GATEWAY_PATH);
         Validate.isTrue(serverUri.getQuery() == null && serverUri.getFragment() == null,
                         "serverUrl must carry no query or fragment but was '%s'", options.getServerUrl());
