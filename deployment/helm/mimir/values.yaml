@@ -25,7 +25,7 @@ serviceAccount:
 podLabels: {}
 
 # Mimir's configuration file. Mirrors deployment/docker-compose/mimir.yml, with every path on the
-# persistent volume at /data and a retention period.
+# persistent volume at /data.
 config:
   target: all
 

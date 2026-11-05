@@ -20,7 +20,7 @@ ingester:
 
 compactor:
   compaction:
-    block_retention: 1h
+    block_retention: 720h  # 30 days, as Loki keeps logs and Mimir keeps metrics
     compacted_block_retention: 10m
 
 storage:
