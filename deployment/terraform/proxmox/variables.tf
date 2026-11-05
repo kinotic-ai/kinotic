@@ -12,9 +12,9 @@ variable "proxmox_password" {
 }
 
 variable "proxmox_insecure" {
-  description = "Skip verification of the API's TLS certificate, which the installer self-signs"
+  description = "Skip verification of the API's TLS certificate. The host's certificate must be trusted: import the PVE certificate into the operator's keychain. -var proxmox_insecure=true is the exception for a host still on the installer's self-signed certificate"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "proxmox_node" {

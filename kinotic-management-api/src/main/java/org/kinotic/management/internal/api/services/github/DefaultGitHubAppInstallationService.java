@@ -143,8 +143,35 @@ public class DefaultGitHubAppInstallationService
         // installation, other customers' included — only the authorizing user's token
         // proves which installations that user controls.
         return userAccessToken(code)
-                .compose(apiClient::listUserInstallations)
-                .compose(installations -> requireAccessible(installations, installationId));
+                .compose(token -> apiClient.listUserInstallations(token)
+                                           .compose(installations -> requireAccessible(installations, installationId))
+                                           .compose(match -> requireDelegationAuthority(token, match)));
+    }
+
+    // Read access to one repository of the account lists the installation to the user, which is not the
+    // authority to hand the App's permissions on the account to this organization: that is the account
+    // itself, or an owner of the GitHub organization
+    private Future<InstallationDetails> requireDelegationAuthority(String userAccessToken, InstallationDetails match) {
+        Future<Boolean> authorized;
+        if ("Organization".equals(match.accountType())) {
+            authorized = apiClient.isOrganizationOwner(userAccessToken, match.accountLogin());
+        } else {
+            authorized = apiClient.getAuthenticatedLogin(userAccessToken)
+                                  .map(login -> login != null && login.equalsIgnoreCase(match.accountLogin()));
+        }
+        return authorized.compose(ok -> {
+            Future<InstallationDetails> ret;
+            if (ok) {
+                ret = Future.succeededFuture(match);
+            } else {
+                log.warn("GitHub install verification failed: the authorizing user does not own the account {} of installation {}",
+                         match.accountLogin(), match.id());
+                ret = Future.failedFuture(new AuthorizationException(
+                        "The GitHub account that authorized this install must be " + match.accountLogin()
+                        + " or an owner of it to link its installation."));
+            }
+            return ret;
+        });
     }
 
     private Future<String> userAccessToken(String code) {

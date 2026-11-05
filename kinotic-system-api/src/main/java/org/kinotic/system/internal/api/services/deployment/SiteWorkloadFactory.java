@@ -53,10 +53,12 @@ public class SiteWorkloadFactory {
     /**
      * The removal workload of a site, run on the node its project deploys to.
      */
-    public Workload removal(UiDeployment deployment, String nodeId, String removalUrl) {
+    public Workload removal(UiDeployment deployment, String removalUrl) {
+        // nothing of the site lives on a node, so the removal runs wherever there is room, which outlives the
+        // node the site was published from
         Workload workload = siteWorkload("site-remove-" + deployment.getId(), "Removal of site " + deployment.getId(),
                                          new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getOrganizationId(), deployment.getId()),
-                                         nodeId, new ApplicationKey(deployment.getOrganizationId(), deployment.getApplicationId()), "src/remove-ui.ts");
+                                         null, new ApplicationKey(deployment.getOrganizationId(), deployment.getApplicationId()), "src/remove-ui.ts");
         workload.getSecrets().put("KINOTIC_UI_REMOVAL_URL", removalUrl);
         allowSitesAccount(workload, removalUrl);
         return workload;

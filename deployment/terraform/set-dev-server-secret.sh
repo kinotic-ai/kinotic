@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Stores one of the development server's operator secrets in their keychain, replacing the entry when
-# it exists, so a rotation is the same command. The value is read from the terminal without echo.
+# it exists, so a rotation is the same command. security prompts for the value, without echo.
 #
 #   set-dev-server-secret.sh <kinotic-cloudflare-api-token|kinotic-cloudflare-dns-api-token|kinotic-proxmox-password>
 #
@@ -19,10 +19,16 @@ if ! security show-keychain-info "$KEYCHAIN" >/dev/null 2>&1; then
   security unlock-keychain "$KEYCHAIN"
 fi
 
-read -rsp "$SERVICE: " value
+# The value is read here and handed to security on its stdin, so it is never an argument of any process;
+# without -w security stores an empty password, and -w prompts only as the last argument, where the
+# keychain cannot follow it
+printf '%s: ' "$SERVICE"
+IFS= read -rs SECRET
 echo
-[[ -n "$value" ]] || { echo "Empty value; nothing stored" >&2; exit 1; }
-# The keychain path follows -w's value: given after a bare -w, security takes the path as the value
-# and stores the entry in the login keychain
-security add-generic-password -U -a "$USER" -s "$SERVICE" -w "$value" "$KEYCHAIN"
+[[ -n "$SECRET" ]] || { echo "No value given; nothing stored" >&2; exit 1; }
+# in interactive mode a double-quoted argument takes a backslash as escaping the next character
+ESCAPED=${SECRET//\\/\\\\}
+ESCAPED=${ESCAPED//\"/\\\"}
+printf 'add-generic-password -U -a "%s" -s "%s" -w "%s" "%s"\n' "$USER" "$SERVICE" "$ESCAPED" "$KEYCHAIN" | security -i
+unset SECRET ESCAPED
 echo "Stored $SERVICE in $KEYCHAIN"

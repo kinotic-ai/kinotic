@@ -120,6 +120,8 @@ class DefaultGitHubAppInstallationServiceTest {
         apiClient = mock(GitHubApiClient.class);
         when(apiClient.exchangeUserAccessCode("client-id", "client-secret", "good-code"))
                 .thenReturn(Future.succeededFuture("user-token"));
+        when(apiClient.getAuthenticatedLogin("user-token")).thenReturn(Future.succeededFuture("personal"));
+        when(apiClient.isOrganizationOwner("user-token", "acme")).thenReturn(Future.succeededFuture(true));
 
         service = new DefaultGitHubAppInstallationService(repository,
                                                           securityContext,
@@ -178,6 +180,33 @@ class DefaultGitHubAppInstallationServiceTest {
         when(apiClient.listUserInstallations("user-token"))
                 .thenReturn(Future.succeededFuture(List.of(
                         new InstallationDetails(11L, 777L, "personal", "User"))));
+        String state = stage(CALLER_ORG, null);
+
+        assertFailsWith(AuthorizationException.class,
+                        service.completeInstall(INSTALLATION_ID, state, "good-code"));
+        verify(repository, never()).saveSync(any(), anyString());
+    }
+
+    @Test
+    void rejectsAnInstallationOfAnOrganizationTheAuthorizingUserDoesNotOwn() {
+        // A read-only collaborator of one of acme's repositories sees the installation but may
+        // not delegate the App's permissions on acme
+        when(apiClient.listUserInstallations("user-token"))
+                .thenReturn(Future.succeededFuture(List.of(
+                        new InstallationDetails(INSTALLATION_ID, 777L, "acme", "Organization"))));
+        when(apiClient.isOrganizationOwner("user-token", "acme")).thenReturn(Future.succeededFuture(false));
+        String state = stage(CALLER_ORG, null);
+
+        assertFailsWith(AuthorizationException.class,
+                        service.completeInstall(INSTALLATION_ID, state, "good-code"));
+        verify(repository, never()).saveSync(any(), anyString());
+    }
+
+    @Test
+    void rejectsAnInstallationOfAnotherUsersAccount() {
+        when(apiClient.listUserInstallations("user-token"))
+                .thenReturn(Future.succeededFuture(List.of(
+                        new InstallationDetails(INSTALLATION_ID, 777L, "someone-else", "User"))));
         String state = stage(CALLER_ORG, null);
 
         assertFailsWith(AuthorizationException.class,

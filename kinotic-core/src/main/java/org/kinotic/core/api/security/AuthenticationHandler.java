@@ -10,18 +10,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Vertx Authentication handler that uses the {@link SecurityService} to authenticate requests.
+ * Vertx Authentication handler that uses the {@link SecurityService} to authenticate requests, in the
+ * {@link AuthenticationContext} the route serves.
  * Created by Navíd Mitchell 🤪on 6/19/23.
  */
 public class AuthenticationHandler implements Handler<RoutingContext> {
 
     private final SecurityService securityService;
     private final SecurityContext securityContext;
+    private final AuthenticationContext context;
 
     public AuthenticationHandler(SecurityService securityService,
-                                 SecurityContext securityContext) {
+                                 SecurityContext securityContext,
+                                 AuthenticationContext context) {
         this.securityService = securityService;
         this.securityContext = securityContext;
+        this.context = context;
     }
 
     @Override
@@ -34,7 +38,7 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
             authInfo.put(entry.getKey().toLowerCase(), entry.getValue());
         }
 
-        securityService.authenticate(authInfo)
+        securityService.authenticate(authInfo, context)
                        .onComplete(event -> {
                            if(event.succeeded()){
                                // Exposes the Participant to route handlers that read it from the RoutingContext

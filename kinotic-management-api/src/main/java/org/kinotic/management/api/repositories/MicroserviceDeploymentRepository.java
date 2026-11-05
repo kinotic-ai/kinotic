@@ -47,14 +47,18 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
     }
 
     /**
-     * Lists the deployments of the project's microservices, ordered by name.
+     * Lists the deployments of the project's microservices, ordered by name. A project id is unique
+     * only within its organization, so the organization is part of the key.
      *
-     * @param projectId the project whose microservice deployments to list
+     * @param projectId      the project whose microservice deployments to list
+     * @param organizationId the organization the project belongs to
      * @return a future emitting the deployments, empty when the project has none
      */
-    public Future<List<MicroserviceDeployment>> findAllForProject(String projectId) {
+    public Future<List<MicroserviceDeployment>> findAllForProject(String projectId, String organizationId) {
         Validate.notBlank(projectId, "projectId cannot be blank");
-        return findAll(Pageable.ofSize(PROJECT_PAGE_SIZE), b -> b.query(termFilter("projectId", projectId)))
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findAll(Pageable.ofSize(PROJECT_PAGE_SIZE),
+                       b -> b.query(composeFilter(termFilter("organizationId", organizationId), termFilter("projectId", projectId))))
                 .map(page -> page.getContent().stream()
                                  .sorted(Comparator.comparing(MicroserviceDeployment::getName))
                                  .toList());

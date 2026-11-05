@@ -20,9 +20,10 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
+import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
+import org.kinotic.domain.api.cache.CacheEvictionException;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -34,14 +35,14 @@ import java.util.function.Function;
 public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
         implements EntityDefinitionService {
 
-    private final ApplicationEventPublisher eventPublisher;
+    private final ClusterEventPublisher clusterEventPublisher;
     private final CrudServiceTemplate crudServiceTemplate;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
 
-    public DefaultEntityDefinitionService(ApplicationEventPublisher eventPublisher,
+    public DefaultEntityDefinitionService(ClusterEventPublisher clusterEventPublisher,
                                           CrudServiceTemplate crudServiceTemplate,
                                           EntityDefinitionConversionService entityDefinitionConversionService,
                                           EntityDefinitionRepository entityDefinitionRepository,
@@ -49,7 +50,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext) {
         super(entityDefinitionRepository, securityContext);
-        this.eventPublisher = eventPublisher;
+        this.clusterEventPublisher = clusterEventPublisher;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -148,11 +149,9 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     // Sync delete, then evict: the deletion must be searchable before the
                     // eviction fires, and the eviction must fire last — either way around,
                     // a concurrent read could re-cache the old row with no eviction behind it.
+                    // The delete completes once every node holding the caches has evicted.
                     return super.deleteByIdSync(entityDefinitionId)
-                                .compose(v -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()));
-                                    return Future.succeededFuture();
-                                });
+                                .compose(v -> evict(entityDefinition));
                 });
     }
 
@@ -204,12 +203,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublished(true);
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
-                        // saveSync so the published state is searchable before the eviction fires
+                        // saveSync so the published state is searchable before the eviction fires; the publish
+                        // completes once every node holding the caches has evicted
                         return super.saveSync(entityDefinition)
-                                    .compose(entityDefinition1 -> {
-                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return Future.succeededFuture();
-                                    });
+                                    .compose(this::evict);
                     });
                 });
     }
@@ -302,13 +299,11 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
                         // saveSync so the new definition is searchable before the eviction
                         // fires — a reload racing the index refresh would re-cache the old
-                        // row with no eviction left to clear it.
+                        // row with no eviction left to clear it. The save completes once every
+                        // node holding the caches has evicted.
                         return updateFuture.compose(
                                 v -> super.saveSync(entityDefinition)
-                                          .map(entityDefinition1 -> {
-                                              this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                              return entityDefinition1;
-                                          }));
+                                          .compose(entityDefinition1 -> evict(entityDefinition1).map(entityDefinition1)));
                     } else {
                         return super.saveSync(entityDefinition);
                     }
@@ -348,13 +343,21 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublished(false);
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
-                        // saveSync so the unpublished state is searchable before the eviction fires
+                        // saveSync so the unpublished state is searchable before the eviction fires; the unpublish
+                        // completes once every node holding the caches has evicted
                         return super.saveSync(entityDefinition)
-                                    .compose(entityDefinition1 -> {
-                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.applicationKey(), entityDefinition1.getId()));
-                                        return Future.succeededFuture();
-                                    });
+                                    .compose(this::evict);
                     });
                 });
+    }
+
+    /**
+     * Evicts the caches every node holding them has for the entity definition; the change to it is already written
+     * when the eviction fails, and the failure says so.
+     */
+    private Future<Void> evict(EntityDefinition entityDefinition) {
+        CacheEvictionEvent event = CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId());
+        return clusterEventPublisher.publish(event)
+                                    .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 }

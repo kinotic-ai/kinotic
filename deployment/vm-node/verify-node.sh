@@ -63,6 +63,15 @@ BRIDGE_SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subn
 iptables -C INPUT -s "${BRIDGE_SUBNET:-172.17.0.0/16}" -j DROP >/dev/null 2>&1 \
   && ok "host services shielded" "INPUT drops ${BRIDGE_SUBNET}" \
   || bad "host services shielded" "a guest can dial this node's own services"
+PEER_DROP="$(iptables -S FORWARD 2>/dev/null | grep -n -- "-s ${BRIDGE_SUBNET:-172.17.0.0/16} -d ${BRIDGE_SUBNET:-172.17.0.0/16} -j DROP" | cut -d: -f1 | head -n 1)"
+USER_JUMP="$(iptables -S FORWARD 2>/dev/null | grep -n -- "-j DOCKER-USER" | cut -d: -f1 | head -n 1)"
+if [ -z "$PEER_DROP" ]; then
+    bad "peer isolation" "no FORWARD drop between guests on ${BRIDGE_SUBNET}"
+elif [ -n "$USER_JUMP" ] && [ "$USER_JUMP" -lt "$PEER_DROP" ]; then
+    bad "peer isolation" "the DOCKER-USER jump sits above the guest-to-guest drop, so a broad grant admits peers"
+else
+    ok "peer isolation" "guests on ${BRIDGE_SUBNET} cannot reach each other"
+fi
 systemctl is-enabled --quiet kinotic-node-firewall 2>/dev/null \
   && ok "firewall floor persisted" "kinotic-node-firewall enabled" \
   || bad "firewall floor persisted" "unit not enabled — rules are lost on reboot"
@@ -94,8 +103,15 @@ fi
 
 if [ -e /etc/kinotic/egress-default-deny ]; then
     SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)"
-    iptables -C DOCKER-USER -s "$SUBNET" -j DROP >/dev/null 2>&1 \
-      && ok "egress default-deny" "$SUBNET" || bad "egress default-deny" "marker present but rule missing"
+    DENY_RULE="$(iptables -S DOCKER-USER 2>/dev/null | grep -n -- "-s ${SUBNET} -j DROP" | cut -d: -f1 | head -n 1)"
+    RETURN_RULE="$(iptables -S DOCKER-USER 2>/dev/null | grep -n -- "^-A DOCKER-USER -j RETURN$" | cut -d: -f1 | head -n 1)"
+    if [ -z "$DENY_RULE" ]; then
+        bad "egress default-deny" "marker present but rule missing"
+    elif [ -n "$RETURN_RULE" ] && [ "$RETURN_RULE" -lt "$DENY_RULE" ]; then
+        bad "egress default-deny" "Docker's RETURN sits above the drop — the drop is never evaluated"
+    else
+        ok "egress default-deny" "$SUBNET"
+    fi
 else
     printf '  \033[33m—\033[0m %-46s %s\n' "egress default-deny" "off (enable once per-workload rules ship)"
 fi

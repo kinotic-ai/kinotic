@@ -153,6 +153,40 @@ describe('Kinotic JS', () => {
         })
       })
 
+      it('resolves an included partial from the spawn itself and nothing from the filesystem', async () => {
+        const spawn: SpawnTree = {
+          'partials/header.liquid': 'Hello {{ name }}',
+          'out.txt.liquid': "{% include 'partials/header.liquid' %}!",
+        }
+
+        const result = await new SpawnEngine().renderSpawn(spawn, {context: {name: 'world'}})
+
+        expect(result.files['out.txt']).toBe('Hello world!')
+        // both exist on disk: package.json in the working directory, /etc/hostname on the host
+        for (const file of ['package.json', '../package.json', '/etc/hostname']) {
+          await expect(new SpawnEngine().renderSpawn({'out.txt.liquid': `{% include '${file}' %}`}))
+            .rejects.toThrow(/ENOENT/)
+        }
+      })
+
+      it('fails on an inheritance cycle naming the refs that close it', async () => {
+        const trees: Record<string, SpawnTree> = {
+          a: {'spawn.json': JSON.stringify({inherits: 'b'})},
+          b: {'spawn.json': JSON.stringify({inherits: 'a'})},
+        }
+        const loadInherited = async (ref: string) => trees[ref]!
+
+        await expect(new SpawnEngine().renderSpawn(trees.a!, {loadInherited})).rejects.toThrow(/cycle: b -> a -> b/)
+        await expect(new SpawnEngine().lint(trees.a!, {loadInherited})).rejects.toThrow(/cycle/)
+      })
+
+      it('fails on an inheritance chain that never ends', async () => {
+        const endless = async (ref: string): Promise<SpawnTree> => ({'spawn.json': JSON.stringify({inherits: `${ref}x`})})
+
+        await expect(new SpawnEngine().renderSpawn({'spawn.json': JSON.stringify({inherits: 's'})}, {loadInherited: endless}))
+          .rejects.toThrow(/deeper than/)
+      })
+
       it('fails when a spawn inherits but no loadInherited callback is provided', async () => {
         const spawn: SpawnTree = {
           'spawn.json': JSON.stringify({inherits: '../base'}),
