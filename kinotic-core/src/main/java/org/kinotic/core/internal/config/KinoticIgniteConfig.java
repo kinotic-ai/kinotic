@@ -17,11 +17,12 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKuber
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.kinotic.core.api.KinoticNodeAttributes;
-import org.kinotic.core.api.ServerTypes;
+import org.kinotic.core.api.ServerType;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
 import org.kinotic.core.api.config.IgniteProperties;
 import org.kinotic.core.api.event.ZonePartitioningService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -102,7 +103,7 @@ public class KinoticIgniteConfig {
             TcpCommunicationSpi tcpCommunicationSpi,
             FailureHandler failureHandler,
             ZonePartitioningService zonePartitioningService,
-            ServerTypes serverTypes) {
+            ObjectProvider<ServerType> serverType) {
         // Set up a few system schema Ignite uses
         System.setProperty(IgniteSystemProperties.IGNITE_NO_ASCII, "true");// Turn off ignite console banner
 
@@ -159,7 +160,7 @@ public class KinoticIgniteConfig {
         // lets a cluster singleton be deployed only to the nodes hosting its zone, and a cluster event be
         // delivered only to the servers of a type
         Map<String, Object> attributes = new HashMap<>(zonePartitioningService.nodeAttributes());
-        serverTypes.types().forEach(type -> attributes.put(KinoticNodeAttributes.serverTypeAttribute(type), Boolean.TRUE));
+        serverType.ifAvailable(type -> attributes.put(KinoticNodeAttributes.SERVER_TYPE, type.name()));
         attributes.put(KinoticNodeAttributes.SERVER_NAME, zonePartitioningService.name());
         String version = KinoticIgniteConfig.class.getPackage().getImplementationVersion();
         if (version != null) {

@@ -117,12 +117,12 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
         return ret;
     }
 
-    // every server node, or the nodes of the servers of one of the types named
+    // every server node, or the nodes the types named select
     private ClusterGroup nodesOf(Set<ServerType> serverTypes) {
         ClusterGroup servers = ignite.cluster().forServers();
         return serverTypes.isEmpty()
                 ? servers
-                : servers.forPredicate(node -> serverTypes.stream().anyMatch(type -> KinoticNodeAttributes.isServerType(node, type)));
+                : servers.forPredicate(node -> KinoticNodeAttributes.isServerType(node, serverTypes));
     }
 
     // the Ignite future completes on an Ignite thread, so the outcome is handed back to the caller's context

@@ -3,7 +3,6 @@ package org.kinotic.appserver.internal.config;
 import org.kinotic.appserver.api.config.AppServerProperties;
 import org.kinotic.appserver.api.config.KinoticAppServerProperties;
 import org.kinotic.core.api.ServerType;
-import org.kinotic.core.api.ServerTypes;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.context.annotation.Bean;
@@ -28,8 +27,8 @@ public class AppServerConfiguration {
 	}
 
 	@Bean
-	public ServerTypes serverTypes() {
-		return ServerTypes.of(ServerType.APP);
+	public ServerType serverType() {
+		return ServerType.APP;
 	}
 
 	/**

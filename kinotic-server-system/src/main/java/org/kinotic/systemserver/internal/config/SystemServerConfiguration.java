@@ -1,7 +1,6 @@
 package org.kinotic.systemserver.internal.config;
 
 import org.kinotic.core.api.ServerType;
-import org.kinotic.core.api.ServerTypes;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.systemserver.api.config.KinoticSystemServerProperties;
@@ -27,8 +26,8 @@ public class SystemServerConfiguration {
 	}
 
 	@Bean
-	public ServerTypes serverTypes() {
-		return ServerTypes.of(ServerType.SYSTEM);
+	public ServerType serverType() {
+		return ServerType.SYSTEM;
 	}
 
 	/**

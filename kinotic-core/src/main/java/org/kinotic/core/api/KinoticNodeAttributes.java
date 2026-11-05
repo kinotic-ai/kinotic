@@ -2,12 +2,12 @@ package org.kinotic.core.api;
 
 import org.apache.ignite.cluster.ClusterNode;
 
+import java.util.Set;
+
 /**
  * The Ignite node attributes every Kinotic server node carries, which identify it to the rest of the cluster.
  */
 public final class KinoticNodeAttributes {
-
-    private static final String SERVER_TYPE_PREFIX = "kinotic.serverType.";
 
     /**
      * The server kind the node runs, such as {@code management}, {@code system} or {@code app}: the name of its
@@ -33,19 +33,18 @@ public final class KinoticNodeAttributes {
     public static final String TELEMETRY_SERVICE_INSTANCE_ID = "kinotic.telemetryServiceInstanceId";
 
     /**
-     * The name of the attribute, set to {@code true}, that marks a node of the given {@link ServerType}; a node
-     * carries one for each type it is of.
-     *
-     * @param type the server type
-     * @return the attribute name, {@code kinotic.serverType.<TYPE>}
+     * The name of the {@link ServerType} the node's server is of; absent on a server that declares none, which runs
+     * every module.
      */
-    public static String serverTypeAttribute(ServerType type) {
-        return SERVER_TYPE_PREFIX + type.name();
-    }
+    public static final String SERVER_TYPE = "kinotic.serverType";
 
-    /** Whether the node advertises itself as a server of the given type. */
-    public static boolean isServerType(ClusterNode node, ServerType type) {
-        return Boolean.TRUE.equals(node.attribute(serverTypeAttribute(type)));
+    /**
+     * Whether the node is selected by one of the given server types: its server is of one of them, or declares no
+     * type and so runs every module.
+     */
+    public static boolean isServerType(ClusterNode node, Set<ServerType> types) {
+        String serverType = node.attribute(SERVER_TYPE);
+        return serverType == null || types.stream().anyMatch(type -> type.name().equals(serverType));
     }
 
     private KinoticNodeAttributes() {

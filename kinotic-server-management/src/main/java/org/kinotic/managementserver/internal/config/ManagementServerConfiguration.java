@@ -1,7 +1,6 @@
 package org.kinotic.managementserver.internal.config;
 
 import org.kinotic.core.api.ServerType;
-import org.kinotic.core.api.ServerTypes;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.managementserver.api.config.KinoticManagementServerProperties;
@@ -29,8 +28,8 @@ public class ManagementServerConfiguration {
 	}
 
 	@Bean
-	public ServerTypes serverTypes() {
-		return ServerTypes.of(ServerType.MANAGEMENT);
+	public ServerType serverType() {
+		return ServerType.MANAGEMENT;
 	}
 
 	/**

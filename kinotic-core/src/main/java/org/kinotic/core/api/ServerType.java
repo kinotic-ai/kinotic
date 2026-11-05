@@ -1,8 +1,9 @@
 package org.kinotic.core.api;
 
 /**
- * What a Kinotic server runs, which its nodes advertise to the cluster so the nodes of a type can be selected. A
- * server running every module is of every type.
+ * What a Kinotic server runs, which its nodes advertise to the cluster so the nodes of a type can be selected. The
+ * server module declares its type as a bean; a server that declares none runs every module and is selected with
+ * every type.
  */
 public enum ServerType {
     /** The management server: the management-api services behind the portal. */
