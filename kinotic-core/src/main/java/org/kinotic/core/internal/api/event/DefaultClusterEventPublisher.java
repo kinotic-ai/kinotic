@@ -13,12 +13,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
+import org.apache.ignite.cluster.ClusterNode;
 import org.kinotic.core.api.event.ClusterEvent;
 import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.core.api.KinoticNodeAttributes;
 import org.kinotic.core.api.ServerType;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.Set;
 
 /**
@@ -83,19 +85,20 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
                 });
     }
 
-    // The membership is read again on every attempt, so a node that left is not waited for and a node that joined
-    // meanwhile receives the event
+    // The membership is read once per attempt, so an attempt is delivered to, and reported on, one set of nodes;
+    // read again on the next attempt, so a node that left is not waited for and a node that joined meanwhile
+    // receives the event
     private Future<Void> attempt(ClusterEventTask task, Set<ServerType> serverTypes, String eventType, int attempt) {
-        ClusterGroup nodes = nodesOf(serverTypes);
+        Collection<ClusterNode> nodes = nodesOf(serverTypes).nodes();
         Future<Void> ret;
-        if (nodes.nodes().isEmpty()) {
+        if (nodes.isEmpty()) {
             log.debug("No node of the cluster is selected by {}", eventType);
             ret = Future.succeededFuture();
         } else {
-            ret = broadcast(nodes, task).recover(error -> {
+            ret = broadcast(ignite.cluster().forNodes(nodes), task).recover(error -> {
                 Future<Void> retried;
                 if (attempt < MAX_ATTEMPTS) {
-                    log.warn("Delivery of {} to {} nodes failed on attempt {} of {}: {}", eventType, nodes.nodes().size(),
+                    log.warn("Delivery of {} to {} nodes failed on attempt {} of {}: {}", eventType, nodes.size(),
                              attempt, MAX_ATTEMPTS, error.getMessage());
                     retryCounter.add(1, Attributes.builder().put("event.type", eventType).build());
                     retried = vertx.timer(RETRY_DELAY_MS).compose(id -> attempt(task, serverTypes, eventType, attempt + 1));

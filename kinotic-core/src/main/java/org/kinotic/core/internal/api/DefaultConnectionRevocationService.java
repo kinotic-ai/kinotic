@@ -2,7 +2,6 @@ package org.kinotic.core.internal.api;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.core.api.security.ConnectionRevocation;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Component;
  * Delivers each revocation to every node through the {@link ClusterEventPublisher}, so every gateway holding a
  * connection it names ends it.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultConnectionRevocationService implements ConnectionRevocationService {
@@ -31,11 +29,14 @@ public class DefaultConnectionRevocationService implements ConnectionRevocationS
         return publish(ConnectionRevocationType.LOGIN, loginId);
     }
 
-    // The state the revocation follows is written already, so a delivery the retries could not complete fails the
-    // caller: what remains undelivered is logged by the publisher, and a repeat of the caller's request delivers again
+    // The state the revocation follows is written already and refuses a reconnect, so the caller is answered as soon
+    // as the delivery starts rather than once every node has acknowledged it: a node that does not answer would
+    // otherwise hold the caller's request for every retry and then fail it. The publisher retries, and logs what it
+    // could not deliver.
     private Future<Void> publish(ConnectionRevocationType type, String id) {
         Validate.notBlank(id, "id must not be blank");
-        return clusterEventPublisher.publish(new ConnectionRevocation(type, id));
+        clusterEventPublisher.publish(new ConnectionRevocation(type, id));
+        return Future.succeededFuture();
     }
 
 }

@@ -102,7 +102,7 @@ public class KinoticIgniteConfig {
             TcpCommunicationSpi tcpCommunicationSpi,
             FailureHandler failureHandler,
             ZonePartitioningService zonePartitioningService,
-                                                   ServerTypes serverTypes) {
+            ServerTypes serverTypes) {
         // Set up a few system schema Ignite uses
         System.setProperty(IgniteSystemProperties.IGNITE_NO_ASCII, "true");// Turn off ignite console banner
 

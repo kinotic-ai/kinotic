@@ -45,8 +45,7 @@ public class DefaultEntitiesService implements EntitiesService {
             }
 
         } catch (Exception e) {
-            log.error("failed to handle EntityDefinition cache eviction (source: {})",
-                     event.getEvictionSource().getDisplayName(), e);
+            log.error("failed to handle EntityDefinition cache eviction for {}", event.getEntityDefinitionId(), e);
         }
     }
 

@@ -94,13 +94,11 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
                     return null;
                 });
 
-                log.info("successfully completed cache eviction for named query: {} due to {}",
-                         event.getNamedQueryId(), event.getEvictionSource().getDisplayName());
+                log.info("successfully completed cache eviction for named query: {}", event.getNamedQueryId());
             }
 
         } catch (Exception e) {
-            log.error("failed to handle named query cache eviction (source: {})",
-                      event.getEvictionSource().getDisplayName(), e);
+            log.error("failed to handle named query cache eviction for {}", event.getNamedQueryId(), e);
         }
     }
 

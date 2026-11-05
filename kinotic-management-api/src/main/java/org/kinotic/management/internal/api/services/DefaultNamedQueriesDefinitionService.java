@@ -7,8 +7,8 @@ import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
+import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,14 +19,14 @@ import org.springframework.stereotype.Component;
 public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
 
     private final NamedQueriesDefinitionRepository namedQueriesRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ClusterEventPublisher clusterEventPublisher;
 
     public DefaultNamedQueriesDefinitionService(NamedQueriesDefinitionRepository repository,
-                                                ApplicationEventPublisher eventPublisher,
+                                                ClusterEventPublisher clusterEventPublisher,
                                                 SecurityContext securityContext) {
         super(repository, securityContext);
         this.namedQueriesRepository = repository;
-        this.eventPublisher = eventPublisher;
+        this.clusterEventPublisher = clusterEventPublisher;
     }
 
 
@@ -38,7 +38,8 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     // Every mutation below uses the Refresh.WaitFor write/delete variant and evicts after
     // it completes. The cache loader reads through a search, so the mutation must be
     // searchable before the eviction fires — otherwise a reload between the eviction and
-    // the index refresh re-caches the old row with no eviction left to clear it.
+    // the index refresh re-caches the old row with no eviction left to clear it. The
+    // mutation completes once every app server has evicted.
 
     @Override
     public Future<NamedQueriesDefinition> save(NamedQueriesDefinition definition) {
@@ -49,7 +50,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     @Override
     public Future<NamedQueriesDefinition> saveSync(NamedQueriesDefinition definition) {
-        return super.saveSync(definition).map(this::publishModifiedEvent);
+        return super.saveSync(definition).compose(this::evictModified);
     }
 
     @Override
@@ -59,15 +60,15 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
 
     @Override
     public Future<NamedQueriesDefinition> createSync(NamedQueriesDefinition definition) {
-        return super.createSync(definition).map(this::publishModifiedEvent);
+        return super.createSync(definition).compose(this::evictModified);
     }
 
     /** Evicts cached queries after a successful write; shared by every save/create path. */
-    private NamedQueriesDefinition publishModifiedEvent(NamedQueriesDefinition definition) {
-        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedNamedQuery(definition.applicationKey(),
-                                                                                    definition.getEntityDefinitionName(),
-                                                                                    definition.getId()));
-        return definition;
+    private Future<NamedQueriesDefinition> evictModified(NamedQueriesDefinition definition) {
+        return clusterEventPublisher.publish(CacheEvictionEvent.modifiedNamedQuery(definition.applicationKey(),
+                                                                                   definition.getEntityDefinitionName(),
+                                                                                   definition.getId()))
+                                    .map(definition);
     }
 
     @Override
@@ -88,14 +89,9 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
                                 new IllegalArgumentException("NamedQuery cannot be found for id: " + id));
                     }
                     return super.deleteByIdSync(id)
-                            .compose(v -> {
-                                this.eventPublisher.publishEvent(
-                                        CacheEvictionEvent.localDeletedNamedQuery(
-                                                namedQuery.applicationKey(),
-                                                namedQuery.getEntityDefinitionName(),
-                                                namedQuery.getId()));
-                                return Future.succeededFuture();
-                            });
+                            .compose(v -> clusterEventPublisher.publish(CacheEvictionEvent.deletedNamedQuery(namedQuery.applicationKey(),
+                                                                                                             namedQuery.getEntityDefinitionName(),
+                                                                                                             namedQuery.getId())));
                 });
     }
 
