@@ -10,7 +10,7 @@ deployment/terraform/azure/
 │   ├── main.tf
 │   ├── email.tf
 │   ├── keyvault.tf
-│   ├── license.tf             # Key Vault key that signs Kinotic Enterprise License keys
+│   ├── license.tf             # Key Vault key that signs Kinotic Enterprise License keys, and the servers' license key
 │   └── terraform.tfvars
 ├── cluster/                   # AKS, K8s resources — destroy and rebuild freely
 │   ├── main.tf
@@ -88,6 +88,7 @@ terraform init
 # cloudflare_account_id and cloudflare_api_token in local.auto.tfvars (gitignored)
 TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... TF_VAR_cloudflare_dns_api_token=... \
   TF_VAR_github_app_private_key="$(cat <the App's private-key .pem>)" TF_VAR_github_webhook_secret=... \
+  TF_VAR_ee_license_key=<a Kinotic Enterprise License key that turns on AZURE_KEY_VAULT> \
   terraform apply
 ```
 

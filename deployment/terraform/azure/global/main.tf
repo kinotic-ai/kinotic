@@ -138,6 +138,13 @@ variable "turnstile_secret_key" {
   default     = ""
 }
 
+variable "ee_license_key" {
+  description = "The Kinotic Enterprise License key every server imports as kinotic.ee.licenseKey, issued with the license signing key; it must turn on AZURE_KEY_VAULT, since the servers store secrets in Key Vault"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "github_webhook_secret" {
   description = "Webhook secret of the kinotic-ai GitHub App, which the management server verifies webhook deliveries with"
   type        = string
