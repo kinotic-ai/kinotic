@@ -9,6 +9,7 @@ import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
 import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
+import org.kinotic.domain.api.cache.CacheEvictionException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -69,16 +70,13 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     }
 
     /**
-     * Evicts the queries every app server compiled from the definition. The definition is already written when the
-     * eviction fails, so the failure says so: a repeat of the request writes the same state and evicts again.
+     * Evicts the queries every app server compiled from the definition; the change to it is already written when the
+     * eviction fails, and the failure says so.
      */
     private Future<Void> evict(NamedQueriesDefinition definition) {
-        return clusterEventPublisher.publish(CacheEvictionEvent.namedQuery(definition.applicationKey(),
-                                                                           definition.getEntityDefinitionName(),
-                                                                           definition.getId()))
-                                    .recover(error -> Future.failedFuture(new IllegalStateException(
-                                            "Named queries " + definition.getId() + " were saved, but an app server did not acknowledge"
-                                            + " the eviction of its cache: " + error.getMessage(), error)));
+        CacheEvictionEvent event = CacheEvictionEvent.namedQuery(definition.applicationKey(), definition.getId());
+        return clusterEventPublisher.publish(event)
+                                    .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 
     @Override

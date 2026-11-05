@@ -35,8 +35,9 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
 
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 1000L;
-    // an event's handlers act in memory, so a node that has not answered within this is down, not slow, and the
-    // caller waiting on the delivery is held for at most the attempts times this
+    // bounds a whole broadcast, so one node that has not answered within it fails the attempt for every node; the
+    // handlers act in memory, so such a node is down, not slow. A caller is held for at most MAX_ATTEMPTS of these
+    // plus the retry delays between them
     private static final long NODE_TIMEOUT_MS = 5000L;
 
     private final Ignite ignite;

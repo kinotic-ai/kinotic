@@ -83,22 +83,16 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
      */
     @EventListener
     public void handleNamedQueryCacheEviction(CacheEvictionEvent event) {
+        // a failure propagates to the cluster event task, so the publisher retries the node instead of counting it as handled
+        if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){
+            cacheKeyTracker.computeIfPresent(event.getNamedQueryId(), (s, cacheKeys) -> {
+                for (CacheKey cacheKey : cacheKeys) {
+                    cache.synchronous().invalidate(cacheKey);
+                }
+                return null;
+            });
 
-        try {
-
-            if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){
-                cacheKeyTracker.computeIfPresent(event.getNamedQueryId(), (s, cacheKeys) -> {
-                    for (CacheKey cacheKey : cacheKeys) {
-                        cache.synchronous().invalidate(cacheKey);
-                    }
-                    return null;
-                });
-
-                log.info("successfully completed cache eviction for named query: {}", event.getNamedQueryId());
-            }
-
-        } catch (Exception e) {
-            log.error("failed to handle named query cache eviction for {}", event.getNamedQueryId(), e);
+            log.info("successfully completed cache eviction for named query: {}", event.getNamedQueryId());
         }
     }
 

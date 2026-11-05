@@ -19,7 +19,7 @@ public class CacheEvictionEvent implements ClusterEvent {
     private final EvictionSourceType evictionSourceType;
 
     /**
-     * ID of the {@link EntityDefinition} that is being evicted
+     * ID of the {@link EntityDefinition} that is being evicted, null for a named query
      */
     private final String entityDefinitionId;
     /**
@@ -32,8 +32,8 @@ public class CacheEvictionEvent implements ClusterEvent {
     private final ApplicationKey applicationKey;
 
     /** The eviction of a named query that changed or was deleted. */
-    public static CacheEvictionEvent namedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(EvictionSourceType.NAMED_QUERY, entityDefinitionId, namedQueryId, applicationKey);
+    public static CacheEvictionEvent namedQuery(ApplicationKey applicationKey, String namedQueryId) {
+        return new CacheEvictionEvent(EvictionSourceType.NAMED_QUERY, null, namedQueryId, applicationKey);
     }
 
     /** The eviction of an entity definition that changed or was deleted. */

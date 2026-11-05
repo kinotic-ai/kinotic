@@ -20,9 +20,10 @@ import java.io.UncheckedIOException;
 public class ClusterEventTask implements IgniteRunnable {
 
     // the event is carried as the bytes Java serialization gives it, so what a node can publish is decided by the
-    // event's own serializable form rather than by what the cluster's marshaller makes of its type
+    // event's own serializable form rather than by what the cluster's marshaller makes of its type; the limits bound
+    // the graph a peer can make a node allocate, far above what an event carries
     private static final ObjectInputFilter EVENT_CLASSES = ObjectInputFilter.Config.createFilter(
-            "org.kinotic.**;org.springframework.context.ApplicationEvent;java.**;!*");
+            "maxdepth=32;maxarray=10000;maxrefs=10000;org.kinotic.**;org.springframework.context.ApplicationEvent;java.**;!*");
 
     @SpringApplicationContextResource
     private transient ApplicationContext applicationContext;

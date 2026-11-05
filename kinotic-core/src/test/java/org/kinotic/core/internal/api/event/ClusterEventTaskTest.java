@@ -7,6 +7,7 @@ import org.springframework.context.PayloadApplicationEvent;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.io.InvalidClassException;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,7 +15,9 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pins that the event a task carries reaches a node's Spring context as the event it was built from, and that an
@@ -37,7 +40,12 @@ public class ClusterEventTaskTest {
         SampleClusterEvent event = sampleEvent(new ImmutablePair<>("left", "right"));
         ClusterEventTask task = new ClusterEventTask(event);
 
-        assertThrows(IllegalStateException.class, () -> run(task));
+        IllegalStateException refusal = assertThrows(IllegalStateException.class, () -> run(task));
+
+        // the filter's rejection is what the stream reports, in place of a missing class or a corrupt stream
+        assertInstanceOf(InvalidClassException.class, refusal.getCause());
+        assertTrue(refusal.getCause().getMessage().contains("REJECTED"),
+                   "the refusal is the filter's: " + refusal.getCause().getMessage());
     }
 
     private static SampleClusterEvent sampleEvent(Serializable detail) {

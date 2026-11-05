@@ -22,6 +22,7 @@ import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
+import org.kinotic.domain.api.cache.CacheEvictionException;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
@@ -351,13 +352,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     /**
-     * Evicts the caches every app server holds for the entity definition. The definition is already written when the
-     * eviction fails, so the failure says so: a repeat of the request writes the same state and evicts again.
+     * Evicts the caches every app server holds for the entity definition; the change to it is already written when
+     * the eviction fails, and the failure says so.
      */
     private Future<Void> evict(EntityDefinition entityDefinition) {
-        return clusterEventPublisher.publish(CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId()))
-                                    .recover(error -> Future.failedFuture(new IllegalStateException(
-                                            "Entity definition " + entityDefinition.getId() + " was saved, but an app server did not acknowledge"
-                                            + " the eviction of its cache: " + error.getMessage(), error)));
+        CacheEvictionEvent event = CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId());
+        return clusterEventPublisher.publish(event)
+                                    .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 }
