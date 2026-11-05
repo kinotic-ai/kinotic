@@ -190,6 +190,22 @@ if (project.ext.kinoticRpc) {
     }
 }
 
+// A module with an ee package holds Enterprise Implementations, which LICENSE.md licenses under the Kinotic Enterprise
+// License
+def mainJavaDir = file('src/main/java')
+project.ext.kinoticEnterprise = mainJavaDir.isDirectory() && java.nio.file.Files.walk(mainJavaDir.toPath()).withCloseable { paths ->
+    paths.anyMatch { path -> path.fileName.toString() == 'ee' && java.nio.file.Files.isDirectory(path) }
+}
+if (project.ext.kinoticEnterprise) {
+    // Every published jar, the sources and javadoc jars included, carries the Kinotic Enterprise License beside the
+    // root LICENSE.md that routes its packages
+    tasks.withType(Jar).configureEach {
+        from(rootProject.file('LICENSE-ENTERPRISE')) {
+            into 'META-INF'
+        }
+    }
+}
+
 dependencies {
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

@@ -383,8 +383,8 @@ Kinotic provides the higher-level abstractions while allowing developers and org
 The project is licensed under the Elastic License 2.0 with the Kinotic Additional Limitations,
 except Kinotic RPC, the service and event layer in `kinotic-core`, `kinotic-api-gateway`,
 `kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, which is licensed under the
-Apache License 2.0, and the Enterprise Features in [`kinotic-ee/`](kinotic-ee), which are licensed
-under the Kinotic Enterprise License and need an agreement with Minds Ignited for production use. See
+Apache License 2.0, and the Enterprise Features in Java packages named `ee`, which are licensed
+under the Kinotic Enterprise License ([LICENSE-ENTERPRISE](LICENSE-ENTERPRISE)) and need an agreement with Minds Ignited for production use. See
 [LICENSE.md](LICENSE.md) for the terms governing the project, and [CLA.md](CLA.md) for the
 agreement contributors accept.
 
