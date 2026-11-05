@@ -380,7 +380,7 @@ final class ShardOwner {
             return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Offset " + request.offset() + " of " + shardId
                                                                                     + " is not leased to this worker"));
         }
-        return dispatcher.compose(opened -> opened.settle(request.workerId(), request.settlement(), request.offset()));
+        return dispatcher.compose(opened -> opened.settle(request.workerId(), request.settlement(), request.offset(), request.deliveryCount()));
     }
 
     /**

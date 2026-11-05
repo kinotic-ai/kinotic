@@ -52,7 +52,10 @@ bootBuildImage {
         // wins is subtracted from the container limit, so it reserves that memory as well as capping
         // Netty — Ignite's data regions are malloc'd outside it and need their own room.
         "BPE_PREPEND_JAVA_TOOL_OPTIONS": "-XX:MaxDirectMemorySize=512m",
-        "BPE_APPEND_JAVA_TOOL_OPTIONS": "-XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
+        // The exports of jdk.internal.ref and sun.nio.ch and the open of java.lang.reflect are what Chronicle Queue
+        // needs to map and unmap the shard files of a server that includes kinotic-queue; without them the first
+        // shard it opens fails
+        "BPE_APPEND_JAVA_TOOL_OPTIONS": "-XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-exports=java.base/jdk.internal.ref=ALL-UNNAMED --add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
     ]
     buildpacks = [
         "urn:cnb:builder:paketo-buildpacks/java",

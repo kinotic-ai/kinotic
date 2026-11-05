@@ -51,9 +51,10 @@ public interface QueueWorker extends ReadStream<WorkItem> {
     Future<Void> renew(WorkItem item);
 
     /**
-     * Stops delivery and hands back every item the worker holds.
+     * Stops delivery and hands back every item the worker holds. An item the shard's owner could not be reached for
+     * is leased to the group again once its lease expires.
      *
-     * @return completes once the items are handed back
+     * @return completes once every item is handed back, or its hand-back failed
      */
     Future<Void> close();
 

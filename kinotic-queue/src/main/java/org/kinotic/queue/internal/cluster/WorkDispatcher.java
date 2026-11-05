@@ -134,15 +134,17 @@ final class WorkDispatcher {
     /**
      * Applies what the worker did with a record leased to it.
      *
+     * @param deliveryCount the delivery the worker settles
      * @return completes once the group's position on a majority of the shard's copies covers every record done up to
-     * it; fails with {@link QueueFailure#LEASE_EXPIRED} when the record is not leased to the worker
+     * it; fails with {@link QueueFailure#LEASE_EXPIRED} when the record is not leased to the worker, or was leased to
+     * it again after the delivery it settles expired
      */
-    Future<Void> settle(String workerId, Settlement settlement, long offset) {
+    Future<Void> settle(String workerId, Settlement settlement, long offset, int deliveryCount) {
         lastRequest = MonotonicClock.millis();
         Lease lease = leased.get(offset);
-        if (lease == null || !lease.workerId().equals(workerId)) {
+        if (lease == null || !lease.workerId().equals(workerId) || lease.deliveryCount() != deliveryCount) {
             return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Offset " + offset + " of " + shardId
-                                                                                    + " is not leased to this worker"));
+                                                                                    + " is not leased to this worker at delivery " + deliveryCount));
         }
         vertx.cancelTimer(lease.timerId());
         Future<Void> ret = Future.succeededFuture();

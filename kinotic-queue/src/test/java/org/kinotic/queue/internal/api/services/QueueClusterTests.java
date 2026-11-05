@@ -374,6 +374,7 @@ public class QueueClusterTests {
             Integer last = lastByKey.put(record.key(), value);
             assertTrue(last == null || last < value, "delivered " + value + " after " + last + " for " + record.key());
         }
+        assertNull(subscriber.poll(500), "delivered a record after every expected one");
         await(subscriber.close());
         assertEquals(expected, received);
     }

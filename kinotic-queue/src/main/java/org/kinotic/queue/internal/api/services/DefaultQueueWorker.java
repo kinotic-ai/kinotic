@@ -36,9 +36,9 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     private final String groupName;
     private final WorkerOptions options;
     private final String workerId = UUID.randomUUID().toString();
-    // Records leased to this worker and not yet settled, whether or not they reached the handler, each with the timer
-    // that lets it go once its lease runs out, after which the owner leases it to another worker
-    private final Map<QueuePosition, Long> held = new HashMap<>();
+    // Records leased to this worker and not yet settled, whether or not they reached the handler. Once a lease runs
+    // out, the owner leases the record to another worker, or to this one again at a higher delivery count.
+    private final Map<QueuePosition, HeldLease> held = new HashMap<>();
     // Records asked for by lease requests still on their way
     private int requested;
 
@@ -90,9 +90,9 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     @Override
     public Future<Void> close() {
         Set<QueuePosition> undelivered = end().stream().map(item -> item.record().position()).collect(Collectors.toSet());
-        List<Future<Void>> released = List.copyOf(held.keySet()).stream()
-                                          .map(position -> settle(position, undelivered.contains(position) ? Settlement.RETURN
-                                                                                                           : Settlement.RELEASE))
+        List<Future<Void>> released = Map.copyOf(held).entrySet().stream()
+                                          .map(entry -> settle(entry.getKey(), entry.getValue().deliveryCount(),
+                                                               undelivered.contains(entry.getKey()) ? Settlement.RETURN : Settlement.RELEASE))
                                           .toList();
         // A record that fails to go back returns to the group once its lease expires
         return Future.join(released).otherwiseEmpty().mapEmpty();
@@ -120,10 +120,10 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     protected void onPulled(int shard, LeaseResponse response) {
         for (LeasedEntry leased : response.leased()) {
             QueuePosition position = new QueuePosition(queue.name(), shard, leased.entry().offset());
-            hold(position);
+            hold(position, leased.deliveryCount());
             if (isEnded()) {
                 // Leased after close(), so it goes straight back to the group
-                settle(position, Settlement.RETURN);
+                settle(position, leased.deliveryCount(), Settlement.RETURN);
             } else {
                 push(new WorkItem(new QueueRecord(position, leased.entry().key(), leased.entry().payload()), leased.deliveryCount()));
             }
@@ -132,23 +132,26 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
 
     private Future<Void> settle(WorkItem item, Settlement settlement) {
         QueuePosition position = item.record().position();
-        if (!held.containsKey(position)) {
-            return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Record " + position + " is not leased to this worker"));
+        HeldLease lease = held.get(position);
+        if (lease == null || lease.deliveryCount() != item.deliveryCount()) {
+            return Future.failedFuture(QueueFailure.LEASE_EXPIRED.exception("Record " + position + " is not leased to this worker at delivery "
+                                                                                    + item.deliveryCount()));
         }
-        return settle(position, settlement);
+        return settle(position, item.deliveryCount(), settlement);
     }
 
-    private Future<Void> settle(QueuePosition position, Settlement settlement) {
-        return client.settle(new SettleRequest(queue.shardId(position.shard()), groupName, workerId, settlement, position.offset()))
+    private Future<Void> settle(QueuePosition position, int deliveryCount, Settlement settlement) {
+        return client.settle(new SettleRequest(queue.shardId(position.shard()), groupName, workerId, settlement, position.offset(), deliveryCount))
                      .onComplete(ar -> {
-                         // A renewed item's lease starts over; any other settlement, or a failure, means it is no longer
-                         // leased here
+                         // A renewed item's lease starts over; any other settlement, or a failure, means that delivery
+                         // is no longer leased here, while a later delivery of the record may be
                          if (settlement == Settlement.RENEW && ar.succeeded()) {
-                             hold(position);
+                             hold(position, deliveryCount);
                          } else {
-                             Long expiry = held.remove(position);
-                             if (expiry != null) {
-                                 getContext().owner().cancelTimer(expiry);
+                             HeldLease lease = held.get(position);
+                             if (lease != null && lease.deliveryCount() == deliveryCount) {
+                                 held.remove(position);
+                                 getContext().owner().cancelTimer(lease.timerId());
                              }
                              pullAll();
                          }
@@ -156,15 +159,15 @@ public class DefaultQueueWorker extends ShardPullStream<WorkItem, LeaseResponse>
     }
 
     // Holds the record for one lease duration, from now
-    private void hold(QueuePosition position) {
-        long expiry = getContext().owner().setTimer(options.leaseDuration().toMillis(), timerId -> {
-            if (held.remove(position, timerId)) {
+    private void hold(QueuePosition position, int deliveryCount) {
+        long timerId = getContext().owner().setTimer(options.leaseDuration().toMillis(), id -> {
+            if (held.remove(position, new HeldLease(deliveryCount, id))) {
                 pullAll();
             }
         });
-        Long previous = held.put(position, expiry);
+        HeldLease previous = held.put(position, new HeldLease(deliveryCount, timerId));
         if (previous != null) {
-            getContext().owner().cancelTimer(previous);
+            getContext().owner().cancelTimer(previous.timerId());
         }
     }
 }
