@@ -824,7 +824,21 @@ kinotic login
     </td>
     
     <td>
-      The Kinotic server URL to log in to. When omitted, the stored default server is used
+      The Kinotic server URL to log in to. When omitted, the stored default server is used. A plain <code>
+        http://
+      </code>
+      
+       URL is accepted only for a loopback host (<code>
+        localhost
+      </code>
+      
+      , <code>
+        127.0.0.1
+      </code>
+      
+      ); a remote server is reached over <code>
+        https://
+      </code>
     </td>
   </tr>
 </tbody>
@@ -1007,7 +1021,21 @@ kinotic sync -p -v -s http://localhost:58503
     </td>
     
     <td>
-      The Kinotic server URL. When omitted, the stored default server is used
+      The Kinotic server URL. When omitted, the stored default server is used. A plain <code>
+        http://
+      </code>
+      
+       URL is accepted only for a loopback host (<code>
+        localhost
+      </code>
+      
+      , <code>
+        127.0.0.1
+      </code>
+      
+      ); a remote server is reached over <code>
+        https://
+      </code>
     </td>
   </tr>
   
@@ -4604,7 +4632,7 @@ await Kinotic.connect({
 })
 ```
 
-Absent `server` fields fall through to the environment — `{ host }` alone means no TLS and port `58503`, the management server's gateway port, so a connection to a local app server names its port, `58505`.
+Absent `server` fields fall through to the environment. With nothing stating `useSSL`, `{ host }` alone means TLS on the scheme's default port, unless the host is loopback (`localhost`, `127.0.0.1`, `::1`), which means no TLS and port `58503`, the management server's gateway port — so a connection to a local app server names its port, `58505`, and a remote server reached without TLS names `useSSL: false`.
 
 ## Connecting with OIDC
 
@@ -4762,7 +4790,7 @@ if (done.status === 204) {
 
 The login page offers every method the application supports and lets the user choose: the password form, posting to `POST /api/auth/app/login`, which answers `204` with the cookie or a generic `401`, and a button for each provider. A button posts the provider's `id` to `POST /api/auth/app/login/oidc/start/:id`, whose answer carries the `redirect` to send the browser to. The provider returns the browser to `/` on the page that started the sign-in, signed in, or to that page's `/login` with an `error` parameter (`no_user`, `user_exists`, `user_disabled`, `email_not_verified`, `config_not_found`, …). An `email_not_verified` or `no_user` redirect also names the provider by its key in a `provider` parameter (`google`, `azure-ad`, `okta`, …), so the page can tell the user which provider to verify the email with, or which provider's account has no user. No endpoint takes an email before the user has chosen a method, so a login page cannot be used to learn which emails have a user.
 
-`GET /api/auth/me` answers `204` while the page is signed in, and `POST /api/auth/logout` signs it out.
+`GET /api/auth/me` answers `204` while the page is signed in, and `POST /api/auth/logout` signs it out; the session, and the realtime connections established on it, end once no page's login remains.
 
 #### Signing up
 
@@ -5023,7 +5051,7 @@ Arguments and results travel as JSON, so a function's types are published as JSO
 
 ### @Publish(namespace?, name?, advertise?)
 
-Marks a class for publication. The full service identifier becomes `namespace.ClassName`; both parts are optional (the name defaults to the class name). A service published with no namespace is addressed by its name in its zone, `srv://<zone>~ClassName`, and the platform's service directory names it in its zone's namespace, `<zone>.ClassName`, so services of the same name in different applications stay apart. Passing `advertise` as `true` additionally advertises the service in the platform service directory, so it appears in directory listings for browsing and invocation — publishing alone makes a service callable over RPC without listing it.
+Marks a class for publication. The full service identifier becomes `namespace.ClassName`; both parts are optional (the name defaults to the class name). The name is an identifier and the namespace a dotted identifier (letters, digits, `_` and `$`), which the server checks when the service registers. A service published with no namespace is addressed by its name in its zone, `srv://<zone>~ClassName`, and the platform's service directory names it in its zone's namespace, `<zone>.ClassName`, so services of the same name in different applications stay apart. Passing `advertise` as `true` additionally advertises the service in the platform service directory, so it appears in directory listings for browsing and invocation — publishing alone makes a service callable over RPC without listing it.
 
 ### @Zone(zone)
 
@@ -6716,6 +6744,8 @@ A node that cannot enforce a hostname — no ipset, or no dnsmasq listening on t
 
 An empty list means the same on a `BOXLITE` node, and hostnames are accepted on both providers.
 
+A `CLOUD_HYPERVISOR` node that does not deny by default (no `/etc/kinotic/egress-default-deny` marker) refuses a workload declaring `allowedHosts` or electing `telemetry`, and starts one with `mode: ENABLED`, `allowedHosts: []` with no network interface, as `mode: DISABLED` gets, since its bridge could withhold nothing.
+
 `mode: DISABLED` leaves no interface to publish a port on or to reach the node's OTLP endpoint through, so a node refuses a workload declaring it together with `portMappings` or `telemetry` — on either provider — rather than starting one whose published ports or telemetry cannot work.
 
 A node that does not deny egress by default cannot honour a declared allowlist, so a workload declaring one is refused there rather than started with access it was supposed to be denied.
@@ -7160,7 +7190,7 @@ The VMs are the same size in every environment; what differs between nodes is ho
 
 The pipeline also requires the project's [repository host](#repository-host), which mints the
 short-lived fetch token, and at least one online node advertising a workload data
-directory — the project's checkout lives at `<workloadDataDir>/projects/<projectId>` on
+directory — the project's checkout lives at `<workloadDataDir>/projects/<organizationId>/<projectId>` on
 the node that first deployed it, mounted read-write into the sync VM and read-only into
 the runtime VMs.
 
@@ -10487,7 +10517,7 @@ What the three share:
         keys
       </code>
       
-       list, so a key can be added to the set. A token one server issued verifies at that server alone
+       list, each key at least 32 bytes of base64-encoded material (the server refuses a shorter one), so a key can be added to the set. A token one server issued verifies at that server alone
     </td>
   </tr>
   
@@ -10747,6 +10777,12 @@ sudo mkdir -p /etc/kinotic && sudo touch /etc/kinotic/egress-default-deny && sud
 sudo ./install-vm-manager.sh    # bun, @kinotic-ai/vm-manager, kinotic-vm-manager.service
 sudo ./verify-node.sh           # every invariant, again after every reboot
 ```
+
+The `egress-default-deny` marker is what makes the firewall withhold everything a workload's
+policy does not grant. Without it the vm-manager refuses a workload that declares `allowedHosts`
+or elects telemetry, since the rules it would write permit nothing that was withheld, and
+starts a network-enabled workload whose policy grants nothing with no network interface at all
+rather than on the bridge with unrestricted egress.
 
 A node VM on the host, from the Proxmox root's `workers`, is provisioned the same way: Ubuntu
 26.04 from the cloud image on the host's CPU type, so the guest has nested KVM, with
@@ -12289,9 +12325,9 @@ The org and system servers serve MCP; the app server does not. A server that run
 
 Two ways in, both landing on the same participant model:
 
-**OAuth 2.1 (MCP authorization spec)** — what Claude connectors, Claude Code plugins, and other MCP hosts use. An unauthenticated request gets `401` with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, from which a host discovers the authorization server (RFC 9728 + RFC 8414, both served under the server's issuer: on the management server `kinotic.managementServer.issuerBaseUrl`, which falls back to `kinotic.managementApi.apiBaseUrl`; on the system server `kinotic.systemServer.apiBaseUrl`; on the app server the application's own API host), identifies itself with a [Client ID Metadata Document](https://kinotic.ai/platform/system-security#client-identity-is-a-domain-not-a-string) URL, and runs the PKCE S256 authorization-code flow: `GET /api/auth/oauth/authorize` sends the browser to the `/oauth/consent` page of the server's UI, where the signed-in user approves (the page sends `POST /api/auth/oauth/approve` with the login its own session holds), and `POST /api/auth/oauth/token` (form-encoded) exchanges the single-use code for a one-hour access token plus a rotating 90-day refresh token (`offline_access` is advertised, so hosts refresh without re-consent; refresh-token reuse revokes the whole token family).
+**OAuth 2.1 (MCP authorization spec)** — what Claude connectors, Claude Code plugins, and other MCP hosts use. An unauthenticated request gets `401` with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, from which a host discovers the authorization server (RFC 9728 + RFC 8414, both served under the server's issuer: on the management server `kinotic.managementServer.issuerBaseUrl`, which falls back to `kinotic.managementApi.apiBaseUrl`; on the system server `kinotic.systemServer.apiBaseUrl`; on the app server the application's own API host), identifies itself with a [Client ID Metadata Document](https://kinotic.ai/platform/system-security#client-identity-is-a-domain-not-a-string) URL, and runs the PKCE S256 authorization-code flow: `GET /api/auth/oauth/authorize` sends the browser to the `/oauth/consent` page of the server's UI, where the signed-in user approves (the page sends `POST /api/auth/oauth/approve` with the login its own session holds), and `POST /api/auth/oauth/token` (form-encoded) exchanges the single-use code for a one-hour access token plus a rotating 90-day refresh token (`offline_access` is advertised, so hosts refresh without re-consent; refresh-token reuse revokes the whole token family). The access token's `aud` is `kinotic-mcp`: it authenticates at `POST /mcp` alone, and the STOMP gateway refuses it, as `/mcp` refuses the `kinotic` tokens the device-code grant issues to the CLI.
 
-The issued token's `sub` is a delegate identity created when the user approves the consent — the host acts on that user's behalf, at the user's exact scope, as a `SystemParticipant`, `OrganizationParticipant`, or `ApplicationParticipant` carrying `onBehalfOf` metadata, and sees the same visibility matrix as every other caller. Approving the same host again reuses the delegate, and disabling it revokes the host's access on its next request from the **Connected apps** page of whichever client the owner signs in to — the portal for an organization account, the system console for a system user's. Which account is signing the approval therefore decides the host's reach, so the consent page names it: a `SystemParticipant` delegate is filtered by no zone and sees every organization's tools, which the page warns about before the operator approves. A Claude Code plugin needs nothing beyond the server URL:
+The issued token's `sub` is a delegate identity created when the user approves the consent — the host acts on that user's behalf, at the user's exact scope, as a `SystemParticipant`, `OrganizationParticipant`, or `ApplicationParticipant` carrying `onBehalfOf` metadata, and sees the same visibility matrix as every other caller. Approving the same host again reuses the delegate, and disabling it revokes the host's access on its next request, and ends any realtime connection the delegate holds, from the **Connected apps** page of whichever client the owner signs in to — the portal for an organization account, the system console for a system user's. Which account is signing the approval therefore decides the host's reach, so the consent page names it: a `SystemParticipant` delegate is filtered by no zone and sees every organization's tools, which the page warns about before the operator approves. A Claude Code plugin needs nothing beyond the server URL:
 
 ```json
 {
@@ -12308,7 +12344,7 @@ There is no registration endpoint. Dynamic Client Registration (RFC 7591) is not
 
 The management server's `kinotic.managementServer.issuerBaseUrl` is separate from its API base URL, `kinotic.managementApi.apiBaseUrl`, because the two are reached by different parties. A browser follows the OIDC callbacks built from the API base URL; an MCP host's backend calls the token endpoint built from `issuerBaseUrl`, having never been near the browser. They are the same URL in any deployment the internet reaches directly, and differ where the gateway is public only through a tunnel or a separate ingress — a development gateway on `localhost` whose OAuth surface is tunnelled, for instance, keeps its OIDC callbacks (and its IdP app registrations) on `localhost` while publishing a reachable token endpoint.
 
-**Static headers** — for agent frameworks and scripts that can attach headers: `clientId`/`clientSecret` (plus `organizationId` to select an organization's user on the management server; the system server's users take none), or `Authorization: Bearer <kinotic-jwt>`. A bearer token takes its scope from the token's own claims, which are not cross-checked against any scope headers sent alongside it. Each server admits only its own kind of caller, so an organization's credentials authenticate at the management server's `/mcp` and a system user's at the system server's.
+**Static headers** — for agent frameworks and scripts that can attach headers: `clientId`/`clientSecret` (plus `organizationId` to select an organization's user on the management server; the system server's users take none), or `Authorization: Bearer <kinotic-jwt>`, which must have been minted for `/mcp` (`aud` of `kinotic-mcp`). A bearer token takes its scope from the token's own claims, which are not cross-checked against any scope headers sent alongside it. Each server admits only its own kind of caller, so an organization's credentials authenticate at the management server's `/mcp` and a system user's at the system server's.
 
 `tools/list` is paginated per the [MCP pagination spec](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination): a response carrying `nextCursor` has more results, fetched by repeating the request with that opaque `cursor`; an invalid cursor is rejected with `-32602`. It returns the tools the authenticated participant may call through this server, mirroring the zone send rules the gateway enforces at call time: a system participant sees every zone, and an organization participant sees `management-api`- and `app-api`-zone tools and those of its own applications, under `app.<org>`, each zone with its sub-zones. Application participants reach no MCP endpoint: the org and system servers refuse them, and the app server serves none. Each server lists only the zones it reaches: the system server's MCP endpoint shows `system-api`- and `management-api`-zone tools even to a system participant. Offline services' tools are not listed.
 
@@ -13291,6 +13327,8 @@ Where the management server sets `kinotic.managementServer.passwordSignUp`, as t
 
 When `kinotic.domain.email.enabled` is `false`, as on a demonstration server, nothing is sent: the sign-up's response carries its verification link as `verificationUrl`, which the portal opens at once, so the address is never proven to be the founder's, and asking again for an address with a pending sign-up returns the same link. Each link is also logged to the management server's console.
 
+Linking an installation takes the authority to delegate the App's permissions on the GitHub account: the person who authorizes the install in the browser must be that account, or an owner of the GitHub organization; a collaborator of one of its repositories cannot link it.
+
 A UI other than the portal can install the GitHub App itself: it calls `startInstall` with the absolute URL of one of its own pages as `returnTo`, on an origin `kinotic.cors.allowedOriginPattern` names, and calls `completeInstall` when GitHub returns there.
 
 ## Members
@@ -13300,7 +13338,7 @@ Administrators add people on the **Members** page with **Add member**: an email,
 - The person becomes a **pending** member at once.
 - **With an invitation**, they claim it by setting a password (while the organization takes passwords) or by signing in through one of its providers under the invited address.
 - **Without one**, they claim it on their first sign-in through one of the organization's own providers under that address, so the switch can only be off when the organization has such a provider.
-- **Send invitation** sends a pending member their invitation again, or a first one. **Remove member** deletes the user with its sign-in methods, delegates and any unaccepted invitation.
+- **Send invitation** sends a pending member their invitation again, or a first one. **Remove member** deletes the user with its sign-in methods, delegates, the grants it approved and its refresh tokens, and any unaccepted invitation.
 - **Where email is disabled** (`kinotic.domain.email.enabled=false`, as on a demonstration server), each invitation's accept link is the administrator's to send on: after adding a member or user with an invitation, or sending one again, the page shows the link in a dialog to copy (`MemberService.findInvitationLink(email, applicationId)`). Anyone holding the link can accept the invitation as the invited address.
 
 An application's users are added the same way on its **Users** page (`MemberService.addApplicationUser`); see [Authentication](https://kinotic.ai/apps/security/authentication#user-management).
@@ -13601,7 +13639,7 @@ Providers differ in how they prove an email. `OAuth2Util` holds every difference
     </td>
     
     <td>
-      Presence of the email. For an application's sign-up through a registration admitting every directory, only <code>
+      Presence of the email. Wherever a registration admitting every directory creates or claims a user — an application's sign-up, an organization's sign-up, an invitation's acceptance — only <code>
         email_verified
       </code>
       
@@ -14289,7 +14327,7 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      End the calling page's login
+      End the calling page's login; the session, and the realtime connections established on it, end once no page's login remains
     </td>
   </tr>
   
@@ -15662,11 +15700,11 @@ An artifact missing from a deploy marks its deployment `ORPHANED`; it keeps runn
 and nothing is deleted. An artifact that returns is adopted (status back to `DEPLOYED` or
 `READY`), never re-provisioned. `MicroserviceDeploymentService.remove` destroys the VM,
 removes the identity, and deletes the row. `UiDeploymentService.remove` runs a removal
-workload (`remove-ui.ts`, on the node the project deploys to, holding nothing but a removal
-URL for the site's directory) that deletes the directory, then deletes the row; a project
-never deployed has no node and its site no files, and a removal that fails leaves the files
-for a later publish of the same label to adopt. Both confirm in the console when the
-deployment is not orphaned.
+workload (`remove-ui.ts`, on any node with room, holding nothing but a removal URL for the
+site's directory) that deletes the directory, then deletes the row; a project never deployed
+has no node and its site no files, and a removal that fails keeps the row, so the reconcile
+retries it until the files are gone. Both confirm in the console when the deployment is not
+orphaned.
 
 ## Properties and dependencies
 
@@ -15696,8 +15734,8 @@ artifacts**, binds them into the run as a `ProjectArtifacts` (its `MicroserviceA
 and `UiArtifact`s) under the `artifacts` store name, and shows them as its completion view. The
 job run page of the portal and of the system console lists what the commit contains on that
 task's row, and the sync task's row expands into the build VM's log in both.
-- **One VM per microservice.** `MicroserviceDeployment` rows, keyed `<projectId>:<name>` so
-the store enforces one per microservice, record each microservice's workload, machine
+- **One VM per microservice.** `MicroserviceDeployment` rows, keyed `<organizationId>--<projectId>:<name>`,
+since a project id is unique only within its organization, so the store enforces one per microservice, record each microservice's workload, machine
 identity, entry point and commit. The deploy job's fourth task, **Ensure runtime workloads**,
 keeps running VMs, replaces ended ones and ones whose entry point moved, creates missing ones,
 orphans vanished ones, records failures per row, and stores the rows under
@@ -15867,7 +15905,7 @@ A person who uses the portal holds a separate organization user in each organiza
 
 Two rows, one per organization: the methods that sign the user in, the user, and the organization it belongs to. One GitHub account is bound separately in each organization. Each login below reads one binding or credential, so nothing in the login path waits on an index refresh.
 
-- Disabling or removing a member touches that organization's user alone. Removing a member deletes the user with its credential, bindings and delegates, and the person's users of other organizations stay as they are.
+- Disabling or removing a member touches that organization's user alone. Removing a member deletes the user with its credential, bindings and delegates, the device-code and authorization-code grants it approved, and revokes its refresh tokens, and the person's users of other organizations stay as they are.
 - A delegate (the CLI, an MCP host) is unique per owner and client, carries its owner's organization, and authenticates only while its owner may still act there.
 - The system console signs in system users, a separate row for the same person with a password of its own.
 
@@ -16576,7 +16614,7 @@ The Kinotic platform uses the same migration SQL system as application developer
 
 ## What Are System Migrations?
 
-System migrations define and evolve the indices that the platform itself relies on — things like migration history tracking, system configuration, and other internal data stores. They run during platform startup before any application migrations and are scoped to the system project rather than a per-application project.
+System migrations define and evolve the indices that the platform itself relies on — things like migration history tracking, system configuration, and other internal data stores. They run during platform startup before any application migrations and are recorded under the system organization and project rather than under an organization's project. Migration history is keyed by organization and project, since a project id is unique only within its organization.
 
 System migrations live in `kinotic-migration/src/main/resources/migrations/` and follow the same `V<N>__<description>.sql` naming convention.
 
@@ -16832,7 +16870,7 @@ A signed-in caller is a `Participant` whose type is its scope — `SystemPartici
 
 **Browsers** never hold a token. A login sets a session cookie, and the WebSocket upgrade reads the signed-in participant back out of the session. Each login in a session is bound to the page that made it (see [Defense in Depth](https://kinotic.ai/platform/defense-in-depth#browser-sessions)). Each server has its own cookie, `__Host-kinotic-<server>-session`, and its own session store, so a session one server issued means nothing to another. The `__Host-` prefix means a sibling host, such as a published site, cannot set or override it. The cookie is `SameSite=Lax` by default; `kinotic.apiGateway.sessionCookieSameSite: NONE` is for deployments whose sites and API live on unrelated domains.
 
-**Other clients** present, at the upgrade, either a Kinotic access token (`Authorization: Bearer`) or a `clientId` and `clientSecret` — a user's email and password with scope headers, or a machine's id and secret. Each server admits only its own kind of caller, and anything else fails as invalid credentials:
+**Other clients** present, at the upgrade, either a Kinotic access token (`Authorization: Bearer`) or a `clientId` and `clientSecret` — a user's email and password with scope headers, or a machine's id and secret. An access token is minted for one surface, carried as its `aud` claim: `kinotic` for the STOMP gateway, issued by the device-code grant, or `kinotic-mcp` for `POST /mcp`, issued by the authorization-code grant. Each surface refuses a token minted for the other, so an MCP host's token opens no STOMP connection and the CLI's token calls no MCP tool. Each server admits only its own kind of caller, and anything else fails as invalid credentials:
 
 <table>
 <thead>
@@ -17026,7 +17064,7 @@ Every provider is an `OidcConfiguration`, stored in one index under a `type` dis
 
 **One configuration, one scope.** A configuration is offered only where its kind says. A tenant's login offers the tenant's configurations first, then the application's. To use one Okta application at both the organization's login and an application's, copy the configuration (`OwnedOidcConfigurationService.copy`); the copy has its own callback URL and its own copy of the secret. `OidcConfigurationService.findEnabledForScope` answers which providers a login page shows, and `findOffered` checks that a start or callback names one of them, so a page and its endpoints cannot disagree.
 
-**Creating users.** A configuration's `createUserOnSignIn` lets a verified identity no user is bound to become a new user. It is refused on an organization's configuration — organizations add their members — and it creates a user only where that user gets a tenant: at an application's login while the system manages its tenants, or at a tenant's login through the tenant's own configuration. A configuration that admits every Microsoft directory creates a user only under an email the token proves (`email_verified` or `xms_edov`, or a personal account), since any directory's administrator can set its users' emails.
+**Creating users.** A configuration's `createUserOnSignIn` lets a verified identity no user is bound to become a new user. It is refused on an organization's configuration — organizations add their members — and it creates a user only where that user gets a tenant: at an application's login while the system manages its tenants, or at a tenant's login through the tenant's own configuration. A configuration that admits every Microsoft directory creates a user only under an email the token proves (`email_verified` or `xms_edov`, or a personal account), since any directory's administrator can set its users' emails; an organization's sign-up and an invitation's acceptance through such a registration are held to the same proof.
 
 **Claiming pending users.** A user an administrator added is claimed by its first sign-in through a provider of its own login under the same email; at an organization, only through the organization's own provider. After that, only the binding identifies the user.
 

@@ -1376,7 +1376,7 @@ What the three share:
         keys
       </code>
       
-       list, so a key can be added to the set. A token one server issued verifies at that server alone
+       list, each key at least 32 bytes of base64-encoded material (the server refuses a shorter one), so a key can be added to the set. A token one server issued verifies at that server alone
     </td>
   </tr>
   
@@ -1636,6 +1636,12 @@ sudo mkdir -p /etc/kinotic && sudo touch /etc/kinotic/egress-default-deny && sud
 sudo ./install-vm-manager.sh    # bun, @kinotic-ai/vm-manager, kinotic-vm-manager.service
 sudo ./verify-node.sh           # every invariant, again after every reboot
 ```
+
+The `egress-default-deny` marker is what makes the firewall withhold everything a workload's
+policy does not grant. Without it the vm-manager refuses a workload that declares `allowedHosts`
+or elects telemetry, since the rules it would write permit nothing that was withheld, and
+starts a network-enabled workload whose policy grants nothing with no network interface at all
+rather than on the bridge with unrestricted egress.
 
 A node VM on the host, from the Proxmox root's `workers`, is provisioned the same way: Ubuntu
 26.04 from the cloud image on the host's CPU type, so the guest has nested KVM, with

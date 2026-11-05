@@ -57,7 +57,21 @@ kinotic login
     </td>
     
     <td>
-      The Kinotic server URL to log in to. When omitted, the stored default server is used
+      The Kinotic server URL to log in to. When omitted, the stored default server is used. A plain <code>
+        http://
+      </code>
+      
+       URL is accepted only for a loopback host (<code>
+        localhost
+      </code>
+      
+      , <code>
+        127.0.0.1
+      </code>
+      
+      ); a remote server is reached over <code>
+        https://
+      </code>
     </td>
   </tr>
 </tbody>
@@ -240,7 +254,21 @@ kinotic sync -p -v -s http://localhost:58503
     </td>
     
     <td>
-      The Kinotic server URL. When omitted, the stored default server is used
+      The Kinotic server URL. When omitted, the stored default server is used. A plain <code>
+        http://
+      </code>
+      
+       URL is accepted only for a loopback host (<code>
+        localhost
+      </code>
+      
+      , <code>
+        127.0.0.1
+      </code>
+      
+      ); a remote server is reached over <code>
+        https://
+      </code>
     </td>
   </tr>
   
