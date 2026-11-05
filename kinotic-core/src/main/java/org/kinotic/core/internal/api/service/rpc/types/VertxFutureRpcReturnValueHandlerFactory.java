@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.MethodParameter;
-import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 
@@ -19,7 +18,6 @@ import java.lang.reflect.Method;
  *
  * Created by navid on 2019-04-25.
  */
-@Component
 public class VertxFutureRpcReturnValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(VertxFutureRpcReturnValueHandlerFactory.class);

@@ -15,6 +15,7 @@ import io.vertx.ext.stomp.lite.client.StompClientConnection;
 import io.vertx.ext.stomp.lite.client.StompClientOptions;
 import io.vertx.ext.stomp.lite.client.StompErrorException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.client.api.ConnectOptions;
 import org.kinotic.client.api.ConnectionState;
@@ -52,11 +53,6 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DefaultKinoticConnection implements KinoticConnection {
 
     /**
-     * The gateway's STOMP endpoint, the same path the TypeScript client connects to.
-     */
-    private static final String GATEWAY_PATH = "/api/v1";
-
-    /**
      * Names this process in the reply destinations of its proxies.
      */
     private static final String NODE_NAME = "kinotic-client";
@@ -69,27 +65,26 @@ public class DefaultKinoticConnection implements KinoticConnection {
                                                                       SessionKeepAliveMode.NONE.name());
 
     private final ConnectOptions options;
+    private final String endpointUrl;
     private final Vertx vertx;
     private final ContextInternal context;
     private final StompRpcTransport transport;
     private final ConnectionLivenessWatcher livenessWatcher;
     private final RpcServiceProxyFactory proxyFactory;
     private final ObjectReader connectedInfoReader;
+    private final Promise<KinoticConnection> initialConnect;
     private final Set<RpcServiceProxyHandle<?>> handles = ConcurrentHashMap.newKeySet();
     private volatile ConnectionState state;
     private volatile Handler<ConnectionState> stateHandler;
     private volatile ConnectedInfo connectedInfo;
+    // set on the context once the close began, read by serviceProxy() from any thread
+    private volatile Future<Void> closed;
     // touched only on the context
-    private Future<Void> closed;
     private StompClient stompClient;
     private StompClientConnection current;
-    private String currentConnectionId;
     private int connections = 0;
     private int failedAttempts = 0;
     private long reconnectTimer = -1;
-    private Promise<KinoticConnection> initialConnect;
-    // written on the context, read by serviceProxy() from any thread
-    private volatile boolean closing = false;
 
     /**
      * Connects to the gateway the options name.
@@ -107,8 +102,9 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
                         "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
         Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
-        Validate.isTrue(!serverUri.getPath().replaceAll("/+$", "").endsWith(GATEWAY_PATH),
-                        "serverUrl names the gateway without its %s path, which the client appends itself", GATEWAY_PATH);
+        Validate.isTrue(!StringUtils.stripEnd(serverUri.getPath(), "/").endsWith(EventConstants.STOMP_WEBSOCKET_PATH),
+                        "serverUrl names the gateway without its %s path, which the client appends itself",
+                        EventConstants.STOMP_WEBSOCKET_PATH);
         Validate.isTrue(serverUri.getQuery() == null && serverUri.getFragment() == null,
                         "serverUrl must carry no query or fragment but was '%s'", options.getServerUrl());
         Validate.notNull(options.getOpenTelemetry(), "openTelemetry must not be null");
@@ -137,37 +133,32 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     private DefaultKinoticConnection(Vertx vertx, ConnectOptions options) {
         this.options = options;
-        // the gateway's participant model is not on this classpath, so a participant is read as what every participant has
-        SimpleModule participantModule = new SimpleModule("KinoticClientModule")
-                .addAbstractTypeMapping(Participant.class, ConnectedParticipant.class);
-        // registered before the customizer, whose own mapping of a participant then takes precedence
-        JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder().addModule(participantModule);
+        this.endpointUrl = StringUtils.stripEnd(options.getServerUrl(), "/") + EventConstants.STOMP_WEBSOCKET_PATH;
+        // the gateway's participant model is not on this classpath, so a participant is read as what every participant
+        // has; the mapping is registered before the customizer, whose own mapping of a participant then takes precedence
+        JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder()
+                .addModule(new SimpleModule("KinoticClientModule").addAbstractTypeMapping(Participant.class, ConnectedParticipant.class));
         if (options.getJsonMapperCustomizer() != null) {
             options.getJsonMapperCustomizer().accept(jsonMapperBuilder);
         }
         JsonMapper jsonMapper = jsonMapperBuilder.build();
+        this.connectedInfoReader = jsonMapper.readerFor(ConnectedInfo.class);
         this.vertx = vertx;
         // a duplicate starts with empty locals, so the connection carries nothing of the context connect() was
         // called on and shares its context with no other connection
         this.context = ((ContextInternal) vertx.getOrCreateContext()).duplicate();
+        // a promise of the context reports a throw from the caller's handler to the context, where a context-less
+        // one would drop it
+        this.initialConnect = context.promise();
         this.livenessWatcher = new ConnectionLivenessWatcher(vertx);
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME,
                                                options.getReconnect().getConnectionTimeout().toMillis());
         KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxBodyLength());
         this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, options.getOpenTelemetry(),
                                                        properties, jsonMapper, NODE_NAME);
-        // the CONNECTED frame is the client's own protocol, read by a mapper the customizer never touched
-        this.connectedInfoReader = RpcServiceProxyFactory.jsonMapperBuilder()
-                                                         .addModule(participantModule)
-                                                         .build()
-                                                         .readerFor(ConnectedInfo.class);
     }
 
     private Future<KinoticConnection> start() {
-        // a promise of the context reports a throw from the caller's handler to the context, where a context-less
-        // one would drop it
-        Promise<KinoticConnection> promise = context.promise();
-        initialConnect = promise;
         context.runOnContext(v -> {
             long connectionTimeoutMillis = options.getReconnect().getConnectionTimeout().toMillis();
             // the TCP connection is bounded here, the WebSocket handshake by the connect options of each attempt
@@ -180,13 +171,12 @@ public class DefaultKinoticConnection implements KinoticConnection {
                     .setConnectTimeout(connectionTimeoutMillis));
             attemptConnection();
         });
-        return promise.future();
+        return initialConnect.future();
     }
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface) {
         Validate.notNull(serviceInterface, "serviceInterface must not be null");
-        requireOpen();
         return track(proxyFactory.serviceProxy(serviceInterface));
     }
 
@@ -194,7 +184,6 @@ public class DefaultKinoticConnection implements KinoticConnection {
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
         Validate.notNull(serviceInterface, "serviceInterface must not be null");
-        requireOpen();
         return track(proxyFactory.serviceProxy(serviceIdentifier, serviceInterface));
     }
 
@@ -222,7 +211,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
     }
 
     private void requireOpen() {
-        Validate.validState(!closing, "The connection to %s is closed", options.getServerUrl());
+        Validate.validState(closed == null, "The connection to %s is closed", options.getServerUrl());
     }
 
     // Held until released, so close() ends every proxy the connection minted
@@ -240,8 +229,8 @@ public class DefaultKinoticConnection implements KinoticConnection {
             }
         };
         handles.add(ret);
-        // a close() that ran between requireOpen() and this add has released the handles it found
-        if (closing) {
+        // a close() that began before this add has released the handles it found, so this one releases itself
+        if (closed != null) {
             ret.release();
         }
         requireOpen();
@@ -253,7 +242,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
         try {
             ReconnectOptions reconnect = options.getReconnect();
             WebSocketConnectOptions webSocketOptions = new WebSocketConnectOptions()
-                    .setAbsoluteURI(options.getServerUrl().replaceAll("/+$", "") + GATEWAY_PATH)
+                    .setAbsoluteURI(endpointUrl)
                     .setTimeout(reconnect.getConnectionTimeout().toMillis());
             if (options.getSslOptions() != null) {
                 webSocketOptions.setSslOptions(options.getSslOptions());
@@ -277,42 +266,35 @@ public class DefaultKinoticConnection implements KinoticConnection {
     }
 
     private void connectionAccepted(StompClientConnection connection) {
-        if (closing) {
+        if (closed != null) {
             connection.close();
-        } else {
-            ConnectedInfo info;
-            try {
-                info = readConnectedInfo(connection);
-            } catch (Exception e) {
-                info = null;
-                connection.close();
-                // a CONNECTED frame without readable info is a protocol violation: it ends the initial connect
-                // like a refused CONNECT, and after an established connection it is a failed attempt like a 401
-                if (connections == 0) {
-                    endForGood(e);
-                } else {
-                    attemptFailed(e);
-                }
-            }
-            if (info != null) {
-                connections++;
-                failedAttempts = 0;
-                String connectionId = options.getServerUrl() + "#" + connections;
-                current = connection;
-                currentConnectionId = connectionId;
-                connectedInfo = info;
-                connection.closeHandler(cause -> connectionLost(connectionId, cause));
-                livenessWatcher.connected(connectionId);
-                transport.connected(connection, connectionId, info.getReplyToId());
-                log.info("Connected to {} as participant {}", options.getServerUrl(), info.getParticipant().getId());
-                changeState(ConnectionState.CONNECTED);
-                Promise<KinoticConnection> pending = initialConnect;
-                initialConnect = null;
-                if (pending != null) {
-                    pending.complete(this);
-                }
-            }
+            return;
         }
+        ConnectedInfo info;
+        try {
+            info = readConnectedInfo(connection);
+        } catch (Exception e) {
+            connection.close();
+            // a CONNECTED frame without readable info is a protocol violation: it ends the initial connect like a
+            // refused CONNECT, and after an established connection it is a failed attempt like a 401
+            if (connections == 0) {
+                endForGood(e);
+            } else {
+                attemptFailed(e);
+            }
+            return;
+        }
+        connections++;
+        failedAttempts = 0;
+        String connectionId = options.getServerUrl() + "#" + connections;
+        current = connection;
+        connectedInfo = info;
+        connection.closeHandler(cause -> connectionLost(connection, connectionId, cause));
+        livenessWatcher.connected(connectionId);
+        transport.connected(connection, connectionId, info.getReplyToId());
+        log.info("Connected to {} as participant {}", options.getServerUrl(), info.getParticipant().getId());
+        changeState(ConnectionState.CONNECTED);
+        initialConnect.tryComplete(this);
     }
 
     private ConnectedInfo readConnectedInfo(StompClientConnection connection) {
@@ -327,14 +309,13 @@ public class DefaultKinoticConnection implements KinoticConnection {
         return ret;
     }
 
-    private void connectionLost(String connectionId, Throwable cause) {
+    private void connectionLost(StompClientConnection connection, String connectionId, Throwable cause) {
         // a connection closed by an attempt that was already settled was never the current one
-        if (connectionId.equals(currentConnectionId)) {
+        if (connection == current) {
             current = null;
-            currentConnectionId = null;
             transport.disconnected();
             Future<Void> pendingFailed = livenessWatcher.connectionEnded(connectionId);
-            if (closing) {
+            if (closed != null) {
                 if (cause != null) {
                     log.warn("The connection to {} did not close cleanly", options.getServerUrl(), cause);
                 }
@@ -343,17 +324,17 @@ public class DefaultKinoticConnection implements KinoticConnection {
                 // reported once every pending call has failed, on whichever context its caller's watch ran that,
                 // unless a connection was established or the close began in the meantime
                 pendingFailed.onComplete(ar -> context.runOnContext(v -> {
-                    if (!closing && current == null) {
+                    if (closed == null && current == null) {
                         changeState(ConnectionState.RECONNECTING);
                     }
                 }));
-                scheduleAttempt();
+                scheduleAttempt(nextDelay());
             }
         }
     }
 
     private void attemptFailed(Throwable cause) {
-        if (!closing) {
+        if (closed == null) {
             Throwable failure = mapConnectFailure(cause);
             failedAttempts++;
             int maxAttempts = options.getReconnect().getMaxAttempts();
@@ -386,17 +367,10 @@ public class DefaultKinoticConnection implements KinoticConnection {
         if (failure instanceof AuthenticationException || failure instanceof StompErrorException) {
             ret = connections == 0;
         } else {
-            ret = failure instanceof UpgradeRejectedException rejected && isClientError(rejected.getStatus());
+            ret = failure instanceof UpgradeRejectedException rejected
+                    && rejected.getStatus() >= 400 && rejected.getStatus() < 500;
         }
         return ret;
-    }
-
-    private static boolean isClientError(int status) {
-        return status >= 400 && status < 500;
-    }
-
-    private void scheduleAttempt() {
-        scheduleAttempt(nextDelay());
     }
 
     private void scheduleAttempt(long delay) {
@@ -423,17 +397,15 @@ public class DefaultKinoticConnection implements KinoticConnection {
     // Connecting is over for good: the initial connect fails with the cause, an established connection closes
     private void endForGood(Throwable cause) {
         log.error("The connection to {} ended", options.getServerUrl(), cause);
-        Promise<KinoticConnection> pending = initialConnect;
-        initialConnect = null;
         closeOnContext();
-        if (pending != null) {
-            pending.fail(cause);
-        }
+        initialConnect.tryFail(cause);
     }
 
     private Future<Void> closeOnContext() {
         if (closed == null) {
-            closing = true;
+            Promise<Void> done = context.promise();
+            // set before the handles are released, so a proxy minted meanwhile releases itself
+            closed = done.future();
             if (reconnectTimer != -1) {
                 vertx.cancelTimer(reconnectTimer);
                 reconnectTimer = -1;
@@ -441,11 +413,12 @@ public class DefaultKinoticConnection implements KinoticConnection {
             handles.forEach(RpcServiceProxyHandle::release);
             handles.clear();
             Future<Void> disconnected = current != null ? current.disconnect() : Future.succeededFuture();
-            closed = disconnected.transform(ar -> stompClient != null ? stompClient.close() : Future.succeededFuture())
-                                 .transform(ar -> {
-                                     changeState(ConnectionState.CLOSED);
-                                     return Future.<Void>succeededFuture();
-                                 });
+            disconnected.transform(ar -> stompClient.close())
+                        .transform(ar -> {
+                            changeState(ConnectionState.CLOSED);
+                            return Future.<Void>succeededFuture();
+                        })
+                        .onComplete(done);
         }
         return closed;
     }

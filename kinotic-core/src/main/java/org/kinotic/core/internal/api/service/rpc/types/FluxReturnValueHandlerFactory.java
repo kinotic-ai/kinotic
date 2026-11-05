@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.MethodParameter;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.lang.reflect.Method;
@@ -19,7 +18,6 @@ import java.lang.reflect.Method;
  *
  * Created by Navid Mitchell on 5/30/20
  */
-@Component
 public class FluxReturnValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(FluxReturnValueHandlerFactory.class);

@@ -24,6 +24,7 @@ import org.kinotic.client.gateway.TestDto;
 import org.kinotic.client.gateway.TestGatewayApplication;
 import org.kinotic.client.gateway.TestGatewaySecurityService;
 import org.kinotic.core.api.RpcServiceProxyHandle;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
@@ -73,7 +74,7 @@ public class KinoticConnectionTests {
                 gateway.close();
             }
         } finally {
-            vertx.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            await(vertx.close());
         }
     }
 
@@ -81,7 +82,7 @@ public class KinoticConnectionTests {
     public void closeConnections() throws Exception {
         try {
             List<Future<Void>> closes = connections.stream().map(KinoticConnection::close).toList();
-            Future.all(closes).toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            await(Future.all(closes));
         } finally {
             connections.clear();
         }
@@ -99,7 +100,7 @@ public class KinoticConnectionTests {
         ClientTestService service = connection.serviceProxy(ClientTestService.class).getService();
 
         Assertions.assertEquals("Hello Bob", service.greet("Bob").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-        Assertions.assertEquals(5, service.add(2, 3).toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        Assertions.assertEquals(5, await(service.add(2, 3)));
         TestDto described = service.describe(new TestDto().setName("widget").setCount(3)).block(Duration.ofSeconds(TIMEOUT_SECONDS));
         Assertions.assertEquals(new TestDto().setName("widget").setCount(3).setDescription("3 x widget"), described);
         Assertions.assertEquals(List.of(1, 2, 3, 4, 5), service.count(5).collectList().block(Duration.ofSeconds(TIMEOUT_SECONDS)));
@@ -230,7 +231,8 @@ public class KinoticConnectionTests {
 
     @Test
     public void testServerUrlEndingInTheGatewayPathIsRejected() {
-        for (String serverUrl : List.of("ws://localhost:" + port + "/api/v1", "ws://localhost:" + port + "/api/v1/")) {
+        for (String serverUrl : List.of("ws://localhost:" + port + EventConstants.STOMP_WEBSOCKET_PATH,
+                                        "ws://localhost:" + port + EventConstants.STOMP_WEBSOCKET_PATH + "/")) {
             Assertions.assertThrows(IllegalArgumentException.class,
                                     () -> KinoticConnection.connect(vertx, options(TestGatewayApplication.CLIENT_SECRET).setServerUrl(serverUrl)),
                                     serverUrl);
@@ -247,10 +249,9 @@ public class KinoticConnectionTests {
     public void testInitialConnectEndsAtOnceOnARejectedUpgrade() throws Exception {
         // a server answering the upgrade with a 404, as one with no gateway at the path does; a retried 404 would
         // never complete the connect, since the attempt budget is unbounded
-        HttpServer server = vertx.createHttpServer()
-                                 .requestHandler(request -> request.response().setStatusCode(404).end())
-                                 .listen(0)
-                                 .toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        HttpServer server = await(vertx.createHttpServer()
+                                       .requestHandler(request -> request.response().setStatusCode(404).end())
+                                       .listen(0));
         try {
             ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET).setServerUrl("ws://localhost:" + server.actualPort());
 
@@ -263,7 +264,7 @@ public class KinoticConnectionTests {
             Assertions.assertInstanceOf(UpgradeRejectedException.class, failure.getCause());
             Assertions.assertEquals(404, ((UpgradeRejectedException) failure.getCause()).getStatus());
         } finally {
-            server.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            await(server.close());
         }
     }
 
@@ -311,7 +312,7 @@ public class KinoticConnectionTests {
 
             // the bounded connection ends for good; it still closes, and mints no further proxies
             Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> bounded.state() == ConnectionState.CLOSED);
-            bounded.close().toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            await(bounded.close());
             Assertions.assertThrows(IllegalStateException.class, () -> bounded.serviceProxy(ClientTestService.class));
 
             // the gateway comes back rejecting every connection, as one whose security service is failing does; the
@@ -381,12 +382,13 @@ public class KinoticConnectionTests {
     }
 
     private KinoticConnection connect(ConnectOptions options) throws Exception {
-        KinoticConnection ret = KinoticConnection.connect(vertx, options)
-                                                 .toCompletionStage()
-                                                 .toCompletableFuture()
-                                                 .get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        KinoticConnection ret = await(KinoticConnection.connect(vertx, options));
         connections.add(ret);
         return ret;
+    }
+
+    private static <T> T await(Future<T> future) throws Exception {
+        return future.toCompletionStage().toCompletableFuture().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     private static ConnectOptions options(String clientSecret) {

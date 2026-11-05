@@ -16,8 +16,9 @@ public interface RpcTransport {
     /**
      * Sends an {@link Event} to one consumer of its destination, which must acknowledge receipt.
      * @param event to send
-     * @return a {@link Future} that completes with the id of the node whose consumer received the event, which a
-     *         {@link RequestLivenessWatcher} watches until the reply arrives, or fails when no consumer took it
+     * @return a {@link Future} that completes with the id of the receiver that took the event, a cluster node or a
+     *         gateway connection, which the process's {@link RequestLivenessWatcher} watches until the reply
+     *         arrives, or fails when no consumer took it
      */
     Future<String> sendWithAck(Event<byte[]> event);
 

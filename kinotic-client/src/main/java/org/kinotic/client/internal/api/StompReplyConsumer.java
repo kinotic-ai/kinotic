@@ -30,9 +30,7 @@ public class StompReplyConsumer implements EventConsumer {
     private volatile Handler<Void> endHandler;
     private volatile boolean registered = true;
     // the subscription on the current connection; touched only on the transport's context
-    private String subscriptionId;
-    private CRI destination;
-    private Future<Void> ready;
+    private ReplySubscription subscription;
 
     /**
      * @return the address the proxy listens on, which its requests name as their reply-to
@@ -42,41 +40,25 @@ public class StompReplyConsumer implements EventConsumer {
     }
 
     /**
-     * @return the reply destination subscribed on the current connection, or null while there is no connection
+     * @return the subscription on the current connection, or null while there is no connection
      */
-    CRI destination() {
-        return destination;
-    }
-
-    String subscriptionId() {
-        return subscriptionId;
-    }
-
-    /**
-     * @return completes once the gateway has receipted the subscription on the current connection, or fails when
-     *         the connection ends first or the receipt is overdue, which ends the connection
-     */
-    Future<Void> ready() {
-        return ready;
+    ReplySubscription subscription() {
+        return subscription;
     }
 
     boolean hasHandler() {
         return handler != null;
     }
 
-    void subscribed(String subscriptionId, CRI destination, Future<Void> receipt) {
-        this.subscriptionId = subscriptionId;
-        this.destination = destination;
-        this.ready = receipt;
+    void subscribed(ReplySubscription subscription) {
+        this.subscription = subscription;
         // the registration completes with the first receipt; a receipt that fails loses the connection, whose
         // reconnect subscribes again
-        receipt.onSuccess(v -> completion.tryComplete());
+        subscription.receipt().onSuccess(v -> completion.tryComplete());
     }
 
     void unsubscribed() {
-        this.subscriptionId = null;
-        this.destination = null;
-        this.ready = null;
+        this.subscription = null;
     }
 
     void deliver(Event<byte[]> event) {

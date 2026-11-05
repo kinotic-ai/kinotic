@@ -42,9 +42,6 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class StompRpcTransport implements RpcTransport {
 
-    // the scope discriminator of the reply-to a control event carries, which nothing is subscribed under
-    private static final String CONTROL_REPLY_DISCRIMINATOR = "control";
-
     private final ContextInternal context;
     private final String serverUrl;
     private final String nodeName;
@@ -55,7 +52,6 @@ public class StompRpcTransport implements RpcTransport {
     private StompClientConnection connection;
     private String connectionId;
     private String replyToId;
-    private String controlReplyTo;
 
     /**
      * A connection was accepted: every consumer with a handler is subscribed on it.
@@ -67,9 +63,6 @@ public class StompRpcTransport implements RpcTransport {
         this.connection = connection;
         this.connectionId = connectionId;
         this.replyToId = replyToId;
-        this.controlReplyTo = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
-                                         replyToId + ":" + CONTROL_REPLY_DISCRIMINATOR,
-                                         nodeName).raw();
         for (StompReplyConsumer consumer : consumers.values()) {
             if (consumer.hasHandler()) {
                 subscribe(consumer);
@@ -102,13 +95,16 @@ public class StompRpcTransport implements RpcTransport {
                         "Not connected to " + serverUrl + ", the request to " + event.cri().raw() + " was not sent"));
             } else {
                 try {
-                    StompReplyConsumer consumer = replyConsumerOf(event);
-                    Map<String, String> headers = requestHeaders(event, consumer);
+                    ReplySubscription subscription = replySubscriptionOf(event);
+                    // the reply-to names the address the proxy listens on; the gateway knows it as the subscription's
+                    // destination on this connection
+                    Map<String, String> headers = headersOf(event);
+                    headers.put(EventConstants.REPLY_TO_HEADER, subscription.destination().raw());
                     String receipt = UUID.randomUUID().toString();
                     headers.put(Frame.RECEIPT, receipt);
                     String acknowledgedBy = connectionId;
                     StompClientConnection sentOn = connection;
-                    consumer.ready()
+                    subscription.receipt()
                             .compose(v -> sentOn.send(event.cri().raw(), headers, body(event)))
                             .onSuccess(v -> result.complete(acknowledgedBy))
                             .onFailure(cause -> result.completeExceptionally(mapSendFailure(cause, event.cri(), receipt)));
@@ -128,7 +124,7 @@ public class StompRpcTransport implements RpcTransport {
                 log.debug("Not connected to {}, dropping the control event for {}", serverUrl, event.cri());
             } else {
                 try {
-                    connection.send(event.cri().raw(), requestHeaders(event, null), body(event))
+                    connection.send(event.cri().raw(), headersOf(event), body(event))
                               .onFailure(cause -> log.debug("Could not send the control event for {}", event.cri(), cause));
                 } catch (Exception e) {
                     log.warn("Could not send the control event for {}", event.cri(), e);
@@ -140,7 +136,7 @@ public class StompRpcTransport implements RpcTransport {
     // a consumer is subscribed once it has a handler, like a Vert.x consumer registers on its first handler
     void consumerReady(StompReplyConsumer consumer) {
         context.execute(() -> {
-            if (connection != null && consumer.destination() == null) {
+            if (connection != null && consumer.subscription() == null) {
                 subscribe(consumer);
             }
         });
@@ -150,9 +146,10 @@ public class StompRpcTransport implements RpcTransport {
         Promise<Void> promise = Promise.promise();
         context.execute(() -> {
             consumers.remove(consumer.listenAddress().raw());
+            ReplySubscription subscription = consumer.subscription();
             Future<Void> ret;
-            if (connection != null && consumer.subscriptionId() != null) {
-                ret = connection.unsubscribe(consumer.subscriptionId());
+            if (connection != null && subscription != null) {
+                ret = connection.unsubscribe(subscription.id());
             } else {
                 ret = Future.succeededFuture();
             }
@@ -177,40 +174,34 @@ public class StompRpcTransport implements RpcTransport {
         Future<Void> receipt = connection.subscribe(subscriptionId,
                                                     destination.raw(),
                                                     Map.of(Frame.RECEIPT, subscriptionId),
-                                                    frame -> consumer.deliver(toEvent(frame)))
+                                                    frame -> consumer.deliver(toEvent(frame, destination)))
                                          .timeout(subscriptionTimeoutMillis, TimeUnit.MILLISECONDS);
         // a gateway that confirms no subscription cannot carry the proxy's calls, so the connection is lost and the
         // reconnect subscribes again; a receipt the gateway refused ends the connection already
         receipt.onFailure(cause -> subscribedOn.close());
-        consumer.subscribed(subscriptionId, destination, receipt);
+        consumer.subscribed(new ReplySubscription(subscriptionId, destination, receipt));
     }
 
     /**
-     * The consumer a request's reply-to names, subscribed on this connection.
+     * The subscription on this connection of the consumer a request's reply-to names.
      * @throws IllegalStateException when no consumer listens on the reply-to, since the gateway ends the connection
      *                               over a reply-to outside its scope
      */
-    private StompReplyConsumer replyConsumerOf(Event<byte[]> event) {
+    private ReplySubscription replySubscriptionOf(Event<byte[]> event) {
         String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
-        StompReplyConsumer ret = replyTo != null ? consumers.get(replyTo) : null;
-        if (ret == null || ret.destination() == null) {
+        StompReplyConsumer consumer = replyTo != null ? consumers.get(replyTo) : null;
+        ReplySubscription ret = consumer != null ? consumer.subscription() : null;
+        if (ret == null) {
             throw new IllegalStateException("No reply subscription on " + serverUrl + " for " + replyTo);
         }
         return ret;
     }
 
-    /**
-     * The STOMP headers of a request: its metadata, with the reply-to rewritten from the address a proxy listens on
-     * to the consumer's destination on this connection. A control event names no reply-to of its own and gets one
-     * the gateway accepts, since the gateway refuses every service send without one.
-     * @param consumer the consumer the request's reply-to names, or null for a control event
-     */
-    private Map<String, String> requestHeaders(Event<byte[]> event, StompReplyConsumer consumer) {
+    private Map<String, String> headersOf(Event<byte[]> event) {
         Map<String, String> headers = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : event.metadata()) {
             headers.put(entry.getKey(), entry.getValue());
         }
-        headers.put(EventConstants.REPLY_TO_HEADER, consumer != null ? consumer.destination().raw() : controlReplyTo);
         return headers;
     }
 
@@ -218,10 +209,11 @@ public class StompRpcTransport implements RpcTransport {
         return event.data() != null ? Buffer.buffer(event.data()) : null;
     }
 
-    private Event<byte[]> toEvent(Frame frame) {
+    // the destination is the subscription's, so a frame's own is not parsed again per reply
+    private Event<byte[]> toEvent(Frame frame, CRI destination) {
         Metadata metadata = Metadata.create(frame.getHeaders());
         byte[] data = frame.getBody() != null ? frame.getBody().getBytes() : null;
-        return Event.create(CRI.create(frame.getDestination()), metadata, data);
+        return Event.create(destination, metadata, data);
     }
 
     // The gateway answers a request it refuses, such as one to a zone the participant may not address, with an

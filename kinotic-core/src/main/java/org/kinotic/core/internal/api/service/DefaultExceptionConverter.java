@@ -2,22 +2,22 @@
 
 package org.kinotic.core.internal.api.service;
 
-import org.springframework.context.annotation.Primary;
+import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Default {@link ExceptionConverter} that delegates to all {@link ExceptionConverter}'s found in the {@link org.springframework.context.ApplicationContext}
+ * The {@link ExceptionConverter} of every service proxy and invocation: the Jackson conversion of a service's
+ * exception to and from the wire.
  *
  * Created by navid on 2019-04-25.
  */
-@Primary
 @Component
 public class DefaultExceptionConverter extends ExceptionConverterComposite {
 
-    public DefaultExceptionConverter(List<ExceptionConverter> exceptionConverters) {
-        addConverters(exceptionConverters);
+    public DefaultExceptionConverter(KinoticProperties properties, JsonMapper jsonMapper) {
+        addConverters(new JacksonExceptionConverter(properties, jsonMapper));
     }
 
 }

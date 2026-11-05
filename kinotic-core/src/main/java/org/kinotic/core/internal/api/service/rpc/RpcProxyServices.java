@@ -14,10 +14,8 @@ import org.kinotic.core.api.service.RequestLivenessWatcher;
 import java.util.function.Supplier;
 
 /**
- * What every service proxy of a process shares: the name of the process in the proxies' reply destinations, the
- * handling of their return values, the transport their requests go through, the participant they are sent as, the
- * directory an unreachable service is reported to, the watcher of their pending requests, the Vert.x instance they
- * run on, and the OpenTelemetry and trace filter they trace with.
+ * What every service proxy of a process shares, assembled once by the process and handed to each proxy beside what
+ * differs per proxy.
  *
  * Created by Navíd Mitchell 🤪 on 11/05/26.
  */

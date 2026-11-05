@@ -8,7 +8,6 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
 /**
@@ -17,7 +16,6 @@ import org.springframework.util.MimeTypeUtils;
  * {@link ReactiveAdapterRegistry} recognizes (e.g. {@code Mono<byte[]>}, {@code Flux<byte[]>}, {@code Future<byte[]>}).
  * The client-side counterpart of {@code BinaryReturnValueConverter}.
  */
-@Component
 public class BinaryRpcResponseConverter implements RpcResponseConverter {
 
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;

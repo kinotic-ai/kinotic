@@ -9,23 +9,16 @@ import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.core.internal.api.service.DefaultExceptionConverter;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
-import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
+import org.kinotic.core.internal.api.service.rpc.DefaultResponseConverter;
+import org.kinotic.core.internal.api.service.rpc.DefaultRpcReturnValueHandlerFactory;
 import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcProxyServices;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
-import org.kinotic.core.internal.api.service.rpc.RpcResponseConverterComposite;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
-import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactoryComposite;
-import org.kinotic.core.internal.api.service.rpc.converters.BinaryRpcResponseConverter;
 import org.kinotic.core.internal.api.service.rpc.converters.JacksonRpcArgumentConverter;
-import org.kinotic.core.internal.api.service.rpc.converters.JacksonRpcResponseConverter;
-import org.kinotic.core.internal.api.service.rpc.converters.TextRpcResponseConverter;
-import org.kinotic.core.internal.api.service.rpc.types.CompletableFutureValueHandlerFactory;
-import org.kinotic.core.internal.api.service.rpc.types.FluxReturnValueHandlerFactory;
-import org.kinotic.core.internal.api.service.rpc.types.MonoRpcReturnValueHandlerFactory;
-import org.kinotic.core.internal.api.service.rpc.types.VertxFutureRpcReturnValueHandlerFactory;
 import org.kinotic.core.internal.config.KinoticJacksonConfig;
 import org.springframework.core.ReactiveAdapterRegistry;
 import tools.jackson.databind.json.JsonMapper;
@@ -42,6 +35,13 @@ import tools.jackson.databind.json.JsonMapper;
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
 public class RpcServiceProxyFactory {
+
+    // the adapters depend on the classpath alone, so every factory of the process shares one registry
+    private static final ReactiveAdapterRegistry REACTIVE_ADAPTERS = new ReactiveAdapterRegistry();
+
+    static {
+        KinoticUtil.registerVertxFutureAdapter(REACTIVE_ADAPTERS);
+    }
 
     private final RpcArgumentConverter argumentConverter;
     private final RpcProxyServices services;
@@ -67,19 +67,11 @@ public class RpcServiceProxyFactory {
         Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
 
-        ReactiveAdapterRegistry reactiveAdapterRegistry = new ReactiveAdapterRegistry();
-        KinoticUtil.registerVertxFutureAdapter(reactiveAdapterRegistry);
-        this.argumentConverter = new JacksonRpcArgumentConverter(jsonMapper, reactiveAdapterRegistry, properties);
-        ExceptionConverter exceptionConverter = new JacksonExceptionConverter(properties, jsonMapper);
-        RpcResponseConverter responseConverter = new RpcResponseConverterComposite()
-                .addConverters(new JacksonRpcResponseConverter(jsonMapper, reactiveAdapterRegistry, properties),
-                               new TextRpcResponseConverter(),
-                               new BinaryRpcResponseConverter(reactiveAdapterRegistry));
-        RpcReturnValueHandlerFactory returnValueHandlerFactory = new RpcReturnValueHandlerFactoryComposite()
-                .addFactories(new CompletableFutureValueHandlerFactory(responseConverter, exceptionConverter),
-                              new VertxFutureRpcReturnValueHandlerFactory(responseConverter, exceptionConverter),
-                              new MonoRpcReturnValueHandlerFactory(responseConverter, exceptionConverter),
-                              new FluxReturnValueHandlerFactory(responseConverter, exceptionConverter));
+        this.argumentConverter = new JacksonRpcArgumentConverter(jsonMapper, REACTIVE_ADAPTERS, properties);
+        // the same assembly a cluster member's Spring context makes, so the supported set has one home
+        ExceptionConverter exceptionConverter = new DefaultExceptionConverter(properties, jsonMapper);
+        RpcResponseConverter responseConverter = new DefaultResponseConverter(jsonMapper, REACTIVE_ADAPTERS, properties);
+        RpcReturnValueHandlerFactory returnValueHandlerFactory = new DefaultRpcReturnValueHandlerFactory(responseConverter, exceptionConverter);
         this.services = new RpcProxyServices(nodeName,
                                              returnValueHandlerFactory,
                                              transport,

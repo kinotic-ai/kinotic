@@ -9,17 +9,13 @@ import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapPropagator;
-import io.vertx.core.Vertx;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.RpcServiceProxyHandle;
-import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
-import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.EventUtil;
@@ -37,7 +33,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -53,21 +48,12 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private static final String INSTRUMENTATION_NAME = "org.kinotic.core.rpc-proxy";
 
     private final ServiceIdentifier serviceIdentifier;
-    private final String nodeName;
     private final Class<T> serviceClass;
     private final CRI handlerCRI;
     private final RpcArgumentConverter rpcArgumentConverter;
-    private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
-    private final RpcTransport transport;
-    // the participant an invocation is sent as, read when the invocation is made
-    private final Supplier<Participant> callerParticipant;
-    // the directory an unreachable service is reported against, or null for a process holding none
-    private final Supplier<ServiceDirectory> serviceDirectory;
-    private final RequestLivenessWatcher requestLivenessWatcher;
+    private final RpcProxyServices services;
     private final TextMapPropagator propagator;
     private final Tracer tracer;
-    private final TraceLogFilter traceLogFilter;
-    private final Vertx vertx;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
     private final EventConsumer replyEventConsumer;
@@ -100,27 +86,20 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notBlank(services.getNodeName(), "nodeName must not be blank");
 
         this.serviceIdentifier = serviceIdentifier;
-        this.nodeName = services.getNodeName();
-        String encodedNodeName = KinoticUtil.safeEncodeURI(nodeName);
         this.serviceClass = serviceClass;
         this.rpcArgumentConverter = rpcArgumentConverter;
-        this.rpcReturnValueHandlerFactory = services.getReturnValueHandlerFactory();
-        this.transport = services.getTransport();
-        this.callerParticipant = services.getCallerParticipant();
-        this.serviceDirectory = services.getServiceDirectory();
-        this.requestLivenessWatcher = services.getRequestLivenessWatcher();
+        this.services = services;
         OpenTelemetry openTelemetry = services.getOpenTelemetry();
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
-        this.traceLogFilter = services.getTraceLogFilter();
-        this.vertx = services.getVertx();
+        String encodedNodeName = KinoticUtil.safeEncodeURI(services.getNodeName());
 
         this.handlerCRI = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
 
         // Verify that a proxy can be built supporting all methods of the provided serviceClass
         ReflectionUtils.doWithMethods(serviceClass, method -> {
 
-            if(!rpcReturnValueHandlerFactory.supports(method)){
+            if(!services.getReturnValueHandlerFactory().supports(method)){
                 throw new IllegalArgumentException("The method: "+ method +" does not have a supported RpcReturnValueHandlerFactory");
             }
 
@@ -138,7 +117,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         /*
           Response handler logic to correlate response from remote service invocation's
          */
-        replyEventConsumer = transport.listen(this.handlerCRI);
+        replyEventConsumer = services.getTransport().listen(this.handlerCRI);
         replyEventConsumer.handler(event -> {
 
                     String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
@@ -208,7 +187,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
             for(String correlationId : responseMap.keySet()){
                 RpcReturnValueHandler returnValueHandler = responseMap.remove(correlationId);
                 if(returnValueHandler != null){
-                    requestLivenessWatcher.unwatch(correlationId);
+                    services.getRequestLivenessWatcher().unwatch(correlationId);
                     returnValueHandler.cancel(serviceClass.getSimpleName() + " released. No further responses will be processed");
                 }
             }
@@ -230,7 +209,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         // recentlyReaped debounces the burst of in-flight values that arrive before the server stops; the
         // timer expires the entry so a lost cancel self-heals on the next stray value.
         if(recentlyReaped.add(correlationId)){
-            vertx.setTimer(REAP_DEBOUNCE_MS, _ -> recentlyReaped.remove(correlationId));
+            services.getVertx().setTimer(REAP_DEBOUNCE_MS, _ -> recentlyReaped.remove(correlationId));
 
             sendCancel(CRI.create(originCri), correlationId);
         }
@@ -239,7 +218,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     // Published, not sent: the instance producing the stream is whichever one round-robin gave the request,
     // so every instance of the service gets the cancel and the ones without the stream ignore it
     private void sendCancel(CRI serviceCri, String correlationId){
-        transport.publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
+        services.getTransport().publish(EventUtil.createStreamControlEvent(serviceCri, correlationId, EventConstants.CONTROL_VALUE_CANCEL));
     }
 
     /**
@@ -249,7 +228,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         // the entry goes first: once it is gone the ack's computeIfPresent can no longer start a watch, so
         // the unwatch that follows is the last one this request can need
         responseMap.remove(correlationId);
-        requestLivenessWatcher.unwatch(correlationId);
+        services.getRequestLivenessWatcher().unwatch(correlationId);
     }
 
     @Override
@@ -288,7 +267,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
             // Now create response handler and store, so we can propagate response in replyMessageConsumer
             RpcReturnValueHandler handler = new TracingRpcReturnValueHandler(
-                    rpcReturnValueHandlerFactory.createReturnValueHandler(method, args), span);
+                    services.getReturnValueHandlerFactory().createReturnValueHandler(method, args), span);
             responseMap.put(correlationId, handler);
             // release() may have scanned the map between the guard above and this put
             if(released.get()){
@@ -313,7 +292,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         "/" + method.getName(),
                                         serviceIdentifier.version());
 
-            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(requestCri.raw())){
+            if(log.isTraceEnabled() && !services.getTraceLogFilter().isExcluded(requestCri.raw())){
                 log.trace("Proxy for {} Method Invoked {}", serviceClass.getSimpleName(), method.toString());
             }
 
@@ -321,13 +300,13 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
             Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
                                                           metadata,
                                                           argumentData,
-                                                          callerParticipant.get());
+                                                          services.getCallerParticipant().get());
 
             ret = handler.getReturnValue(new RpcRequest() {
                 @Override
                 public void send() {
                     // Send data to remote end to trigger service invocation
-                    transport.sendWithAck(rpcOutboundEvent)
+                    services.getTransport().sendWithAck(rpcOutboundEvent)
                                    .onComplete(ar -> {
                                        if(ar.failed()) {
                                            // send failed, signal handler so failure can be relayed to the return value
@@ -337,7 +316,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
                                                Throwable throwable = KinoticUtil.mapSendFailure(ar.cause(),
                                                                                                 requestCri,
-                                                                                                serviceDirectory.get());
+                                                                                                services.getServiceDirectory().get());
                                                handler.processError(throwable);
                                            }catch (Exception e){
                                                log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);
@@ -347,7 +326,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                            // computeIfPresent serializes with requestFinished() on this key, so a reply
                                            // that lands before the acknowledgement is processed leaves nothing watched
                                            responseMap.computeIfPresent(correlationId, (_, pending) -> {
-                                               requestLivenessWatcher.watch(correlationId, ar.result(), () -> failLost(correlationId, requestCri, ar.result()));
+                                               services.getRequestLivenessWatcher().watch(correlationId, ar.result(), () -> failLost(correlationId, requestCri, ar.result()));
                                                return pending;
                                            });
                                        }
