@@ -46,11 +46,11 @@
         </p>
         <Button
           v-for="choice in organizationChoices"
-          :key="choice"
-          :label="choice"
+          :key="choice.id"
+          :label="choice.name"
           class="login-submit"
           severity="secondary"
-          @click="signInTo(choice)"
+          @click="signInTo(choice.id)"
         />
         <div class="login-divider"><span>or</span></div>
       </div>
@@ -102,7 +102,7 @@ import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
-import { loadOrganizationChoices, organizationLoginPath } from '@/pages/login/organizationLogin'
+import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath } from '@/pages/login/organizationLogin'
 
 /**
  * Lands here after the GitHub registration's callback, `/api/auth/org/login/social/callback/:configId`, redirects with `?token=<verificationToken>`
@@ -118,7 +118,7 @@ const orgDescription = ref('')
 const loading = ref(false)
 const step = ref<'form' | 'connect'>('form')
 const connecting = ref(false)
-const organizationChoices = ref<string[]>([])
+const organizationChoices = ref<OrganizationChoice[]>([])
 
 const toast = useToast()
 const userState: IUserState = KinoticStates.getUserState()

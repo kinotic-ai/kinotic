@@ -17,11 +17,11 @@
         <p class="login-choices__hint">You belong to several organizations. Choose one to sign in to.</p>
         <Button
           v-for="choice in organizationChoices"
-          :key="choice"
-          :label="choice"
+          :key="choice.id"
+          :label="choice.name"
           class="login-submit login-choices__choice"
           severity="secondary"
-          @click="continueTo(choice)"
+          @click="continueTo(choice.id)"
         />
         <div class="login-divider"><span>or</span></div>
       </div>
@@ -106,7 +106,7 @@ import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
-import { loadOrganizationChoices, organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
+import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 import { emailNotVerifiedMessage, providerDisplayName } from '@/util/oidcConfigurations'
 
 const debug = createDebug('login')
@@ -145,7 +145,7 @@ declare global {
 const TURNSTILE_SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 let turnstileLoading: Promise<Turnstile> | null = null
 const providers = ref<string[]>([])
-const organizationChoices = ref<string[]>([])
+const organizationChoices = ref<OrganizationChoice[]>([])
 
 const organizationInput = ref<any>()
 const emailInput = ref<any>()

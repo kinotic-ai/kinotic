@@ -12,6 +12,7 @@ import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
@@ -41,6 +42,7 @@ import org.kinotic.managementserver.internal.api.services.TurnstileVerifier;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -79,7 +81,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     /** The longest address RFC 5321 allows. */
     private static final int MAX_EMAIL_LENGTH = 254;
     private static final String ORGANIZATION_CHOICES = "organizationChoices";
-    // long enough for the page the sign-in returns to to load and ask, short enough that the ids are gone
+    // long enough for the page a sign-in returns to to load and ask, short enough that the organizations are gone
     // from a browser left on the landing page
     private static final Duration ORGANIZATION_CHOICES_VALIDITY = Duration.ofMinutes(2);
 
@@ -100,18 +102,19 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     }
 
     /**
-     * {@code GET /api/auth/org/login/choices} — the ids of the organizations the last social round-trip the
-     * requesting page started found the identity bound to a user of, {@code ["acme", "globex"]}: for the landing
-     * page to offer after {@link OidcErrorCodes#MULTIPLE_ORGANIZATIONS}, and for a sign-up's org-naming page to offer
-     * in place of founding another organization. The ids are answered for two minutes after that round-trip and
-     * until the page starts a login at an organization; {@code []} otherwise.
+     * {@code GET /api/auth/org/login/choices} — the organizations the last social round-trip the requesting page
+     * started found the identity bound to a user of, {@code [{id: "acme", name: "Acme"}]}: for the landing page to
+     * offer after {@link OidcErrorCodes#MULTIPLE_ORGANIZATIONS}, and for a sign-up's org-naming page to offer in place
+     * of founding another organization. They are answered until the offer expires (two minutes after a sign-in, and
+     * as long as the sign-up's token after a sign-up) and until the page starts a login at an organization;
+     * {@code []} otherwise.
      */
     private void handleChoices(RoutingContext ctx) {
         JsonArray choices = new JsonArray();
         // only a request presenting the cookie consults the session, since reading a lazy session creates one
         if (SessionBinding.sessionPresented(ctx)) {
             JsonObject offer = ctx.session().get(choicesKey(SessionBinding.origin(ctx)));
-            if (offer != null && System.currentTimeMillis() - offer.getLong("at") < ORGANIZATION_CHOICES_VALIDITY.toMillis()) {
+            if (offer != null && System.currentTimeMillis() < offer.getLong("until")) {
                 choices = offer.getJsonArray("organizations");
             }
         }
@@ -124,17 +127,30 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
         return SessionBinding.pageKey(ORGANIZATION_CHOICES, origin);
     }
 
-    // offers the organizations of users to the page at origin, which reads them from handleChoices, so the redirect
-    // back to it carries no ids; read without being removed, since a concurrent request on the session would make
-    // the removal unreliable: the offer expires by its timestamp and ends with endOffer
-    static void offerChoices(RoutingContext ctx, String origin, List<OrganizationParticipantIdentity> users) {
-        JsonObject offer = new JsonObject()
-                .put("organizations", new JsonArray(users.stream().map(OrganizationParticipantIdentity::getOrganizationId).sorted().toList()))
-                .put("at", System.currentTimeMillis());
-        ctx.session().put(choicesKey(origin), offer);
+    /**
+     * Offers the organizations of {@code users} to the page at {@code origin}, or to this server's UI when it is
+     * {@code null}, until {@code until} (epoch milliseconds) or {@link #endOffer}, replacing any earlier offer. The page
+     * reads them from {@code GET /api/auth/org/login/choices}, so the redirect back to it carries none.
+     */
+    Future<Void> offerChoices(RoutingContext ctx, String origin, List<OrganizationParticipantIdentity> users, long until) {
+        // a flow that named no page returns to the portal, whose requests read the portal's key
+        String page = origin != null ? origin : domainProperties.getDomain().portalOrigin();
+        return organizationService.findAllById(users.stream().map(OrganizationParticipantIdentity::getOrganizationId).toList())
+                .map(organizations -> {
+                    // read without being removed, since a concurrent request on the session would make the removal
+                    // unreliable: the offer expires by its timestamp and ends with endOffer
+                    JsonObject offer = new JsonObject()
+                            .put("organizations", new JsonArray(organizations.stream()
+                                    .sorted(Comparator.comparing(Organization::getName, String.CASE_INSENSITIVE_ORDER))
+                                    .map(organization -> new JsonObject().put("id", organization.getId()).put("name", organization.getName()))
+                                    .toList()))
+                            .put("until", until);
+                    ctx.session().put(choicesKey(page), offer);
+                    return null;
+                });
     }
 
-    // the page chose an organization, or founded one, so the offer it was made is over
+    /** Ends the offer made to the requesting page, which chose an organization or founded one. */
     static void endOffer(RoutingContext ctx) {
         if (SessionBinding.sessionPresented(ctx)) {
             ctx.session().remove(choicesKey(SessionBinding.origin(ctx)));
@@ -368,8 +384,9 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     private void signInOrOffer(RoutingContext ctx, CallbackResult<OidcConfiguration> result, List<OrganizationParticipantIdentity> users) {
         String origin = result.origin();
         if (users.size() > 1) {
-            offerChoices(ctx, origin, users);
-            authEndpointSupport.redirectToContinue(ctx, origin, OidcErrorCodes.MULTIPLE_ORGANIZATIONS);
+            offerChoices(ctx, origin, users, System.currentTimeMillis() + ORGANIZATION_CHOICES_VALIDITY.toMillis())
+                    .onSuccess(v -> authEndpointSupport.redirectToContinue(ctx, origin, OidcErrorCodes.MULTIPLE_ORGANIZATIONS))
+                    .onFailure(err -> authEndpointSupport.completeLogin(ctx, origin, result.config().getProvider(), Future.failedFuture(err)));
         } else {
             authEndpointSupport.completeLogin(ctx, origin, result.config().getProvider(), users.isEmpty() ? Future.succeededFuture() : signIn(users.getFirst()));
         }

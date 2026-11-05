@@ -36,6 +36,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
 
     private final SignUpService signUpService;
     private final ParticipantIdentityService identityService;
+    private final OrganizationLoginHandler organizationLoginHandler;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
     private final AuthEndpointSupport authEndpointSupport;
     private final KinoticManagementApiProperties managementApiProperties;
@@ -188,8 +189,9 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         pending.setOidcConfigId(config.getId());
         pending.setEmail(email);
         pending.setDisplayName(displayName);
+        Future<List<OrganizationParticipantIdentity>> existing = identityService.findOrganizationUsersByOidcIdentity(config.getId(), sub);
         signUpService.createOidcPending(pending)
-              .compose(created -> offerExistingOrganizations(ctx, result.origin(), config.getId(), sub).map(created))
+              .compose(created -> offerExistingOrganizations(ctx, result.origin(), existing, created.getExpiresAt().getTime()).map(created))
               .onSuccess(created -> redirectToCompleteOrg(ctx, result.origin(), created.getVerificationToken()))
               .onFailure(ex -> {
                   log.warn("Signup resolution failed: {}", ex.getMessage());
@@ -226,19 +228,17 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
     }
 
     // the identity has just proven who it is, so the page it returns to may offer the organizations it signs in to,
-    // as the landing page's sign-in does; an offer is made even when there are none, replacing one an earlier
-    // round-trip on this page left behind
-    private Future<Void> offerExistingOrganizations(RoutingContext ctx, String origin, String oidcConfigId, String subject) {
-        return identityService.findOrganizationUsersByOidcIdentity(oidcConfigId, subject)
-                              .map(users -> users.stream().filter(OrganizationParticipantIdentity::isEnabled).toList())
-                              // the offer only helps a person who meant to sign in, so a failed lookup leaves the
-                              // sign-up to go on without one
-                              .recover(err -> {
-                                  log.warn("Could not find the organizations of the identity signing up: {}", err.getMessage());
-                                  return Future.succeededFuture(List.of());
-                              })
-                              .onSuccess(users -> OrganizationLoginHandler.offerChoices(ctx, origin, users))
-                              .mapEmpty();
+    // as the landing page's sign-in does, for as long as the sign-up's token lasts; an offer is made even when there
+    // are none, replacing one an earlier round-trip on this page left behind
+    private Future<Void> offerExistingOrganizations(RoutingContext ctx, String origin, Future<List<OrganizationParticipantIdentity>> existing, long until) {
+        return existing.map(users -> users.stream().filter(OrganizationParticipantIdentity::isEnabled).toList())
+                       .compose(users -> organizationLoginHandler.offerChoices(ctx, origin, users, until))
+                       // the offer only helps a person who meant to sign in, so a failed lookup leaves the sign-up to
+                       // go on without one
+                       .recover(err -> {
+                           log.warn("Could not offer the organizations of the identity signing up: {}", err.getMessage());
+                           return Future.succeededFuture();
+                       });
     }
 
     /**
