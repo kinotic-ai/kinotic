@@ -22,6 +22,37 @@
         </StatCard>
       </div>
 
+      <DashboardSection :icon="ShieldAlert" :tint="advisoryRows.length ? TINTS.red : TINTS.ink" title="Vulnerabilities"
+                        :count="advisoryRows.length"
+                        description="Advisories from OSV that affect the libraries the running server builds were built with. Nodes running the same build share one entry.">
+        <Message v-if="vulnerabilityError" severity="warn" :closable="false" class="m-5">{{ vulnerabilityError }}</Message>
+        <div v-else-if="servers === null" class="py-6 text-center text-sm text-muted-color">Checking the servers' libraries…</div>
+        <template v-else>
+          <div class="flex flex-wrap gap-2 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
+            <span v-for="(server, index) in servers" :key="index" v-tooltip.top="buildProblem(server)"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-surface-200 px-2 py-1 text-xs dark:border-surface-700">
+              <span :class="['size-2 rounded-full', BUILD_DOT[buildState(server)]]" />
+              <span class="font-semibold text-surface-950 dark:text-surface-0">{{ server.serverName || UNKNOWN_VERSION }}</span>
+              <span class="font-mono text-surface-700 dark:text-surface-200">{{ releaseOf(server.version) }}</span>
+              <span class="text-muted-color">· {{ server.nodeCount }} {{ server.nodeCount === 1 ? 'node' : 'nodes' }} · {{ buildSummary(server) }}</span>
+            </span>
+          </div>
+          <VulnerabilityFindingsTable :items="advisoryRows" data-key="finding.advisoryId"
+                                      empty-hint="No advisory affects the libraries of the running server builds.">
+            <template #columns>
+              <Column header="Builds" style="width: 18%">
+                <template #body="{ data }">
+                  <div class="flex flex-wrap gap-1">
+                    <span v-for="build in data.builds" :key="`${build.serverName}@${build.version}`"
+                          class="rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200">{{ build.serverName || UNKNOWN_VERSION }} {{ releaseOf(build.version) }}</span>
+                  </div>
+                </template>
+              </Column>
+            </template>
+          </VulnerabilityFindingsTable>
+        </template>
+      </DashboardSection>
+
       <DashboardSection :icon="Server" :tint="TINTS.ink" title="Server nodes" :count="cluster?.nodes.length"
                         description="Logs follows that node's logs. Logging opens its logger levels and trace-log filters.">
         <!-- the cluster's shape at a glance: its nodes in the order they joined, linked, with a pulse
@@ -100,29 +131,6 @@
         </DataTable>
       </DashboardSection>
 
-      <DashboardSection :icon="ShieldAlert" :tint="vulnerabilityCount ? TINTS.red : TINTS.ink" title="Vulnerabilities"
-                        :count="vulnerabilityCount"
-                        description="Advisories from OSV that affect the libraries each running server build was built with.">
-        <Message v-if="vulnerabilityError" severity="warn" :closable="false" class="m-5">{{ vulnerabilityError }}</Message>
-        <div v-else-if="servers === null" class="py-6 text-center text-sm text-muted-color">Checking the servers' libraries…</div>
-        <template v-else>
-          <div v-for="(server, index) in servers" :key="index"
-               class="border-b border-surface-200 last:border-b-0 dark:border-surface-700">
-            <div class="flex flex-wrap items-center gap-2 px-5 py-3 text-sm">
-              <span class="font-semibold text-surface-950 dark:text-surface-0">{{ server.serverName || UNKNOWN_VERSION }}</span>
-              <span class="rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200">{{ releaseOf(server.version) }}</span>
-              <span class="text-muted-color">{{ server.nodeCount }} {{ server.nodeCount === 1 ? 'node' : 'nodes' }} · {{ server.componentCount }} libraries</span>
-              <Tag v-if="server.findings.length" :value="`${countSevere(server.findings)} critical or high`"
-                   :severity="countSevere(server.findings) ? 'danger' : 'secondary'" />
-            </div>
-            <p v-if="server.error" class="px-5 pb-3 text-sm text-muted-color">This build's libraries could not be checked: {{ server.error }}</p>
-            <VulnerabilityFindingsTable v-else-if="server.componentCount" :items="server.findings.map(finding => ({ finding }))"
-                                        data-key="finding.advisoryId" empty-hint="No advisory affects this build's libraries." />
-            <p v-else class="px-5 pb-3 text-sm text-muted-color">This build was started without the library list a server build packages, so there are no libraries to check.</p>
-          </div>
-        </template>
-      </DashboardSection>
-
       <div class="grid gap-4 lg:grid-cols-2">
         <DashboardSection :icon="Activity" :tint="TINTS.ink" title="System observability"
                           description="Traces and metrics of the system's own servers, in the system tenant.">
@@ -184,7 +192,7 @@ import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Sh
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
 import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState } from '@kinotic-ai/frontend-common'
 import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
@@ -199,7 +207,34 @@ const cluster = ref<KinoticClusterInfo | null>(null)
 /** Each running server build with the advisories affecting its libraries, null until they load. */
 const servers = ref<ServerVulnerabilities[] | null>(null)
 const vulnerabilityError = ref<string | null>(null)
-const vulnerabilityCount = computed(() => servers.value?.reduce((sum, server) => sum + server.findings.length, 0))
+
+/** How a build's libraries checked out, keying the colour of its dot. */
+enum BuildState { SEVERE, AFFECTED, CLEAN, UNCHECKED }
+
+const BUILD_DOT: Record<BuildState, string> = {
+  [BuildState.SEVERE]: 'bg-red-500',
+  [BuildState.AFFECTED]: 'bg-orange-400',
+  [BuildState.CLEAN]: 'bg-green-500',
+  [BuildState.UNCHECKED]: 'bg-surface-400',
+}
+
+/** One row per advisory, with every running build it affects and the affected versions of all of them, the most severe first. */
+const advisoryRows = computed(() => {
+  const byId = new Map<string, { finding: VulnerabilityFinding, builds: ServerVulnerabilities[] }>()
+  for (const server of servers.value ?? []) {
+    for (const finding of server.findings) {
+      const row = byId.get(finding.advisoryId)
+      if (row) {
+        row.builds.push(server)
+        const known = new Set(row.finding.packages.map(pkg => pkg.purl))
+        row.finding.packages.push(...finding.packages.filter(pkg => !known.has(pkg.purl)))
+      } else {
+        byId.set(finding.advisoryId, { finding: { ...finding, packages: [...finding.packages] }, builds: [server] })
+      }
+    }
+  }
+  return [...byId.values()].sort((a, b) => severityRank(a.finding) - severityRank(b.finding))
+})
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -211,6 +246,8 @@ const serverLogsVisible = ref(false)
 
 /** What a node running from classes, with no packaged version, shows for one. */
 const UNKNOWN_VERSION = 'unknown'
+
+const SEVERITY_ORDER = Object.values(AdvisorySeverity)
 
 /** What the system's observability holds, named on its card. */
 const SIGNALS = [
@@ -239,6 +276,51 @@ function nodeTitle(node: KinoticNodeInfo): string {
 /** The release a version string names, without its build suffix: "2.18.0" of "2.18.0#20260423-sha1:d49adada". */
 function releaseOf(version: string | null): string {
   return version?.split('#')[0] || UNKNOWN_VERSION
+}
+
+// a malicious package ranks above every severity
+function severityRank(finding: VulnerabilityFinding): number {
+  return finding.type === AdvisoryType.MALICIOUS ? -1 : SEVERITY_ORDER.indexOf(finding.severity)
+}
+
+function buildState(server: ServerVulnerabilities): BuildState {
+  let ret: BuildState
+  if (server.error || !server.componentCount) {
+    ret = BuildState.UNCHECKED
+  } else if (countSevere(server.findings)) {
+    ret = BuildState.SEVERE
+  } else if (server.findings.length) {
+    ret = BuildState.AFFECTED
+  } else {
+    ret = BuildState.CLEAN
+  }
+  return ret
+}
+
+/** What a build's chip reads after its node count. */
+function buildSummary(server: ServerVulnerabilities): string {
+  let ret: string
+  if (server.error) {
+    ret = 'not checked'
+  } else if (!server.componentCount) {
+    ret = 'no library list'
+  } else if (server.findings.length) {
+    ret = `${server.findings.length} ${server.findings.length === 1 ? 'advisory' : 'advisories'}`
+  } else {
+    ret = 'no advisories'
+  }
+  return ret
+}
+
+/** Why a build's libraries were not checked, shown on hovering its chip. */
+function buildProblem(server: ServerVulnerabilities): string | undefined {
+  let ret: string | undefined
+  if (server.error) {
+    ret = `This build's libraries could not be checked: ${server.error}`
+  } else if (!server.componentCount) {
+    ret = 'This build was started without the library list a server build packages, so there are no libraries to check.'
+  }
+  return ret
 }
 
 function shortId(id: string): string {
