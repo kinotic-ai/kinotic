@@ -25,6 +25,7 @@ import org.kinotic.client_test.gateway.Shape;
 import org.kinotic.client_test.gateway.TestDto;
 import org.kinotic.client_test.gateway.TestGatewayApplication;
 import org.kinotic.client_test.gateway.TestGatewaySecurityService;
+import org.kinotic.client_test.gateway.TestSecurityServiceMode;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.exceptions.AuthenticationException;
@@ -46,9 +47,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Runs the Java client, auto-configured in a Spring context of its own, against the gateway started in this JVM
- * over a real WebSocket: every supported return type,
- * a stream and its cancellation, a service's exception, a refusal by the gateway, rejected credentials, a call
- * pending when the gateway stops, and the reconnect once it is back.
+ * over a real WebSocket: every supported return type, a stream and its cancellation, a service's exception, a
+ * refusal by the gateway, rejected credentials, a reconnect the gateway rejects, a call pending when the gateway
+ * stops, and the reconnect once it is back.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -233,6 +234,26 @@ public class KinoticConnectionTests {
     }
 
     @Test
+    public void testReconnectTheGatewayRejectsEndsTheConnection() throws Exception {
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET));
+        RestrictedService restricted = connection.serviceProxy(RestrictedService.class).getService();
+        // the credentials stop being accepted while the connection is up, as a revoked secret's do; the gateway ends
+        // the connection over the refused call, and answers the reconnect with a 401
+        TestGatewaySecurityService.mode = TestSecurityServiceMode.REJECT;
+        TestGatewaySecurityService.refusals.set(0);
+        try {
+            Assertions.assertThrows(ExecutionException.class, () -> restricted.secret().get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+
+            Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> connection.state() == ConnectionState.CLOSED);
+            // the one attempt the 401 answered, and no retry of it
+            Awaitility.await().during(1, TimeUnit.SECONDS).atMost(2, TimeUnit.SECONDS).until(() -> TestGatewaySecurityService.refusals.get() == 1);
+        } finally {
+            TestGatewaySecurityService.mode = TestSecurityServiceMode.AUTHENTICATE;
+        }
+        Assertions.assertThrows(IllegalStateException.class, () -> connection.serviceProxy(ClientTestService.class));
+    }
+
+    @Test
     public void testServerUrlEndingInTheGatewayPathIsRejected() {
         for (String serverUrl : List.of("ws://localhost:" + port + EventConstants.STOMP_WEBSOCKET_PATH,
                                         "ws://localhost:" + port + EventConstants.STOMP_WEBSOCKET_PATH + "/")) {
@@ -351,16 +372,16 @@ public class KinoticConnectionTests {
             await(bounded.close());
             Assertions.assertThrows(IllegalStateException.class, () -> bounded.serviceProxy(ClientTestService.class));
 
-            // the gateway comes back rejecting every connection, as one whose security service is failing does; the
-            // reconnect keeps trying until it is admitted
-            TestGatewaySecurityService.rejectEveryone = true;
-            TestGatewaySecurityService.rejections.set(0);
+            // the gateway comes back answering every connection with a 503, as one whose security service cannot
+            // reach its identity store does; the reconnect keeps trying until it is admitted
+            TestGatewaySecurityService.mode = TestSecurityServiceMode.FAIL;
+            TestGatewaySecurityService.refusals.set(0);
             try {
                 gateway = TestGatewayApplication.start(port);
-                Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> TestGatewaySecurityService.rejections.get() >= 2);
+                Awaitility.await().atMost(TIMEOUT_SECONDS, TimeUnit.SECONDS).until(() -> TestGatewaySecurityService.refusals.get() >= 2);
                 Assertions.assertEquals(ConnectionState.RECONNECTING, connection.state());
             } finally {
-                TestGatewaySecurityService.rejectEveryone = false;
+                TestGatewaySecurityService.mode = TestSecurityServiceMode.AUTHENTICATE;
             }
         } finally {
             // the other tests need the gateway back whatever this one found

@@ -3,12 +3,14 @@
 
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.HttpException;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -100,13 +102,17 @@ public class EndpointConnectionHandler {
 
         return securityService.authenticate(authenticationInfo, GATEWAY_CONTEXT)
                               .recover(throwable -> {
-                                  Throwable cause;
-                                  if(throwable instanceof AuthenticationException){
-                                      cause = throwable;
-                                  }else{
-                                      cause = new AuthenticationException("Could not authenticate with the given credentials", throwable);
+                                  // the upgrade is answered with the status of the HttpException: rejected credentials
+                                  // are the client's to change, a security service that could not answer is an outage
+                                  // the client should retry through
+                                  HttpException rejection;
+                                  if (throwable instanceof AuthenticationException) {
+                                      rejection = new HttpException(HttpResponseStatus.UNAUTHORIZED.code(), throwable);
+                                  } else {
+                                      log.warn("The security service could not authenticate a connection", throwable);
+                                      rejection = new HttpException(HttpResponseStatus.SERVICE_UNAVAILABLE.code(), throwable);
                                   }
-                                  return Future.failedFuture(cause);
+                                  return Future.failedFuture(rejection);
                               })
                               .map(participant -> {
                                   connectedInfo = new ConnectedInfo();
