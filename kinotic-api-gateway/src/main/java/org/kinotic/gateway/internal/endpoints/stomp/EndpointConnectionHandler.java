@@ -18,7 +18,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -40,6 +40,9 @@ import java.util.UUID;
  * Created by Navid Mitchell on 11/3/20
  */
 public class EndpointConnectionHandler {
+
+    // the surface this gateway serves, which a token presented at the handshake must have been minted for
+    private static final AuthenticationContext PUBLISHED_SERVICES = new AuthenticationContext(AuthenticationContext.PUBLISHED_SERVICES);
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
     /** Upgrade header carrying the client secret; also read by name in DefaultCredentialAuthenticationService. */
@@ -94,7 +97,7 @@ public class EndpointConnectionHandler {
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
-        return securityService.authenticate(authenticationInfo, KinoticAudience.PUBLISHED_SERVICES)
+        return securityService.authenticate(authenticationInfo, PUBLISHED_SERVICES)
                               .recover(throwable -> {
                                   Throwable cause;
                                   if(throwable instanceof AuthenticationException){

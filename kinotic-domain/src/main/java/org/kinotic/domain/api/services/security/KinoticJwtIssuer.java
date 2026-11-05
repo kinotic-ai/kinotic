@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.domain.api.config.VersionedKey;
 import org.kinotic.domain.api.config.VersionedKeySet;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.internal.api.services.secret.SystemSecretsService;
 import org.springframework.stereotype.Component;
 
@@ -77,18 +77,18 @@ public class KinoticJwtIssuer {
     /**
      * Validates a token's signature against any key currently in the active set, dispatching on
      * the {@code kid} header to the key that signed it, and requires the token to have been minted
-     * for {@code expected}: a token minted for another surface fails with an
+     * for the surface {@code authenticationFor}: a token minted for another surface fails with an
      * {@link AuthenticationException}, whoever presents it.
      *
-     * @param token    the compact JWT
-     * @param expected the surface the caller serves, which the token's {@code aud} claim must name
+     * @param token             the compact JWT
+     * @param authenticationFor the surface the caller serves, which the token's {@code aud} claim must name
      */
-    public Future<User> authenticate(String token, KinoticAudience expected) {
+    public Future<User> authenticate(String token, String authenticationFor) {
         State current = requireState();
         return current.jwtAuth.authenticate(new TokenCredentials(token))
-                              .compose(user -> audienceOf(user).contains(expected.getClaim())
+                              .compose(user -> audienceOf(user).contains(authenticationFor)
                                       ? Future.succeededFuture(user)
-                                      : Future.failedFuture(new AuthenticationException("Token was not issued for " + expected.getClaim())));
+                                      : Future.failedFuture(new AuthenticationException("Token was not issued for " + authenticationFor)));
     }
 
     // RFC 7519 section 4.1.3: aud is a single string or an array of them

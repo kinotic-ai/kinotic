@@ -3,7 +3,7 @@ package org.kinotic.test;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.services.security.CredentialAuthenticationService;
 import org.springframework.stereotype.Component;
@@ -21,7 +21,7 @@ public class TestSecurityService implements SecurityService {
     private final CredentialAuthenticationService credentialAuthenticationService;
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo, KinoticAudience audience) {
-        return credentialAuthenticationService.authenticate(authenticationInfo, audience, (identity, participant) -> true);
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo, AuthenticationContext context) {
+        return credentialAuthenticationService.authenticate(authenticationInfo, context, (identity, participant) -> true);
     }
 }

@@ -2,7 +2,6 @@ package org.kinotic.domain.api.model.security;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 
 /**

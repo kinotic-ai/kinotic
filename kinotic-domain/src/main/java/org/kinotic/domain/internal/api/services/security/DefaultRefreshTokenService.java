@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.DelegateSession;
 import org.kinotic.domain.api.model.security.RefreshTokenRotation;
 import org.kinotic.domain.api.services.security.RefreshTokenService;

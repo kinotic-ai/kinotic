@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
@@ -57,10 +57,10 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
 
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo,
-                                            KinoticAudience audience,
+                                            AuthenticationContext context,
                                             BiPredicate<ParticipantIdentity, Participant> admitted) {
-        Validate.notNull(audience, "audience is required");
-        return authenticateIdentity(authenticationInfo, audience)
+        Validate.notNull(context, "context is required");
+        return authenticateIdentity(authenticationInfo, context.getAuthenticationFor())
                 .compose(authenticated -> {
                     Future<Participant> ret;
                     if (admitted.test(authenticated.identity(), authenticated.participant())) {
@@ -76,7 +76,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                 });
     }
 
-    private Future<AuthenticatedIdentity> authenticateIdentity(Map<String, String> authenticationInfo, KinoticAudience audience) {
+    private Future<AuthenticatedIdentity> authenticateIdentity(Map<String, String> authenticationInfo, String authenticationFor) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
@@ -95,7 +95,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
 
         Future<AuthenticatedIdentity> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            ret = authenticateKinoticJwt(authHeader.substring(7), audience);
+            ret = authenticateKinoticJwt(authHeader.substring(7), authenticationFor);
         } else if (clientId != null || clientSecret != null) {
             // an email is a user credential; anything else is a machine identity id
             if (clientId != null && clientId.indexOf('@') >= 0) {
@@ -183,13 +183,13 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
     }
 
     /**
-     * Validates a Kinotic-issued JWT, minted for {@code audience}, and resolves it to the participant its
+     * Validates a Kinotic-issued JWT, minted for the surface {@code authenticationFor}, and resolves it to the participant its
      * {@code sub} acts as in the scope the token's {@code organizationId} / {@code applicationId} claims carry: an
      * existing, enabled identity that may act there, a delegate only while its owner may (defense in depth
      * against a token outliving the user or scope it was minted for).
      */
-    private Future<AuthenticatedIdentity> authenticateKinoticJwt(String token, KinoticAudience audience) {
-        return jwtIssuer.authenticate(token, audience)
+    private Future<AuthenticatedIdentity> authenticateKinoticJwt(String token, String authenticationFor) {
+        return jwtIssuer.authenticate(token, authenticationFor)
                         .recover(err -> Future.failedFuture(
                                 new AuthenticationException("JWT validation failed: " + err.getMessage(), err)))
                         .compose(user -> {

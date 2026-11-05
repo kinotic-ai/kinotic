@@ -3,7 +3,7 @@ package org.kinotic.test.tests.core.security;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.DeviceCodeGrantStart;

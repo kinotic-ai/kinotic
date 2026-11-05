@@ -3,7 +3,7 @@ package org.kinotic.managementserver.internal.api.services.security;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.identity.MachineType;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -26,8 +26,8 @@ public class OrganizationSecurityService implements SecurityService {
     private final CredentialAuthenticationService credentialAuthenticationService;
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo, KinoticAudience audience) {
-        return credentialAuthenticationService.authenticate(authenticationInfo, audience, OrganizationSecurityService::admits);
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo, AuthenticationContext context) {
+        return credentialAuthenticationService.authenticate(authenticationInfo, context, OrganizationSecurityService::admits);
     }
 
     private static boolean admits(ParticipantIdentity identity, Participant participant) {
