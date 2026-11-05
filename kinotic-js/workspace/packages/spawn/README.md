@@ -154,8 +154,9 @@ renders **base-first so the derived spawn wins**:
 The `inherits` value is passed verbatim to the host's `loadInherited` callback;
 resolving it is the host's job. On disk the Node host resolves each ref relative
 to the spawn that declared it and confines all reads to the spawn root, so a ref
-cannot escape via `..`. A spawn that uses `inherits` but is rendered without a
-`loadInherited` callback fails:
+cannot escape via `..` or through a directory symlink. A chain that repeats a ref
+or runs deeper than 32 spawns fails as a cycle. A spawn that uses `inherits` but
+is rendered without a `loadInherited` callback fails:
 
 ```
 Spawn inherits '../base' but no loadInherited callback was provided

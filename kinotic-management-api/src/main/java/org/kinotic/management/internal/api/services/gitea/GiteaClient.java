@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * The calls the system makes to the Gitea server projects' repositories are hosted on, the {@code kinotic-gitea} of
@@ -157,8 +156,9 @@ public class GiteaClient {
     }
 
     /**
-     * Creates an access token of {@code username} with the given scope, which is deleted once {@code lifetime} has
-     * passed, and deletes the tokens this client created for the account more than {@code lifetime} ago.
+     * Creates an access token of {@code username} with the given scope, named by its creation time so
+     * {@link #deleteTokensCreatedBefore} finds it once {@code lifetime} has passed, and deletes the tokens this client
+     * created for the account more than {@code lifetime} ago.
      *
      * @return a future emitting the token
      */
@@ -170,11 +170,7 @@ public class GiteaClient {
                                    new JsonObject().put("name", TOKEN_NAME_PREFIX + now + "-" + UUID.randomUUID())
                                                    .put("scopes", new JsonArray().add(scope))))
                 .compose(created -> expect(created, "create a token of " + username, 201)
-                        .map(v -> {
-                            JsonObject token = created.bodyAsJsonObject();
-                            deleteAfter(lifetime, userUri + "/" + token.getLong("id"), username, password);
-                            return token.getString("sha1");
-                        }));
+                        .map(v -> created.bodyAsJsonObject().getString("sha1")));
     }
 
     /** Deletes the tokens this client created for {@code username} before {@code instant}, in epoch milliseconds. */
@@ -203,13 +199,6 @@ public class GiteaClient {
                     users.stream().map(JsonObject.class::cast).forEach(user -> found.add(user.getString("login")));
                     return users.isEmpty() ? Future.succeededFuture(found) : findUsernames(page + 1, found);
                 });
-    }
-
-    // Gitea tokens have no expiry of their own
-    private void deleteAfter(Duration lifetime, String tokenUri, String username, String password) {
-        vertx.timer(lifetime.toMillis(), TimeUnit.MILLISECONDS)
-             .compose(v -> send(asUser(HttpMethod.DELETE, tokenUri, username, password), null))
-             .onFailure(err -> log.warn("Deleting the Gitea token {} of {} failed", tokenUri, username, err));
     }
 
     // A token this client created is named kinotic-<creation time in milliseconds>-<uuid>

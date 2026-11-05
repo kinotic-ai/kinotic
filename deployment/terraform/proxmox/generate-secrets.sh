@@ -18,6 +18,7 @@
 #                                             server's names, which certbot places on the host itself
 #   grafana.env                               GF_SECURITY_ADMIN_PASSWORD
 set -euo pipefail
+umask 077
 
 OUT="${1:-./dev-server-secrets}"
 [ -e "$OUT" ] && { echo "$OUT exists; refusing to overwrite generated secrets" >&2; exit 1; }

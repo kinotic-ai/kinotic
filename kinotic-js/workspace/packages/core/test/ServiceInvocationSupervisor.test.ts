@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BehaviorSubject, type Observable, of } from 'rxjs'
+import { BehaviorSubject, type Observable, of, Subject } from 'rxjs'
 import { Context, Event, EventConstants, RpcError, ServiceIdentifier, type ConnectOptions, type ContextInterceptor, type IWebSocket, type ServiceContext } from '../src'
 import { EventBus } from '../src/api/event/EventBus'
 import { ServiceInvocationSupervisor } from '../src/internal/api/ServiceInvocationSupervisor'
@@ -23,6 +23,12 @@ class SupervisedService {
     unserialisableOpen(): Observable<unknown> {
         return this.current
     }
+
+    /** Stays open until the test ends it. */
+    open(): Observable<number> {
+        return this.ticks
+    }
+    public readonly ticks = new Subject<number>()
 
     fail(): string {
         throw new RangeError('out of range')
@@ -114,6 +120,33 @@ describe('service invocation supervisor', () => {
         expect(replies(server.current).length).toBe(1)
         expect(service.current.observed).toBe(false)
         supervisor.stop()
+        await bus.disconnect()
+    })
+
+    it('refuses a second invocation under a live correlation id and keeps the first stream', async () => {
+        const server = new FakeStompServer()
+        const { bus, service, supervisor } = await startSupervised(server)
+
+        invoke(server.current, 'open', 'c1')
+        await sleep(50)
+        invoke(server.current, 'open', 'c1')
+        await sleep(50)
+
+        let sent = replies(server.current)
+        expect(sent.length).toBe(1)
+        expect(sent[0]!.headers[EventConstants.ERROR_HEADER]).toContain('already active')
+        expect(service.ticks.observed).toBe(true)
+
+        // the first stream still answers its caller
+        service.ticks.next(7)
+        await sleep(50)
+        sent = replies(server.current)
+        expect(sent.length).toBe(2)
+        expect(JSON.parse(sent[1]!.body)).toBe(7)
+
+        // stop cancels every active stream, which the first invocation's still is
+        supervisor.stop()
+        expect(service.ticks.observed).toBe(false)
         await bus.disconnect()
     })
 

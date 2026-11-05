@@ -151,8 +151,7 @@ public class EntityServiceCache {
                                          jsonMapper,
                                          readPreProcessor,
                                          readPostProcessor,
-                                         entityDescriptor,
-                                         domainPersistenceProperties));
+                                         entityDescriptor));
     }
 
     private record CacheKey(String organizationId, String entityDefinitionId) {}

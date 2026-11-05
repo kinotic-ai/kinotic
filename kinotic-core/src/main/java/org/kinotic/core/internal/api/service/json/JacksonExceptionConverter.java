@@ -79,24 +79,37 @@ public class JacksonExceptionConverter implements ExceptionConverter {
             }
 
             if(wrapper != null) {
-                try {
-                    ret = (Throwable) Class.forName(wrapper.getExceptionClass())
-                                           .getDeclaredConstructor(String.class)
-                                           .newInstance(wrapper.getErrorMessage());
-
-                    if (wrapper.getStackTrace() != null && wrapper.getStackTrace().length > 0) {
-                        ret.setStackTrace(wrapper.getStackTrace());
-                    }
-
-                } catch (Exception e) {
+                ret = reconstruct(wrapper);
+                if (ret == null) {
                     ret = new RpcInvocationException(event.metadata().get(EventConstants.ERROR_HEADER))
                             .setOriginalClassName(wrapper.getExceptionClass())
                             .setOriginalStackTrace(wrapper.getStackTrace());
-
                 }
             }
         }else{
             ret = new RpcInvocationException(event.metadata().get(EventConstants.ERROR_HEADER));
+        }
+        return ret;
+    }
+
+    // The class name is the remote responder's choice, so only an exception type is constructed, and only one of
+    // the JDK's or Kinotic's, whose String constructors have no side effects: a class is never initialized, and
+    // never instantiated, before that is known
+    private Throwable reconstruct(ServiceExceptionWrapper wrapper) {
+        Throwable ret = null;
+        String className = wrapper.getExceptionClass();
+        if (className != null && (className.startsWith("java.") || className.startsWith("org.kinotic."))) {
+            try {
+                Class<?> type = Class.forName(className, false, getClass().getClassLoader());
+                if (Throwable.class.isAssignableFrom(type)) {
+                    ret = (Throwable) type.getDeclaredConstructor(String.class).newInstance(wrapper.getErrorMessage());
+                    if (wrapper.getStackTrace() != null && wrapper.getStackTrace().length > 0) {
+                        ret.setStackTrace(wrapper.getStackTrace());
+                    }
+                }
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                // an exception type without a message constructor is carried as an RpcInvocationException
+            }
         }
         return ret;
     }

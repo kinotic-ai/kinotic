@@ -48,9 +48,7 @@ public class ReadPostProcessor {
         return page -> {
             // This is a temporary bit of code to make sure multi tenancy is working properly
             if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-                String tenantIdFieldName
-                        = entityDescriptor.isMultiTenantSelectionEnabled()
-                        ? entityDescriptor.tenantIdFieldName() : domainPersistenceProperties.getTenantIdFieldName();
+                String tenantIdFieldName = entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName());
 
                 List<Object> result = new ArrayList<>(page.getContent().size());
                 Set<String> tenantIds = Collections.emptySet();

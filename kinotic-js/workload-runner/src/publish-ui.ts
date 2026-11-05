@@ -46,7 +46,11 @@ function parseUploadUrls(json: string): Map<string, SiteTarget> {
     return new Map(Object.entries(urls).map(([name, url]) => [name, parseSiteUrl(`the upload URL of UI ${name}`, url)]))
 }
 
-/** Every file under dir, as paths relative to it with forward slashes. */
+/**
+ * Every file under dir, as paths relative to it. Each `/`-separated segment becomes one blob URL
+ * segment and one segment of the path read back from dist, so a name that is `.` or `..`, empty,
+ * or carries a backslash would address a file outside the site's directory and fails the publish.
+ */
 function walk(dir: string, root: string = dir): string[] {
     const out: string[] = []
     for (const entry of readdirSync(dir)) {
@@ -54,7 +58,11 @@ function walk(dir: string, root: string = dir): string[] {
         if (statSync(path).isDirectory()) {
             out.push(...walk(path, root))
         } else {
-            out.push(relative(root, path).split('\\').join('/'))
+            const file = relative(root, path)
+            if (file.split('/').some(segment => segment === '' || segment === '.' || segment === '..' || segment.includes('\\'))) {
+                throw new Error(`${path} is not a file name that can be published under the site's directory`)
+            }
+            out.push(file)
         }
     }
     return out
