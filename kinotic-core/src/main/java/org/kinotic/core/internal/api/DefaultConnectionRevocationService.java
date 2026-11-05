@@ -1,23 +1,25 @@
 package org.kinotic.core.internal.api;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.springframework.stereotype.Component;
 
 /**
- * Publishes each revocation on the clustered Vert.x event bus, where every gateway listens; the address is not a
- * CRI, so no client can publish one.
+ * Delivers each revocation to every node through the {@link ClusterEventPublisher}, so every gateway holding a
+ * connection it names ends it.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultConnectionRevocationService implements ConnectionRevocationService {
 
-    private final Vertx vertx;
+    private final ClusterEventPublisher clusterEventPublisher;
 
     @Override
     public Future<Void> revokeIdentity(String identityId) {
@@ -29,10 +31,11 @@ public class DefaultConnectionRevocationService implements ConnectionRevocationS
         return publish(ConnectionRevocationType.LOGIN, loginId);
     }
 
+    // The state the revocation follows is written already, so a delivery the retries could not complete fails the
+    // caller: what remains undelivered is logged by the publisher, and a repeat of the caller's request delivers again
     private Future<Void> publish(ConnectionRevocationType type, String id) {
         Validate.notBlank(id, "id must not be blank");
-        vertx.eventBus().publish(ConnectionRevocation.ADDRESS, new ConnectionRevocation(type, id).toJson());
-        return Future.succeededFuture();
+        return clusterEventPublisher.publish(new ConnectionRevocation(type, id));
     }
 
 }

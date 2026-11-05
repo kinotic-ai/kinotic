@@ -131,7 +131,7 @@ public class EndpointConnectionHandlerTests {
         JsonMapper jsonMapper = JsonMapper.builder().build();
         services = new Services();
         services.vertx = vertx;
-        services.connectionRegistry = new ConnectionRegistry(vertx);
+        services.connectionRegistry = new ConnectionRegistry();
         services.apiGatewayProperties = new ApiGatewayProperties();
         services.apiGatewayProperties.setSessionTimeout(SESSION_TIMEOUT_MS);
         services.jsonMapper = jsonMapper;

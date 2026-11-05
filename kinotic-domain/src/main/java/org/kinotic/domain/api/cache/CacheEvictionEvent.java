@@ -4,18 +4,22 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.time.Instant;
+import java.util.Set;
 
+import org.kinotic.core.api.ServerType;
+import org.kinotic.core.api.event.ClusterEvent;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.springframework.context.ApplicationEvent;
 
 /**
  * Cache eviction event specifically for caches that need to be evicted
- * This is used when a {@link EntityDefinition} or named query is updated and related caches need to be evicted
+ * This is used when a {@link EntityDefinition} or named query is updated and related caches need to be evicted.
+ * Its cluster form is delivered to the app servers, where the entity services that hold the caches run.
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
-public class CacheEvictionEvent extends ApplicationEvent {
+public class CacheEvictionEvent extends ApplicationEvent implements ClusterEvent {
 
     private final EvictionSourceType evictionSourceType;
     private final CacheEvictionSource evictionSource;
@@ -62,19 +66,16 @@ public class CacheEvictionEvent extends ApplicationEvent {
         return new CacheEvictionEvent(CacheEvictionSource.LOCAL_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, null);
     }
 
-    public static CacheEvictionEvent clusterModifiedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.MODIFY, applicationKey, entityDefinitionId, namedQueryId);
+    /**
+     * The same eviction as a cluster message: what every targeted node receives when this event, raised locally, is
+     * published to the cluster.
+     */
+    public CacheEvictionEvent clusterMessage() {
+        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, evictionSourceType, evictionOperation, applicationKey, entityDefinitionId, namedQueryId);
     }
 
-    public static CacheEvictionEvent clusterDeletedNamedQuery(ApplicationKey applicationKey, String entityDefinitionId, String namedQueryId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.NAMED_QUERY, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, namedQueryId);
-    }
-
-    public static CacheEvictionEvent clusterModifiedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.MODIFY, applicationKey, entityDefinitionId, null);
-    }
-
-    public static CacheEvictionEvent clusterDeletedEntityDefinition(ApplicationKey applicationKey, String entityDefinitionId) {
-        return new CacheEvictionEvent(CacheEvictionSource.CLUSTER_MESSAGE, EvictionSourceType.ENTITY_DEFINITION, EvictionSourceOperation.DELETE, applicationKey, entityDefinitionId, null);
+    @Override
+    public Set<ServerType> serverTypeFilter() {
+        return Set.of(ServerType.APP);
     }
 }

@@ -1,6 +1,7 @@
 package org.kinotic.core_autoconfig;
 
 import org.kinotic.core.KinoticCoreLibrary;
+import org.kinotic.core.api.ServerTypes;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -21,5 +22,11 @@ public class KinoticCoreAutoConfiguration {
     @ConditionalOnMissingBean(ZonePartitioningService.class)
     public ZonePartitioningService everyZonePartitioningService() {
         return ZonePartitioningService.everyZone("kinotic");
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ServerTypes.class)
+    public ServerTypes everyServerType() {
+        return ServerTypes.every();
     }
 }

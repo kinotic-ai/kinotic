@@ -1,6 +1,7 @@
 package org.kinotic.test;
 
 import org.kinotic.core.api.annotations.EnableKinotic;
+import org.kinotic.core.api.ServerTypes;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.boot.SpringApplication;
@@ -28,6 +29,12 @@ public class KinoticTestApplication {
 		Set<String> zones = Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.SYSTEM_API_ZONE,
 								   DomainUtil.APP_API_ZONE, DomainUtil.APP_ZONE_PREFIX);
 		return ZonePartitioningService.of("kinotic-test", zones, zones);
+	}
+
+	// every module runs in this one node, so it is of every server type
+	@Bean
+	public ServerTypes serverTypes() {
+		return ServerTypes.every();
 	}
 
 }

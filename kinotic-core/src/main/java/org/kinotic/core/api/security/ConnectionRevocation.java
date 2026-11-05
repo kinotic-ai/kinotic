@@ -1,34 +1,32 @@
 package org.kinotic.core.api.security;
 
-import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.core.api.ServerType;
+import org.kinotic.core.api.event.ClusterEvent;
+
+import java.util.Set;
 
 /**
- * A revocation published to every node: the connections of the named identity or login end.
+ * A revocation delivered to every server node, each of which runs a gateway: the connections of the named identity
+ * or login end.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ConnectionRevocation {
-
-    /** The Vert.x event bus address revocations are published on. */
-    public static final String ADDRESS = "kinotic.security.connection-revocation";
+public class ConnectionRevocation implements ClusterEvent {
 
     private ConnectionRevocationType type;
     private String id;
 
-    public JsonObject toJson() {
-        return new JsonObject().put("type", type.name()).put("id", id);
-    }
-
-    public static ConnectionRevocation fromJson(JsonObject json) {
-        return new ConnectionRevocation(ConnectionRevocationType.valueOf(json.getString("type")), json.getString("id"));
+    @Override
+    public Set<ServerType> serverTypeFilter() {
+        return Set.of();
     }
 
 }

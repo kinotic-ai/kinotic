@@ -1,13 +1,10 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
-import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
-import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.kinotic.core.api.security.ConnectionRevocationType;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -18,20 +15,13 @@ import java.util.function.Consumer;
 
 /**
  * The connections open on this node, by the identity they are authenticated as and by the browser login that
- * established them, so a revocation published to the cluster ends the ones it names.
+ * established them, so a revocation delivered to the cluster ends the ones it names.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ConnectionRegistry {
 
-    private final Vertx vertx;
     private final Map<String, Set<Consumer<Throwable>>> connections = new ConcurrentHashMap<>();
-
-    @PostConstruct
-    public void start() {
-        vertx.eventBus().<JsonObject>consumer(ConnectionRevocation.ADDRESS, message -> revoke(ConnectionRevocation.fromJson(message.body())));
-    }
 
     /**
      * Registers a connection under the identity or login named, to be ended when a revocation names it.
@@ -50,7 +40,9 @@ public class ConnectionRegistry {
         });
     }
 
-    private void revoke(ConnectionRevocation revocation) {
+    /** Ends every connection the revocation names; one that names none is handled as nothing. */
+    @EventListener
+    public void revoke(ConnectionRevocation revocation) {
         Set<Consumer<Throwable>> closers = connections.remove(key(revocation.getType(), revocation.getId()));
         if (closers != null) {
             log.debug("Ending {} connection(s) of {} {}", closers.size(), revocation.getType(), revocation.getId());
