@@ -81,12 +81,6 @@ variable "apps_api_domain" {
   type        = string
 }
 
-variable "disable_grafana_entra" {
-  description = "Disable Entra ID login for Grafana"
-  type        = bool
-  default     = false
-}
-
 # Operator-supplied: the OAuth client_secret issued by Google Cloud Console for the
 # Kinotic social-signup OAuth client. Provide via `TF_VAR_google_client_secret`
 # at apply time — never commit a value here. After the first apply the AKV secret is
@@ -307,59 +301,6 @@ resource "terraform_data" "create_tenant_id_extension" {
   depends_on = [azuread_service_principal.kinotic_platform]
 }
 
-# ── Grafana Entra ID App Registration (conditional) ──────────────────────────
-
-resource "azuread_application" "grafana" {
-  count        = !var.disable_grafana_entra ? 1 : 0
-  display_name = "${var.project}-grafana"
-
-  web {
-    redirect_uris = [
-      "https://grafana.${var.domain_name}/login/generic_oauth",
-      "https://grafana.${var.domain_name}/login/azuread",
-    ]
-    implicit_grant {
-      access_token_issuance_enabled = false
-      id_token_issuance_enabled     = true
-    }
-  }
-
-  required_resource_access {
-    resource_app_id = "00000003-0000-0000-c000-000000000000"
-    resource_access {
-      id   = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"
-      type = "Scope"
-    }
-    resource_access {
-      id   = "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0"
-      type = "Scope"
-    }
-    resource_access {
-      id   = "37f7f235-527c-4136-accd-4a02d197296e"
-      type = "Scope"
-    }
-    resource_access {
-      id   = "14dad69e-099b-42c9-810b-d002981feec1"
-      type = "Scope"
-    }
-  }
-
-  optional_claims {
-    id_token {
-      name = "email"
-    }
-    id_token {
-      name = "preferred_username"
-    }
-  }
-}
-
-resource "azuread_application_password" "grafana" {
-  count          = !var.disable_grafana_entra ? 1 : 0
-  application_id = azuread_application.grafana[0].id
-  display_name   = "grafana-terraform"
-}
-
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # These are consumed by the cluster terraform via terraform_remote_state
 
@@ -416,14 +357,7 @@ output "kinotic_oidc_tenant_id_claim" {
   value = "extension_${replace(azuread_application.kinotic_platform.client_id, "-", "")}_kinoticTenantId"
 }
 
-output "grafana_entra_client_id" {
-  value = !var.disable_grafana_entra ? azuread_application.grafana[0].client_id : ""
-}
 
-output "grafana_entra_client_secret" {
-  value     = !var.disable_grafana_entra ? azuread_application_password.grafana[0].value : ""
-  sensitive = true
-}
 
 output "set_user_tenant_id" {
   value = "az rest --method PATCH --url 'https://graph.microsoft.com/v1.0/users/<user-object-id>' --body '{\"extension_${replace(azuread_application.kinotic_platform.client_id, "-", "")}_kinoticTenantId\": \"<tenant-value>\"}'"

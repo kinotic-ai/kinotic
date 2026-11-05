@@ -1,7 +1,7 @@
 # ── The development server on Proxmox ────────────────────────────────────────
 # One container per service, on one host. Every service the compose stack runs locally —
 # the org, system and app servers, the one-shot migration, three Elasticsearch nodes, Loki,
-# Tempo, Mimir, Grafana — is an unprivileged LXC container created from the image compose
+# Tempo, Mimir — is an unprivileged LXC container created from the image compose
 # pulls, with its state in a host directory: the Elasticsearch nodes on a physical disk each.
 # The servers live on the private network; the edge, an HAProxy container on the LAN, takes
 # the router's forwarded 443 and passes each TLS connection, unopened, to the server its SNI
@@ -31,7 +31,6 @@ locals {
   loki_ip    = split("/", var.loki_ip)[0]
   tempo_ip   = split("/", var.tempo_ip)[0]
   mimir_ip   = split("/", var.mimir_ip)[0]
-  grafana_ip = split("/", var.grafana_ip)[0]
 
   # The private network: the host is its gateway, the edge takes .10, the ES nodes .11 to .13,
   # the servers .20, .22 and .23, the migration .21, Summit 42 .24
@@ -79,18 +78,6 @@ locals {
         SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
       }
     }
-    grafana = {
-      entrypoint = "/run.sh"
-      env = {
-        PATH                  = "/usr/share/grafana/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        GF_PATHS_CONFIG       = "/etc/grafana/grafana.ini"
-        GF_PATHS_DATA         = "/var/lib/grafana"
-        GF_PATHS_HOME         = "/usr/share/grafana"
-        GF_PATHS_LOGS         = "/var/log/grafana"
-        GF_PATHS_PLUGINS      = "/var/lib/grafana/plugins"
-        GF_PATHS_PROVISIONING = "/etc/grafana/provisioning"
-      }
-    }
     # The image's docker-entrypoint.sh runs a bare haproxy command with -W -db
     haproxy = {
       entrypoint = "/usr/local/bin/docker-entrypoint.sh haproxy -f /usr/local/etc/haproxy/haproxy.cfg"
@@ -113,19 +100,9 @@ locals {
   # wait for it, and the host reaches the private network directly
   es_healthy = "curl -sf 'http://${local.es_ips[0]}:9200/_cluster/health?wait_for_nodes=3&wait_for_status=yellow&timeout=30s' >/dev/null"
 
-  # Loki, Tempo, Mimir and Grafana run the compose stack's config files, with the compose
-  # service names replaced by the containers' addresses. Grafana's `$$` is compose escaping.
-  service_urls = {
-    "http://loki:3100"  = "http://${local.loki_ip}:3100"
-    "http://mimir:9009" = "http://${local.mimir_ip}:9009"
-    "http://tempo:3200" = "http://${local.tempo_ip}:3200"
-  }
-  tempo_config = replace(file("${local.compose_dir}/tempo.yml"), "http://mimir:9009", local.service_urls["http://mimir:9009"])
-  grafana_datasources = replace(replace(replace(replace(file("${local.compose_dir}/grafana-datasource.yaml"),
-    "http://loki:3100", local.service_urls["http://loki:3100"]),
-    "http://mimir:9009", local.service_urls["http://mimir:9009"]),
-    "http://tempo:3200", local.service_urls["http://tempo:3200"]),
-  "$$", "$")
+  # Loki, Tempo and Mimir run the compose stack's config files, with the compose service
+  # names replaced by the containers' addresses
+  tempo_config = replace(file("${local.compose_dir}/tempo.yml"), "http://mimir:9009", "http://${local.mimir_ip}:9009")
 
   es_nodes = { for i in range(3) : "es-${i + 1}" => {
     vm_id    = 101 + i
@@ -408,43 +385,6 @@ locals {
       verify           = null
       timeout          = 300
     }
-    grafana = {
-      vm_id         = 113
-      description   = "Grafana on :3000, with a login: the LAN reaches it"
-      image         = proxmox_oci_image.grafana.id
-      cores         = 1
-      memory        = 512
-      order         = 20
-      start_on_boot = true
-      run_once      = false
-      interfaces    = [{ bridge = var.bridge, address = var.grafana_ip, gateway = var.gateway }]
-      # The data directory first: the dashboards mount lands inside it
-      mounts = [
-        { volume = "${local.data_root}/grafana", path = "/var/lib/grafana", read_only = false },
-        { volume = "${local.config_root}/grafana/dashboards", path = "/var/lib/grafana/dashboards", read_only = true },
-        { volume = "${local.config_root}/grafana/provisioning/datasources", path = "/etc/grafana/provisioning/datasources", read_only = true },
-        { volume = "${local.config_root}/grafana/provisioning/dashboards", path = "/etc/grafana/provisioning/dashboards", read_only = true },
-      ]
-      entrypoint = local.images.grafana.entrypoint
-      image_env  = local.images.grafana.env
-      env = {
-        GF_AUTH_ANONYMOUS_ENABLED                 = "false"
-        GF_SECURITY_ADMIN_USER                    = "admin"
-        GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/var/lib/grafana/dashboards/kinotic-server.json"
-      }
-      privileged_ports = false
-      secrets_env      = "${var.secrets_dir}/grafana.env"
-      files = {
-        "provisioning/datasources/datasource.yaml" = local.grafana_datasources
-        "provisioning/dashboards/dashboards.yaml"  = file("${local.compose_dir}/grafana-dashboards.yaml")
-        "dashboards/kinotic-server.json"           = file("${local.compose_dir}/dashboards/kinotic-server.json")
-      }
-      uid      = 472
-      gid      = 0
-      wait_for = null
-      verify   = null
-      timeout  = 300
-    }
     kinotic-migration = {
       vm_id         = 120
       description   = "The one-shot migration: runs to completion against es-1, once per image and configuration"
@@ -620,12 +560,6 @@ resource "proxmox_oci_image" "mimir" {
   node_name    = var.proxmox_node
   datastore_id = var.files_datastore_id
   reference    = "docker.io/grafana/mimir:${var.mimir_version}"
-}
-
-resource "proxmox_oci_image" "grafana" {
-  node_name    = var.proxmox_node
-  datastore_id = var.files_datastore_id
-  reference    = "docker.io/grafana/grafana:${var.grafana_version}"
 }
 
 resource "proxmox_oci_image" "haproxy" {

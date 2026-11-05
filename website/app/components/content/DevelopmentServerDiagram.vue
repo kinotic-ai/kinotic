@@ -1,7 +1,7 @@
 <template>
   <DiagramFrame>
   <div class="dev-server-diagram-wrap">
-    <svg class="dev-server-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 900" role="img" aria-label="Development server topology: GitHub, peers and application users reach one forwarded port, 443, on the edge, an HAProxy container that passes each TLS connection unopened to the server its SNI names; the org, system and app servers live on a private NAT-only network with three Elasticsearch nodes and the one-shot migration, and form one Ignite cluster; Loki, Tempo, Mimir and Grafana are containers on the LAN; Azure keeps the sites storage account, email, a Key Vault and a snapshot container, and Cloudflare both zones, where the sites Worker serves the published UIs, the portal and the console from the account; each Elasticsearch node has a ZFS pool on its own drive and Proxmox a drive of its own; two Intel NUCs beside the host run the vm-manager with Cloud Hypervisor micro VMs, which reach their servers through the edge by name.">
+    <svg class="dev-server-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 900" role="img" aria-label="Development server topology: GitHub, peers and application users reach one forwarded port, 443, on the edge, an HAProxy container that passes each TLS connection unopened to the server its SNI names; the org, system and app servers live on a private NAT-only network with three Elasticsearch nodes and the one-shot migration, and form one Ignite cluster; Loki, Tempo and Mimir are containers on the LAN; Azure keeps the sites storage account, email, a Key Vault and a snapshot container, and Cloudflare both zones, where the sites Worker serves the published UIs, the portal and the console from the account; each Elasticsearch node has a ZFS pool on its own drive and Proxmox a drive of its own; two Intel NUCs beside the host run the vm-manager with Cloud Hypervisor micro VMs, which reach their servers through the edge by name.">
 
       <defs>
         <marker id="ds-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -101,10 +101,6 @@
       <rect class="chip" x="340" y="396" width="80" height="40" rx="8"></rect>
       <text class="t-chip" x="380" y="413" text-anchor="middle">Mimir</text>
       <text class="t-tiny" x="380" y="428" text-anchor="middle">:9009</text>
-
-      <rect class="chip" x="425" y="396" width="80" height="40" rx="8"></rect>
-      <text class="t-chip" x="465" y="413" text-anchor="middle">Grafana</text>
-      <text class="t-tiny" x="465" y="428" text-anchor="middle">:3000 · login</text>
 
       <text class="t-tiny" x="558" y="413" text-anchor="middle">OTLP from</text>
       <text class="t-tiny" x="558" y="426" text-anchor="middle">servers, nodes</text>

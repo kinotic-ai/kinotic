@@ -48,28 +48,6 @@ services:
       - "127.0.0.1:9009:9009"  # Mimir HTTP
       - "127.0.0.1:9095:9095"  # Mimir gRPC
 
-  grafana:
-    image: grafana/grafana:12.3.1
-    ports:
-      - "127.0.0.1:3000:3000"  # Grafana UI (logs, metrics, traces)
-    depends_on:
-      - loki
-      - mimir
-      - tempo
-    environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      # Land on the server dashboard instead of the empty stock home page
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/kinotic-server.json
-    volumes:
-      - ./grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
-      - ./grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
-      - ./dashboards:/var/lib/grafana/dashboards
-      # Grafana 12 downloads the Drilldown apps on first start; keeping /var/lib/grafana
-      # means a container recreate doesn't re-fetch them (and works offline afterwards).
-      - grafana-data:/var/lib/grafana
-
 volumes:
   tempo-data:
   mimir-data:
-  grafana-data:

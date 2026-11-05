@@ -119,15 +119,10 @@ resultsCache:
   enabled: false
 ```
 
-### Grafana `assertNoLeakedSecrets` error
-
-**Cause:** The Grafana chart validates that secrets aren't in plain values. The Entra ID client secret passed via `set_sensitive` triggers this.
-**Fix:** Already handled — `assertNoLeakedSecrets = false` is set in the helm values. The secret is still protected by terraform's `set_sensitive`.
-
 ### LoadBalancer service unreachable from internet (empty subnet NSG)
 
 **Cause:** A custom NSG associated with the AKS subnet that has no explicit inbound allow rules blocks all internet traffic. Azure's default NSG behavior denies inbound from the internet. AKS creates its own NSG in the MC_ resource group with the correct LB rules, but a subnet-level NSG takes precedence.
-**Symptoms:** No LoadBalancer service is reachable from outside the cluster — not the servers, not Grafana. Internal cluster-to-pod connectivity works. Azure LB health probes, rules, and MC_ NSG all look correct.
+**Symptoms:** No LoadBalancer service is reachable from outside the cluster — not the servers. Internal cluster-to-pod connectivity works. Azure LB health probes, rules, and MC_ NSG all look correct.
 **Fix:** Remove the custom NSG from the AKS subnet. AKS manages its own NSG:
 ```bash
 # Remove NSG association from subnet
@@ -218,9 +213,6 @@ kubectl logs -l app=kinotic-server-management -n kinotic --tail=20
 curl -sk https://api.kinotic.ai/health          # management
 curl -sk https://system-api.kinotic.ai/health   # system
 curl -sk https://apps-api.kinotic.io/health     # app
-
-# Grafana
-kubectl logs -l app.kubernetes.io/name=grafana -n observability --tail=10
 
 # Terraform state
 terraform state list
