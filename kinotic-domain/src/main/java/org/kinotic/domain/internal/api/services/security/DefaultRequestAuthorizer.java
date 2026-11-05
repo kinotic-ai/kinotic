@@ -187,7 +187,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
             } else {
                 for (FunctionDefinition function : entry.getServiceDefinition().getFunctions()) {
                     AuthzCheckC3Decorator check = function.findDecorator(AuthzCheckC3Decorator.class);
-                    List<String> parameters = function.getParameters().stream().map(ParameterDefinition::getName).toList();
+                    // a definition registered over the wire may carry a null parameter list for a function without parameters
+                    List<String> parameters = function.getParameters() == null
+                            ? List.of()
+                            : function.getParameters().stream().map(ParameterDefinition::getName).toList();
                     if (check == null) {
                         log.warn("The contract of {} neither checks {} nor marks it unchecked; it is refused", entryId, function.getName());
                     } else {

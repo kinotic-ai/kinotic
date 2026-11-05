@@ -57,7 +57,7 @@ The cluster enforces `NetworkPolicy` resources to restrict Elasticsearch access.
 
 The ES NetworkPolicy allows ingress only from the `kinotic` namespace (the servers + migration) and `elastic-system` (ECK operator). All other namespaces are blocked.
 
-OpenFGA's API is unauthenticated, so its NetworkPolicy allows ingress only from the pods of its own `kinotic` namespace: the servers and the store Job.
+OpenFGA's API takes a preshared key, which Terraform generates into the `openfga-authn` Secret that the engine, the servers and the store Job read, and its NetworkPolicy allows ingress only from the servers' pods and the store Job's.
 
 ## Elasticsearch Storage
 

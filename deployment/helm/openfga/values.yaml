@@ -19,6 +19,13 @@ datastore:
   # schema is current.
   migrationType: initContainer
 
+# Every API call carries the preshared key the `openfga-authn` Secret holds under `keys`, which the
+# environment's terraform creates and the kinotic chart hands to the servers and the store Job
+authn:
+  method: preshared
+  preshared:
+    keysSecret: openfga-authn
+
 playground:
   enabled: false
 

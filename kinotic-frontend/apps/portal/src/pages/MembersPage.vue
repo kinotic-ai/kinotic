@@ -42,7 +42,7 @@
       </template>
       <MemberDetail v-if="selectedMember" :member="selectedMember" :tint="memberTint" :index="position - 1" />
       <!-- an application's user is granted in the application's own store; a member on the organization's Access tab -->
-      <div v-if="selectedMember && !selectedMember.invite && props.applicationId !== null" class="mt-4 flex justify-end">
+      <div v-if="selectedMember && !selectedMember.pending && props.applicationId !== null" class="mt-4 flex justify-end">
         <Button label="Manage access" icon="pi pi-key" size="small" severity="secondary" outlined
                 @click="router.push({ name: 'application-users-access', params: { applicationId: props.applicationId }, query: { subject: selectedMember.id } })" />
       </div>

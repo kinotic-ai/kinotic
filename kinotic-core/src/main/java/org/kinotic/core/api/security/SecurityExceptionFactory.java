@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.slf4j.helpers.MessageFormatter;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +28,12 @@ public class SecurityExceptionFactory {
      * @return the refusal, reading "Not authorized", or "Not authorized: " and the reason in debug mode
      */
     public AuthorizationException notAuthorized(String reason, Object... arguments) {
-        log.warn(reason, arguments);
+        // a string argument may come from the caller, so it is logged on one line and cannot forge a log entry
+        Object[] logged = new Object[arguments.length];
+        for (int i = 0; i < arguments.length; i++) {
+            logged[i] = arguments[i] instanceof String value ? KinoticUtil.singleLine(value) : arguments[i];
+        }
+        log.warn(reason, logged);
         return new AuthorizationException(properties.isDebug()
                                                   ? NOT_AUTHORIZED + ": " + MessageFormatter.basicArrayFormat(reason, arguments)
                                                   : NOT_AUTHORIZED);

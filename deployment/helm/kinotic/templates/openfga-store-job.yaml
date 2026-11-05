@@ -26,13 +26,19 @@ spec:
         - name: openfga-store
           image: curlimages/curl:8.17.0
           imagePullPolicy: IfNotPresent
+          env:
+            - name: OPENFGA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kinotic.authz.secretName }}
+                  key: {{ .Values.kinotic.authz.secretKey }}
           command: ["/bin/sh", "-ec"]
           args:
             - |
-              stores=$(curl -sf '{{ .Values.kinotic.authz.apiUrl }}/stores?name=kinotic-system')
+              stores=$(curl -sf -H "Authorization: Bearer $OPENFGA_API_TOKEN" '{{ .Values.kinotic.authz.apiUrl }}/stores?name=kinotic-system')
               if echo "$stores" | grep -Eq '"name":[[:space:]]*"kinotic-system"'; then
                 echo 'The system store kinotic-system exists'
               else
-                curl -sf -X POST '{{ .Values.kinotic.authz.apiUrl }}/stores' -H 'Content-Type: application/json' -d '{"name":"kinotic-system"}'
+                curl -sf -X POST '{{ .Values.kinotic.authz.apiUrl }}/stores' -H "Authorization: Bearer $OPENFGA_API_TOKEN" -H 'Content-Type: application/json' -d '{"name":"kinotic-system"}'
                 echo; echo 'Created the system store kinotic-system'
               fi

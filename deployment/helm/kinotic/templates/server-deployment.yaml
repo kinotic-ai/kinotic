@@ -100,6 +100,11 @@ spec:
                 secretKeyRef:
                   name: {{ $.Values.kinotic.elastic.secretName }}
                   key: {{ $.Values.kinotic.elastic.secretKey }}
+            - name: KINOTIC_AUTHZ_APITOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.kinotic.authz.secretName }}
+                  key: {{ $.Values.kinotic.authz.secretKey }}
             - name: KINOTIC_DOMAIN_SYSTEMSECRETS_JWTSIGNINGKEYSPATH
               value: "{{ $.Values.systemSecrets.mountPath }}/jwt-signing-keys"
             # Each file of the system-secrets volume sets the property it is named after
