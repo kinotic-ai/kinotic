@@ -40,6 +40,7 @@ import org.kinotic.managementserver.api.config.TurnstileProperties;
 import org.kinotic.managementserver.internal.api.services.TurnstileVerifier;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -77,6 +78,10 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
 
     /** The longest address RFC 5321 allows. */
     private static final int MAX_EMAIL_LENGTH = 254;
+    private static final String ORGANIZATION_CHOICES = "organizationChoices";
+    // long enough for the page the sign-in returns to to load and ask, short enough that the ids are gone
+    // from a browser left on the landing page
+    private static final Duration ORGANIZATION_CHOICES_VALIDITY = Duration.ofMinutes(2);
 
     @Override
     public void mountRoutes(Router router) {
@@ -102,9 +107,38 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
      * until the page starts a login at an organization; {@code []} otherwise.
      */
     private void handleChoices(RoutingContext ctx) {
+        JsonArray choices = new JsonArray();
+        // only a request presenting the cookie consults the session, since reading a lazy session creates one
+        if (SessionBinding.sessionPresented(ctx)) {
+            JsonObject offer = ctx.session().get(choicesKey(SessionBinding.origin(ctx)));
+            if (offer != null && System.currentTimeMillis() - offer.getLong("at") < ORGANIZATION_CHOICES_VALIDITY.toMillis()) {
+                choices = offer.getJsonArray("organizations");
+            }
+        }
         ctx.response()
            .putHeader("Content-Type", "application/json")
-           .end(OrganizationChoices.read(ctx).encode());
+           .end(choices.encode());
+    }
+
+    private static String choicesKey(String origin) {
+        return SessionBinding.pageKey(ORGANIZATION_CHOICES, origin);
+    }
+
+    // offers the organizations of users to the page at origin, which reads them from handleChoices, so the redirect
+    // back to it carries no ids; read without being removed, since a concurrent request on the session would make
+    // the removal unreliable: the offer expires by its timestamp and ends with endOffer
+    static void offerChoices(RoutingContext ctx, String origin, List<OrganizationParticipantIdentity> users) {
+        JsonObject offer = new JsonObject()
+                .put("organizations", new JsonArray(users.stream().map(OrganizationParticipantIdentity::getOrganizationId).sorted().toList()))
+                .put("at", System.currentTimeMillis());
+        ctx.session().put(choicesKey(origin), offer);
+    }
+
+    // the page chose an organization, or founded one, so the offer it was made is over
+    static void endOffer(RoutingContext ctx) {
+        if (SessionBinding.sessionPresented(ctx)) {
+            ctx.session().remove(choicesKey(SessionBinding.origin(ctx)));
+        }
     }
 
     /**
@@ -238,7 +272,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
      */
     private void handleLogin(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
-        OrganizationChoices.end(ctx);
+        endOffer(ctx);
         authEndpointSupport.handlePasswordLogin(ctx,
                 (email, password) -> localAuthenticationService.authenticateOrganizationUser(email, password, orgId)
                                                                .compose(user -> user == null
@@ -257,7 +291,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
         String orgId = ctx.pathParam("orgId");
         String configId = ctx.pathParam("configId");
         String origin = SessionBinding.origin(ctx) != null ? SessionBinding.origin(ctx) : domainProperties.getDomain().portalOrigin();
-        OrganizationChoices.end(ctx);
+        endOffer(ctx);
 
         oidcConfigurationService.findOffered(configId, orgId, null)
               .onSuccess(config -> {
@@ -334,7 +368,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
     private void signInOrOffer(RoutingContext ctx, CallbackResult<OidcConfiguration> result, List<OrganizationParticipantIdentity> users) {
         String origin = result.origin();
         if (users.size() > 1) {
-            OrganizationChoices.offer(ctx, origin, users);
+            offerChoices(ctx, origin, users);
             authEndpointSupport.redirectToContinue(ctx, origin, OidcErrorCodes.MULTIPLE_ORGANIZATIONS);
         } else {
             authEndpointSupport.completeLogin(ctx, origin, result.config().getProvider(), users.isEmpty() ? Future.succeededFuture() : signIn(users.getFirst()));

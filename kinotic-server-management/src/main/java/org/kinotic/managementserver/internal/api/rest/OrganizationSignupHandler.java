@@ -219,7 +219,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
 
         signUpService.completeOidcWithNewOrg(token, orgName, orgDescription)
               .onSuccess(founder -> {
-                  OrganizationChoices.end(ctx);
+                  OrganizationLoginHandler.endOffer(ctx);
                   authEndpointSupport.respondSuccess(ctx, founder);
               })
               .onFailure(ex -> authEndpointSupport.respondError(ctx, 400, ex.getMessage()));
@@ -237,7 +237,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
                                   log.warn("Could not find the organizations of the identity signing up: {}", err.getMessage());
                                   return Future.succeededFuture(List.of());
                               })
-                              .onSuccess(users -> OrganizationChoices.offer(ctx, origin, users))
+                              .onSuccess(users -> OrganizationLoginHandler.offerChoices(ctx, origin, users))
                               .mapEmpty();
     }
 
