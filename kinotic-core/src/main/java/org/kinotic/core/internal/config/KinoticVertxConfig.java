@@ -135,7 +135,10 @@ public class KinoticVertxConfig {
         ClusterTlsProperties tls = properties.getClusterTls();
         if (tls.isEnabled()) {
             tls.requireStores();
+            // EventBusOptions trusts every server certificate by default, which would let any host answering a peer's
+            // address pass as a cluster node
             eventBusOptions.setSsl(true)
+                           .setTrustAll(false)
                            .setKeyCertOptions(new PfxOptions().setPath(tls.getKeyStorePath()).setPassword(tls.getKeyStorePassword()))
                            .setTrustOptions(new PfxOptions().setPath(tls.getTrustStorePath()).setPassword(tls.getTrustStorePassword()))
                            .setClientAuth(ClientAuth.REQUIRED);

@@ -91,8 +91,22 @@ public final class QueueTestCluster implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
+        // Every node is closed even when one fails to, so none keeps its ports into the next test
+        Exception failure = null;
         for (QueueTestNode node : nodes) {
-            node.close();
+            try {
+                node.close();
+            } catch (Exception e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    failure.addSuppressed(e);
+                }
+            }
+        }
+        nodes.clear();
+        if (failure != null) {
+            throw failure;
         }
     }
 

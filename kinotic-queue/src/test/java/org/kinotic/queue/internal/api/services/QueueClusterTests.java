@@ -361,8 +361,7 @@ public class QueueClusterTests {
         }
     }
 
-    // A retried append may be written twice, so delivery is checked for every expected value, in order per key,
-    // with repeats allowed
+    // Every expected value is delivered once, in order per key
     private static void assertRedelivers(QueueTestNode node, Set<Integer> expected) throws Exception {
         TestSubscriber subscriber = new TestSubscriber(node, QUEUE, "billing", StartPosition.EARLIEST);
         Set<Integer> received = new HashSet<>();
@@ -371,9 +370,9 @@ public class QueueClusterTests {
             QueueRecord record = subscriber.next();
             int value = value(record);
             assertTrue(expected.contains(value), "delivered " + value + ", which was committed");
+            assertTrue(received.add(value), "delivered " + value + " twice");
             Integer last = lastByKey.put(record.key(), value);
-            assertTrue(last == null || last <= value, "delivered " + value + " after " + last + " for " + record.key());
-            received.add(value);
+            assertTrue(last == null || last < value, "delivered " + value + " after " + last + " for " + record.key());
         }
         await(subscriber.close());
         assertEquals(expected, received);

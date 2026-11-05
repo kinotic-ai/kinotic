@@ -156,9 +156,12 @@ public class DefaultQueueSubscription extends ShardPullStream<QueueRecord, Fetch
                 if (ar.succeeded()) {
                     committedNextOffsets[shard] = Math.max(committedNextOffsets[shard], nextOffset);
                 }
+                // Taken out before they are completed: a promise's handler may commit again, which would change the
+                // map while it is iterated
                 Map<Long, List<Promise<Void>>> answered = awaiting.headMap(nextOffset, true);
-                answered.values().forEach(promises -> promises.forEach(promise -> promise.handle(ar)));
+                List<Promise<Void>> promises = answered.values().stream().flatMap(List::stream).toList();
                 answered.clear();
+                promises.forEach(promise -> promise.handle(ar));
                 commitNext(shard);
             });
         }
