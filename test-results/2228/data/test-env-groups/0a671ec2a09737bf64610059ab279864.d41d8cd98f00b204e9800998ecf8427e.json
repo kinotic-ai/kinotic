@@ -1,0 +1,1 @@
+{"id":"0a671ec2a09737bf64610059ab279864.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubWebhookProcessorTest.onlyAPushToTheDefaultBranchReachesTheFabric","name":"onlyAPushToTheDefaultBranchReachesTheFabric()","status":"passed","testResultsByEnv":{"default":"9a6bfec87d5e7ee97dd3c51f4bce4322"}}
