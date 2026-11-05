@@ -163,10 +163,15 @@ public class DefaultKinoticConnection implements KinoticConnection {
         Promise<KinoticConnection> promise = context.promise();
         initialConnect = promise;
         context.runOnContext(v -> {
+            long connectionTimeoutMillis = options.getReconnect().getConnectionTimeout().toMillis();
+            // the TCP connection is bounded here, the WebSocket handshake by the connect options of each attempt
+            WebSocketClientOptions webSocketClientOptions = new WebSocketClientOptions()
+                    .setMaxFrameSize(options.getMaxWebSocketFrameSize())
+                    .setConnectTimeout((int) Math.min(Integer.MAX_VALUE, connectionTimeoutMillis));
             stompClient = StompClient.create(vertx, new StompClientOptions()
-                    .setWebSocketClientOptions(new WebSocketClientOptions().setMaxFrameSize(options.getMaxWebSocketFrameSize()))
+                    .setWebSocketClientOptions(webSocketClientOptions)
                     .setMaxBodyLength(options.getMaxBodyLength())
-                    .setConnectTimeout(options.getReconnect().getConnectionTimeout().toMillis()));
+                    .setConnectTimeout(connectionTimeoutMillis));
             attemptConnection();
         });
         return promise.future();
@@ -249,8 +254,8 @@ public class DefaultKinoticConnection implements KinoticConnection {
             }
             options.getAuthHeaders().forEach(webSocketOptions::putHeader);
 
-            // the handshake is bounded by the WebSocket options' timeout and the gateway's answer to CONNECT by the
-            // STOMP client's, each with the connection timeout
+            // the TCP connection is bounded by the WebSocket client's options, the handshake by these connect options
+            // and the gateway's answer to CONNECT by the STOMP client, each with the connection timeout
             stompClient.connect(webSocketOptions, CONNECT_HEADERS)
                        .onComplete(ar -> {
                            if (ar.succeeded()) {

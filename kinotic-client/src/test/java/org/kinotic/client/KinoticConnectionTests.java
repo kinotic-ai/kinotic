@@ -122,8 +122,9 @@ public class KinoticConnectionTests {
 
     @Test
     public void testReplyOverTheWebSocketFrameLimitFailsTheCallAndTheConnectionRecovers() throws Exception {
-        // the gateway writes the reply in one WebSocket frame, over the limit, which the transport refuses
-        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET).setMaxWebSocketFrameSize(2048));
+        // the gateway writes the reply in one WebSocket frame, over a limit that still holds every other frame of
+        // the connection, so it is the transport that refuses the reply
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET).setMaxWebSocketFrameSize(65536));
         assertCallLostToTheReplyAndTheConnectionRecovers(connection);
     }
 
@@ -133,7 +134,7 @@ public class KinoticConnectionTests {
         ClientTestService service = connection.serviceProxy(ClientTestService.class).getService();
 
         ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                             () -> service.pad(8192).get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+                                                             () -> service.pad(200_000).get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
 
         Assertions.assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
         // the reply ended the connection, which the client re-establishes

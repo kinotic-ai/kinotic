@@ -35,9 +35,9 @@ public class ReconnectOptions {
     private Duration maxJitter = Duration.ofSeconds(5);
 
     /**
-     * How long each step of an attempt may take before the attempt counts as failed: the WebSocket handshake, then
-     * the gateway's answer to the CONNECT frame. It also bounds the wait for the gateway's DISCONNECT receipt on
-     * close.
+     * How long each step of an attempt may take before the attempt counts as failed: the TCP connection, the
+     * WebSocket handshake, then the gateway's answer to the CONNECT frame. It also bounds the wait for the gateway's
+     * DISCONNECT receipt on close.
      */
     private Duration connectionTimeout = Duration.ofSeconds(10);
 
