@@ -8222,18 +8222,6 @@ We welcome contributions to Kinotic OS. This guide covers the repository structu
   <tr>
     <td>
       <code>
-        kinotic-ee/
-      </code>
-    </td>
-    
-    <td>
-      Enterprise Features, licensed under the Kinotic Enterprise License — the Azure Key Vault secret storage backend
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         kinotic-js/
       </code>
     </td>
@@ -8752,15 +8740,17 @@ on your first pull request by commenting `I have read the Kinotic CLA Document a
 Kinotic RPC (`kinotic-core/`, `kinotic-api-gateway/`, `kinotic-idl/`, and the `core` and `idl`
 packages in `kinotic-js/workspace/packages/`) is licensed under the Apache License 2.0, and none of
 its modules may depend on a module outside it: the build fails if one declares a project dependency on such a
-module. `kinotic-ee/` holds the
-Enterprise Features, licensed under the Kinotic Enterprise License. Everything else is licensed
+module. Every file in a Java package with an `ee` segment is an Enterprise Implementation,
+licensed under the Kinotic Enterprise License
+([`LICENSE-ENTERPRISE`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-ENTERPRISE)),
+except an Enterprise Extension Point: an interface, abstract class or annotation in such a package,
+such as `org.kinotic.domain.api.ee.services.SecretStorageBackend`. Everything else is licensed
 under the Elastic License 2.0 with the Kinotic Additional Limitations. The root
 [`LICENSE.md`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE.md) routes each part of
-the repository to its license. Any interface in an Elastic-licensed package with an `ee`
-segment, such as `org.kinotic.domain.api.ee.services.SecretStorageBackend`, is an Enterprise
-Extension Point: its implementations for production use are Enterprise Features and belong in
-`kinotic-ee/`. [Enterprise License](https://kinotic.ai/platform/enterprise-license) describes what production use of
-them requires.
+the repository to its license. An Enterprise Feature's classes live in the `internal/api/ee/`
+tree of the module the feature belongs to, such as `EnterpriseIdentityProviders` in
+`kinotic-domain`. [Enterprise License](https://kinotic.ai/platform/enterprise-license) describes what production use
+of them requires.
 
 The CLA grants Minds Ignited the right to license your contribution under any of these licenses,
 including as part of an Enterprise Feature; you keep the copyright in it.
@@ -8944,6 +8934,30 @@ sets:
   <tr>
     <td>
       <code>
+        kinotic.ee.licenseKey
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-ee-license-key
+      </code>
+    </td>
+    
+    <td>
+      every server; the global root writes it from <code>
+        TF_VAR_ee_license_key
+      </code>
+      
+      , and it must turn on <code>
+        AZURE_KEY_VAULT
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         kinotic.managementApi.github.appPrivateKey
       </code>
     </td>
@@ -9032,10 +9046,9 @@ sets:
 `kinotic.domain.secretStorage.backend` selects where `SecretStorageService` persists secrets.
 `IN_MEMORY`, the default, keeps them in process memory, so a restart loses every stored secret. `AZURE` stores them in
 the Key Vault at `kinotic.domain.secretStorage.azure.vaultUrl`; that backend is an Enterprise
-Feature in the `kinotic-ee` module, which the org, system and app servers include, and its
-production use needs a Kinotic Enterprise License agreement with Minds Ignited (see
-[Enterprise License](https://kinotic.ai/platform/enterprise-license)). A server
-configured with a backend whose module is not on its classpath fails at startup.
+Feature, and its production use needs a Kinotic Enterprise License agreement with Minds Ignited
+and a license key that turns it on (see [Enterprise License](https://kinotic.ai/platform/enterprise-license)). A
+server configured with `AZURE` and no such license key fails at startup.
 
 A server picks up a rotated JWT key set while it runs, and an imported secret when it restarts.
 On Azure the global terraform seeds the master key and takes the GitHub App's key and webhook
@@ -9252,8 +9265,9 @@ The servers' Key Vault is kept deliberately. Without it the secret storage backe
 (`SecretStorageConfiguration`): nothing stored survives a restart and nothing can be carried to
 the cloud. Nothing calls `SecretStorageService` today, so the cost is nil this week; the first
 feature that stores a peer's secret would turn it into silent data loss. With the `AZURE`
-backend, which the servers load from the `kinotic-ee` module, the peers' secrets are already in
-Azure on migration day.
+backend, the peers' secrets are already in Azure on migration day. It is an Enterprise Feature, so
+each server's `secrets.yml` carries a license key that turns on `AZURE_KEY_VAULT`; without one the
+servers refuse to start.
 
 ### Migrations become append-only from the first peer sign-up
 
@@ -10530,6 +10544,32 @@ What the three share:
   <tr>
     <td>
       <code>
+        kinotic.ee.licenseKey
+      </code>
+    </td>
+    
+    <td>
+      from <code>
+        secrets.yml
+      </code>
+      
+      , a key that turns on <code>
+        AZURE_KEY_VAULT
+      </code>
+    </td>
+    
+    <td>
+      The <code>
+        AZURE
+      </code>
+      
+       backend is an Enterprise Feature, and a server that selects it without such a key refuses to start
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         kinotic.domain.email.enabled
       </code>
       
@@ -11495,13 +11535,15 @@ the repository to its license, and the license texts govern wherever this page s
 <tbody>
   <tr>
     <td>
-      <code>
-        kinotic-ee/
+      Any <code>
+        ee
       </code>
+      
+       package, other than its Enterprise Extension Points
     </td>
     
     <td>
-      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-ee/LICENSE" rel="nofollow">
+      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-ENTERPRISE" rel="nofollow">
         Kinotic Enterprise License
       </a>
     </td>
@@ -11565,8 +11607,10 @@ the repository to its license, and the license texts govern wherever this page s
 
 ## Enterprise Features
 
-The Enterprise Features are the contents of the `kinotic-ee` module and the capability of every
-Enterprise Extension Point.
+The Enterprise Features are every Enterprise Implementation, which is any file in a Java package
+with a segment named `ee` other than an Enterprise Extension Point, and the capability of every
+Enterprise Extension Point. They live in the module each one belongs to, such as
+`org.kinotic.domain.internal.api.ee` in `kinotic-domain`.
 
 <table>
 <thead>
@@ -11576,11 +11620,7 @@ Enterprise Extension Point.
     </th>
     
     <th>
-      Enterprise Extension Point
-    </th>
-    
-    <th>
-      Included without an enterprise license
+      Free alternative
     </th>
   </tr>
 </thead>
@@ -11596,17 +11636,7 @@ Enterprise Extension Point.
     </td>
     
     <td>
-      <code>
-        org.kinotic.domain.api.ee.services.SecretStorageBackend
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        InMemoryBackend
-      </code>
-      
-       (<code>
+      In-memory secret storage (<code>
         backend: IN_MEMORY
       </code>
       
@@ -11620,36 +11650,82 @@ Enterprise Extension Point.
     </td>
     
     <td>
-      <code>
-        org.kinotic.domain.api.ee.services.OrganizationIdentityProvider
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        GoogleIdentityProvider
-      </code>
-      
-      , which signs in with Google. Microsoft sign-in through Kinotic's managed registration is not an Enterprise Feature
+      Google sign-in through the organization's own client. Microsoft sign-in through Kinotic's managed registration is not an Enterprise Feature
     </td>
   </tr>
 </tbody>
 </table>
 
-The org, system and app servers include `kinotic-ee`, so the published server images contain the
-Enterprise Features. Having them in an image does not license their production use.
+The org, system and app servers include the Enterprise Features, so the published server images
+contain them. An Enterprise Feature that is present but not turned on is not in production use, and
+having one in an image does not license its production use.
+
+## License key
+
+A server turns an Enterprise Feature on only when its `kinotic.ee.licenseKey` property (the
+`KINOTIC_EE_LICENSEKEY` environment variable) holds a License Key from Minds Ignited that lists the
+feature, or `*` for every feature, and has not expired. The server checks the key when it starts, offline, and logs the licensee,
+expiry and features it turned on, or why the key is not valid.
+
+The local Docker Compose stack in `deployment/docker-compose/` sets the Kinotic evaluation license key, which
+turns on every Enterprise Feature until the end of 2036 for development and testing only. The published server images
+carry no key.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Feature named in the key
+    </th>
+    
+    <th>
+      Without it
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        AZURE_KEY_VAULT
+      </code>
+    </td>
+    
+    <td>
+      A server set to <code>
+        kinotic.domain.secretStorage.backend: AZURE
+      </code>
+      
+       refuses to start
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ENTERPRISE_IDENTITY_PROVIDERS
+      </code>
+    </td>
+    
+    <td>
+      Saving or editing an Okta or Microsoft Entra ID configuration that uses an organization's own client is refused. Configurations already saved keep signing people in
+    </td>
+  </tr>
+</tbody>
+</table>
 
 ## Enterprise Extension Points
 
 Any interface, abstract class, or annotation in a Java package with a segment named `ee`, such as
-`org.kinotic.domain.api.ee.services`, or in a directory named `ee`, outside `kinotic-ee/`, is an
-Enterprise Extension Point. The extension point itself is Elastic-licensed, so you can read it
+`org.kinotic.domain.api.ee.services`, or in a directory named `ee`, is an Enterprise Extension
+Point. The extension point itself is Elastic-licensed, so you can read it
 and build against it, but the capability it provides is an Enterprise Feature.
 
 For production use, the license does not permit you to:
 
 - implement or extend an Enterprise Extension Point, or use such an implementation, other than
-one in `kinotic-ee/` or one included in the Elastic-licensed code and used unmodified
+an Enterprise Implementation or one included in the Elastic-licensed code and used unmodified
 - modify Kinotic to move a type out of an `ee` package, or to replace, bypass or wrap an
 Enterprise Extension Point or the code that uses it, so that other software provides its
 capability
@@ -11715,8 +11791,10 @@ need for an enterprise license
 </table>
 
 A written agreement that permits only limited purposes, such as evaluation or a proof of concept,
-licenses production use for those purposes alone. The Enterprise Features may not be
-redistributed or offered to third parties as a hosted or managed service, and the Elastic License
+licenses production use for those purposes alone. The Enterprise Features may be redistributed
+only unmodified, with the Kinotic Enterprise License, as part of a copy of Kinotic distributed
+under the Elastic License 2.0, and may not be offered to third parties as a hosted or managed
+service, and the Elastic License
 2.0 forbids offering Kinotic itself as a hosted or managed service that gives users access to a
 substantial set of its features.
 

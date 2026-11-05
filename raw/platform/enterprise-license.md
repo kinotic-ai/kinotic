@@ -33,13 +33,15 @@ the repository to its license, and the license texts govern wherever this page s
 <tbody>
   <tr>
     <td>
-      <code>
-        kinotic-ee/
+      Any <code>
+        ee
       </code>
+      
+       package, other than its Enterprise Extension Points
     </td>
     
     <td>
-      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-ee/LICENSE" rel="nofollow">
+      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-ENTERPRISE" rel="nofollow">
         Kinotic Enterprise License
       </a>
     </td>
@@ -103,8 +105,10 @@ the repository to its license, and the license texts govern wherever this page s
 
 ## Enterprise Features
 
-The Enterprise Features are the contents of the `kinotic-ee` module and the capability of every
-Enterprise Extension Point.
+The Enterprise Features are every Enterprise Implementation, which is any file in a Java package
+with a segment named `ee` other than an Enterprise Extension Point, and the capability of every
+Enterprise Extension Point. They live in the module each one belongs to, such as
+`org.kinotic.domain.internal.api.ee` in `kinotic-domain`.
 
 <table>
 <thead>
@@ -114,11 +118,7 @@ Enterprise Extension Point.
     </th>
     
     <th>
-      Enterprise Extension Point
-    </th>
-    
-    <th>
-      Included without an enterprise license
+      Free alternative
     </th>
   </tr>
 </thead>
@@ -134,17 +134,7 @@ Enterprise Extension Point.
     </td>
     
     <td>
-      <code>
-        org.kinotic.domain.api.ee.services.SecretStorageBackend
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        InMemoryBackend
-      </code>
-      
-       (<code>
+      In-memory secret storage (<code>
         backend: IN_MEMORY
       </code>
       
@@ -158,36 +148,82 @@ Enterprise Extension Point.
     </td>
     
     <td>
-      <code>
-        org.kinotic.domain.api.ee.services.OrganizationIdentityProvider
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        GoogleIdentityProvider
-      </code>
-      
-      , which signs in with Google. Microsoft sign-in through Kinotic's managed registration is not an Enterprise Feature
+      Google sign-in through the organization's own client. Microsoft sign-in through Kinotic's managed registration is not an Enterprise Feature
     </td>
   </tr>
 </tbody>
 </table>
 
-The org, system and app servers include `kinotic-ee`, so the published server images contain the
-Enterprise Features. Having them in an image does not license their production use.
+The org, system and app servers include the Enterprise Features, so the published server images
+contain them. An Enterprise Feature that is present but not turned on is not in production use, and
+having one in an image does not license its production use.
+
+## License key
+
+A server turns an Enterprise Feature on only when its `kinotic.ee.licenseKey` property (the
+`KINOTIC_EE_LICENSEKEY` environment variable) holds a License Key from Minds Ignited that lists the
+feature, or `*` for every feature, and has not expired. The server checks the key when it starts, offline, and logs the licensee,
+expiry and features it turned on, or why the key is not valid.
+
+The local Docker Compose stack in `deployment/docker-compose/` sets the Kinotic evaluation license key, which
+turns on every Enterprise Feature until the end of 2036 for development and testing only. The published server images
+carry no key.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Feature named in the key
+    </th>
+    
+    <th>
+      Without it
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        AZURE_KEY_VAULT
+      </code>
+    </td>
+    
+    <td>
+      A server set to <code>
+        kinotic.domain.secretStorage.backend: AZURE
+      </code>
+      
+       refuses to start
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ENTERPRISE_IDENTITY_PROVIDERS
+      </code>
+    </td>
+    
+    <td>
+      Saving or editing an Okta or Microsoft Entra ID configuration that uses an organization's own client is refused. Configurations already saved keep signing people in
+    </td>
+  </tr>
+</tbody>
+</table>
 
 ## Enterprise Extension Points
 
 Any interface, abstract class, or annotation in a Java package with a segment named `ee`, such as
-`org.kinotic.domain.api.ee.services`, or in a directory named `ee`, outside `kinotic-ee/`, is an
-Enterprise Extension Point. The extension point itself is Elastic-licensed, so you can read it
+`org.kinotic.domain.api.ee.services`, or in a directory named `ee`, is an Enterprise Extension
+Point. The extension point itself is Elastic-licensed, so you can read it
 and build against it, but the capability it provides is an Enterprise Feature.
 
 For production use, the license does not permit you to:
 
 - implement or extend an Enterprise Extension Point, or use such an implementation, other than
-one in `kinotic-ee/` or one included in the Elastic-licensed code and used unmodified
+an Enterprise Implementation or one included in the Elastic-licensed code and used unmodified
 - modify Kinotic to move a type out of an `ee` package, or to replace, bypass or wrap an
 Enterprise Extension Point or the code that uses it, so that other software provides its
 capability
@@ -253,8 +289,10 @@ need for an enterprise license
 </table>
 
 A written agreement that permits only limited purposes, such as evaluation or a proof of concept,
-licenses production use for those purposes alone. The Enterprise Features may not be
-redistributed or offered to third parties as a hosted or managed service, and the Elastic License
+licenses production use for those purposes alone. The Enterprise Features may be redistributed
+only unmodified, with the Kinotic Enterprise License, as part of a copy of Kinotic distributed
+under the Elastic License 2.0, and may not be offered to third parties as a hosted or managed
+service, and the Elastic License
 2.0 forbids offering Kinotic itself as a hosted or managed service that gives users access to a
 substantial set of its features.
 

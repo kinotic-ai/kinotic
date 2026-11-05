@@ -70,18 +70,6 @@ We welcome contributions to Kinotic OS. This guide covers the repository structu
   <tr>
     <td>
       <code>
-        kinotic-ee/
-      </code>
-    </td>
-    
-    <td>
-      Enterprise Features, licensed under the Kinotic Enterprise License — the Azure Key Vault secret storage backend
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         kinotic-js/
       </code>
     </td>
@@ -600,15 +588,17 @@ on your first pull request by commenting `I have read the Kinotic CLA Document a
 Kinotic RPC (`kinotic-core/`, `kinotic-api-gateway/`, `kinotic-idl/`, and the `core` and `idl`
 packages in `kinotic-js/workspace/packages/`) is licensed under the Apache License 2.0, and none of
 its modules may depend on a module outside it: the build fails if one declares a project dependency on such a
-module. `kinotic-ee/` holds the
-Enterprise Features, licensed under the Kinotic Enterprise License. Everything else is licensed
+module. Every file in a Java package with an `ee` segment is an Enterprise Implementation,
+licensed under the Kinotic Enterprise License
+([`LICENSE-ENTERPRISE`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-ENTERPRISE)),
+except an Enterprise Extension Point: an interface, abstract class or annotation in such a package,
+such as `org.kinotic.domain.api.ee.services.SecretStorageBackend`. Everything else is licensed
 under the Elastic License 2.0 with the Kinotic Additional Limitations. The root
 [`LICENSE.md`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE.md) routes each part of
-the repository to its license. Any interface in an Elastic-licensed package with an `ee`
-segment, such as `org.kinotic.domain.api.ee.services.SecretStorageBackend`, is an Enterprise
-Extension Point: its implementations for production use are Enterprise Features and belong in
-`kinotic-ee/`. [Enterprise License](https://kinotic.ai/platform/enterprise-license) describes what production use of
-them requires.
+the repository to its license. An Enterprise Feature's classes live in the `internal/api/ee/`
+tree of the module the feature belongs to, such as `EnterpriseIdentityProviders` in
+`kinotic-domain`. [Enterprise License](https://kinotic.ai/platform/enterprise-license) describes what production use
+of them requires.
 
 The CLA grants Minds Ignited the right to license your contribution under any of these licenses,
 including as part of an Enterprise Feature; you keep the copyright in it.
