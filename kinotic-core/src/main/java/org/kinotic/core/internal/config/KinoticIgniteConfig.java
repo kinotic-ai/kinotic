@@ -155,9 +155,10 @@ public class KinoticIgniteConfig {
         cfg.setFailureHandler(failureHandler);
 
         // lets a cluster singleton be deployed only to the nodes hosting its zone, and a cluster event be
-        // delivered only to the nodes carrying the attributes it names
-        Map<String, Object> attributes = new HashMap<>(zonePartitioningService.nodeAttributes());
-        attributes.putAll(properties.getIgnite().getNodeAttributes());
+        // delivered only to the nodes carrying the attributes it names; the configured attributes go first so
+        // every attribute Kinotic sets wins over a configured one of the same name
+        Map<String, Object> attributes = new HashMap<>(properties.getIgnite().getNodeAttributes());
+        attributes.putAll(zonePartitioningService.nodeAttributes());
         attributes.put(KinoticNodeAttributes.SERVER_NAME, zonePartitioningService.name());
         String version = KinoticIgniteConfig.class.getPackage().getImplementationVersion();
         if (version != null) {

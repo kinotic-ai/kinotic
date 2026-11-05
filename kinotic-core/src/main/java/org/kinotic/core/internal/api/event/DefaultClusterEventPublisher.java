@@ -95,7 +95,9 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
         Collection<ClusterNode> nodes = nodesOf(nodeAttributes).nodes();
         Future<Void> ret;
         if (nodes.isEmpty()) {
-            log.debug("No node of the cluster is selected by {}", eventType);
+            // this node is in the cluster, so only a filter can select nothing: the nodes it names are down, or
+            // the attribute it names is spelled differently from the one the module advertises
+            log.warn("No node of the cluster carries {} named by {}, so no node handles it", nodeAttributes, eventType);
             ret = Future.succeededFuture();
         } else {
             ret = broadcast(ignite.cluster().forNodes(nodes), task).recover(error -> {

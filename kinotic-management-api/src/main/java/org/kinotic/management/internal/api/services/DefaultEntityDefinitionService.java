@@ -149,7 +149,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     // Sync delete, then evict: the deletion must be searchable before the
                     // eviction fires, and the eviction must fire last — either way around,
                     // a concurrent read could re-cache the old row with no eviction behind it.
-                    // The delete completes once every app server has evicted.
+                    // The delete completes once every node holding the caches has evicted.
                     return super.deleteByIdSync(entityDefinitionId)
                                 .compose(v -> evict(entityDefinition));
                 });
@@ -204,7 +204,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
                         // saveSync so the published state is searchable before the eviction fires; the publish
-                        // completes once every app server has evicted
+                        // completes once every node holding the caches has evicted
                         return super.saveSync(entityDefinition)
                                     .compose(this::evict);
                     });
@@ -300,7 +300,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         // saveSync so the new definition is searchable before the eviction
                         // fires — a reload racing the index refresh would re-cache the old
                         // row with no eviction left to clear it. The save completes once every
-                        // app server has evicted.
+                        // node holding the caches has evicted.
                         return updateFuture.compose(
                                 v -> super.saveSync(entityDefinition)
                                           .compose(entityDefinition1 -> evict(entityDefinition1).map(entityDefinition1)));
@@ -344,7 +344,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
                         // saveSync so the unpublished state is searchable before the eviction fires; the unpublish
-                        // completes once every app server has evicted
+                        // completes once every node holding the caches has evicted
                         return super.saveSync(entityDefinition)
                                     .compose(this::evict);
                     });
@@ -352,8 +352,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     /**
-     * Evicts the caches every app server holds for the entity definition; the change to it is already written when
-     * the eviction fails, and the failure says so.
+     * Evicts the caches every node holding them has for the entity definition; the change to it is already written
+     * when the eviction fails, and the failure says so.
      */
     private Future<Void> evict(EntityDefinition entityDefinition) {
         CacheEvictionEvent event = CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId());

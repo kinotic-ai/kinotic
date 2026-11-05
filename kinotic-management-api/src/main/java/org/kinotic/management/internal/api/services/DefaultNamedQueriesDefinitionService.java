@@ -40,7 +40,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     // it completes. The cache loader reads through a search, so the mutation must be
     // searchable before the eviction fires — otherwise a reload between the eviction and
     // the index refresh re-caches the old row with no eviction left to clear it. The
-    // mutation completes once every app server has evicted.
+    // mutation completes once every node holding the caches has evicted.
 
     @Override
     public Future<NamedQueriesDefinition> save(NamedQueriesDefinition definition) {
@@ -70,8 +70,8 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     }
 
     /**
-     * Evicts the queries every app server compiled from the definition; the change to it is already written when the
-     * eviction fails, and the failure says so.
+     * Evicts the queries every node holding the caches compiled from the definition; the change to it is already
+     * written when the eviction fails, and the failure says so.
      */
     private Future<Void> evict(NamedQueriesDefinition definition) {
         CacheEvictionEvent event = CacheEvictionEvent.namedQuery(definition.applicationKey(), definition.getId());

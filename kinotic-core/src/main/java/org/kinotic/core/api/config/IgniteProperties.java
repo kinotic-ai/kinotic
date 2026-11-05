@@ -124,7 +124,8 @@ public class IgniteProperties {
     /**
      * Attributes the node advertises to the cluster, by name, beside the ones Kinotic sets for it. A cluster event
      * names the attributes the nodes it is delivered to carry, and a module whose nodes handle an event contributes
-     * the attribute it names from its own property source, so a node advertises what it runs.
+     * the attribute it names from its own property source, so a node advertises what it runs. A value is advertised
+     * as the string it is given; a node is selected by carrying an attribute, never by its value.
      */
     private Map<String, String> nodeAttributes = new HashMap<>();
 
