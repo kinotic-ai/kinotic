@@ -381,19 +381,27 @@ public class EndpointConnectionHandler {
         return ret;
     }
 
-    public void unsubscribe(String subscriptionIdentifier) {
+    /**
+     * Unsubscribes the connection from the subscription of the identifier.
+     * @return completes once the subscription is unregistered across the cluster, so no node sends to it any
+     *         more; at once when the identifier names no subscription
+     */
+    public Future<Void> unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
         signalActivity();
 
-        if (!incomingInvocationTracker.unsubscribeReplies(subscriptionIdentifier)) {
+        Future<Void> ret = incomingInvocationTracker.unsubscribeReplies(subscriptionIdentifier);
+        if (ret == null) {
             EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
             if (consumer != null) {
-                consumer.unregister();
+                ret = consumer.unregister();
             } else {
                 log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
+                ret = Future.succeededFuture();
             }
         }
+        return ret;
     }
 
     // a subscription id the client reuses ends the consumer it named before

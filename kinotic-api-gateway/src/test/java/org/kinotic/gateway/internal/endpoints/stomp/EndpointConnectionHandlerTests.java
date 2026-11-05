@@ -127,6 +127,7 @@ public class EndpointConnectionHandlerTests {
         });
         when(replyConsumer.exceptionHandler(any())).thenReturn(replyConsumer);
         when(replyConsumer.completion()).thenReturn(Future.succeededFuture());
+        when(replyConsumer.unregister()).thenReturn(Future.succeededFuture());
         when(eventBusService.listen(any())).thenReturn(replyConsumer);
 
         JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -399,6 +400,21 @@ public class EndpointConnectionHandlerTests {
         subscribeReplies(handler);
         subscribeReplies(handler);
         verify(replyConsumer, times(1)).unregister();
+    }
+
+    @Test
+    public void testUnsubscribeCompletesWithTheConsumersUnregistration() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        subscribeReplies(handler);
+        Promise<Void> unregistration = Promise.promise();
+        when(replyConsumer.unregister()).thenReturn(unregistration.future());
+
+        Future<Void> unsubscribed = handler.unsubscribe("sub-1");
+
+        Assertions.assertFalse(unsubscribed.isComplete(), "the unsubscribe completed before the consumer was unregistered");
+        unregistration.complete();
+        Assertions.assertTrue(unsubscribed.succeeded());
+        Assertions.assertTrue(handler.unsubscribe("sub-1").succeeded(), "an identifier naming no subscription completes at once");
     }
 
     @Test

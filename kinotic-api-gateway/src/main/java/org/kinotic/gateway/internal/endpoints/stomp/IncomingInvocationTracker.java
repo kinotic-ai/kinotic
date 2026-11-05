@@ -80,14 +80,13 @@ public class IncomingInvocationTracker {
     }
 
     /**
-     * @return true when the identifier was one of the client's reply subscriptions
+     * Unsubscribes the client from one of its reply destinations.
+     * @return completes once the subscription is unregistered across the cluster, so no node sends to it any
+     *         more; null when the identifier names none of the client's reply subscriptions
      */
-    public boolean unsubscribeReplies(String subscriptionIdentifier) {
+    public Future<Void> unsubscribeReplies(String subscriptionIdentifier) {
         EventConsumer consumer = replySubscriptions.remove(subscriptionIdentifier);
-        if (consumer != null) {
-            consumer.unregister();
-        }
-        return consumer != null;
+        return consumer != null ? consumer.unregister() : null;
     }
 
     /**

@@ -114,8 +114,10 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         try {
             String subscriptionId = frame.getHeader(Frame.ID);
 
-            endpointConnectionHandler.unsubscribe(subscriptionId);
-            stompServerConnection.sendReceiptIfNeeded(frame);
+            // the receipt tells the client no node sends to the subscription any more
+            endpointConnectionHandler.unsubscribe(subscriptionId)
+                                     .onSuccess(v -> stompServerConnection.sendReceiptIfNeeded(frame))
+                                     .onFailure(cause -> failConnection("unsubscribe " + subscriptionId + " failed", cause, frame));
 
         } catch (Exception e) {
             failConnection("unsubscribe " + frame.getHeader(Frame.ID) + " failed", e, frame);
