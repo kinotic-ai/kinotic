@@ -38,6 +38,23 @@
     </div>
 
     <div v-else class="login-form">
+      <!-- The organizations the identity that just signed up already signs in to, for a person who meant to sign in -->
+      <div v-if="organizationChoices.length > 0" class="login-choices">
+        <p class="login-choices__hint">
+          This account already belongs to {{ organizationChoices.length === 1 ? 'an organization' : 'these organizations' }}.
+          Sign in, or create another organization below.
+        </p>
+        <Button
+          v-for="choice in organizationChoices"
+          :key="choice.id"
+          :label="choice.name"
+          class="login-submit login-choices__choice"
+          severity="secondary"
+          @click="signInTo(choice.id)"
+        />
+        <div class="login-divider"><span>or</span></div>
+      </div>
+
       <h2 class="signup-title">Name your organization</h2>
       <p class="login-form__subtitle">
         Welcome! Pick a name for your new organization to finish signing up.
@@ -73,7 +90,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
@@ -85,10 +102,12 @@ import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
+import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath } from '@/pages/login/organizationLogin'
 
 /**
  * Lands here after the GitHub registration's callback, `/api/auth/org/login/social/callback/:configId`, redirects with `?token=<verificationToken>`
- * (a {@code PendingRegistration}). The user supplies an org name; we POST to
+ * (a {@code PendingRegistration}). The organizations the identity already signs in to, if any, are offered first, so a
+ * person who meant to sign in goes to one of their logins instead. The user supplies an org name; we POST to
  * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin ParticipantIdentity and
  * establishes the browser session, which we then use to open the realtime connection. A
  * "Connect GitHub" step then explains the repository-access authorization before sending the
@@ -99,10 +118,12 @@ const orgDescription = ref('')
 const loading = ref(false)
 const step = ref<'form' | 'connect'>('form')
 const connecting = ref(false)
+const organizationChoices = ref<OrganizationChoice[]>([])
 
 const toast = useToast()
 const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
+const router = useRouter()
 
 const orgNameInput = useTemplateRef<any>('orgName')
 const orgDescriptionInput = useTemplateRef<any>('orgDescription')
@@ -116,9 +137,17 @@ const token = computed<string | null>(() => {
   return typeof t === 'string' && t.length > 0 ? t : null
 })
 
-onMounted(() => {
-  if (token.value) nextTick(() => focusNext('orgName'))
+onMounted(async () => {
+  if (token.value) {
+    nextTick(() => focusNext('orgName'))
+    // the sign-up proceeds without the offer when it cannot be loaded
+    organizationChoices.value = (await loadOrganizationChoices()) ?? []
+  }
 })
+
+function signInTo(organizationId: string) {
+  router.push(organizationLoginPath(organizationId))
+}
 
 function focusNext(refName: string) {
   const el = inputRefs[refName]?.value as any

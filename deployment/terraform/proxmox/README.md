@@ -2,7 +2,7 @@
 
 One Proxmox host runs the platform's services: a container per service — the org, system and
 app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, Loki,
-Tempo, Mimir, Grafana — created from the same images the compose stack pulls, and the edge, an
+Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
 HAProxy container that passes each TLS connection on the router's forwarded 443 to the server
 its SNI names. The portal and the system console are served by the sites Worker from the Azure
 root's sites account (`deployment/terraform/azure/deploy-ui.sh dev-server dev-server` uploads
@@ -174,7 +174,6 @@ edge_mac          = "BC:24:11:00:00:01"
 loki_ip           = "192.168.1.21/24"
 tempo_ip          = "192.168.1.22/24"
 mimir_ip          = "192.168.1.23/24"
-grafana_ip        = "192.168.1.24/24"
 gateway           = "192.168.1.1"
 dns_servers       = ["192.168.1.1"]
 ```
@@ -202,7 +201,7 @@ terraform init
 
 The apply creates the private network, pulls the images, creates every container stopped,
 uploads the manifests, and runs the applier over them in startup order: the three
-Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, which waits for
+Elasticsearch nodes, then Loki, Tempo and Mimir, then the migration, which waits for
 the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the three servers, which form one Ignite cluster over their
 private addresses, then the edge.
@@ -303,7 +302,7 @@ uploaded them.
   the decisions. It needs `az` signed in for the sites account and ssh to the host and the
   nodes; `vm_nodes` is a list of `user@host` in `local.auto.tfvars`.
 - **Logs.** Each container's stdout and stderr go to `/var/log/kinotic/<name>.log` on the
-  host (16 MB, one rotation); the servers' logs are in Loki too, through Grafana, and the
+  host (16 MB, one rotation); the servers' logs are in Loki too, and the
   edge's log records each connection's client address and the server it went to.
 - **A config or environment change** — `tempo.yml` in `deployment/docker-compose`, a value
   in `main.tf` — is a `terraform apply`, under `../with-dev-server-secrets.sh` like every apply
@@ -319,7 +318,7 @@ uploaded them.
   A container replaced this way keeps its vmid, so run the applier yourself afterwards:
   `ssh root@<host> python3 /var/lib/vz/snippets/kinotic-apply-container.py /var/lib/vz/snippets/kinotic-*.manifest.json`.
   To re-run the migration on the same image, `rm /var/lib/kinotic/state/120.ran` first.
-- **New secrets** are another `./sync-secrets.sh`, which re-applies the servers and Grafana.
+- **New secrets** are another `./sync-secrets.sh`, which re-applies the servers.
 - **Starting over** with an empty cluster, for a migration that edits `V1__init.sql`: remove the
   servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
   stop them, empty `/es1/data`, `/es2/data` and `/es3/data`, and remove

@@ -92,23 +92,6 @@ resource "azurerm_key_vault_secret" "jwt_signing_keys" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
-# The secrets follow their servers' new names too. A Key Vault secret's name forces replacement,
-# so each is recreated under the new name
-moved {
-  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-org-server"]
-  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-management"]
-}
-
-moved {
-  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-system-server"]
-  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-system"]
-}
-
-moved {
-  from = azurerm_key_vault_secret.jwt_signing_keys["kinotic-app-server"]
-  to   = azurerm_key_vault_secret.jwt_signing_keys["kinotic-server-app"]
-}
-
 # The secret-storage master key, which every server imports as
 # kinotic.domain.secretStorage.masterKey. SecretNameDeriver derives every stored secret's name
 # from it, so a new key orphans every secret stored under the old one.
@@ -142,6 +125,11 @@ resource "azurerm_key_vault_secret" "github_app_private_key" {
 
   lifecycle {
     ignore_changes = [value]
+
+    postcondition {
+      condition     = self.value != ""
+      error_message = "Supply var.github_app_private_key to seed github_app_private_key"
+    }
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
@@ -157,6 +145,11 @@ resource "azurerm_key_vault_secret" "github_webhook_secret" {
 
   lifecycle {
     ignore_changes = [value]
+
+    postcondition {
+      condition     = self.value != ""
+      error_message = "Supply var.github_webhook_secret to seed github_webhook_secret"
+    }
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
@@ -176,6 +169,11 @@ resource "azurerm_key_vault_secret" "cloudflare_dns_api_token" {
 
   lifecycle {
     ignore_changes = [value]
+
+    postcondition {
+      condition     = self.value != ""
+      error_message = "Supply var.cloudflare_dns_api_token to seed cloudflare_dns_api_token"
+    }
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
@@ -195,6 +193,11 @@ resource "azurerm_key_vault_secret" "turnstile_secret_key" {
 
   lifecycle {
     ignore_changes = [value]
+
+    postcondition {
+      condition     = self.value != ""
+      error_message = "Supply var.turnstile_secret_key to seed turnstile_secret_key"
+    }
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
@@ -231,6 +234,11 @@ resource "azurerm_key_vault_secret" "google_client_secret" {
 
   lifecycle {
     ignore_changes = [value]
+
+    postcondition {
+      condition     = self.value != ""
+      error_message = "Supply var.google_client_secret to seed google_client_secret"
+    }
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]
@@ -251,6 +259,11 @@ resource "azurerm_key_vault_secret" "github_client_secret" {
 
   lifecycle {
     ignore_changes = [value]
+
+    postcondition {
+      condition     = self.value != ""
+      error_message = "Supply var.github_client_secret to seed github_client_secret"
+    }
   }
 
   depends_on = [terraform_data.wait_for_kv_rbac]

@@ -16,7 +16,6 @@
 #                                             a keys list, so a key can be added at migration
 #   kinotic-<org|system|app>-server/certs/    certbot's fullchain.pem and privkey.pem for the
 #                                             server's names, which certbot places on the host itself
-#   grafana.env                               GF_SECURITY_ADMIN_PASSWORD
 set -euo pipefail
 umask 077
 
@@ -68,10 +67,6 @@ cat > "$OUT/kinotic-servers.env" <<ENV
 # terraform output -raw secrets_env, in deployment/terraform/azure/dev-server
 AZURE_CLIENT_SECRET=
 KINOTIC_DOMAIN_PUBLISHEDSITES_CLOUDFLARE_APITOKEN=
-ENV
-
-cat > "$OUT/grafana.env" <<ENV
-GF_SECURITY_ADMIN_PASSWORD=$(password)
 ENV
 
 chmod -R go-rwx "$OUT"

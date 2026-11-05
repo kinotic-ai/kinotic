@@ -64,6 +64,7 @@ class LokiClientIntegrationTest {
                 .withCommand("-config.file=/etc/loki/local-config.yaml",
                              "-auth.enabled=true",
                              "-querier.multi-tenant-queries-enabled=true",
+                             "-store.retention=720h",
                              "-compactor.retention-enabled=true",
                              "-compactor.delete-request-store=filesystem",
                              "-compactor.delete-request-cancel-period=1h",

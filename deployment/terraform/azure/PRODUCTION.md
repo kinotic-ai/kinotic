@@ -20,8 +20,7 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [x] NetworkPolicy on ES — allows traffic from kinotic + elastic-system only
 - [x] `beta_mode` toggle — single command to scale from beta to production topology
 - [x] Load generator for sample data
-- [x] Observability — Loki (log storage), Tempo (trace storage), Mimir (metrics storage), Alloy (DaemonSet log collector), Grafana (dashboards, port-forward only)
-- [x] Grafana Entra ID login — auto-provisioned App Registration, on by default
+- [x] Observability — Loki (log storage), Tempo (trace storage), Mimir (metrics storage), Alloy (DaemonSet log collector)
 - [x] Azure Key Vault — the servers access it via workload identity (Secrets Officer role)
 - [x] Azure Communication Services — email via workload identity, custom domain (kinotic.ai) with automated DNS verification
 - [x] Cost documentation — see [COST.md](COST.md)
@@ -34,7 +33,7 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [ ] OIDC / identity provider for the servers — Entra ID App Registration is provisioned, needs to be wired into the servers' Spring config
 - [ ] CI/CD pipeline — automated image builds, terraform plan on PR, terraform apply on merge, image promotion between environments
 - [ ] Load generator bearer auth support — currently uses basic auth only, cannot run after OIDC is enabled as the sole auth provider
-- [ ] Grafana alerting rules — configure alerts for ES cluster health, pod restarts, error rate spikes, disk pressure
+- [ ] Alerting rules — configure alerts for ES cluster health, pod restarts, error rate spikes, disk pressure
 
 ## Should Have
 
@@ -50,5 +49,4 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [ ] Multi-environment promotion — staging with separate cluster sharing the same terraform modules but different tfvars
 - [ ] Pod Security Standards — enforce restricted pod security at the namespace level
 - [ ] Cost optimization — reserved instances, spot instances, right-sizing based on actual usage
-- [ ] Grafana dashboard provisioning — pre-built dashboards deployed via ConfigMap
 - [ ] Cilium externalTrafficPolicy: Local — revisit when Cilium fixes Local policy support on AKS
