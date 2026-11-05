@@ -4,6 +4,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.RpcServiceProxyHandle;
@@ -73,6 +74,22 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private TraceLogFilter traceLogFilter;
     @Autowired
     private RequestLivenessWatcher requestLivenessWatcher;
+    // what every proxy of this cluster member shares: its requests go through the event bus as the calling
+    // context's participant, and an unreachable service is reported to the directory when there is one
+    private RpcProxyServices proxyServices;
+
+    @PostConstruct
+    void initProxyServices() {
+        proxyServices = new RpcProxyServices(kinotic.serverInfo().getNodeName(),
+                                             rpcReturnValueHandlerFactory,
+                                             eventBusService,
+                                             securityContext::currentParticipant,
+                                             serviceDirectoryProvider::getIfAvailable,
+                                             requestLivenessWatcher,
+                                             vertx,
+                                             openTelemetry,
+                                             traceLogFilter);
+    }
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
@@ -138,21 +155,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   serviceInterface,
                                                   rpcArgumentConverter,
                                                   Thread.currentThread().getContextClassLoader(),
-                                                  proxyServices());
-    }
-
-    // what every proxy of this cluster member shares: its requests go through the event bus as the calling
-    // context's participant, and an unreachable service is reported to the directory when there is one
-    private RpcProxyServices proxyServices() {
-        return new RpcProxyServices(kinotic.serverInfo().getNodeName(),
-                                    rpcReturnValueHandlerFactory,
-                                    eventBusService,
-                                    securityContext::currentParticipant,
-                                    serviceDirectoryProvider::getIfAvailable,
-                                    requestLivenessWatcher,
-                                    vertx,
-                                    openTelemetry,
-                                    traceLogFilter);
+                                                  proxyServices);
     }
 
     @Override

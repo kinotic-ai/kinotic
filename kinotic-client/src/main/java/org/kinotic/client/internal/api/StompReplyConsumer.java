@@ -68,14 +68,9 @@ public class StompReplyConsumer implements EventConsumer {
         this.subscriptionId = subscriptionId;
         this.destination = destination;
         this.ready = receipt;
-        // the registration completes or fails with the first subscription's receipt
-        receipt.onComplete(ar -> {
-            if (ar.succeeded()) {
-                completion.tryComplete();
-            } else {
-                completion.tryFail(ar.cause());
-            }
-        });
+        // the registration completes with the first receipt; a receipt that fails loses the connection, whose
+        // reconnect subscribes again
+        receipt.onSuccess(v -> completion.tryComplete());
     }
 
     void unsubscribed() {
@@ -132,6 +127,7 @@ public class StompReplyConsumer implements EventConsumer {
     @Override
     public Future<Void> unregister() {
         registered = false;
+        completion.tryFail(new IllegalStateException("The consumer for " + address + " was unregistered before a subscription was receipted"));
         Future<Void> ret = transport.remove(this);
         Handler<Void> onEnd = endHandler;
         if (onEnd != null) {

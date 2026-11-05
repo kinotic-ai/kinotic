@@ -58,10 +58,10 @@ public class KinoticConnectionTests {
 
     @BeforeAll
     public static void startGateway() throws Exception {
-        port = TestGatewayApplication.freePort();
-        gateway = TestGatewayApplication.start(port);
         // one instance for every connection of the suite, as an application sharing its own would have
         vertx = Vertx.vertx();
+        port = TestGatewayApplication.freePort();
+        gateway = TestGatewayApplication.start(port);
     }
 
     @AfterAll
@@ -142,6 +142,26 @@ public class KinoticConnectionTests {
                   .until(() -> states.indexOf(ConnectionState.RECONNECTING) >= 0
                           && states.lastIndexOf(ConnectionState.CONNECTED) > states.indexOf(ConnectionState.RECONNECTING));
         Assertions.assertEquals("Hello Bob", service.greet("Bob").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void testProxyReleasedBeforeItsSubscriptionIsReceiptedKeepsTheConnection() throws Exception {
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET));
+        List<ConnectionState> states = Collections.synchronizedList(new ArrayList<>());
+        connection.stateHandler(states::add);
+        ClientTestService service = connection.serviceProxy(ClientTestService.class).getService();
+        String replyToId = connection.connectedInfo().getReplyToId();
+
+        // each UNSUBSCRIBE reaches the gateway while the SUBSCRIBE before it is still registering in the cluster
+        for (int i = 0; i < 20; i++) {
+            connection.serviceProxy(ClientTestService.class).release();
+        }
+
+        Assertions.assertEquals("Hello Bob", service.greet("Bob").get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        // the gateway ends a connection asynchronously, so the connection has to stay up for a while to pass
+        Awaitility.await().during(Duration.ofSeconds(1)).atMost(Duration.ofSeconds(2))
+                  .until(() -> connection.state() == ConnectionState.CONNECTED && !states.contains(ConnectionState.RECONNECTING));
+        Assertions.assertEquals(replyToId, connection.connectedInfo().getReplyToId());
     }
 
     @Test

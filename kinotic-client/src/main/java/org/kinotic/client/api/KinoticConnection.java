@@ -16,8 +16,9 @@ import org.kinotic.core.api.service.ServiceIdentifier;
  * within the attempt budget of its {@link ReconnectOptions}. A call pending when the connection is lost fails with
  * an {@link org.kinotic.core.api.exceptions.RpcServiceUnavailableException}, since nothing the gateway held for the
  * connection survives it. Every handler the connection invokes runs on the connection's context of the Vert.x
- * instance it was given; a proxy result completes on the context the call was made on, or on the connection's
- * context for a caller without one. Neither may block its context.
+ * instance it was given, and a proxy's result completes there too, since replies arrive on it; a request that
+ * fails before the gateway acknowledged it completes its result on the context the call was made on. Nothing
+ * run on the connection's context may block it.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */

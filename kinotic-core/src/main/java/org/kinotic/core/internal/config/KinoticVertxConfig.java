@@ -105,8 +105,8 @@ public class KinoticVertxConfig {
                        SecurityContext securityContext,
                        ClusterManager clusterManager) throws Throwable {
 
-        // one mapper platform wide: vertx JSON binds with the Spring mapper, which carries every
-        // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
+        // one mapper platform wide: vertx JSON binds with the Spring mapper, which KinoticJacksonConfig.configure
+        // gives the Vert.x types and the platform's own, beside every JacksonModule bean the other modules contribute
         VertxJackson3Codec.setMapper(jsonMapper);
 
         // With OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true the agent bridges Micrometer's global registry

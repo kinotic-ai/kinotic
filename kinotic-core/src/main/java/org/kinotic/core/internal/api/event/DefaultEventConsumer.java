@@ -79,7 +79,16 @@ public class DefaultEventConsumer implements EventConsumer {
         if (onUnregister != null && unregistered.compareAndSet(false, true)) {
             onUnregister.run();
         }
-        return delegate.unregister();
+        // Vert.x fails a registration still in progress when the consumer is unregistered under it, which a
+        // caller waiting on completion() would read as a failed registration, so the unregistration waits for
+        // a started registration to settle either way
+        Future<Void> ret;
+        if (delegate.isRegistered()) {
+            ret = delegate.completion().transform(ar -> delegate.unregister());
+        } else {
+            ret = delegate.unregister();
+        }
+        return ret;
     }
 
     @Override
