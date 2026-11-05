@@ -1,7 +1,9 @@
 package org.kinotic.sql.executor;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.json.JsonData;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import co.elastic.clients.elasticsearch.indices.ExistsRequest;
 import org.kinotic.sql.domain.Migration;
@@ -22,7 +24,8 @@ import java.util.concurrent.CompletableFuture;
  * 2. Project-specific migrations - Can be applied on-demand at runtime from external sources
  * 
  * Each project tracks its own set of applied migrations independently, allowing for
- * isolated migration per project.
+ * isolated migration per project. A project id is unique only within its organization, so
+ * history is keyed by organization and project.
  * 
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  */
@@ -31,6 +34,8 @@ public class MigrationExecutor {
     private static final Logger log = LoggerFactory.getLogger(MigrationExecutor.class);
     private static final String MIGRATION_INDEX = "migration_history";
     public static final String SYSTEM_PROJECT = "structures_system";
+    /** The organization the system migrations are recorded under; no organization may take this id. */
+    public static final String SYSTEM_ORGANIZATION = "system";
 
     private final ElasticsearchAsyncClient client;
     private final List<StatementExecutor<?, ?>> executors;
@@ -42,7 +47,11 @@ public class MigrationExecutor {
     }
 
     /**
-     * Ensures that the migration tracking index exists in Elasticsearch
+     * Ensures that the migration tracking index exists in Elasticsearch, with history keyed by organization and
+     * project. An index from before history carried the organization gets the field mapped and its system rows
+     * attributed to the system organization; a project's rows name no organization, which nothing can attribute,
+     * so the future fails while any remain rather than let that project's migrations read as unapplied and run
+     * again: the cluster is rebuilt.
      * @return CompletableFuture<Boolean> that completes with true if index was created, false if it already existed
      */
     public CompletableFuture<Boolean> ensureMigrationIndexExists() {
@@ -54,6 +63,7 @@ public class MigrationExecutor {
                             .index(MIGRATION_INDEX)
                             .mappings(m -> m
                                     .properties("version", p -> p.integer(i -> i))
+                                    .properties("organizationId", p -> p.keyword(k -> k))
                                     .properties("projectId", p -> p.keyword(k -> k))
                                     .properties("appliedAt", p -> p.date(d -> d))
                                     .properties("name", p -> p.keyword(k -> k))
@@ -61,7 +71,37 @@ public class MigrationExecutor {
                             )
                     ).thenApply(response -> true);
                 }
-                return CompletableFuture.completedFuture(false);
+                // a term query on organizationId only matches once the field is mapped as a keyword; the mapping
+                // is the same whether it exists already or not, so the put is a no-op after the first
+                return client.indices().putMapping(m -> m.index(MIGRATION_INDEX)
+                                                        .properties("organizationId", p -> p.keyword(k -> k)))
+                        .thenCompose(mapped -> client.updateByQuery(u -> u
+                                .index(MIGRATION_INDEX)
+                                .refresh(true)
+                                .conflicts(Conflicts.Proceed)
+                                .query(q -> q.bool(b -> b.must(m -> m.term(t -> t.field("projectId").value(SYSTEM_PROJECT)))
+                                                          .mustNot(m -> m.exists(e -> e.field("organizationId")))))
+                                .script(s -> s.source(src -> src.scriptString("ctx._source.organizationId = params.organizationId"))
+                                              .params("organizationId", JsonData.of(SYSTEM_ORGANIZATION)))))
+                        .thenApply(response -> {
+                            // a partial backfill would read the rows it missed as unapplied and run their migrations again
+                            if (Boolean.TRUE.equals(response.timedOut()) || !response.failures().isEmpty()) {
+                                throw new IllegalStateException("The migration history backfill did not complete: "
+                                                                + response.failures().size() + " failure(s), timed out: " + response.timedOut());
+                            }
+                            return false;
+                        })
+                        .thenCompose(created -> client.count(c -> c.index(MIGRATION_INDEX)
+                                                                   .query(q -> q.bool(b -> b.mustNot(m -> m.exists(e -> e.field("organizationId"))))))
+                                                      .thenApply(unattributed -> {
+                                                          // a project's rows name no organization and are read as unapplied, so their
+                                                          // migrations would run again; only a rebuild of the cluster takes them
+                                                          if (unattributed.count() > 0) {
+                                                              throw new IllegalStateException("The migration history holds " + unattributed.count()
+                                                                      + " project row(s) naming no organization; rebuild the cluster before migrating");
+                                                          }
+                                                          return created;
+                                                      }));
             });
     }
 
@@ -69,27 +109,30 @@ public class MigrationExecutor {
      * Executes system-level migrations that apply to the entire application
      */
     public CompletableFuture<Void> executeSystemMigrations(List<Migration> migrations) {
-        return executeMigrationsForProject(migrations, SYSTEM_PROJECT);
+        return executeMigrationsForProject(migrations, SYSTEM_ORGANIZATION, SYSTEM_PROJECT);
     }
 
     /**
      * Executes project-specific migrations
      * These will be executed on request for a specific project
      */
-    public CompletableFuture<Void> executeProjectMigrations(List<Migration> migrations, String projectId) {
+    public CompletableFuture<Void> executeProjectMigrations(List<Migration> migrations, String organizationId, String projectId) {
         // FIXME: make sure migrations are not currently running for the same project
         // Was thinking we can use Apache Ignite distributed lock or ACID cache transactions for this
+        if (organizationId == null || organizationId.isEmpty()) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Organization ID cannot be null or empty"));
+        }
         if (projectId == null || projectId.isEmpty()) {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Project ID cannot be null or empty"));
         }
-        return executeMigrationsForProject(migrations, projectId);
+        return executeMigrationsForProject(migrations, organizationId, projectId);
     }
 
     /**
      * Executes migrations for a specific project context
      */
-    private CompletableFuture<Void> executeMigrationsForProject(List<Migration> migrations, String projectId) {
-        log.info("Executing migrations for project {}", projectId);
+    private CompletableFuture<Void> executeMigrationsForProject(List<Migration> migrations, String organizationId, String projectId) {
+        log.info("Executing migrations for project {} of organization {}", projectId, organizationId);
 
         // Always make a copy so we don't sort the original reference
         List<Migration> sortedMigrations = new ArrayList<>(migrations);
@@ -110,7 +153,7 @@ public class MigrationExecutor {
                 throw new IllegalStateException("Duplicate migration version found: " + version + " (" + migration.getName() + ")");
             }
 
-            chain = chain.thenCompose(v -> isMigrationAppliedAsync(String.valueOf(version), projectId)
+            chain = chain.thenCompose(v -> isMigrationAppliedAsync(String.valueOf(version), organizationId, projectId)
                 .thenCompose(applied -> {
                     if (!applied) {
                         log.info("Applying migration {} for project {}", version, projectId);
@@ -126,7 +169,7 @@ public class MigrationExecutor {
                         return statementChain.thenCompose(v2 -> {
                             long duration = System.currentTimeMillis() - start;
 
-                            return recordMigrationAsync(version, projectId, migration.getName(), duration);
+                            return recordMigrationAsync(version, organizationId, projectId, migration.getName(), duration);
                         });
                     } else {
                         log.debug("Migration {} already applied for project {}", version, projectId);
@@ -170,12 +213,13 @@ public class MigrationExecutor {
                         .orElse(null);
     }
 
-    public CompletableFuture<Boolean> isMigrationAppliedAsync(String version, String projectId) {
+    public CompletableFuture<Boolean> isMigrationAppliedAsync(String version, String organizationId, String projectId) {
         return client.search(s -> s
                 .index(MIGRATION_INDEX)
                 .query(q -> q
                         .bool(b -> b
                                 .must(m -> m.term(t -> t.field("version").value(version)))
+                                .must(m -> m.term(t -> t.field("organizationId").value(organizationId)))
                                 .must(m -> m.term(t -> t.field("projectId").value(projectId)))
                         )
                 ),
@@ -189,14 +233,18 @@ public class MigrationExecutor {
     /**
      * Gets the highest migration version that has been applied to a project.
      * 
-     * @param projectId the project identifier
+     * @param organizationId the organization the project belongs to
+     * @param projectId      the project identifier
      * @return CompletableFuture<Integer> that completes with the highest applied migration version, or null if no migrations have been applied
      */
-    public CompletableFuture<Integer> getLastAppliedMigrationVersion(String projectId) {
+    public CompletableFuture<Integer> getLastAppliedMigrationVersion(String organizationId, String projectId) {
         return client.search(s -> s
                 .index(MIGRATION_INDEX)
                 .query(q -> q
-                        .term(t -> t.field("projectId").value(projectId))
+                        .bool(b -> b
+                                .must(m -> m.term(t -> t.field("organizationId").value(organizationId)))
+                                .must(m -> m.term(t -> t.field("projectId").value(projectId)))
+                        )
                 )
                 .sort(sort -> sort
                         .field(f -> f.field("version").order(co.elastic.clients.elasticsearch._types.SortOrder.Desc))
@@ -212,14 +260,14 @@ public class MigrationExecutor {
         });
     }
 
-    private CompletableFuture<Void> recordMigrationAsync(int version, String projectId, String name, long durationMs) {
+    private CompletableFuture<Void> recordMigrationAsync(int version, String organizationId, String projectId, String name, long durationMs) {
         return client.index(i -> i
                 .index(MIGRATION_INDEX)
-                .document(new MigrationRecord(version, projectId, System.currentTimeMillis(), name, durationMs))
+                .document(new MigrationRecord(version, organizationId, projectId, System.currentTimeMillis(), name, durationMs))
                 .refresh(Refresh.WaitFor)
         ).thenApply(response -> null);
     }
 
     // Enhanced record to track migrations by project with timestamp
-    public record MigrationRecord(int version, String projectId, long appliedAt, String name, long durationMs) {}
+    public record MigrationRecord(int version, String organizationId, String projectId, long appliedAt, String name, long durationMs) {}
 }

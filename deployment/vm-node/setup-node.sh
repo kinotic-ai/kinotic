@@ -209,6 +209,9 @@ resolv-file=/run/systemd/resolve/resolv.conf
 # consulted: a name the node pins resolves for a guest too, and the vm-manager writes the
 # pinned address into the name's set itself, so the guest stays on the pinned path.
 cache-size=0
+# An upstream answer naming a private address would put a bridge or host address into a
+# hostname's ipset and let a workload reach a peer or the node through a name it is allowed
+stop-dns-rebind
 EOF
 if ! command -v dnsmasq >/dev/null 2>&1; then
     # The package starts the service on install with its stock configuration, which binds

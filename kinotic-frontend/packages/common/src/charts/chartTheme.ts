@@ -94,7 +94,7 @@ function tooltipCard(dark: boolean, heading: string, rows: ChartTooltipRow[], to
     const divider = chartGridColor(dark)
     const line = (entry: ChartTooltipRow, strong: boolean) =>
         `<div style="display:flex;align-items:center;gap:8px;padding:3px 0">`
-        + (entry.color ? `<span style="width:8px;height:8px;border-radius:2px;flex:none;background:${entry.color}"></span>` : '')
+        + (entry.color ? `<span style="width:8px;height:8px;border-radius:2px;flex:none;background:${escapeHtml(entry.color)}"></span>` : '')
         + `<span style="flex:1;color:${strong ? text : muted}">${escapeHtml(entry.name)}</span>`
         + `<span style="font-weight:600;font-variant-numeric:tabular-nums;color:${text}">${escapeHtml(entry.value)}</span></div>`
     const totalLine = total

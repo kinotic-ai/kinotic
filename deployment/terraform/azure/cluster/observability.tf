@@ -218,6 +218,26 @@ locals {
   grafana_entra_enabled = local.global.grafana_entra_client_id != ""
 }
 
+resource "random_password" "grafana_admin" {
+  length  = 32
+  special = false
+}
+
+# The Entra client secret reaches Grafana as GF_AUTH_AZUREAD_CLIENT_SECRET from this Secret,
+# since the chart renders grafana.ini into a ConfigMap
+resource "kubernetes_secret" "grafana_env" {
+  count = local.grafana_entra_enabled ? 1 : 0
+
+  metadata {
+    name      = "grafana-env"
+    namespace = kubernetes_namespace.observability.metadata[0].name
+  }
+
+  data = {
+    GF_AUTH_AZUREAD_CLIENT_SECRET = local.global.grafana_entra_client_secret
+  }
+}
+
 resource "helm_release" "grafana" {
   name       = "grafana"
   namespace  = kubernetes_namespace.observability.metadata[0].name
@@ -232,13 +252,14 @@ resource "helm_release" "grafana" {
     local.grafana_entra_enabled ? [file("${path.module}/../../../helm/observability/values-grafana-azure.yaml")] : [],
   )
 
-  # Entra ID OAuth (when enabled)
+  # Entra ID OAuth (when enabled): the login form is off, so Entra is the only way in
   set = concat(
     [
       { name = "datasources.datasources\\.yaml.datasources[0].url", value = "http://loki.observability.svc:3100" },
-      { name = "assertNoLeakedSecrets", value = "false" },
     ],
     local.grafana_entra_enabled ? [
+      { name = "envFromSecret", value = kubernetes_secret.grafana_env[0].metadata[0].name },
+      { name = "grafana\\.ini.auth.disable_login_form", value = "true" },
       { name = "grafana\\.ini.auth\\.azuread.client_id", value = local.global.grafana_entra_client_id },
       { name = "grafana\\.ini.auth\\.azuread.tenant_id", value = local.global.tenant_id },
       { name = "grafana\\.ini.auth\\.azuread.auth_url", value = "https://login.microsoftonline.com/${local.global.tenant_id}/oauth2/v2.0/authorize" },
@@ -246,9 +267,9 @@ resource "helm_release" "grafana" {
     ] : [],
   )
 
-  set_sensitive = local.grafana_entra_enabled ? [
-    { name = "grafana\\.ini.auth\\.azuread.client_secret", value = local.global.grafana_entra_client_secret },
-  ] : []
+  set_sensitive = [
+    { name = "adminPassword", value = random_password.grafana_admin.result },
+  ]
 
   depends_on = [helm_release.loki, helm_release.tempo, helm_release.mimir]
 }

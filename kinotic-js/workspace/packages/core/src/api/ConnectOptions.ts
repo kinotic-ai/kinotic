@@ -30,6 +30,11 @@ export type WebSocketFactory = () => IWebSocket | Promise<IWebSocket>
 export class ServerInfo {
     host!: string
     port?: number | null
+    /**
+     * Whether the server is reached over TLS. Absent, {@code KINOTIC_SERVER_USE_SSL} decides,
+     * then the page's own protocol for a host taken from the browser's location, and otherwise
+     * TLS for every host but a loopback one ({@code localhost}, {@code 127.0.0.1}, {@code ::1}).
+     */
     useSSL?: boolean | null
 }
 
@@ -38,8 +43,10 @@ export class ServerInfo {
  * TLS appends {@code s}, and the port is omitted when absent so the scheme default applies.
  */
 export function buildServerUrl(server: ServerInfo, scheme: 'ws' | 'http'): string {
+    // a bare IPv6 literal such as ::1 is bracketed, or its colons would read as the port's
+    const host = server.host.includes(':') && !server.host.startsWith('[') ? '[' + server.host + ']' : server.host
     return scheme + (server.useSSL ? 's' : '')
-        + '://' + server.host
+        + '://' + host
         + (server.port ? ':' + server.port : '')
 }
 

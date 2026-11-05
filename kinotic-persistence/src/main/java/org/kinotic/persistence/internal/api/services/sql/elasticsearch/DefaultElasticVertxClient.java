@@ -231,7 +231,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
         List<Map<String,Object>> ret = new ArrayList<>(response.getRows().size());
 
         for(List<Object> row : response.getRows()){
-            Map<String, Object> obj = new HashMap<>(response.getRows().size(), 1.5F);
+            Map<String, Object> obj = new HashMap<>();
 
             for(int colIdx = 0; colIdx < row.size(); colIdx++){
                 obj.put(elasticColumns.get(colIdx).getName(), row.get(colIdx));

@@ -208,7 +208,8 @@ public class DomainUtil {
 
     /**
      * The Elasticsearch {@code _id} an entity's item is stored under. A {@link MultiTenancyType#SHARED} entity
-     * prefixes the item's id with its tenant, so two tenants may each hold an item of the same id.
+     * prefixes the item's id with its tenant, so two tenants may each hold an item of the same id. The separator is
+     * a character a tenant id never holds, so no two tenant and item id pairs share a document id.
      *
      * @param multiTenancyType how the entity separates its tenants
      * @param tenantId         the item's tenant, required for a {@link MultiTenancyType#SHARED} entity
@@ -216,7 +217,7 @@ public class DomainUtil {
      * @return the document id
      */
     public static String createEntityDocumentId(MultiTenancyType multiTenancyType, String tenantId, String id){
-        return multiTenancyType == MultiTenancyType.SHARED ? tenantId + "-" + id : id;
+        return multiTenancyType == MultiTenancyType.SHARED ? tenantId + ":" + id : id;
     }
 
     /**

@@ -84,4 +84,19 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         expect(result.status).not.toBe(0)
         expect(result.stderr).toContain('packages/ui/admin')
     }, 60_000)
+
+    it('fails before uploading anything when a built file is named with a backslash', async () => {
+        // a POSIX file name whose backslash would read as a path separator once it reaches the blob URL
+        writeFileSync(join(workspaceDir, 'packages', 'ui', 'admin', 'dist', '..\\evil'), 'escaped')
+
+        const result = spawnSync('bun', [PUBLISH], {
+            env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: JSON.stringify({ admin: siteUrl('backslash.apps.kinotic.test') }),
+                   KINOTIC_UI_COMMIT: 'c'.repeat(40), KINOTIC_WORKSPACE_DIR: workspaceDir },
+            encoding: 'utf-8',
+        })
+
+        expect(result.status).not.toBe(0)
+        expect(result.stderr).toContain('..\\evil')
+        expect((await readBlob('backslash.apps.kinotic.test/index.html')).status).toBe(404)
+    }, 60_000)
 })

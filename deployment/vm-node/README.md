@@ -184,9 +184,11 @@ The kit refuses to provision anything but x86_64, for three independent reasons:
   upstream it forwards to. Workloads stay on the default bridge.
 - **A workload that fills its rootfs to the cap cannot restart** — Docker cannot create the
   overlay `merged` directory inside an exhausted quota. Correct enforcement, but worth knowing.
-- **`icc: false` beats an allowlist entry for an on-node peer.** Docker's inter-container
-  block sits below `DOCKER-USER`, so an `ACCEPT` naming another container's address on this
-  node does not take effect. Destinations off the bridge — the api-gateway on another
+- **An allowlist entry never reaches an on-node peer.** `kinotic-node-firewall` drops
+  guest-to-guest traffic at the top of `FORWARD`, above the `DOCKER-USER` jump, so an
+  `ACCEPT` naming another container's address, or a destination broad enough to cover the
+  bridge, does not take effect; Docker's own `icc: false` rule sits below the jump, where a
+  grant would otherwise pass it. Destinations off the bridge — the api-gateway on another
   machine, a network CIDR, the internet — are unaffected. Do not colocate the api-gateway
   with workloads.
 - **Host networking would bypass the floor.** A container sharing the host netns sends through

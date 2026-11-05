@@ -80,7 +80,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_object_test", sql)), "ct_object_project").get();
+            List.of(migration(1, "V1__ct_object_test", sql)), "test-org", "ct_object_project").get();
 
         assertTrue(asyncClient.indices().exists(e -> e.index("ct_object_test")).get().value());
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_object_test"));
@@ -102,7 +102,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_object_ni_test", sql)), "ct_object_ni_project").get();
+            List.of(migration(1, "V1__ct_object_ni_test", sql)), "test-org", "ct_object_ni_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_object_ni_test"));
         Map<String, Property> props = mapping.get("ct_object_ni_test").mappings().properties();
@@ -120,7 +120,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_nested_test", sql)), "ct_nested_project").get();
+            List.of(migration(1, "V1__ct_nested_test", sql)), "test-org", "ct_nested_project").get();
 
         assertTrue(asyncClient.indices().exists(e -> e.index("ct_nested_test")).get().value());
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_nested_test"));
@@ -144,7 +144,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_union_test", sql)), "ct_union_project").get();
+            List.of(migration(1, "V1__ct_union_test", sql)), "test-org", "ct_union_project").get();
 
         assertTrue(asyncClient.indices().exists(e -> e.index("ct_union_test")).get().value());
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_union_test"));
@@ -195,7 +195,7 @@ class CompositeTypeTest extends KinoticTestBase {
             List.of(
                 migration(1, "V1__ct_alter_create", createSql),
                 migration(2, "V2__ct_alter_add_col", alterSql)
-            ), "ct_alter_project").get();
+            ), "test-org", "ct_alter_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_alter_test"));
         Map<String, Property> props = mapping.get("ct_alter_test").mappings().properties();
@@ -218,7 +218,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_deep_test", sql)), "ct_deep_project").get();
+            List.of(migration(1, "V1__ct_deep_test", sql)), "test-org", "ct_deep_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_deep_test"));
         Map<String, Property> props = mapping.get("ct_deep_test").mappings().properties();
@@ -241,7 +241,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_union_ni_test", sql)), "ct_union_ni_project").get();
+            List.of(migration(1, "V1__ct_union_ni_test", sql)), "test-org", "ct_union_ni_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_union_ni_test"));
         Map<String, Property> props = mapping.get("ct_union_ni_test").mappings().properties();
@@ -262,7 +262,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_obj_obj_test", sql)), "ct_obj_obj_project").get();
+            List.of(migration(1, "V1__ct_obj_obj_test", sql)), "test-org", "ct_obj_obj_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_obj_obj_test"));
         Map<String, Property> props = mapping.get("ct_obj_obj_test").mappings().properties();
@@ -289,7 +289,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_union_obj_test", sql)), "ct_union_obj_project").get();
+            List.of(migration(1, "V1__ct_union_obj_test", sql)), "test-org", "ct_union_obj_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_union_obj_test"));
         Map<String, Property> props = mapping.get("ct_union_obj_test").mappings().properties();
@@ -316,7 +316,7 @@ class CompositeTypeTest extends KinoticTestBase {
             List.of(
                 migration(1, "V1__ct_alter_nested_create", createSql),
                 migration(2, "V2__ct_alter_nested_add",    alterSql)
-            ), "ct_alter_nested_project").get();
+            ), "test-org", "ct_alter_nested_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_alter_nested_test"));
         Map<String, Property> props = mapping.get("ct_alter_nested_test").mappings().properties();
@@ -345,7 +345,7 @@ class CompositeTypeTest extends KinoticTestBase {
             List.of(
                 migration(1, "V1__ct_alter_union_create", createSql),
                 migration(2, "V2__ct_alter_union_add",    alterSql)
-            ), "ct_alter_union_project").get();
+            ), "test-org", "ct_alter_union_project").get();
 
         GetMappingResponse mapping = client.indices().getMapping(m -> m.index("ct_alter_union_test"));
         Map<String, Property> props = mapping.get("ct_alter_union_test").mappings().properties();
@@ -377,7 +377,7 @@ class CompositeTypeTest extends KinoticTestBase {
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_insert_create", createSql),
-                    migration(2, "V2__ct_insert_data",   insertSql)), "ct_insert_project").get();
+                    migration(2, "V2__ct_insert_data",   insertSql)), "test-org", "ct_insert_project").get();
 
         @SuppressWarnings("rawtypes")
         GetResponse<Map> response = client.get(g -> g.index("ct_insert_test").id("p-1"), Map.class);
@@ -422,7 +422,7 @@ class CompositeTypeTest extends KinoticTestBase {
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_insert_nested_create", createSql),
-                    migration(2, "V2__ct_insert_nested_data",   insertSql)), "ct_insert_nested_project").get();
+                    migration(2, "V2__ct_insert_nested_data",   insertSql)), "test-org", "ct_insert_nested_project").get();
 
         // A nested query matches only when both terms come from the same array element, so a hit on
         // ('Release','v1') and none on ('Release','sql') means each element became its own sub-document
@@ -468,7 +468,7 @@ class CompositeTypeTest extends KinoticTestBase {
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_update_create", createSql),
                     migration(2, "V2__ct_update_data",   insertSql),
-                    migration(3, "V3__ct_update_apply",  updateSql)), "ct_update_project").get();
+                    migration(3, "V3__ct_update_apply",  updateSql)), "test-org", "ct_update_project").get();
 
         @SuppressWarnings("rawtypes")
         GetResponse<Map> response = client.get(g -> g.index("ct_update_test").id("p-1"), Map.class);
@@ -520,7 +520,7 @@ class CompositeTypeTest extends KinoticTestBase {
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_null_create", createSql),
                     migration(2, "V2__ct_null_data",   insertSql),
-                    migration(3, "V3__ct_null_clear",  updateSql)), "ct_null_project").get();
+                    migration(3, "V3__ct_null_clear",  updateSql)), "test-org", "ct_null_project").get();
 
         @SuppressWarnings("rawtypes")
         GetResponse<Map> cleared = client.get(g -> g.index("ct_null_test").id("p-1"), Map.class);
@@ -565,7 +565,7 @@ class CompositeTypeTest extends KinoticTestBase {
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_merge_absent_create", createSql),
                     migration(2, "V2__ct_merge_absent_data",   insertSql),
-                    migration(3, "V3__ct_merge_absent_apply",  updateSql)), "ct_merge_absent_project").get();
+                    migration(3, "V3__ct_merge_absent_apply",  updateSql)), "test-org", "ct_merge_absent_project").get();
 
         // Neither document carries the column, so the merge has to create the object it merges into
         @SuppressWarnings("rawtypes")
@@ -608,7 +608,7 @@ class CompositeTypeTest extends KinoticTestBase {
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_union_data_create", createSql),
                     migration(2, "V2__ct_union_data_insert", insertSql),
-                    migration(3, "V3__ct_union_data_switch", updateSql)), "ct_union_data_project").get();
+                    migration(3, "V3__ct_union_data_switch", updateSql)), "test-org", "ct_union_data_project").get();
 
         @SuppressWarnings("rawtypes")
         GetResponse<Map> stored = client.get(g -> g.index("ct_union_data_test").id("a-2"), Map.class);
@@ -645,7 +645,7 @@ class CompositeTypeTest extends KinoticTestBase {
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_json_data_create", createSql),
-                    migration(2, "V2__ct_json_data_insert", insertSql)), "ct_json_data_project").get();
+                    migration(2, "V2__ct_json_data_insert", insertSql)), "test-org", "ct_json_data_project").get();
 
         @SuppressWarnings("rawtypes")
         GetResponse<Map> response = client.get(g -> g.index("ct_json_data_test").id("e-1"), Map.class);
@@ -675,7 +675,7 @@ class CompositeTypeTest extends KinoticTestBase {
             """;
         migrationExecutor.executeProjectMigrations(
             List.of(migration(1, "V1__ct_geo_data_create", createSql),
-                    migration(2, "V2__ct_geo_data_insert", insertSql)), "ct_geo_data_project").get();
+                    migration(2, "V2__ct_geo_data_insert", insertSql)), "test-org", "ct_geo_data_project").get();
 
         // A geo_distance query resolves only if the decimals reached the geo_point as coordinates
         assertEquals(1, client.count(c -> c.index("ct_geo_data_test")
@@ -697,11 +697,11 @@ class CompositeTypeTest extends KinoticTestBase {
                 VALUES ('p-1', { street: '1 Main St', country: 'US' }) WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_insert_strict_create", createSql)), "ct_insert_strict_project").get();
+            List.of(migration(1, "V1__ct_insert_strict_create", createSql)), "test-org", "ct_insert_strict_project").get();
 
         // dynamic:strict means the mapping, not the parser, is what rejects a mistyped sub-field
         assertThrows(ExecutionException.class, () -> migrationExecutor.executeProjectMigrations(
-            List.of(migration(2, "V2__ct_insert_strict_data", insertSql)), "ct_insert_strict_project").get());
+            List.of(migration(2, "V2__ct_insert_strict_data", insertSql)), "test-org", "ct_insert_strict_project").get());
     }
 
     @Test
@@ -713,7 +713,7 @@ class CompositeTypeTest extends KinoticTestBase {
             );
             """;
         migrationExecutor.executeProjectMigrations(
-            List.of(migration(1, "V1__ct_strict_test", sql)), "ct_strict_project").get();
+            List.of(migration(1, "V1__ct_strict_test", sql)), "test-org", "ct_strict_project").get();
 
         // dynamic:strict means undeclared sub-fields are rejected at write time
         Map<String, Object> doc = new HashMap<>();
