@@ -26,8 +26,8 @@ import java.util.Collection;
  * {@link OwnedOidcConfiguration} by an organization participant of the organization it names, and an
  * {@link ApplicationOidcConfiguration} must name an application of that organization. An organization's
  * configuration signing in through a client of its own must name Google, which every organization may configure,
- * or Okta or Microsoft Entra, which are Kinotic Enterprise Features, and its account there in the form that
- * provider expects; its authority is derived from the two on every save. An application's configuration
+ * or, as a Kinotic Enterprise Feature, Okta or Microsoft Entra, and its account there in the form that provider
+ * expects; its authority is derived from the two on every save. An application's configuration
  * that starts signing in through Kinotic's registration
  * ({@link ClientRegistrationType#MANAGED}) must name a provider kind the system holds an enabled
  * {@link ApplicationSocialOidcConfiguration} for, and needs no account or client of its own; once it does, it saves

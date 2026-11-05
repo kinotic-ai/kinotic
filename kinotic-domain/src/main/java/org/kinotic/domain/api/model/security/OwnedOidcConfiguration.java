@@ -18,8 +18,8 @@ import org.kinotic.domain.api.model.OrganizationScoped;
  * callback URL.
  *
  * <p>The organization names no URL. It chooses {@link OidcProviderType#GOOGLE}, which every organization may
- * configure, or {@link OidcProviderType#OKTA} or {@link OidcProviderType#AZURE_AD}, which are Kinotic Enterprise
- * Features, and gives its {@link #providerAccount} at that provider; the server derives the authority from the
+ * configure, or, as a Kinotic Enterprise Feature, {@link OidcProviderType#OKTA} or
+ * {@link OidcProviderType#AZURE_AD}, and gives its {@link #providerAccount} at that provider; the server derives the authority from the
  * account when the configuration is saved, replacing any value sent, so the server connects to the provider's own
  * hosts only.
  *
