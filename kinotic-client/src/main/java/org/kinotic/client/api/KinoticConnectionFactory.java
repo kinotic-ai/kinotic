@@ -21,8 +21,10 @@ public interface KinoticConnectionFactory {
      *         credentials, with the rejection when it answers the WebSocket upgrade with another 4xx status, or
      *         with the last failure once the attempts the options allow are spent
      * @throws IllegalArgumentException when the options name no {@code ws://} or {@code wss://} URL of a host without
-     *                                  a query or fragment, carry a header name or value HTTP refuses, or bound a
-     *                                  size, a delay or a timeout below its least value
+     *                                  a query or fragment, carry a header name or value HTTP refuses, send
+     *                                  authentication headers over {@code ws://} to a host other than localhost
+     *                                  without {@code allowCleartextCredentials}, or bound a size, a delay or a
+     *                                  timeout below its least value
      */
     Future<KinoticConnection> connect(ConnectOptions options);
 

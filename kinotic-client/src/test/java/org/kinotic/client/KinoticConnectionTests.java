@@ -249,6 +249,23 @@ public class KinoticConnectionTests {
     }
 
     @Test
+    public void testCredentialsOverCleartextToARemoteHostNeedTheOption() {
+        // 192.0.2.1 is reserved for documentation, so it is not loopback and nothing answers there
+        ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET)
+                .setServerUrl("ws://192.0.2.1:" + port)
+                .setReconnect(reconnectOptions().setMaxAttempts(1).setConnectionTimeout(Duration.ofMillis(200)));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> factory.connect(options));
+
+        // allowed, the connect goes on to its attempt, which the unanswered host fails
+        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                                                             () -> factory.connect(options.setAllowCleartextCredentials(true))
+                                                                                    .toCompletionStage()
+                                                                                    .toCompletableFuture()
+                                                                                    .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        Assertions.assertFalse(failure.getCause() instanceof IllegalArgumentException, failure.getCause().toString());
+    }
+
+    @Test
     public void testInitialConnectEndsAtOnceOnARejectedUpgrade() throws Exception {
         // a server answering the upgrade with a 404, as one with no gateway at the path does; a retried 404 would
         // never complete the connect, since the attempt budget is unbounded

@@ -39,6 +39,12 @@ public class ConnectOptions {
      * server. {@code null} applies the JDK defaults.
      */
     private ClientSSLOptions sslOptions;
+    /**
+     * Whether the {@code authHeaders} may be sent over a {@code ws://} connection to a host other than localhost,
+     * where they leave the process in clear: for a gateway behind a TLS-terminating proxy or on a private network.
+     * Off by default, so {@link KinoticConnectionFactory#connect(ConnectOptions)} refuses such a connection.
+     */
+    private boolean allowCleartextCredentials = false;
 
     /**
      * The size a reply's body must stay under, in bytes; a reply whose body reaches it ends the connection. A request
@@ -60,14 +66,15 @@ public class ConnectOptions {
     private ReconnectOptions reconnect = new ReconnectOptions();
 
     /**
-     * A copy of the given options, sharing nothing with them: a change to the original afterwards does not reach the
-     * copy.
+     * A copy of the given options, sharing nothing with them but the certificate buffers of the TLS options: a change
+     * to the original afterwards does not reach the copy, except through one of those buffers.
      * @param other the options to copy
      */
     public ConnectOptions(ConnectOptions other) {
         this.serverUrl = other.serverUrl;
         this.authHeaders = other.authHeaders == null ? null : new HashMap<>(other.authHeaders);
         this.sslOptions = other.sslOptions == null ? null : other.sslOptions.copy();
+        this.allowCleartextCredentials = other.allowCleartextCredentials;
         this.maxBodyLength = other.maxBodyLength;
         this.maxWebSocketFrameSize = other.maxWebSocketFrameSize;
         this.reconnect = other.reconnect == null ? null : new ReconnectOptions(other.reconnect);

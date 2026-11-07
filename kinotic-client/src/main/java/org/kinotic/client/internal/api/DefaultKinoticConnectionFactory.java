@@ -76,6 +76,10 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
         // once rather than failing every attempt
         MultiMap headers = HttpHeaders.headers();
         validated.getAuthHeaders().forEach(headers::add);
+        // credentials over ws:// leave the process in clear, so a host other than loopback takes them only by choice
+        Validate.isTrue(!"ws".equals(serverUri.getScheme()) || validated.getAuthHeaders().isEmpty()
+                                || isLoopback(serverUri.getHost()) || validated.isAllowCleartextCredentials(),
+                        "authHeaders over ws:// to a host other than localhost need allowCleartextCredentials");
         Validate.isTrue(validated.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
         Validate.isTrue(validated.getMaxWebSocketFrameSize() >= 1, "maxWebSocketFrameSize must be at least 1 byte");
         ReconnectOptions reconnect = validated.getReconnect();
@@ -87,6 +91,14 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
         Validate.isTrue(reconnect.getMaxJitter() != null && !reconnect.getMaxJitter().isNegative(),
                         "reconnect.maxJitter must not be negative");
         return new DefaultKinoticConnection(vertx, validated, proxyFactory, connectedInfoReader).start();
+    }
+
+    /**
+     * @param host the host of a server URL, an IPv6 literal in brackets
+     * @return whether it is a loopback literal: {@code localhost}, a {@code 127.} address or {@code [::1]}
+     */
+    private static boolean isLoopback(String host) {
+        return "localhost".equalsIgnoreCase(host) || host.startsWith("127.") || "[::1]".equals(host);
     }
 
     private static void validateAtLeastOneMillisecond(Duration duration, String name) {
