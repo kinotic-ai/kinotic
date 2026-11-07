@@ -55,27 +55,30 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
     @Override
     public Future<KinoticConnection> connect(ConnectOptions options) {
         Validate.notNull(options, "options must not be null");
-        Validate.notBlank(options.getServerUrl(), "serverUrl must not be blank");
-        Validate.notNull(options.getAuthHeaders(), "authHeaders must not be null");
-        Validate.notNull(options.getReconnect(), "reconnect must not be null");
-        URI serverUri = URI.create(options.getServerUrl());
+        // validated as copied, so a change to the caller's options while or after connect() runs reaches neither the
+        // validation nor the connection
+        ConnectOptions validated = new ConnectOptions(options);
+        Validate.notBlank(validated.getServerUrl(), "serverUrl must not be blank");
+        Validate.notNull(validated.getAuthHeaders(), "authHeaders must not be null");
+        Validate.notNull(validated.getReconnect(), "reconnect must not be null");
+        URI serverUri = URI.create(validated.getServerUrl());
         Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
-                        "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
-        Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
+                        "serverUrl must be a ws:// or wss:// URL but was '%s'", validated.getServerUrl());
+        Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", validated.getServerUrl());
         Validate.isTrue(!StringUtils.stripEnd(serverUri.getPath(), "/").endsWith(EventConstants.STOMP_WEBSOCKET_PATH),
                         "serverUrl names the gateway without its %s path, which the client appends itself",
                         EventConstants.STOMP_WEBSOCKET_PATH);
         Validate.isTrue(serverUri.getQuery() == null && serverUri.getFragment() == null,
-                        "serverUrl must carry no query or fragment but was '%s'", options.getServerUrl());
-        Validate.isTrue(options.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
-        Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
+                        "serverUrl must carry no query or fragment but was '%s'", validated.getServerUrl());
+        Validate.isTrue(validated.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
+        Validate.isTrue(validated.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
         // the upgrade request refuses a header name or value outside what HTTP allows, so they are checked here
         // once rather than failing every attempt
         MultiMap headers = HttpHeaders.headers();
-        options.getAuthHeaders().forEach(headers::add);
-        Validate.isTrue(options.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
-        Validate.isTrue(options.getMaxWebSocketFrameSize() >= 1, "maxWebSocketFrameSize must be at least 1 byte");
-        ReconnectOptions reconnect = options.getReconnect();
+        validated.getAuthHeaders().forEach(headers::add);
+        Validate.isTrue(validated.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
+        Validate.isTrue(validated.getMaxWebSocketFrameSize() >= 1, "maxWebSocketFrameSize must be at least 1 byte");
+        ReconnectOptions reconnect = validated.getReconnect();
         Validate.isTrue(reconnect.getMaxAttempts() >= 0, "reconnect.maxAttempts must not be negative");
         // Vert.x schedules no timer under a millisecond, so the delays and the timeout are at least that
         validateAtLeastOneMillisecond(reconnect.getInitialDelay(), "reconnect.initialDelay");
@@ -83,8 +86,7 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
         validateAtLeastOneMillisecond(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout");
         Validate.isTrue(reconnect.getMaxJitter() != null && !reconnect.getMaxJitter().isNegative(),
                         "reconnect.maxJitter must not be negative");
-        // the connection reconnects with the options validated here, whatever the caller does to its own afterwards
-        return new DefaultKinoticConnection(vertx, new ConnectOptions(options), proxyFactory, connectedInfoReader).start();
+        return new DefaultKinoticConnection(vertx, validated, proxyFactory, connectedInfoReader).start();
     }
 
     private static void validateAtLeastOneMillisecond(Duration duration, String name) {

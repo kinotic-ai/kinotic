@@ -66,11 +66,11 @@ public class ConnectOptions {
      */
     public ConnectOptions(ConnectOptions other) {
         this.serverUrl = other.serverUrl;
-        this.authHeaders = new HashMap<>(other.authHeaders);
+        this.authHeaders = other.authHeaders == null ? null : new HashMap<>(other.authHeaders);
         this.sslOptions = other.sslOptions == null ? null : other.sslOptions.copy();
         this.maxBodyLength = other.maxBodyLength;
         this.maxWebSocketFrameSize = other.maxWebSocketFrameSize;
-        this.reconnect = new ReconnectOptions(other.reconnect);
+        this.reconnect = other.reconnect == null ? null : new ReconnectOptions(other.reconnect);
     }
 
 }
