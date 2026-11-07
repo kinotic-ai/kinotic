@@ -170,7 +170,7 @@ if (project.name != 'kinotic-idl') {
 
 // Kinotic RPC, the modules LICENSE.md licenses under the Apache License 2.0, is usable without Kinotic OS, so none of
 // its modules may declare a project dependency on a module outside it
-def kinoticRpcModules = ['kinotic-core', 'kinotic-api-gateway', 'kinotic-idl'] as Set
+def kinoticRpcModules = ['kinotic-core', 'kinotic-api-gateway', 'kinotic-client', 'kinotic-idl'] as Set
 project.ext.kinoticRpc = project.name in kinoticRpcModules
 if (project.ext.kinoticRpc) {
     configurations.configureEach { configuration ->

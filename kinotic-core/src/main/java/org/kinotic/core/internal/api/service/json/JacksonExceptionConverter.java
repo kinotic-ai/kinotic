@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.codec.EncodingException;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,7 +25,6 @@ import java.util.Map;
  *
  * Created by Navid Mitchell on 2019-04-08.
  */
-@Component
 @Order
 public class JacksonExceptionConverter implements ExceptionConverter {
 

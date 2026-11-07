@@ -3,7 +3,6 @@
 package org.kinotic.core.internal.api.service;
 
 import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
@@ -13,7 +12,6 @@ import java.util.List;
  * Created by navid on 2019-04-25.
  */
 @Primary
-@Component
 public class DefaultExceptionConverter extends ExceptionConverterComposite {
 
     public DefaultExceptionConverter(List<ExceptionConverter> exceptionConverters) {

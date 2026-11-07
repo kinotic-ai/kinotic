@@ -3,7 +3,6 @@
 package org.kinotic.core.internal.api.service.rpc;
 
 import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
@@ -13,7 +12,6 @@ import java.util.List;
  * Created by Navid Mitchell on 6/23/20
  */
 @Primary
-@Component
 public class DefaultResponseConverter extends RpcResponseConverterComposite {
 
     public DefaultResponseConverter(List<RpcResponseConverter> converters) {
