@@ -14,7 +14,9 @@ import org.junit.jupiter.api.Timeout;
 import org.kinotic.client.api.ConnectOptions;
 import org.kinotic.client.api.ConnectionState;
 import org.kinotic.client.api.KinoticConnection;
+import org.kinotic.client.api.KinoticConnectionFactory;
 import org.kinotic.client.api.ReconnectOptions;
+import org.kinotic.client.app.TestClientApplication;
 import org.kinotic.client.gateway.Circle;
 import org.kinotic.client.gateway.ClientTestService;
 import org.kinotic.client.gateway.DefaultClientTestService;
@@ -31,7 +33,6 @@ import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.springframework.context.ConfigurableApplicationContext;
-import tools.jackson.databind.module.SimpleModule;
 
 import java.net.ServerSocket;
 import java.time.Duration;
@@ -44,7 +45,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runs the Java client against the gateway, started in this JVM, over a real WebSocket: every supported return type,
+ * Runs the Java client, auto-configured in a Spring context of its own, against the gateway started in this JVM
+ * over a real WebSocket: every supported return type,
  * a stream and its cancellation, a service's exception, a refusal by the gateway, rejected credentials, a call
  * pending when the gateway stops, and the reconnect once it is back.
  *
@@ -56,25 +58,31 @@ public class KinoticConnectionTests {
 
     private static int port;
     private static ConfigurableApplicationContext gateway;
+    private static ConfigurableApplicationContext client;
+    private static KinoticConnectionFactory factory;
     private static Vertx vertx;
     private final List<KinoticConnection> connections = new ArrayList<>();
 
     @BeforeAll
     public static void startGateway() throws Exception {
-        // one instance for every connection of the suite, as an application sharing its own would have
-        vertx = Vertx.vertx();
+        client = TestClientApplication.start();
+        factory = client.getBean(KinoticConnectionFactory.class);
+        // the application's instance, shared by every connection of the suite
+        vertx = client.getBean(Vertx.class);
         port = TestGatewayApplication.freePort();
         gateway = TestGatewayApplication.start(port);
     }
 
     @AfterAll
-    public static void stopGateway() throws Exception {
+    public static void stopGateway() {
         try {
             if (gateway != null) {
                 gateway.close();
             }
         } finally {
-            await(vertx.close());
+            if (client != null) {
+                client.close();
+            }
         }
     }
 
@@ -171,17 +179,12 @@ public class KinoticConnectionTests {
     }
 
     @Test
-    public void testMapperCustomizerConvertsWhatTheDefaultMapperCannot() throws Exception {
-        // the gateway serializes the Circle; a Shape return type converts only once a module names the Circle
-        KinoticConnection plain = connect(options(TestGatewayApplication.CLIENT_SECRET));
-        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                             () -> plain.serviceProxy(ClientTestService.class).getService().shape(2).get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
-        Assertions.assertNotNull(failure.getCause());
+    public void testTheApplicationsJacksonCustomizationConvertsTheReply() throws Exception {
+        // the gateway serializes the Circle; a Shape return type converts through the module the application's
+        // customizer adds to its mapper, which the proxies convert with
+        KinoticConnection connection = connect(options(TestGatewayApplication.CLIENT_SECRET));
 
-        KinoticConnection customized = connect(options(TestGatewayApplication.CLIENT_SECRET)
-                                                       .setJsonMapperCustomizer(builder -> builder.addModule(new SimpleModule().addAbstractTypeMapping(Shape.class, Circle.class))));
-
-        Shape shape = customized.serviceProxy(ClientTestService.class).getService().shape(2).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Shape shape = connection.serviceProxy(ClientTestService.class).getService().shape(2).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         Assertions.assertEquals(new Circle().setRadius(2), shape);
     }
@@ -234,7 +237,7 @@ public class KinoticConnectionTests {
         for (String serverUrl : List.of("ws://localhost:" + port + EventConstants.STOMP_WEBSOCKET_PATH,
                                         "ws://localhost:" + port + EventConstants.STOMP_WEBSOCKET_PATH + "/")) {
             Assertions.assertThrows(IllegalArgumentException.class,
-                                    () -> KinoticConnection.connect(vertx, options(TestGatewayApplication.CLIENT_SECRET).setServerUrl(serverUrl)),
+                                    () -> factory.connect(options(TestGatewayApplication.CLIENT_SECRET).setServerUrl(serverUrl)),
                                     serverUrl);
         }
     }
@@ -242,7 +245,7 @@ public class KinoticConnectionTests {
     @Test
     public void testAuthHeaderWithAnInvalidNameIsRejected() {
         ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET).setAuthHeaders(Map.of("client id", "java-client"));
-        Assertions.assertThrows(IllegalArgumentException.class, () -> KinoticConnection.connect(vertx, options));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> factory.connect(options));
     }
 
     @Test
@@ -256,7 +259,7 @@ public class KinoticConnectionTests {
             ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET).setServerUrl("ws://localhost:" + server.actualPort());
 
             ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                                 () -> KinoticConnection.connect(vertx, options)
+                                                                 () -> factory.connect(options)
                                                                                         .toCompletionStage()
                                                                                         .toCompletableFuture()
                                                                                         .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
@@ -271,7 +274,7 @@ public class KinoticConnectionTests {
     @Test
     public void testRejectedCredentialsFailTheConnect() {
         ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                             () -> KinoticConnection.connect(vertx, options("wrong-secret"))
+                                                             () -> factory.connect(options("wrong-secret"))
                                                                                     .toCompletionStage()
                                                                                     .toCompletableFuture()
                                                                                     .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
@@ -351,7 +354,7 @@ public class KinoticConnectionTests {
         long started = System.nanoTime();
 
         ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                             () -> KinoticConnection.connect(vertx, options)
+                                                             () -> factory.connect(options)
                                                                                     .toCompletionStage()
                                                                                     .toCompletableFuture()
                                                                                     .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
@@ -371,7 +374,7 @@ public class KinoticConnectionTests {
             long started = System.nanoTime();
 
             ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                                                                 () -> KinoticConnection.connect(vertx, options)
+                                                                 () -> factory.connect(options)
                                                                                         .toCompletionStage()
                                                                                         .toCompletableFuture()
                                                                                         .get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
@@ -382,7 +385,7 @@ public class KinoticConnectionTests {
     }
 
     private KinoticConnection connect(ConnectOptions options) throws Exception {
-        KinoticConnection ret = await(KinoticConnection.connect(vertx, options));
+        KinoticConnection ret = await(factory.connect(options));
         connections.add(ret);
         return ret;
     }

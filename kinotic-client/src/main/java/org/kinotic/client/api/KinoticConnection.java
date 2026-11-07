@@ -2,8 +2,6 @@ package org.kinotic.client.api;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-import org.kinotic.client.internal.api.DefaultKinoticConnection;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -15,29 +13,14 @@ import org.kinotic.core.api.service.ServiceIdentifier;
  * and reports its {@link ConnectionState}; which failures are retried, and how often, is the policy of its
  * {@link ReconnectOptions}. A call pending when the connection is lost fails with
  * an {@link org.kinotic.core.api.exceptions.RpcServiceUnavailableException}, since nothing the gateway held for the
- * connection survives it. Every handler the connection invokes runs on the connection's context of the Vert.x
- * instance it was given, and a proxy's result completes there too, since replies arrive on it; a request that
+ * connection survives it. Every handler the connection invokes runs on the connection's context of the
+ * application's Vert.x instance, and a proxy's result completes there too, since replies arrive on it; a request that
  * fails before the gateway acknowledged it completes its result on the context the call was made on. Nothing
  * run on the connection's context may block it.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
 public interface KinoticConnection {
-
-    /**
-     * Connects to the gateway the options name, retrying per the options' {@link ReconnectOptions}.
-     *
-     * @param vertx   the Vert.x instance the connection runs on, on a context of its own; it stays the caller's to
-     *                close
-     * @param options where to connect and how to authenticate
-     * @return a future completed with the connection once the gateway has accepted it, or failed with an
-     *         {@link org.kinotic.core.api.exceptions.AuthenticationException} when the gateway rejects the
-     *         credentials, with the rejection when it answers the WebSocket upgrade with another 4xx status, or
-     *         with the last failure once the attempts the options allow are spent
-     */
-    static Future<KinoticConnection> connect(Vertx vertx, ConnectOptions options) {
-        return DefaultKinoticConnection.connect(vertx, options);
-    }
 
     /**
      * Creates a proxy for the service the interface addresses: a {@link org.kinotic.core.api.annotations.Publish}ed

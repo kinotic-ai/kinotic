@@ -3,7 +3,6 @@ package org.kinotic.core.api.event;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.TraceLogProperties;
-import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 
 import java.util.List;
@@ -14,7 +13,6 @@ import java.util.List;
  * The patterns start as {@code kinotic.traceLog} and can be replaced while the node runs.
  * Call sites test {@code log.isTraceEnabled()} first, so they cost nothing unless trace logging is on.
  */
-@Component
 public class TraceLogFilter {
 
     private final AntPathMatcher matcher = new AntPathMatcher();

@@ -11,6 +11,7 @@ import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomize
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.core.ReactiveAdapterRegistry;
 import tools.jackson.core.Version;
 import tools.jackson.databind.json.JsonMapper;
@@ -27,8 +28,8 @@ public class KinoticJacksonConfig {
 
     /**
      * Applies the platform's conversion to a mapper builder: the Vert.x types in their Vert.x wire format, the
-     * platform's own value types, and no constructor parameter detection. The Boot-managed mapper and the mapper a
-     * process without a Spring context converts with are both built from it, so both convert alike.
+     * platform's own value types, and no constructor parameter detection. The Boot-managed mapper every process
+     * converts with is built from it.
      * @param builder the builder to configure
      * @return the builder
      */
@@ -61,12 +62,13 @@ public class KinoticJacksonConfig {
     }
 
     // FIXME: Make sure this works with Spring WebFlux
-    // This is configured in org.kinotic.core.internal.DefaultKinotic
-    // It is done there in case this bean is supplied by spring directly
+    // DefaultKinotic registers the Vert.x Future as well, for a registry the application supplies itself
     @ConditionalOnMissingBean
     @Bean
     public ReactiveAdapterRegistry reactiveAdapterRegistry(){
-        return new ReactiveAdapterRegistry();
+        ReactiveAdapterRegistry ret = new ReactiveAdapterRegistry();
+        KinoticUtil.registerVertxFutureAdapter(ret);
+        return ret;
     }
 
 

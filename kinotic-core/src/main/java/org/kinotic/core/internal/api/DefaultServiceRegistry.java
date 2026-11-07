@@ -5,8 +5,9 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
-import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.RpcServiceProxies;
+import org.kinotic.core.api.RpcServiceProxyFactory;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -21,17 +22,10 @@ import org.kinotic.core.internal.api.service.ExceptionConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
-import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
-import org.kinotic.core.internal.api.service.rpc.RpcProxyServices;
-import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
-import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
-import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
-import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
-import org.springframework.util.MimeTypeUtils;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -56,11 +50,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private ReactiveAdapterRegistry reactiveAdapterRegistry;
     @Autowired
     private ReturnValueConverterComposite returnValueConverter;
-    // These are used for proxy side logic
     @Autowired
-    private RpcArgumentConverterResolver rpcArgumentConverterResolver;
-    @Autowired
-    private RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
+    private RpcServiceProxyFactory proxyFactory;
     @Autowired
     private Vertx vertx; //TODO: move thread scheduling and execution functionality into the Kinotic API such as Scheduling Service ect..
     @Autowired
@@ -74,21 +65,17 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private TraceLogFilter traceLogFilter;
     @Autowired
     private RequestLivenessWatcher requestLivenessWatcher;
-    // what every proxy of this cluster member shares: its requests go through the event bus as the calling
-    // context's participant, and an unreachable service is reported to the directory when there is one
-    private RpcProxyServices proxyServices;
+    // the proxies of this cluster member: their requests go through the event bus as the calling context's
+    // participant, and an unreachable service is reported to the directory when there is one
+    private RpcServiceProxies proxies;
 
     @PostConstruct
-    void initProxyServices() {
-        proxyServices = new RpcProxyServices(kinotic.serverInfo().getNodeName(),
-                                             rpcReturnValueHandlerFactory,
-                                             eventBusService,
-                                             securityContext::currentParticipant,
-                                             serviceDirectoryProvider::getIfAvailable,
-                                             requestLivenessWatcher,
-                                             vertx,
-                                             openTelemetry,
-                                             traceLogFilter);
+    void initProxies() {
+        proxies = proxyFactory.over(eventBusService,
+                                    requestLivenessWatcher,
+                                    securityContext::currentParticipant,
+                                    serviceDirectoryProvider::getIfAvailable,
+                                    kinotic.serverInfo().getNodeName());
     }
 
     @Override
@@ -143,24 +130,17 @@ public class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
-        return serviceProxy(serviceIdentifier, serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
+        return proxies.serviceProxy(serviceIdentifier, serviceInterface);
     }
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface, String contentTypeExpected) {
-        Validate.notBlank(contentTypeExpected, "The contentTypeExpected must not be blank");
-        Validate.isTrue(rpcArgumentConverterResolver.canResolve(contentTypeExpected), "The contentType:"+contentTypeExpected+" does not have any configured RpcArgumentConverter's");
-        RpcArgumentConverter rpcArgumentConverter = rpcArgumentConverterResolver.resolve(contentTypeExpected);
-        return new DefaultRpcServiceProxyHandle<>(serviceIdentifier,
-                                                  serviceInterface,
-                                                  rpcArgumentConverter,
-                                                  Thread.currentThread().getContextClassLoader(),
-                                                  proxyServices);
+        return proxies.serviceProxy(serviceIdentifier, serviceInterface, contentTypeExpected);
     }
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface) {
-        return serviceProxy(KinoticUtil.serviceIdentifierOf(serviceInterface), serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
+        return proxies.serviceProxy(serviceInterface);
     }
 
     @Override

@@ -1,19 +1,16 @@
 package org.kinotic.client.api;
 
-import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.net.ClientSSLOptions;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.config.KinoticProperties;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 /**
- * Options for {@link KinoticConnection#connect(io.vertx.core.Vertx, ConnectOptions)}.
+ * Options for {@link KinoticConnectionFactory#connect(ConnectOptions)}.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -59,20 +56,5 @@ public class ConnectOptions {
      * How the connection retries connecting.
      */
     private ReconnectOptions reconnect = new ReconnectOptions();
-
-    /**
-     * Customizes the Jackson mapper the proxies convert arguments and replies with. The mapper starts as the one a
-     * cluster member converts with: the Vert.x types in their Vert.x wire format, the platform's own value types, and
-     * no constructor parameter detection. A gateway's own mapper may carry more, such as the module a Kinotic OS
-     * server registers for its domain types; the modules the called services' types need are added here.
-     * {@code null} leaves the mapper as it starts.
-     */
-    private Consumer<JsonMapper.Builder> jsonMapperCustomizer;
-
-    /**
-     * Traces the proxies' invocations, continued by the services they reach. {@link OpenTelemetry#noop()} by
-     * default; a program with a configured SDK passes it here.
-     */
-    private OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
 }

@@ -7,7 +7,6 @@ import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.codec.EncodingException;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
@@ -18,7 +17,6 @@ import java.lang.reflect.Method;
  *
  * Created by navid on 2019-04-23.
  */
-@Component
 public class JacksonRpcArgumentConverter extends AbstractJacksonSupport implements RpcArgumentConverter {
 
     public JacksonRpcArgumentConverter(JsonMapper jsonMapper,

@@ -2,10 +2,8 @@ package org.kinotic.client.internal.api;
 
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.UpgradeRejectedException;
 import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
@@ -21,23 +19,17 @@ import org.kinotic.client.api.ConnectOptions;
 import org.kinotic.client.api.ConnectionState;
 import org.kinotic.client.api.KinoticConnection;
 import org.kinotic.client.api.ReconnectOptions;
+import org.kinotic.core.api.RpcServiceProxies;
 import org.kinotic.core.api.RpcServiceProxyFactory;
 import org.kinotic.core.api.RpcServiceProxyHandle;
-import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import tools.jackson.databind.ObjectReader;
-import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.module.SimpleModule;
 
-import java.net.URI;
-import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -45,7 +37,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Default {@link KinoticConnection}: a STOMP connection to the gateway's WebSocket endpoint, kept alive across
  * losses with the retry policy of its {@link ReconnectOptions}, and the service proxies minted over it. Everything it
- * does runs on one context of the Vert.x instance it is given.
+ * does runs on one context of the application's Vert.x instance.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
@@ -57,7 +49,6 @@ public class DefaultKinoticConnection implements KinoticConnection {
      */
     private static final String NODE_NAME = "kinotic-client";
 
-    private static final Set<String> WEBSOCKET_SCHEMES = Set.of("ws", "wss");
     private static final int HTTP_UNAUTHORIZED = 401;
 
     // a client outside a browser presents no session cookie, so the gateway keeps nothing for it between connections
@@ -70,7 +61,7 @@ public class DefaultKinoticConnection implements KinoticConnection {
     private final ContextInternal context;
     private final StompRpcTransport transport;
     private final ConnectionLivenessWatcher livenessWatcher;
-    private final RpcServiceProxyFactory proxyFactory;
+    private final RpcServiceProxies proxies;
     private final ObjectReader connectedInfoReader;
     private final Promise<KinoticConnection> initialConnect;
     private final Set<RpcServiceProxyHandle<?>> handles = ConcurrentHashMap.newKeySet();
@@ -86,63 +77,9 @@ public class DefaultKinoticConnection implements KinoticConnection {
     private int failedAttempts = 0;
     private long reconnectTimer = -1;
 
-    /**
-     * Connects to the gateway the options name.
-     * @param vertx the Vert.x instance the connection runs on
-     * @param options where to connect and how to authenticate
-     * @return a future completed with the connection once the gateway accepted it
-     */
-    public static Future<KinoticConnection> connect(Vertx vertx, ConnectOptions options) {
-        Validate.notNull(vertx, "vertx must not be null");
-        Validate.notNull(options, "options must not be null");
-        Validate.notBlank(options.getServerUrl(), "serverUrl must not be blank");
-        Validate.notNull(options.getAuthHeaders(), "authHeaders must not be null");
-        Validate.notNull(options.getReconnect(), "reconnect must not be null");
-        URI serverUri = URI.create(options.getServerUrl());
-        Validate.isTrue(serverUri.getScheme() != null && WEBSOCKET_SCHEMES.contains(serverUri.getScheme()),
-                        "serverUrl must be a ws:// or wss:// URL but was '%s'", options.getServerUrl());
-        Validate.isTrue(serverUri.getHost() != null, "serverUrl must name a host but was '%s'", options.getServerUrl());
-        Validate.isTrue(!StringUtils.stripEnd(serverUri.getPath(), "/").endsWith(EventConstants.STOMP_WEBSOCKET_PATH),
-                        "serverUrl names the gateway without its %s path, which the client appends itself",
-                        EventConstants.STOMP_WEBSOCKET_PATH);
-        Validate.isTrue(serverUri.getQuery() == null && serverUri.getFragment() == null,
-                        "serverUrl must carry no query or fragment but was '%s'", options.getServerUrl());
-        Validate.notNull(options.getOpenTelemetry(), "openTelemetry must not be null");
-        Validate.isTrue(options.getAuthHeaders().keySet().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null key");
-        Validate.isTrue(options.getAuthHeaders().values().stream().noneMatch(Objects::isNull), "authHeaders must not hold a null value");
-        // the upgrade request refuses a header name or value outside what HTTP allows, so they are checked here
-        // once rather than failing every attempt
-        MultiMap headers = HttpHeaders.headers();
-        options.getAuthHeaders().forEach(headers::add);
-        Validate.isTrue(options.getMaxBodyLength() >= 1, "maxBodyLength must be at least 1 byte");
-        Validate.isTrue(options.getMaxWebSocketFrameSize() >= 1, "maxWebSocketFrameSize must be at least 1 byte");
-        ReconnectOptions reconnect = options.getReconnect();
-        Validate.isTrue(reconnect.getMaxAttempts() >= 0, "reconnect.maxAttempts must not be negative");
-        // Vert.x schedules no timer under a millisecond, so the delays and the timeout are at least that
-        validateAtLeastOneMillisecond(reconnect.getInitialDelay(), "reconnect.initialDelay");
-        validateAtLeastOneMillisecond(reconnect.getMaxDelay(), "reconnect.maxDelay");
-        validateAtLeastOneMillisecond(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout");
-        Validate.isTrue(reconnect.getMaxJitter() != null && !reconnect.getMaxJitter().isNegative(),
-                        "reconnect.maxJitter must not be negative");
-        return new DefaultKinoticConnection(vertx, options).start();
-    }
-
-    private static void validateAtLeastOneMillisecond(Duration duration, String name) {
-        Validate.isTrue(duration != null && duration.toMillis() >= 1, "%s must be at least 1 ms", name);
-    }
-
-    private DefaultKinoticConnection(Vertx vertx, ConnectOptions options) {
+    DefaultKinoticConnection(Vertx vertx, ConnectOptions options, RpcServiceProxyFactory proxyFactory, ObjectReader connectedInfoReader) {
         this.options = options;
         this.endpointUrl = StringUtils.stripEnd(options.getServerUrl(), "/") + EventConstants.STOMP_WEBSOCKET_PATH;
-        // the gateway's participant model is not on this classpath, so a participant is read as what every participant
-        // has; the mapping is registered before the customizer, whose own mapping of a participant then takes precedence
-        JsonMapper.Builder jsonMapperBuilder = RpcServiceProxyFactory.jsonMapperBuilder()
-                .addModule(new SimpleModule("KinoticClientModule").addAbstractTypeMapping(Participant.class, ConnectedParticipant.class));
-        if (options.getJsonMapperCustomizer() != null) {
-            options.getJsonMapperCustomizer().accept(jsonMapperBuilder);
-        }
-        JsonMapper jsonMapper = jsonMapperBuilder.build();
-        this.connectedInfoReader = jsonMapper.readerFor(ConnectedInfo.class);
         this.vertx = vertx;
         // a duplicate starts with empty locals, so the connection carries nothing of the context connect() was
         // called on and shares its context with no other connection
@@ -153,12 +90,11 @@ public class DefaultKinoticConnection implements KinoticConnection {
         this.livenessWatcher = new ConnectionLivenessWatcher(vertx);
         this.transport = new StompRpcTransport(context, options.getServerUrl(), NODE_NAME,
                                                options.getReconnect().getConnectionTimeout().toMillis());
-        KinoticProperties properties = new KinoticProperties().setMaxEventPayloadSize(options.getMaxBodyLength());
-        this.proxyFactory = new RpcServiceProxyFactory(transport, livenessWatcher, vertx, options.getOpenTelemetry(),
-                                                       properties, jsonMapper, NODE_NAME);
+        this.proxies = proxyFactory.over(transport, livenessWatcher, NODE_NAME);
+        this.connectedInfoReader = connectedInfoReader;
     }
 
-    private Future<KinoticConnection> start() {
+    Future<KinoticConnection> start() {
         context.runOnContext(v -> {
             long connectionTimeoutMillis = options.getReconnect().getConnectionTimeout().toMillis();
             // the TCP connection is bounded here, the WebSocket handshake by the connect options of each attempt
@@ -177,14 +113,14 @@ public class DefaultKinoticConnection implements KinoticConnection {
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface) {
         Validate.notNull(serviceInterface, "serviceInterface must not be null");
-        return track(proxyFactory.serviceProxy(serviceInterface));
+        return track(proxies.serviceProxy(serviceInterface));
     }
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(ServiceIdentifier serviceIdentifier, Class<T> serviceInterface) {
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
         Validate.notNull(serviceInterface, "serviceInterface must not be null");
-        return track(proxyFactory.serviceProxy(serviceIdentifier, serviceInterface));
+        return track(proxies.serviceProxy(serviceIdentifier, serviceInterface));
     }
 
     @Override

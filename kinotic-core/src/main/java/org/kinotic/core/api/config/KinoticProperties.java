@@ -6,14 +6,12 @@ import lombok.experimental.Accessors;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
 /**
  *
  * Created by Navíd Mitchell 🤪on 1/18/21
  */
-@Component
 @ConfigurationProperties(prefix = "kinotic")
 @Primary
 @Validated

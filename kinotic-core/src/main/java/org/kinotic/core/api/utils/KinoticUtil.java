@@ -171,7 +171,9 @@ public class KinoticUtil {
      * @param reactiveAdapterRegistry the registry the invoker and the proxies resolve reactive types with
      */
     public static void registerVertxFutureAdapter(ReactiveAdapterRegistry reactiveAdapterRegistry) {
-        reactiveAdapterRegistry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
+        // registered once however many wirings share the registry
+        if (reactiveAdapterRegistry.getAdapter(Future.class) == null) {
+            reactiveAdapterRegistry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
                                                                                                 (Supplier<Future<?>>) Future::succeededFuture),
                                                      source -> {
                                                          Future<?> future = (Future<?>) source;
@@ -197,6 +199,7 @@ public class KinoticUtil {
                                                                                                    }
                                                                                                })
                                                                                                .subscribe(v -> {}, promise::fail)));// We use an empty consumer this is handled with doOnSuccess, this is done so we get a single "signal" instead of onNext, onComplete type logic..
+        }
     }
 
     /**

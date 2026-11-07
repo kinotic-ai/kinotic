@@ -9,6 +9,9 @@ dependencies {
     api 'io.vertx:vertx-core'
 
     implementation 'org.kinotic:vertx-stomp-lite'
+    // the client is auto-configured in a Spring Boot application
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+    implementation 'org.springframework:spring-context'
 
     // api scope: ConnectOptions customizes the JsonMapper the proxies convert with
     api 'tools.jackson.core:jackson-databind'
@@ -20,5 +23,6 @@ dependencies {
     // The tests run the client against the gateway, started in-process with a test security service and test services
     testImplementation project(':kinotic-api-gateway')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-jackson'
     testImplementation 'io.projectreactor:reactor-test'
 }
