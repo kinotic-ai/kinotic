@@ -1,6 +1,7 @@
 package org.kinotic.client.api;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
@@ -20,6 +21,7 @@ import java.time.Duration;
 @Getter
 @Setter
 @Accessors(chain = true)
+@NoArgsConstructor
 public class ReconnectOptions {
 
     /**
@@ -49,5 +51,17 @@ public class ReconnectOptions {
      * closing an established connection; {@code 0} retries forever.
      */
     private int maxAttempts = 0;
+
+    /**
+     * A copy of the given options.
+     * @param other the options to copy
+     */
+    public ReconnectOptions(ReconnectOptions other) {
+        this.initialDelay = other.initialDelay;
+        this.maxDelay = other.maxDelay;
+        this.maxJitter = other.maxJitter;
+        this.connectionTimeout = other.connectionTimeout;
+        this.maxAttempts = other.maxAttempts;
+    }
 
 }

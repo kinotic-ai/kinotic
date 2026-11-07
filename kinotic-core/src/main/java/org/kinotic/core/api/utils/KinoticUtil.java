@@ -171,7 +171,7 @@ public class KinoticUtil {
      * @param reactiveAdapterRegistry the registry the invoker and the proxies resolve reactive types with
      */
     public static void registerVertxFutureAdapter(ReactiveAdapterRegistry reactiveAdapterRegistry) {
-        // registered once however many wirings share the registry
+        // an application that registered the Future itself keeps its own adapter
         if (reactiveAdapterRegistry.getAdapter(Future.class) == null) {
             reactiveAdapterRegistry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
                                                                                                 (Supplier<Future<?>>) Future::succeededFuture),

@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
@@ -46,8 +45,7 @@ public class DefaultKinotic implements Kinotic {
     public DefaultKinotic(ResourceLoader resourceLoader,
                           ClusterManager clusterManager,
                           Vertx vertx,
-                          KinoticProperties kinoticProperties,
-                          ReactiveAdapterRegistry reactiveAdapterRegistry) throws IOException {
+                          KinoticProperties kinoticProperties) throws IOException {
         String nodeName;
 
         try (InputStreamReader reader = new InputStreamReader(resourceLoader.getResource("classpath:adjectives.txt").getInputStream());
@@ -67,8 +65,6 @@ public class DefaultKinotic implements Kinotic {
         this.vertx = vertx;
         this.kinoticProperties = kinoticProperties;
         this.serverInfo = new ServerInfo(clusterManager.getNodeId(), nodeName);
-
-        KinoticUtil.registerVertxFutureAdapter(reactiveAdapterRegistry);
     }
 
     @EventListener

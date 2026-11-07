@@ -2,6 +2,7 @@ package org.kinotic.client.api;
 
 import io.vertx.core.net.ClientSSLOptions;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.config.KinoticProperties;
@@ -17,6 +18,7 @@ import java.util.Map;
 @Getter
 @Setter
 @Accessors(chain = true)
+@NoArgsConstructor
 public class ConnectOptions {
 
     /**
@@ -56,5 +58,19 @@ public class ConnectOptions {
      * How the connection retries connecting.
      */
     private ReconnectOptions reconnect = new ReconnectOptions();
+
+    /**
+     * A copy of the given options, sharing nothing with them: a change to the original afterwards does not reach the
+     * copy.
+     * @param other the options to copy
+     */
+    public ConnectOptions(ConnectOptions other) {
+        this.serverUrl = other.serverUrl;
+        this.authHeaders = new HashMap<>(other.authHeaders);
+        this.sslOptions = other.sslOptions == null ? null : other.sslOptions.copy();
+        this.maxBodyLength = other.maxBodyLength;
+        this.maxWebSocketFrameSize = other.maxWebSocketFrameSize;
+        this.reconnect = new ReconnectOptions(other.reconnect);
+    }
 
 }

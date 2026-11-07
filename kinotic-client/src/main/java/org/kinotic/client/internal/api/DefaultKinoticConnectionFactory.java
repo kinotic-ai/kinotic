@@ -14,6 +14,7 @@ import org.kinotic.core.api.RpcServiceProxyFactory;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
@@ -42,11 +43,13 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
         this.vertx = vertx;
         this.proxyFactory = proxyFactory;
         // the gateway's participant model is not on this classpath, so the participant of the connected info is read
-        // as what every participant has
+        // as what every participant has, and the properties its own model adds are skipped whatever the
+        // application's mapper does with an unknown property
         this.connectedInfoReader = jsonMapper.rebuild()
                                              .addModule(new SimpleModule("KinoticClientModule").addAbstractTypeMapping(Participant.class, ConnectedParticipant.class))
                                              .build()
-                                             .readerFor(ConnectedInfo.class);
+                                             .readerFor(ConnectedInfo.class)
+                                             .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     @Override
@@ -80,7 +83,8 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
         validateAtLeastOneMillisecond(reconnect.getConnectionTimeout(), "reconnect.connectionTimeout");
         Validate.isTrue(reconnect.getMaxJitter() != null && !reconnect.getMaxJitter().isNegative(),
                         "reconnect.maxJitter must not be negative");
-        return new DefaultKinoticConnection(vertx, options, proxyFactory, connectedInfoReader).start();
+        // the connection reconnects with the options validated here, whatever the caller does to its own afterwards
+        return new DefaultKinoticConnection(vertx, new ConnectOptions(options), proxyFactory, connectedInfoReader).start();
     }
 
     private static void validateAtLeastOneMillisecond(Duration duration, String name) {

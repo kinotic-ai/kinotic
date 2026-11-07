@@ -11,7 +11,6 @@ import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomize
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.core.ReactiveAdapterRegistry;
 import tools.jackson.core.Version;
 import tools.jackson.databind.json.JsonMapper;
@@ -62,13 +61,11 @@ public class KinoticJacksonConfig {
     }
 
     // FIXME: Make sure this works with Spring WebFlux
-    // DefaultKinotic registers the Vert.x Future as well, for a registry the application supplies itself
+    // KinoticRpcProxyAutoConfiguration registers the Vert.x Future on this bean, as on one the application supplies
     @ConditionalOnMissingBean
     @Bean
     public ReactiveAdapterRegistry reactiveAdapterRegistry(){
-        ReactiveAdapterRegistry ret = new ReactiveAdapterRegistry();
-        KinoticUtil.registerVertxFutureAdapter(ret);
-        return ret;
+        return new ReactiveAdapterRegistry();
     }
 
 

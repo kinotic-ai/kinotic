@@ -12,7 +12,8 @@ public interface KinoticConnectionFactory {
 
     /**
      * Connects to the gateway the options name, retrying per the options' {@link ReconnectOptions}. The connection
-     * runs on a context of its own on the application's Vert.x instance.
+     * runs on a context of its own on the application's Vert.x instance, and keeps a copy of the options, so a
+     * change to them after this call does not reach it.
      *
      * @param options where to connect and how to authenticate
      * @return a future completed with the connection once the gateway has accepted it, or failed with an
