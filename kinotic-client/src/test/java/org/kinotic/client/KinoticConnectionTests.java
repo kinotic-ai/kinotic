@@ -255,6 +255,9 @@ public class KinoticConnectionTests {
                 .setServerUrl("ws://192.0.2.1:" + port)
                 .setReconnect(reconnectOptions().setMaxAttempts(1).setConnectionTimeout(Duration.ofMillis(200)));
         Assertions.assertThrows(IllegalArgumentException.class, () -> factory.connect(options));
+        // a hostname is not a loopback literal, however much it looks like one
+        Assertions.assertThrows(IllegalArgumentException.class,
+                                () -> factory.connect(options(TestGatewayApplication.CLIENT_SECRET).setServerUrl("ws://127.example.com:" + port)));
 
         // allowed, the connect goes on to its attempt, which the unanswered host fails
         ExecutionException failure = Assertions.assertThrows(ExecutionException.class,

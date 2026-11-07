@@ -19,6 +19,7 @@ import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Objects;
@@ -95,10 +96,18 @@ public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory
 
     /**
      * @param host the host of a server URL, an IPv6 literal in brackets
-     * @return whether it is a loopback literal: {@code localhost}, a {@code 127.} address or {@code [::1]}
+     * @return whether it is {@code localhost} or a loopback address literal, such as {@code 127.0.0.1} or {@code [::1]}
      */
     private static boolean isLoopback(String host) {
-        return "localhost".equalsIgnoreCase(host) || host.startsWith("127.") || "[::1]".equals(host);
+        boolean ret = "localhost".equalsIgnoreCase(host);
+        if (!ret) {
+            try {
+                ret = InetAddress.ofLiteral(host).isLoopbackAddress();
+            } catch (IllegalArgumentException notALiteral) {
+                // a hostname, which resolves on the attempt to anywhere, so it is not loopback here
+            }
+        }
+        return ret;
     }
 
     private static void validateAtLeastOneMillisecond(Duration duration, String name) {
