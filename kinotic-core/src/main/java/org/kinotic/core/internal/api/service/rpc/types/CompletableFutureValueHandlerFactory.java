@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.MethodParameter;
+import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Created by Navíd Mitchell 🤪 on 4/24/23.
  */
+@Component
 public class CompletableFutureValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(CompletableFutureValueHandlerFactory.class);

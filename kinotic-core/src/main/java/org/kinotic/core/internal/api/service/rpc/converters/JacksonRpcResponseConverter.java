@@ -8,6 +8,7 @@ import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
@@ -18,6 +19,7 @@ import java.util.List;
  *
  * Created by navid on 2019-04-23.
  */
+@Component
 public class JacksonRpcResponseConverter extends AbstractJacksonSupport implements RpcResponseConverter {
 
     public JacksonRpcResponseConverter(JsonMapper jsonMapper,
