@@ -76,9 +76,9 @@ public class ConnectOptions {
     private ReconnectOptions reconnect = new ReconnectOptions();
 
     /**
-     * A copy of the given options, sharing nothing with them but the buffers of the TLS options, which hold its
-     * certificates, keys and revocation lists: a change to the original afterwards does not reach the copy, except
-     * through one of those buffers.
+     * A copy of the given options, sharing nothing with them but what the TLS options cannot copy: the buffers
+     * holding its certificates, keys and revocation lists, and a key or trust manager factory it wraps. A change to
+     * the original afterwards does not reach the copy, except through one of those.
      * @param other the options to copy
      */
     public ConnectOptions(ConnectOptions other) {

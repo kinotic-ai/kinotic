@@ -455,6 +455,35 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
+    public void testUnsubscribeWaitsForTheConsumerAReusedIdDisplaced() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Promise<Void> displacedUnregistration = Promise.promise();
+        when(replyConsumer.unregister()).thenReturn(displacedUnregistration.future());
+        // the consumer taking over the id registers and unregisters at once, so only the displaced one is pending
+        EventConsumer replacement = mock(EventConsumer.class);
+        when(replacement.handler(any())).thenReturn(replacement);
+        when(replacement.exceptionHandler(any())).thenReturn(replacement);
+        when(replacement.completion()).thenReturn(Future.succeededFuture());
+        when(replacement.unregister()).thenReturn(Future.succeededFuture());
+        when(eventBusService.listen(any())).thenReturn(replacement);
+        handler.subscribe(CRI.create(replyTo), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+
+        Future<Void> unsubscribed = handler.unsubscribe("sub-1");
+
+        Assertions.assertFalse(unsubscribed.isComplete(), "the unsubscribe completed while the displaced consumer was still registered");
+        displacedUnregistration.complete();
+        Assertions.assertTrue(unsubscribed.succeeded());
+        verify(replacement).unregister();
+    }
+
+    @Test
     public void testConnectionKeepAliveTouchesTheSessionAtConnect() throws Exception {
         Session session = services.sessionStore.createSession(SESSION_TIMEOUT_MS * 10);
         services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);

@@ -50,7 +50,7 @@ public class EndpointConnectionHandler {
     private static final String CLIENT_SECRET_HEADER = "clientSecret";
     private final SecurityService securityService;
     private final Services services;
-    private final Map<String, EventConsumer> subscriptions = new HashMap<>();
+    private final Map<String, ConnectionSubscription> subscriptions = new HashMap<>();
     private final IncomingInvocationTracker incomingInvocationTracker;
     private final OutgoingInvocationTracker outgoingInvocationTracker;
     // ends the connection with the cause given, when its authorization is revoked or its login's session ends
@@ -287,7 +287,7 @@ public class EndpointConnectionHandler {
             services.vertx.cancelTimer(sessionTimer);
             sessionTimer = -1;
         }
-        subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
+        subscriptions.forEach((s, subscription) -> subscription.consumer().unregister());
         subscriptions.clear();
         registrations.forEach(Runnable::run);
         registrations.clear();
@@ -358,13 +358,14 @@ public class EndpointConnectionHandler {
         }
         // a subscription id the client reuses ends the consumer it named before, whatever its scheme, and the
         // receipt waits for that consumer to be gone as well as for the new one to be registered
-        EventConsumer previous = subscriptions.put(subscriptionIdentifier, eventConsumer);
+        ConnectionSubscription previous = subscriptions.get(subscriptionIdentifier);
         Future<Void> ret;
         if (previous != null) {
-            ret = Future.all(previous.unregister(), eventConsumer.completion()).mapEmpty();
+            ret = Future.all(unregister(previous), eventConsumer.completion()).mapEmpty();
         } else {
             ret = eventConsumer.completion();
         }
+        subscriptions.put(subscriptionIdentifier, new ConnectionSubscription(eventConsumer, ret));
         log.debug("New subscription cri: {} id: {} for login: {}",
                   cri.raw(),
                   subscriptionIdentifier,
@@ -382,15 +383,21 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
+        ConnectionSubscription subscription = subscriptions.remove(subscriptionIdentifier);
         Future<Void> ret;
-        if (consumer != null) {
-            ret = consumer.unregister();
+        if (subscription != null) {
+            ret = unregister(subscription);
         } else {
             log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
             ret = Future.succeededFuture();
         }
         return ret;
+    }
+
+    // The consumer is unregistered once its own SUBSCRIBE has settled, so the unregistration also covers the
+    // consumers that subscription displaced, which its receipt waited to be gone
+    private static Future<Void> unregister(ConnectionSubscription subscription) {
+        return subscription.subscribed().transform(ar -> subscription.consumer().unregister());
     }
 
     private Map<String, String> toCaseInsensitiveMap(MultiMap headers) {
