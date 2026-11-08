@@ -211,13 +211,8 @@ public class DefaultKinoticConnection implements KinoticConnection {
             info = readConnectedInfo(connection);
         } catch (Exception e) {
             connection.close();
-            // a CONNECTED frame without readable info is a protocol violation: it ends the initial connect like a
-            // refused CONNECT, and after an established connection it is a failed attempt like a 401
-            if (connections == 0) {
-                endForGood(e);
-            } else {
-                attemptFailed(e);
-            }
+            // a CONNECTED frame without readable info is a protocol violation, which no retry changes
+            endForGood(e);
             return;
         }
         connections++;
@@ -271,14 +266,13 @@ public class DefaultKinoticConnection implements KinoticConnection {
 
     private void attemptFailed(Throwable cause) {
         if (closed == null) {
-            Throwable failure = mapConnectFailure(cause);
             failedAttempts++;
             int maxAttempts = options.getReconnect().getMaxAttempts();
-            if (isFatal(failure) || (maxAttempts > 0 && failedAttempts >= maxAttempts)) {
-                endForGood(failure);
+            if (isFatal(cause) || (maxAttempts > 0 && failedAttempts >= maxAttempts)) {
+                endForGood(mapConnectFailure(cause));
             } else {
                 long delay = nextDelay();
-                log.warn("Connection attempt {} to {} failed, retrying in {} ms: {}", failedAttempts, options.getServerUrl(), delay, failure.toString());
+                log.warn("Connection attempt {} to {} failed, retrying in {} ms: {}", failedAttempts, options.getServerUrl(), delay, cause.toString());
                 scheduleAttempt(delay);
             }
         }
@@ -293,20 +287,13 @@ public class DefaultKinoticConnection implements KinoticConnection {
         return ret;
     }
 
-    // A 4xx answer to the upgrade is the gateway's verdict on this client as configured, which no retry changes, so
-    // it ends the connect, or the connection, for good; a failure to reach the gateway or a 5xx answer is retried
-    // within the attempt budget. Rejected credentials and a refused CONNECT frame end the initial connect only:
-    // the STOMP server answers every failed handshake with a 401, so after an established connection they can be
-    // a gateway whose security service is failing, and a reconnect keeps retrying them within the budget
-    private boolean isFatal(Throwable failure) {
-        boolean ret;
-        if (failure instanceof AuthenticationException || failure instanceof StompErrorException) {
-            ret = connections == 0;
-        } else {
-            ret = failure instanceof UpgradeRejectedException rejected
-                    && rejected.getStatus() >= 400 && rejected.getStatus() < 500;
-        }
-        return ret;
+    // A 4xx answer to the upgrade is the gateway's verdict on this client as configured, as is a refused CONNECT
+    // frame, which no retry changes, so either ends the connect, or the connection, for good; a failure to reach the
+    // gateway or a 5xx answer, which it gives while its security service cannot answer, is retried within the budget
+    private static boolean isFatal(Throwable cause) {
+        return cause instanceof StompErrorException
+                || (cause instanceof UpgradeRejectedException rejected
+                    && rejected.getStatus() >= 400 && rejected.getStatus() < 500);
     }
 
     private void scheduleAttempt(long delay) {
