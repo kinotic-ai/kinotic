@@ -21,8 +21,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * The Kinotic Enterprise License the cluster runs on, which decides at each call whether an Enterprise Feature is
  * on. Every node runs on the same installed key: a key installed on one node reaches every node without a restart.
- * When no key is installed, or the {@value #LICENSE_KEY_PROPERTY} property holds a key issued later than the one
- * installed, the property's key is installed as the node starts.
+ * When no valid key is installed, or the {@value #LICENSE_KEY_PROPERTY} property holds a valid key issued later than
+ * the one installed, the property's key is installed as the node starts.
  */
 @Slf4j
 @Component
@@ -87,7 +87,7 @@ public class CurrentLicense {
     /**
      * Installs {@code key} as the license key of the whole cluster, in place of the one installed. The future
      * completes once the key is stored and the nodes have been told of it; a node the notice misses reads the key
-     * within ten minutes.
+     * at its next reload, which it tries every ten minutes.
      *
      * @return the license the key holds
      * @throws JwtException             when the key is not a valid license key, or expired
@@ -101,7 +101,7 @@ public class CurrentLicense {
                          .compose(v -> clusterEventPublisher.publish(new LicenseChangedEvent())
                                                             // a node the event missed reads the key on its next reload
                                                             .recover(error -> {
-                                                                log.warn("Not every node confirmed the new license key; each reads it within {} minutes",
+                                                                log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
                                                                          TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
                                                                 return Future.succeededFuture();
                                                             }))
