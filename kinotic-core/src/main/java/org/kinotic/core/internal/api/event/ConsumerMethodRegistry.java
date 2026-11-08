@@ -76,10 +76,13 @@ public class ConsumerMethodRegistry {
         ReflectionUtils.makeAccessible(method);
         ConsumerMethod consumerMethod = new ConsumerMethod(bean, method);
 
-        // computeIfAbsent makes creating the type's bus consumer atomic; the CopyOnWriteArrayList makes adding a
-        // method safe against a concurrent delivery
-        EventTypeConsumers consumers = consumersByType.computeIfAbsent(eventType.getName(), name -> createConsumers(eventType));
-        consumers.methods.add(consumerMethod);
+        // the method is added inside compute, so an unregister of the type's last method cannot remove the bus
+        // consumer between the lookup and the add; the CopyOnWriteArrayList makes the add safe against a delivery
+        EventTypeConsumers consumers = consumersByType.compute(eventType.getName(), (name, existing) -> {
+            EventTypeConsumers ret = existing != null ? existing : createConsumers(eventType);
+            ret.methods.add(consumerMethod);
+            return ret;
+        });
         registrations.computeIfAbsent(bean, b -> new ArrayList<>())
                      .add(new ConsumerRegistration(eventType.getName(), consumerMethod));
         log.info("Registered @Consumer of {} at {}", eventType.getName(), method);

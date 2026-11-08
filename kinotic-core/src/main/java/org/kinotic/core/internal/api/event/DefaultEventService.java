@@ -48,8 +48,9 @@ public class DefaultEventService implements EventService {
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 1000L;
     // bounds a whole broadcast, so one node that has not answered within it fails the attempt for every node; a
-    // caller is held for at most MAX_ATTEMPTS of these plus the retry delays between them
-    private static final long NODE_TIMEOUT_MS = 5000L;
+    // caller is held for at most MAX_ATTEMPTS of these plus the retry delays between them. ConfirmedEventDispatchJob
+    // waits on a node's consumers no longer than this, so a consumer that never completes does not hold an Ignite thread
+    static final long NODE_TIMEOUT_MS = 5000L;
 
     private final EventBusService eventBusService;
     private final EventStreamService eventStreamService;

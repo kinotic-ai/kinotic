@@ -61,6 +61,7 @@ public class CurrentLicenseService {
         if (isUnexpired(fromProperty) && (!isUnexpired(installed) || fromProperty.isNewerThan(installed))) {
             await(repository.install(propertyKey));
             log.info("Installed the Kinotic Enterprise License key in {}, which is newer than the installed key", LICENSE_KEY_PROPERTY);
+            notifyNodes();
             startKey = propertyKey;
         } else {
             startKey = installedKey;
@@ -103,19 +104,27 @@ public class CurrentLicenseService {
                     + " and its grace period ended at " + installing.graceEndsAt());
         }
         return repository.install(trimmed)
-                         .compose(v -> eventService.publishConfirmed(new LicenseChangedEvent())
-                                                   // a node the event missed, or whose read of the key failed, reads it on its next reload
-                                                   .recover(error -> {
-                                                       log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
-                                                                TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
-                                                       return Future.succeededFuture();
-                                                   }))
+                         .compose(v -> {
+                             // this node runs on the key it returns, whether or not its own notice is handled
+                             apply(trimmed, reads.incrementAndGet());
+                             return notifyNodes();
+                         })
                          .map(installing);
     }
 
     @Consumer
     public Future<Void> onLicenseChanged(LicenseChangedEvent event) {
         return readInstalledKey();
+    }
+
+    // a node the event missed, or whose read of the key failed, reads it on its next reload
+    private Future<Void> notifyNodes() {
+        return eventService.publishConfirmed(new LicenseChangedEvent())
+                           .recover(error -> {
+                               log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
+                                        TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
+                               return Future.succeededFuture();
+                           });
     }
 
     private void reload() {
