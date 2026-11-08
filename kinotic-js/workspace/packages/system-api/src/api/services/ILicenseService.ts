@@ -1,6 +1,6 @@
 import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
-import type { LicenseDetails } from '@/api/model/license/LicenseDetails'
+import type { License } from '@/api/model/license/License'
 
 /**
  * The Kinotic Enterprise License key the whole cluster runs on, which system users read and replace without
@@ -10,7 +10,7 @@ import type { LicenseDetails } from '@/api/model/license/LicenseDetails'
 export interface ILicenseService {
 
     /** Resolves null when no valid key is installed. */
-    findCurrent(): Promise<LicenseDetails | null>
+    findCurrent(): Promise<License | null>
 
     /**
      * Installs licenseKey for the whole cluster in place of the installed key, resolving with the license it holds.
@@ -18,7 +18,7 @@ export interface ILicenseService {
      * ten minutes. Rejects a key Minds Ignited did not sign, one naming no licensee or expiry, and one whose grace
      * period has ended.
      */
-    install(licenseKey: string): Promise<LicenseDetails>
+    install(licenseKey: string): Promise<License>
 }
 
 export class LicenseService implements ILicenseService {
@@ -29,11 +29,11 @@ export class LicenseService implements ILicenseService {
         this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.LicenseService`)
     }
 
-    public findCurrent(): Promise<LicenseDetails | null> {
+    public findCurrent(): Promise<License | null> {
         return this.serviceProxy.invoke('findCurrent', [])
     }
 
-    public install(licenseKey: string): Promise<LicenseDetails> {
+    public install(licenseKey: string): Promise<License> {
         return this.serviceProxy.invoke('install', [licenseKey])
     }
 }

@@ -2,9 +2,10 @@ import { EnterpriseFeature } from '@/api/model/license/EnterpriseFeature'
 import { LicenseStatus } from '@/api/model/license/LicenseStatus'
 
 /**
- * The Kinotic Enterprise License the cluster runs on, as the system console shows it.
+ * A verified Kinotic Enterprise License: who it is issued to, when it was issued and expires, and the Enterprise
+ * Features it turns on until its grace period ends.
  */
-export class LicenseDetails {
+export class License {
 
     /** The party the license is issued to. */
     public licensee: string
@@ -18,7 +19,7 @@ export class LicenseDetails {
     /** When the license stops turning its features on, a grace period after it expires. */
     public graceEndsAt: string
 
-    /** Where the license stands now. */
+    /** Where the license stands at the time it was handed out. */
     public status: LicenseStatus
 
     /** The Enterprise Features the license turns on while it is active or in its grace period. */
