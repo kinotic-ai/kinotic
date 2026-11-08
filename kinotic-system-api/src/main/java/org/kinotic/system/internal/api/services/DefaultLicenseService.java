@@ -2,7 +2,6 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
 import org.kinotic.domain.internal.api.ee.license.License;
 import org.kinotic.system.api.model.LicenseDetails;
@@ -25,7 +24,6 @@ public class DefaultLicenseService implements LicenseService {
 
     @Override
     public Future<LicenseDetails> install(String licenseKey) {
-        Validate.notBlank(licenseKey, "licenseKey is required");
         return currentLicenseService.install(licenseKey).map(DefaultLicenseService::detailsOf);
     }
 

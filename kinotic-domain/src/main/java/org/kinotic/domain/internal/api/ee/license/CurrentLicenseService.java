@@ -86,24 +86,18 @@ public class CurrentLicenseService {
      * completes once the key is stored and the nodes have been told of it; a node the notice misses, or that could
      * not read the key then, reads it at its next reload, which it tries every ten minutes.
      *
-     * @return the license the key holds
-     * @throws JwtException             when the key is not a valid license key, or expired
-     *                                  {@link License#GRACE_PERIOD} or longer ago
-     * @throws IllegalArgumentException when the key names no licensee or no expiry, or when this cluster stores
-     *                                  secrets in Azure Key Vault and the key does not turn
-     *                                  {@link EnterpriseFeature#AZURE_KEY_VAULT} on
+     * @return the license the key holds; fails with a {@link JwtException} when the key is not a valid license key,
+     *         or expired {@link License#GRACE_PERIOD} or longer ago, and with an {@link IllegalArgumentException} when
+     *         the key names no licensee or no expiry, or when this cluster stores secrets in Azure Key Vault and the
+     *         key does not turn {@link EnterpriseFeature#AZURE_KEY_VAULT} on
      */
     public Future<License> install(String key) {
         String trimmed = StringUtils.trimToEmpty(key);
-        License installing = verifier.verify(trimmed);
-        if (installing.status(Instant.now()) == LicenseStatus.EXPIRED) {
-            throw new ExpiredJwtException(null, null, "The license key expired at " + installing.expiresAt()
-                    + " and its grace period ended at " + installing.graceEndsAt());
-        }
-        if (properties.getDomain().getSecretStorage().getBackend() == SecretStorageBackendType.AZURE
-                && !installing.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now())) {
-            throw new IllegalArgumentException("This cluster stores secrets in Azure Key Vault, so its license key must turn on "
-                                                       + EnterpriseFeature.AZURE_KEY_VAULT);
+        License installing;
+        try {
+            installing = verifyInstallable(trimmed);
+        } catch (JwtException | IllegalArgumentException e) {
+            return Future.failedFuture(e);
         }
         return repository.install(trimmed)
                          .compose(v -> {
@@ -118,6 +112,20 @@ public class CurrentLicenseService {
                                                 });
                          })
                          .map(installing);
+    }
+
+    private License verifyInstallable(String key) {
+        License ret = verifier.verify(key);
+        if (ret.status(Instant.now()) == LicenseStatus.EXPIRED) {
+            throw new ExpiredJwtException(null, null, "The license key expired at " + ret.expiresAt()
+                    + " and its grace period ended at " + ret.graceEndsAt());
+        }
+        if (properties.getDomain().getSecretStorage().getBackend() == SecretStorageBackendType.AZURE
+                && !ret.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now())) {
+            throw new IllegalArgumentException("This cluster stores secrets in Azure Key Vault, so its license key must turn on "
+                                                       + EnterpriseFeature.AZURE_KEY_VAULT);
+        }
+        return ret;
     }
 
     @Consumer

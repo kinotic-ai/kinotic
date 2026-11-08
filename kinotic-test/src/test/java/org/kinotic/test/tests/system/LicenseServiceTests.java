@@ -11,8 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.EnumSet;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -40,7 +42,8 @@ public class LicenseServiceTests extends KinoticTestBase {
     @Test
     public void aKeyMindsIgnitedDidNotSignIsRefused() throws Exception {
         LicenseDetails before = await(licenseService.findCurrent());
-        assertThrows(JwtException.class, () -> licenseService.install("not-a-license-key"));
+        ExecutionException refused = assertThrows(ExecutionException.class, () -> await(licenseService.install("not-a-license-key")));
+        assertInstanceOf(JwtException.class, refused.getCause());
         assertEquals(before.getLicensee(), await(licenseService.findCurrent()).getLicensee());
     }
 }
