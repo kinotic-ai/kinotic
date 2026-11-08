@@ -3,6 +3,8 @@ package org.kinotic.domain.internal.api.ee.license;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
+import org.kinotic.domain.api.model.license.License;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -16,13 +18,13 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Covers {@link LicenseVerifier#verify(String)}: a key signed with the trusted key yields its licensee, issue time,
- * expiry and the features this server knows, a key in or past its grace period yields its license with that status,
+ * expiry, grace period end and the features this server knows, a key in or past its grace period still yields its
+ * license,
  * and a key signed with another key, before its nbf, or naming no licensee is refused.
  */
 class LicenseVerifierTest {
@@ -42,12 +44,11 @@ class LicenseVerifierTest {
                          .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
                          .compact();
         License license = verifier.verify(key);
-        assertEquals("Acme", license.licensee());
-        assertEquals(issuedAt, license.issuedAt());
-        assertEquals(expiresAt, license.expiresAt());
-        assertEquals(Set.of(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS), license.features());
-        assertTrue(license.allows(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS, Instant.now()));
-        assertFalse(license.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now()));
+        assertEquals("Acme", license.getLicensee());
+        assertEquals(issuedAt, license.getIssuedAt().toInstant());
+        assertEquals(expiresAt, license.getExpiresAt().toInstant());
+        assertEquals(expiresAt.plus(LicenseVerifier.GRACE_PERIOD), license.getGraceEndsAt().toInstant());
+        assertEquals(Set.of(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS), license.getFeatures());
     }
 
     @Test
@@ -58,7 +59,7 @@ class LicenseVerifierTest {
                          .claim("features", List.of(LicenseVerifier.ALL_FEATURES))
                          .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
                          .compact();
-        assertEquals(EnumSet.allOf(EnterpriseFeature.class), verifier.verify(key).features());
+        assertEquals(EnumSet.allOf(EnterpriseFeature.class), verifier.verify(key).getFeatures());
     }
 
     @Test
@@ -75,15 +76,13 @@ class LicenseVerifierTest {
     @Test
     void aKeyInItsGracePeriodIsAccepted() {
         License license = verifier.verify(keyExpiring(Instant.now().minus(13, ChronoUnit.DAYS)));
-        assertEquals(LicenseStatus.GRACE_PERIOD, license.status(Instant.now()));
-        assertTrue(license.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now()));
+        assertTrue(license.getGraceEndsAt().toInstant().isAfter(Instant.now()));
     }
 
     @Test
     void aKeyPastItsGracePeriodYieldsAnExpiredLicense() {
-        License license = verifier.verify(keyExpiring(Instant.now().minus(License.GRACE_PERIOD).minus(1, ChronoUnit.HOURS)));
-        assertEquals(LicenseStatus.EXPIRED, license.status(Instant.now()));
-        assertFalse(license.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now()));
+        License license = verifier.verify(keyExpiring(Instant.now().minus(LicenseVerifier.GRACE_PERIOD).minus(1, ChronoUnit.HOURS)));
+        assertTrue(license.getGraceEndsAt().toInstant().isBefore(Instant.now()));
     }
 
     @Test

@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.OidcProviderType;
 import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
-import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;

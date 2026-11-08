@@ -5,12 +5,15 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import org.apache.commons.lang3.StringUtils;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
+import org.kinotic.domain.api.model.license.License;
 
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +35,9 @@ public class LicenseVerifier {
     /** The {@code features} entry that turns on every Enterprise Feature. */
     public static final String ALL_FEATURES = "*";
 
+    /** How long after its expiry a license keeps its features on. */
+    public static final Duration GRACE_PERIOD = Duration.ofDays(14);
+
     private final PublicKey publicKey;
 
     public LicenseVerifier(PublicKey publicKey) {
@@ -49,7 +55,8 @@ public class LicenseVerifier {
     }
 
     /**
-     * The license {@code key} holds, whether or not it has expired; {@link License#status(Instant)} says where it stands.
+     * The license {@code key} holds, whether or not it has expired, with its grace period ending {@link #GRACE_PERIOD}
+     * after its expiry. Its {@link License#getStatus() status} is left unset.
      *
      * @throws JwtException             when the key is not signed with the trusted key, is malformed, or is not valid
      *                                  yet by its {@code nbf}
@@ -70,8 +77,12 @@ public class LicenseVerifier {
         if (StringUtils.isBlank(claims.getSubject()) || claims.getExpiration() == null) {
             throw new IllegalArgumentException("A license key names its licensee in sub and its expiry in exp");
         }
-        Instant issuedAt = claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant() : null;
-        return new License(claims.getSubject(), issuedAt, claims.getExpiration().toInstant(), features(claims));
+        Date expiresAt = claims.getExpiration();
+        return new License().setLicensee(claims.getSubject())
+                            .setIssuedAt(claims.getIssuedAt())
+                            .setExpiresAt(expiresAt)
+                            .setGraceEndsAt(Date.from(expiresAt.toInstant().plus(GRACE_PERIOD)))
+                            .setFeatures(features(claims));
     }
 
     // a key may name features a newer server knows; this server turns on the ones it knows

@@ -11,7 +11,7 @@ import io.vertx.core.Vertx;
 import org.kinotic.domain.api.config.AzureProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
 import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
-import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 

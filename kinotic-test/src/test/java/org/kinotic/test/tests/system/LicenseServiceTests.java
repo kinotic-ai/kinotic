@@ -2,9 +2,9 @@ package org.kinotic.test.tests.system;
 
 import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.Test;
-import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
-import org.kinotic.domain.internal.api.ee.license.LicenseStatus;
-import org.kinotic.system.api.model.LicenseDetails;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
+import org.kinotic.domain.api.model.license.License;
+import org.kinotic.domain.api.model.license.LicenseStatus;
 import org.kinotic.system.api.services.LicenseService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +32,8 @@ public class LicenseServiceTests extends KinoticTestBase {
 
     @Test
     public void aSignedKeyBecomesTheCurrentLicense() throws Exception {
-        LicenseDetails installed = await(licenseService.install(EVALUATION_KEY));
-        LicenseDetails current = await(licenseService.findCurrent());
+        License installed = await(licenseService.install(EVALUATION_KEY));
+        License current = await(licenseService.findCurrent());
         assertEquals(installed.getLicensee(), current.getLicensee());
         assertEquals(LicenseStatus.ACTIVE, current.getStatus());
         assertEquals(EnumSet.allOf(EnterpriseFeature.class), current.getFeatures());
@@ -41,7 +41,7 @@ public class LicenseServiceTests extends KinoticTestBase {
 
     @Test
     public void aKeyMindsIgnitedDidNotSignIsRefused() throws Exception {
-        LicenseDetails before = await(licenseService.install(EVALUATION_KEY));
+        License before = await(licenseService.install(EVALUATION_KEY));
         ExecutionException refused = assertThrows(ExecutionException.class, () -> await(licenseService.install("not-a-license-key")));
         assertInstanceOf(JwtException.class, refused.getCause());
         assertEquals(before.getLicensee(), await(licenseService.findCurrent()).getLicensee());
