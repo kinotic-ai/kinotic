@@ -5,7 +5,7 @@ import io.vertx.core.Promise;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.model.Requeue;
@@ -122,7 +122,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                 });
     }
 
-    @Consumer
+    @KinoticConsumer
     void onPush(ProjectPushEvent event) {
         deployProject(event.getOrganizationId(), event.getProjectId(), event.getCommitSha())
                 .onFailure(error -> log.error("Could not record the push of {} to project {}",

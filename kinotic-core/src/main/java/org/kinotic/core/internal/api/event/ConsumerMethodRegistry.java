@@ -6,7 +6,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
@@ -26,9 +26,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The {@link Consumer} methods of this node, by event type. Each event type has one bus consumer on the type's topic
+ * The {@link KinoticConsumer} methods of this node, by event type. Each event type has one bus consumer on the type's topic
  * address, whose registration is how the cluster knows the node consumes the type, and every event published to the
- * address is handed to every {@link Consumer} method of the type here.
+ * address is handed to every {@link KinoticConsumer} method of the type here.
  *
  * Created by Navid Mitchell on 2026-08-23.
  */
@@ -44,7 +44,7 @@ public class ConsumerMethodRegistry {
     // Keyed by bean identity: bean equals() must not merge two beans' registrations
     private final Map<Object, List<ConsumerRegistration>> registrations = Collections.synchronizedMap(new IdentityHashMap<>());
 
-    // One bus consumer per event type per node, shared by every @Consumer method of that type; keyed by the type's
+    // One bus consumer per event type per node, shared by every @KinoticConsumer method of that type; keyed by the type's
     // name, which names its topic address
     private final Map<String, EventTypeConsumers> consumersByType = new ConcurrentHashMap<>();
 
@@ -58,18 +58,18 @@ public class ConsumerMethodRegistry {
     }
 
     /**
-     * Registers the bean's {@link Consumer} method to receive every event of its parameter type.
+     * Registers the bean's {@link KinoticConsumer} method to receive every event of its parameter type.
      * @param bean hosting the consumer method
-     * @param method the {@link Consumer} method
+     * @param method the {@link KinoticConsumer} method
      * @return a {@link Future} that completes when the type's bus consumer is registered with the cluster
-     * @throws IllegalArgumentException when the method does not satisfy the {@link Consumer} contract
+     * @throws IllegalArgumentException when the method does not satisfy the {@link KinoticConsumer} contract
      */
     public Future<Void> register(Object bean, Method method) {
         if(method.getParameterCount() != 1){
-            throw new IllegalArgumentException("@Consumer method must take exactly one parameter, the event: " + method);
+            throw new IllegalArgumentException("@KinoticConsumer method must take exactly one parameter, the event: " + method);
         }
         if(method.getReturnType() != void.class && !Future.class.isAssignableFrom(method.getReturnType())){
-            throw new IllegalArgumentException("@Consumer method must return void or a Future: " + method);
+            throw new IllegalArgumentException("@KinoticConsumer method must return void or a Future: " + method);
         }
         Class<?> eventType = resolveEventType(ResolvableType.forMethodParameter(method, 0), method);
 
@@ -85,7 +85,7 @@ public class ConsumerMethodRegistry {
         });
         registrations.computeIfAbsent(bean, b -> new ArrayList<>())
                      .add(new ConsumerRegistration(eventType.getName(), consumerMethod));
-        log.info("Registered @Consumer of {} at {}", eventType.getName(), method);
+        log.info("Registered @KinoticConsumer of {} at {}", eventType.getName(), method);
         return consumers.busConsumer.completion();
     }
 
@@ -98,7 +98,7 @@ public class ConsumerMethodRegistry {
     }
 
     /**
-     * Removes every {@link Consumer} method of the bean, unregistering a type's bus consumer once its last method is
+     * Removes every {@link KinoticConsumer} method of the bean, unregistering a type's bus consumer once its last method is
      * gone.
      * @param bean whose consumer methods are removed
      */
@@ -122,7 +122,7 @@ public class ConsumerMethodRegistry {
 
     /**
      * Hands an event published with {@link org.kinotic.core.api.event.EventService#publishConfirmed(Object)} to
-     * every {@link Consumer} method of its type on this node, on a Vert.x event loop.
+     * every {@link KinoticConsumer} method of its type on this node, on a Vert.x event loop.
      * @param eventType the fully qualified name of the event's type
      * @param payload the event as JSON
      * @return a {@link Future} that completes once every consumer has handled the event, at once when this node has
@@ -171,7 +171,7 @@ public class ConsumerMethodRegistry {
         }
         // One consumer failing must not affect delivery to the others
         for(ConsumerMethod method : consumers.methods){
-            invoke(method, element).onFailure(error -> log.error("@Consumer method failed for {} event: {}",
+            invoke(method, element).onFailure(error -> log.error("@KinoticConsumer method failed for {} event: {}",
                                                                  consumers.eventType.getName(), method.method(), error));
         }
     }

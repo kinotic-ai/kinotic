@@ -10,7 +10,7 @@ import org.apache.ignite.Ignite;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.ConfirmedEventDispatchJob;
 import org.kinotic.core.internal.api.event.ConsumerMethodRegistry;
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 /**
  * Behavioral tests for {@link DefaultEventService#publish(Object)}, the {@link ConsumerMethodRegistry} and the
  * {@link ConfirmedEventDispatchJob}: published events travel the real event bus (codec included) and reach every
- * {@link Consumer} method, and a confirmed delivery to a node returns once its consumers have handled the event.
+ * {@link KinoticConsumer} method, and a confirmed delivery to a node returns once its consumers have handled the event.
  * Uses a plain non-clustered Vert.x, publish still fans out locally.
  *
  * Created by Navid Mitchell on 2026-08-23.
@@ -192,7 +192,7 @@ public class EventServiceTests {
             latch = new CountDownLatch(expectedEvents);
         }
 
-        @Consumer
+        @KinoticConsumer
         void onEvent(TestEvent event) {
             received.add(event);
             latch.countDown();
@@ -207,7 +207,7 @@ public class EventServiceTests {
             this.vertx = vertx;
         }
 
-        @Consumer
+        @KinoticConsumer
         Future<Void> onEvent(TestEvent event) {
             return vertx.timer(200).map(id -> {
                 handled.add(event);
@@ -217,27 +217,27 @@ public class EventServiceTests {
     }
 
     public static class ThrowingReceiver {
-        @Consumer
+        @KinoticConsumer
         void onEvent(TestEvent event) {
             throw new IllegalStateException("This consumer always fails");
         }
     }
 
     public static class FailingReceiver {
-        @Consumer
+        @KinoticConsumer
         Future<Void> onEvent(TestEvent event) {
             return Future.failedFuture(new IllegalStateException("This consumer always fails"));
         }
     }
 
     public static class InvalidConsumer {
-        @Consumer
+        @KinoticConsumer
         void onEvent(TestEvent event, String unexpectedParameter) {
         }
     }
 
     public static class ValueReturningConsumer {
-        @Consumer
+        @KinoticConsumer
         String onEvent(TestEvent event) {
             return "consumers must return void or a Future";
         }

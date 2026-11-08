@@ -9,7 +9,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.SecretStorageBackendType;
@@ -134,7 +134,7 @@ public class CurrentLicenseService {
         return ret;
     }
 
-    @Consumer
+    @KinoticConsumer
     public Future<Void> onLicenseChanged(LicenseChangedEvent event) {
         return readInstalledKey();
     }

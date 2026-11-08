@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.core.internal.api.event.ConsumerMethodRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,14 +95,14 @@ public class ConfirmedEventTests {
     public static class ProbeRecorder {
         private final List<Probe> received = new CopyOnWriteArrayList<>();
 
-        @Consumer
+        @KinoticConsumer
         void onProbe(Probe probe) {
             received.add(probe);
         }
     }
 
     public static class RefusingConsumer {
-        @Consumer
+        @KinoticConsumer
         Future<Void> onRefused(Refused refused) {
             return Future.failedFuture(new IllegalStateException("This consumer always fails"));
         }

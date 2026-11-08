@@ -3,7 +3,7 @@ package org.kinotic.core.internal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.RpcServiceProxy;
-import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.internal.api.event.ConsumerMethodRegistry;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Registers the {@link Consumer} methods of each bean with the {@link ConsumerMethodRegistry}, so they receive the
+ * Registers the {@link KinoticConsumer} methods of each bean with the {@link ConsumerMethodRegistry}, so they receive the
  * events of their type, and removes them when the bean is destroyed.
  *
  * Created by Navid Mitchell on 2026-08-23.
@@ -28,7 +28,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ConsumerBeanPostProcessor implements DestructionAwareBeanPostProcessor {
 
-    private static final MethodFilter CONSUMER_METHODS = method -> !method.isSynthetic() && method.isAnnotationPresent(Consumer.class);
+    private static final MethodFilter CONSUMER_METHODS = method -> !method.isSynthetic() && method.isAnnotationPresent(KinoticConsumer.class);
 
     // Resolved through a provider rather than injected directly: a BeanPostProcessor's constructor
     // dependencies are instantiated during the post-processor registration phase, which would drag
@@ -55,9 +55,9 @@ public class ConsumerBeanPostProcessor implements DestructionAwareBeanPostProces
                               .toCompletableFuture()
                               .join();
                 } catch (IllegalArgumentException e) {
-                    throw new FatalBeanException("Invalid @Consumer method on bean " + beanName, e);
+                    throw new FatalBeanException("Invalid @KinoticConsumer method on bean " + beanName, e);
                 } catch (Exception e) {
-                    throw new FatalBeanException("Failed to register the @Consumer methods of bean " + beanName, e);
+                    throw new FatalBeanException("Failed to register the @KinoticConsumer methods of bean " + beanName, e);
                 }
             }
         }

@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  * or a {@link io.vertx.core.Future}. The fully qualified name of the parameter type identifies the events it
  * receives, so publishers and consumers pair through the event type alone.
  * <p>
- * Delivery is fan-out, never round-robin: every {@link Consumer} method on every node receives its own copy of
+ * Delivery is fan-out, never round-robin: every {@link KinoticConsumer} method on every node receives its own copy of
  * every event. An event sent with {@code publish} is handed to each consumer independently, and a consumer that
  * throws or returns a failed future affects no other. An event sent with {@code publishConfirmed} counts as handled
  * on a node once every consumer there has returned, and once the future a consumer returns has completed; a
@@ -29,5 +29,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface Consumer {
+public @interface KinoticConsumer {
 }
