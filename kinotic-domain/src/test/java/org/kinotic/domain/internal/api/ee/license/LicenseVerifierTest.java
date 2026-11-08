@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Covers {@link LicenseVerifier#verify(String)}: a key signed with the trusted key yields its licensee, issue time,
  * expiry and the features this server knows, a key in its grace period is accepted, and a key signed with another
- * key, past its grace period, or naming no licensee is refused.
+ * key, before its nbf, past its grace period, or naming no licensee is refused.
  */
 class LicenseVerifierTest {
 
@@ -94,6 +94,17 @@ class LicenseVerifierTest {
         String noExpiry = Jwts.builder().subject("Acme").signWith(trusted.getPrivate(), Jwts.SIG.ES256).compact();
         assertThrows(IllegalArgumentException.class, () -> verifier.verify(noLicensee));
         assertThrows(IllegalArgumentException.class, () -> verifier.verify(noExpiry));
+    }
+
+    @Test
+    void aKeyBeforeItsNotBeforeIsRefused() {
+        String key = Jwts.builder()
+                         .subject("Acme")
+                         .notBefore(Date.from(Instant.now().plus(1, ChronoUnit.DAYS)))
+                         .expiration(Date.from(Instant.now().plus(30, ChronoUnit.DAYS)))
+                         .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
+                         .compact();
+        assertThrows(JwtException.class, () -> verifier.verify(key));
     }
 
     private String keyExpiring(Instant expiresAt) {

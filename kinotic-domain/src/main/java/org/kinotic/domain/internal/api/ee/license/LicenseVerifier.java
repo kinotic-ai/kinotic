@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.ee.license;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.PrematureJwtException;
 import org.apache.commons.lang3.StringUtils;
 
 import java.security.KeyFactory;
@@ -50,8 +51,8 @@ public class LicenseVerifier {
     /**
      * The license {@code key} holds. A key that expired less than {@link License#GRACE_PERIOD} ago is accepted.
      *
-     * @throws JwtException             when the key is not signed with the trusted key, is malformed, or expired
-     *                                  {@link License#GRACE_PERIOD} or longer ago
+     * @throws JwtException             when the key is not signed with the trusted key, is malformed, is not valid yet
+     *                                  by its {@code nbf}, or expired {@link License#GRACE_PERIOD} or longer ago
      * @throws IllegalArgumentException when the key names no licensee or no expiry
      */
     public License verify(String key) {
@@ -64,6 +65,10 @@ public class LicenseVerifier {
                             .getPayload();
         if (StringUtils.isBlank(claims.getSubject()) || claims.getExpiration() == null) {
             throw new IllegalArgumentException("A license key names its licensee in sub and its expiry in exp");
+        }
+        // the clock skew that grants the grace period would also accept a key up to that long before its nbf
+        if (claims.getNotBefore() != null && claims.getNotBefore().toInstant().isAfter(Instant.now())) {
+            throw new PrematureJwtException(null, claims, "The license key is not valid before " + claims.getNotBefore().toInstant());
         }
         Instant issuedAt = claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant() : null;
         return new License(claims.getSubject(), issuedAt, claims.getExpiration().toInstant(), features(claims));
