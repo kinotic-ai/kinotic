@@ -26,14 +26,12 @@ public class SecretStorageConfiguration {
     @Bean
     @ConditionalOnProperty(value = "kinotic.domain.secretStorage.backend", havingValue = "AZURE")
     public SecretStorageBackend azureKeyVaultBackend(KinoticDomainProperties properties, Vertx vertx, CurrentLicense currentLicense) {
-        // falling back to in-memory storage would lose every secret on restart, so the server refuses to start; a
-        // running server keeps the backend when its license lapses, for the same reason
+        // the server starts without the feature so the secrets it already stored stay readable; the backend refuses new ones
         if (!currentLicense.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
-            throw new IllegalStateException("Azure Key Vault secret storage needs an installed Kinotic Enterprise License key, or one in "
-                                                    + CurrentLicense.LICENSE_KEY_PROPERTY + ", that turns on "
-                                                    + EnterpriseFeature.AZURE_KEY_VAULT);
+            log.warn("The Kinotic Enterprise License does not turn on {}, so Azure Key Vault secrets can be read and deleted but not stored",
+                     EnterpriseFeature.AZURE_KEY_VAULT);
         }
         log.info("Using Azure Key Vault secret storage");
-        return new AzureKeyVaultBackend(properties.getDomain().getSecretStorage().getAzure(), vertx);
+        return new AzureKeyVaultBackend(properties.getDomain().getSecretStorage().getAzure(), vertx, currentLicense);
     }
 }
