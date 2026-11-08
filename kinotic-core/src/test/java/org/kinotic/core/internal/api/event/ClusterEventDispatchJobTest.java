@@ -19,16 +19,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins that the event a task carries reaches the receiving node's handlers of its type as the event it was built
+ * Pins that the event a job carries reaches the receiving node's handlers of its type as the event it was built
  * from, and that an event holding a type outside the ones a node may read is refused there.
  */
-public class ClusterEventTaskTest {
+public class ClusterEventDispatchJobTest {
 
     @Test
     public void handsTheEventItCarriesToTheHandlersOfItsType() {
         SampleClusterEvent event = sampleEvent("detail");
 
-        List<ClusterEvent> handled = run(new ClusterEventTask(event));
+        List<ClusterEvent> handled = run(new ClusterEventDispatchJob(event));
 
         // each of the two sample handlers receives it once, and the revocation handler not at all
         assertEquals(List.of(event, event), handled);
@@ -38,9 +38,9 @@ public class ClusterEventTaskTest {
     public void refusesAnEventHoldingATypeOutsideTheAllowedPackages() {
         // commons-lang3 is on every node, but a type outside the allowed packages is read by no node
         SampleClusterEvent event = sampleEvent(new ImmutablePair<>("left", "right"));
-        ClusterEventTask task = new ClusterEventTask(event);
+        ClusterEventDispatchJob job = new ClusterEventDispatchJob(event);
 
-        IllegalStateException refusal = assertThrows(IllegalStateException.class, () -> run(task));
+        IllegalStateException refusal = assertThrows(IllegalStateException.class, () -> run(job));
 
         // the filter's rejection is what the stream reports, in place of a missing class or a corrupt stream
         assertInstanceOf(InvalidClassException.class, refusal.getCause());
@@ -54,17 +54,17 @@ public class ClusterEventTaskTest {
                                       Set.of("kinotic.sample"));
     }
 
-    // what the handlers in the receiving node's Spring context are handed when the task runs there
-    private static List<ClusterEvent> run(ClusterEventTask task) {
+    // what the handlers in the receiving node's Spring context are handed when the job runs there
+    private static List<ClusterEvent> run(ClusterEventDispatchJob job) {
         List<ClusterEvent> handled = new ArrayList<>();
         try (GenericApplicationContext context = new GenericApplicationContext()) {
             context.registerBean("first", SampleClusterEventHandler.class, () -> new SampleClusterEventHandler(handled));
             context.registerBean("second", SampleClusterEventHandler.class, () -> new SampleClusterEventHandler(handled));
             context.registerBean(ConnectionRevocationRecorder.class, () -> new ConnectionRevocationRecorder(handled));
             context.refresh();
-            // Ignite injects the receiving node's context into the field as the task is deployed there
-            ReflectionTestUtils.setField(task, "applicationContext", context);
-            task.run();
+            // Ignite injects the receiving node's context into the field as the job is deployed there
+            ReflectionTestUtils.setField(job, "applicationContext", context);
+            job.run();
         }
         return handled;
     }

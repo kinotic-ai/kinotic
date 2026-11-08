@@ -17,9 +17,9 @@ import java.io.UncheckedIOException;
 
 /**
  * Carries a {@link ClusterEvent} to a node and hands it there to each {@link ClusterEventHandler} bean of its type, as
- * the compute task a {@link ClusterEventPublisher} broadcasts.
+ * the compute job a {@link ClusterEventPublisher} broadcasts.
  */
-public class ClusterEventTask implements IgniteRunnable {
+public class ClusterEventDispatchJob implements IgniteRunnable {
 
     // the event is carried as the bytes Java serialization gives it, so what a node can read is decided by the
     // event's own serializable form rather than by what the cluster's marshaller makes of its type; the limits bound
@@ -32,7 +32,7 @@ public class ClusterEventTask implements IgniteRunnable {
 
     private final byte[] event;
 
-    public ClusterEventTask(ClusterEvent event) {
+    public ClusterEventDispatchJob(ClusterEvent event) {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
             out.writeObject(event);

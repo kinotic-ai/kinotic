@@ -22,7 +22,7 @@ import java.util.Collection;
 import java.util.Set;
 
 /**
- * Broadcasts each event as an Ignite compute task to the nodes carrying the attributes it names and waits for every
+ * Broadcasts each event as an Ignite compute job to the nodes carrying the attributes it names and waits for every
  * one's answer, retrying against the cluster's current membership until each has handled it.
  *
  * Created By Nic Padilla on 2/12/25
@@ -76,8 +76,8 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
         Attributes attributes = Attributes.builder().put("event.type", eventType).build();
         requestCounter.add(1, attributes);
         long startedAt = System.currentTimeMillis();
-        ClusterEventTask task = new ClusterEventTask(event);
-        return attempt(task, event.nodeAttributeFilter(), eventType, 1)
+        ClusterEventDispatchJob job = new ClusterEventDispatchJob(event);
+        return attempt(job, event.nodeAttributeFilter(), eventType, 1)
                 .onComplete(ar -> {
                     Attributes result = Attributes.builder()
                                                   .put("event.type", eventType)
@@ -91,7 +91,7 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
     // The membership is read once per attempt, so an attempt is delivered to, and reported on, one set of nodes;
     // read again on the next attempt, so a node that left is not waited for and a node that joined meanwhile
     // receives the event
-    private Future<Void> attempt(ClusterEventTask task, Set<String> nodeAttributes, String eventType, int attempt) {
+    private Future<Void> attempt(ClusterEventDispatchJob job, Set<String> nodeAttributes, String eventType, int attempt) {
         Collection<ClusterNode> nodes = nodesOf(nodeAttributes).nodes();
         Future<Void> ret;
         if (nodes.isEmpty()) {
@@ -100,13 +100,13 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
             log.warn("No node of the cluster carries {} named by {}, so no node handles it", nodeAttributes, eventType);
             ret = Future.succeededFuture();
         } else {
-            ret = broadcast(ignite.cluster().forNodes(nodes), task).recover(error -> {
+            ret = broadcast(ignite.cluster().forNodes(nodes), job).recover(error -> {
                 Future<Void> retried;
                 if (attempt < MAX_ATTEMPTS) {
                     log.warn("Delivery of {} to {} nodes failed on attempt {} of {}: {}", eventType, nodes.size(),
                              attempt, MAX_ATTEMPTS, error.getMessage());
                     retryCounter.add(1, Attributes.builder().put("event.type", eventType).build());
-                    retried = vertx.timer(RETRY_DELAY_MS).compose(id -> attempt(task, nodeAttributes, eventType, attempt + 1));
+                    retried = vertx.timer(RETRY_DELAY_MS).compose(id -> attempt(job, nodeAttributes, eventType, attempt + 1));
                 } else {
                     log.error("Delivery of {} was not acknowledged by every node after {} attempts", eventType, MAX_ATTEMPTS, error);
                     retried = Future.failedFuture(error);
@@ -127,12 +127,12 @@ public class DefaultClusterEventPublisher implements ClusterEventPublisher {
     }
 
     // the Ignite future completes on an Ignite thread, so the outcome is handed back to the caller's context
-    private Future<Void> broadcast(ClusterGroup nodes, ClusterEventTask task) {
+    private Future<Void> broadcast(ClusterGroup nodes, ClusterEventDispatchJob job) {
         Promise<Void> promise = Promise.promise();
         Context context = vertx.getOrCreateContext();
         ignite.compute(nodes)
               .withTimeout(NODE_TIMEOUT_MS)
-              .broadcastAsync(task)
+              .broadcastAsync(job)
               .listen(done -> context.runOnContext(v -> {
                   try {
                       done.get();

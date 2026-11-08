@@ -83,7 +83,7 @@ public class DefaultNamedQueriesService implements NamedQueriesService, ClusterE
      */
     @Override
     public void handle(CacheEvictionEvent event) {
-        // a failure propagates to the cluster event task, so the publisher retries the node instead of counting it as handled
+        // a failure propagates to the ClusterEventDispatchJob, so the publisher retries the node instead of counting it as handled
         if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){
             cacheKeyTracker.computeIfPresent(event.getNamedQueryId(), (s, cacheKeys) -> {
                 for (CacheKey cacheKey : cacheKeys) {

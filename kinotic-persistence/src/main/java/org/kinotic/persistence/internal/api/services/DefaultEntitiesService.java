@@ -37,7 +37,7 @@ public class DefaultEntitiesService implements EntitiesService, ClusterEventHand
      */
     @Override
     public void handle(CacheEvictionEvent event) {
-        // a failure propagates to the cluster event task, so the publisher retries the node instead of counting it as handled
+        // a failure propagates to the ClusterEventDispatchJob, so the publisher retries the node instead of counting it as handled
         if(event.getEvictionSourceType() == EvictionSourceType.ENTITY_DEFINITION){
             this.entityServiceCache.evict(event.getApplicationKey().organizationId(), event.getEntityDefinitionId());
         }
