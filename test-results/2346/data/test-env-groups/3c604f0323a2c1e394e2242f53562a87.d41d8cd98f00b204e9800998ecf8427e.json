@@ -1,0 +1,1 @@
+{"id":"3c604f0323a2c1e394e2242f53562a87.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/UpgradeRejection.test.ts#upgrade rejection ends an established connection on a 401 to its reconnect","name":"ends an established connection on a 401 to its reconnect","status":"passed","testResultsByEnv":{"default":"51bf1856929b34d929994fcd2de55099"}}
