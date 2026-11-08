@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.ee.license;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -21,8 +22,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * The Kinotic Enterprise License the cluster runs on, which decides at each call whether an Enterprise Feature is
  * on. Every node runs on the same installed key: a key installed on one node reaches every node without a restart.
- * When no valid key is installed, or the {@value #LICENSE_KEY_PROPERTY} property holds a valid key issued later than
- * the one installed, the property's key is installed as the node starts.
+ * When no unexpired key is installed, or the {@value #LICENSE_KEY_PROPERTY} property holds an unexpired key issued
+ * later than the one installed, the property's key is installed as the node starts.
  */
 @Slf4j
 @Component
@@ -57,7 +58,7 @@ public class CurrentLicense {
         License fromProperty = verifyOrNull(propertyKey, LICENSE_KEY_PROPERTY);
         License installed = verifyOrNull(installedKey, "the installed license key");
         String startKey;
-        if (fromProperty != null && (installed == null || fromProperty.isNewerThan(installed))) {
+        if (isUnexpired(fromProperty) && (!isUnexpired(installed) || fromProperty.isNewerThan(installed))) {
             await(repository.install(propertyKey));
             log.info("Installed the Kinotic Enterprise License key in {}, which is newer than the installed key", LICENSE_KEY_PROPERTY);
             startKey = propertyKey;
@@ -79,7 +80,7 @@ public class CurrentLicense {
         return current != null && current.allows(feature, Instant.now());
     }
 
-    /** The license the cluster runs on, or {@code null} when no valid key is installed. */
+    /** The license the cluster runs on, expired or not, or {@code null} when no valid key is installed. */
     public License find() {
         return license;
     }
@@ -97,6 +98,10 @@ public class CurrentLicense {
     public Future<License> install(String key) {
         String trimmed = StringUtils.trimToEmpty(key);
         License installing = verifier.verify(trimmed);
+        if (!isUnexpired(installing)) {
+            throw new ExpiredJwtException(null, null, "The license key expired at " + installing.expiresAt()
+                    + " and its grace period ended at " + installing.graceEndsAt());
+        }
         return repository.install(trimmed)
                          .compose(v -> clusterEventPublisher.publish(new LicenseChangedEvent())
                                                             // a node the event missed, or whose read of the key failed, reads it on its next reload
@@ -156,6 +161,10 @@ public class CurrentLicense {
                           current.licensee(), current.expiresAt(), current.graceEndsAt());
             }
         }
+    }
+
+    private static boolean isUnexpired(License license) {
+        return license != null && license.status(Instant.now()) != LicenseStatus.EXPIRED;
     }
 
     private License verifyOrNull(String key, String source) {

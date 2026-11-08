@@ -1,9 +1,9 @@
 package org.kinotic.domain.internal.api.ee.license;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.PrematureJwtException;
 import org.apache.commons.lang3.StringUtils;
 
 import java.security.KeyFactory;
@@ -49,26 +49,26 @@ public class LicenseVerifier {
     }
 
     /**
-     * The license {@code key} holds. A key that expired less than {@link License#GRACE_PERIOD} ago is accepted.
+     * The license {@code key} holds, whether or not it has expired; {@link License#status(Instant)} says where it stands.
      *
-     * @throws JwtException             when the key is not signed with the trusted key, is malformed, is not valid yet
-     *                                  by its {@code nbf}, or expired {@link License#GRACE_PERIOD} or longer ago
+     * @throws JwtException             when the key is not signed with the trusted key, is malformed, or is not valid
+     *                                  yet by its {@code nbf}
      * @throws IllegalArgumentException when the key names no licensee or no expiry
      */
     public License verify(String key) {
-        Claims claims = Jwts.parser()
-                            .verifyWith(publicKey)
-                            // jjwt accepts a token up to the allowed clock skew past its exp, which is the grace period
-                            .clockSkewSeconds(License.GRACE_PERIOD.toSeconds())
-                            .build()
-                            .parseSignedClaims(key)
-                            .getPayload();
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                         .verifyWith(publicKey)
+                         .build()
+                         .parseSignedClaims(key)
+                         .getPayload();
+        } catch (ExpiredJwtException e) {
+            // jjwt checks exp only after it has verified the signature, so these claims are signed by the trusted key
+            claims = e.getClaims();
+        }
         if (StringUtils.isBlank(claims.getSubject()) || claims.getExpiration() == null) {
             throw new IllegalArgumentException("A license key names its licensee in sub and its expiry in exp");
-        }
-        // the clock skew that grants the grace period would also accept a key up to that long before its nbf
-        if (claims.getNotBefore() != null && claims.getNotBefore().toInstant().isAfter(Instant.now())) {
-            throw new PrematureJwtException(null, claims, "The license key is not valid before " + claims.getNotBefore().toInstant());
         }
         Instant issuedAt = claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant() : null;
         return new License(claims.getSubject(), issuedAt, claims.getExpiration().toInstant(), features(claims));

@@ -22,8 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Covers {@link LicenseVerifier#verify(String)}: a key signed with the trusted key yields its licensee, issue time,
- * expiry and the features this server knows, a key in its grace period is accepted, and a key signed with another
- * key, before its nbf, past its grace period, or naming no licensee is refused.
+ * expiry and the features this server knows, a key in or past its grace period yields its license with that status,
+ * and a key signed with another key, before its nbf, or naming no licensee is refused.
  */
 class LicenseVerifierTest {
 
@@ -80,9 +80,10 @@ class LicenseVerifierTest {
     }
 
     @Test
-    void aKeyPastItsGracePeriodIsRefused() {
-        String key = keyExpiring(Instant.now().minus(License.GRACE_PERIOD).minus(1, ChronoUnit.HOURS));
-        assertThrows(JwtException.class, () -> verifier.verify(key));
+    void aKeyPastItsGracePeriodYieldsAnExpiredLicense() {
+        License license = verifier.verify(keyExpiring(Instant.now().minus(License.GRACE_PERIOD).minus(1, ChronoUnit.HOURS)));
+        assertEquals(LicenseStatus.EXPIRED, license.status(Instant.now()));
+        assertFalse(license.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now()));
     }
 
     @Test
