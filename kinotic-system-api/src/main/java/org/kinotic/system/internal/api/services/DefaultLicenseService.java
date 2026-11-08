@@ -3,7 +3,7 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.internal.api.ee.license.CurrentLicense;
+import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
 import org.kinotic.domain.internal.api.ee.license.License;
 import org.kinotic.system.api.model.LicenseDetails;
 import org.kinotic.system.api.services.LicenseService;
@@ -16,17 +16,17 @@ import java.util.Date;
 @RequiredArgsConstructor
 public class DefaultLicenseService implements LicenseService {
 
-    private final CurrentLicense currentLicense;
+    private final CurrentLicenseService currentLicenseService;
 
     @Override
     public Future<LicenseDetails> findCurrent() {
-        return Future.succeededFuture(detailsOf(currentLicense.find()));
+        return Future.succeededFuture(detailsOf(currentLicenseService.find()));
     }
 
     @Override
     public Future<LicenseDetails> install(String licenseKey) {
         Validate.notBlank(licenseKey, "licenseKey is required");
-        return currentLicense.install(licenseKey).map(DefaultLicenseService::detailsOf);
+        return currentLicenseService.install(licenseKey).map(DefaultLicenseService::detailsOf);
     }
 
     private static LicenseDetails detailsOf(License license) {

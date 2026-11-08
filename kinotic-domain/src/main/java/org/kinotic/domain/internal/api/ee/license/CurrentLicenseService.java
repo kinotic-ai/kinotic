@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CurrentLicense {
+public class CurrentLicenseService {
 
     /** The property holding a license key the server installs as it starts, when it is newer than the installed key. */
     public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";

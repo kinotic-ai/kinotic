@@ -10,7 +10,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.kinotic.domain.api.config.AzureProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
-import org.kinotic.domain.internal.api.ee.license.CurrentLicense;
+import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
 import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -30,9 +30,9 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
 
     private final SecretAsyncClient client;
     private final Vertx vertx;
-    private final CurrentLicense currentLicense;
+    private final CurrentLicenseService currentLicenseService;
 
-    public AzureKeyVaultBackend(AzureProperties settings, Vertx vertx, CurrentLicense currentLicense) {
+    public AzureKeyVaultBackend(AzureProperties settings, Vertx vertx, CurrentLicenseService currentLicenseService) {
         if (settings == null || settings.getVaultUrl() == null) {
             throw new IllegalArgumentException("Azure vault URL must be configured when using azure backend");
         }
@@ -41,12 +41,12 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
                 .credential(new DefaultAzureCredentialBuilder().build())
                 .buildAsyncClient();
         this.vertx = vertx;
-        this.currentLicense = currentLicense;
+        this.currentLicenseService = currentLicenseService;
     }
 
     @Override
     public Future<Void> setSecret(String derivedName, String value) {
-        if (!currentLicense.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
+        if (!currentLicenseService.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
             return unlicensedWrite();
         }
         return Future.fromCompletionStage(set(derivedName, value)
@@ -72,7 +72,7 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
 
     @Override
     public Future<Void> setSecrets(Map<String, String> derivedNameToValue) {
-        if (!currentLicense.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
+        if (!currentLicenseService.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
             return unlicensedWrite();
         }
         return Future.fromCompletionStage(Flux.fromIterable(derivedNameToValue.entrySet())
