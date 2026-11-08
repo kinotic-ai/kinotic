@@ -1,37 +1,38 @@
 package org.kinotic.domain.api.cache;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.kinotic.core.api.event.ClusterEvent;
+import lombok.NoArgsConstructor;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
-
-import java.util.Set;
 
 /**
  * Cache eviction event specifically for caches that need to be evicted
  * This is used when a {@link EntityDefinition} or named query is updated and related caches need to be evicted.
- * It is delivered to the nodes running the persistence module, where the entity services that hold the caches run.
+ * It is published to every node consuming it, which every node running the persistence module does, where the
+ * entity services that hold the caches run.
  */
 @Data
-public class CacheEvictionEvent implements ClusterEvent {
+@NoArgsConstructor
+@AllArgsConstructor
+public class CacheEvictionEvent {
 
-    // advertised by every node running kinotic-persistence, from the module's META-INF/kinotic-persistence.properties
-    private static final String PERSISTENCE_NODE_ATTRIBUTE = "kinotic.persistence";
-
-    private final EvictionSourceType evictionSourceType;
+    private EvictionSourceType evictionSourceType;
 
     /**
      * ID of the {@link EntityDefinition} that is being evicted, null for a named query
      */
-    private final String entityDefinitionId;
+    private String entityDefinitionId;
+
     /**
      * ID of the named query that is being evicted, if any
      */
-    private final String namedQueryId;
+    private String namedQueryId;
+
     /**
      * Application of the {@link EntityDefinition} or associated named query that is being evicted
      */
-    private final ApplicationKey applicationKey;
+    private ApplicationKey applicationKey;
 
     /** The eviction of a named query that changed or was deleted. */
     public static CacheEvictionEvent namedQuery(ApplicationKey applicationKey, String namedQueryId) {
@@ -43,8 +44,4 @@ public class CacheEvictionEvent implements ClusterEvent {
         return new CacheEvictionEvent(EvictionSourceType.ENTITY_DEFINITION, entityDefinitionId, null, applicationKey);
     }
 
-    @Override
-    public Set<String> nodeAttributeFilter() {
-        return Set.of(PERSISTENCE_NODE_ATTRIBUTE);
-    }
 }

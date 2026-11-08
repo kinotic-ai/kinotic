@@ -9,8 +9,8 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.kinotic.core.api.event.ClusterEventHandler;
-import org.kinotic.core.api.event.ClusterEventPublisher;
+import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CurrentLicenseService implements ClusterEventHandler<LicenseChangedEvent> {
+public class CurrentLicenseService {
 
     /** The property holding a license key the server installs as it starts, when it is newer than the installed key. */
     public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";
@@ -38,7 +38,7 @@ public class CurrentLicenseService implements ClusterEventHandler<LicenseChanged
     private static final long STORAGE_TIMEOUT_SECONDS = 30;
 
     private final InstalledLicenseKeyRepository repository;
-    private final ClusterEventPublisher clusterEventPublisher;
+    private final EventService eventService;
     private final Vertx vertx;
     private final KinoticDomainProperties properties;
     private final LicenseVerifier verifier = LicenseVerifier.trusted();
@@ -103,28 +103,31 @@ public class CurrentLicenseService implements ClusterEventHandler<LicenseChanged
                     + " and its grace period ended at " + installing.graceEndsAt());
         }
         return repository.install(trimmed)
-                         .compose(v -> clusterEventPublisher.publish(new LicenseChangedEvent())
-                                                            // a node the event missed, or whose read of the key failed, reads it on its next reload
-                                                            .recover(error -> {
-                                                                log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
-                                                                         TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
-                                                                return Future.succeededFuture();
-                                                            }))
+                         .compose(v -> eventService.publishConfirmed(new LicenseChangedEvent())
+                                                   // a node the event missed, or whose read of the key failed, reads it on its next reload
+                                                   .recover(error -> {
+                                                       log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
+                                                                TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
+                                                       return Future.succeededFuture();
+                                                   }))
                          .map(installing);
     }
 
-    @Override
-    public void handle(LicenseChangedEvent event) {
-        // runs on an Ignite compute thread, which waits so the publisher's completion means the node has the key
-        long read = reads.incrementAndGet();
-        apply(StringUtils.trimToEmpty(await(repository.findInstalledKey())), read);
+    @Consumer
+    public Future<Void> onLicenseChanged(LicenseChangedEvent event) {
+        return readInstalledKey();
     }
 
     private void reload() {
+        readInstalledKey().onFailure(error -> log.warn("The installed license key could not be read; the node keeps its license", error));
+    }
+
+    private Future<Void> readInstalledKey() {
         long read = reads.incrementAndGet();
-        repository.findInstalledKey()
-                  .onSuccess(installed -> apply(StringUtils.trimToEmpty(installed), read))
-                  .onFailure(error -> log.warn("The installed license key could not be read; the node keeps its license", error));
+        return repository.findInstalledKey().map(installed -> {
+            apply(StringUtils.trimToEmpty(installed), read);
+            return null;
+        });
     }
 
     private synchronized void apply(String installedKey, long read) {

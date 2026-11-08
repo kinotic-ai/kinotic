@@ -45,7 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Deploys a project whenever a commit lands on its repository's default branch, and keeps it
  * deployed. Consumes the verified {@link ProjectPushEvent}s the management module publishes to
- * the event fabric, so a push is recorded no matter which node received the webhook, as what the
+ * every node, so a push is recorded no matter which node received the webhook, as what the
  * project's {@link ProjectDeployment} should be: the commit, running. The reconcile master then
  * calls this worker, on one node, which runs each qualifying commit as a grind job created by
  * {@link ProjectDeployJobDefinitionFactory}, made by the record so a change to the run reaches this

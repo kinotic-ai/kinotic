@@ -28,12 +28,6 @@ public final class KinoticNodeAttributes {
      */
     public static final String TELEMETRY_SERVICE_INSTANCE_ID = "kinotic.telemetryServiceInstanceId";
 
-    /**
-     * Carried by a node running the API gateway, which the gateway module advertises from its own property source;
-     * a {@link org.kinotic.core.api.security.ConnectionRevocation} reaches the nodes carrying it.
-     */
-    public static final String API_GATEWAY = "kinotic.apiGateway";
-
     private KinoticNodeAttributes() {
     }
 }
