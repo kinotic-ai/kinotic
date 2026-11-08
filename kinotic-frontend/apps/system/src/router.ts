@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
+    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, KeyRound, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
 } from '@lucide/vue'
 import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
@@ -156,6 +156,12 @@ const routes: RouteRecordRaw[] = [
                 path: 'llm-configurations',
                 component: () => import('./pages/LlmConfigurationsPage.vue'),
                 meta: { sidebar: consoleItem('LLM configurations', BrainCircuit, 67, 'System') }
+            },
+            {
+                name: 'license',
+                path: 'license',
+                component: () => import('./pages/LicensePage.vue'),
+                meta: { sidebar: consoleItem('License', KeyRound, 68, 'System') }
             },
             {
                 name: 'organizations',
