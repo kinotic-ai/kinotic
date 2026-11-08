@@ -43,13 +43,3 @@ output "license_signing_public_key_pem" {
   description = "Public key of the Kinotic Enterprise License signing key, which Kinotic's license verifier trusts"
   value       = azurerm_key_vault_key.license_signing.public_key_pem
 }
-
-# The license key the servers once imported as a property is forgotten, not destroyed: the cluster's key is
-# installed on the system console's License page, and this copy stays in the vault to install on a rebuilt cluster
-removed {
-  from = azurerm_key_vault_secret.ee_license_key
-
-  lifecycle {
-    destroy = false
-  }
-}
