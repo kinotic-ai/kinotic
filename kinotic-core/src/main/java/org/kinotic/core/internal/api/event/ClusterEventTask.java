@@ -3,7 +3,9 @@ package org.kinotic.core.internal.api.event;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.SpringApplicationContextResource;
 import org.kinotic.core.api.event.ClusterEvent;
+import org.kinotic.core.api.event.ClusterEventHandler;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.ResolvableType;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -14,16 +16,16 @@ import java.io.ObjectOutputStream;
 import java.io.UncheckedIOException;
 
 /**
- * Carries an application event to a node and publishes it there, in the node's Spring context, as the compute task
- * a {@link ClusterEventPublisher} broadcasts.
+ * Carries a {@link ClusterEvent} to a node and hands it there to each {@link ClusterEventHandler} bean of its type, as
+ * the compute task a {@link ClusterEventPublisher} broadcasts.
  */
 public class ClusterEventTask implements IgniteRunnable {
 
-    // the event is carried as the bytes Java serialization gives it, so what a node can publish is decided by the
+    // the event is carried as the bytes Java serialization gives it, so what a node can read is decided by the
     // event's own serializable form rather than by what the cluster's marshaller makes of its type; the limits bound
     // the graph a peer can make a node allocate, far above what an event carries
     private static final ObjectInputFilter EVENT_CLASSES = ObjectInputFilter.Config.createFilter(
-            "maxdepth=32;maxarray=10000;maxrefs=10000;org.kinotic.**;org.springframework.context.ApplicationEvent;java.**;!*");
+            "maxdepth=32;maxarray=10000;maxrefs=10000;org.kinotic.**;java.**;!*");
 
     @SpringApplicationContextResource
     private transient ApplicationContext applicationContext;
@@ -45,9 +47,17 @@ public class ClusterEventTask implements IgniteRunnable {
         if (applicationContext == null) {
             throw new IllegalStateException("The Spring context was not injected; Ignite must be started through IgniteSpring");
         }
+        ClusterEvent received = read();
+        ResolvableType handlerType = ResolvableType.forClassWithGenerics(ClusterEventHandler.class, received.getClass());
+        applicationContext.<ClusterEventHandler<ClusterEvent>>getBeanProvider(handlerType)
+                          .orderedStream()
+                          .forEach(handler -> handler.handle(received));
+    }
+
+    private ClusterEvent read() {
         try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(event))) {
             in.setObjectInputFilter(EVENT_CLASSES);
-            applicationContext.publishEvent(in.readObject());
+            return (ClusterEvent) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
             throw new IllegalStateException("The cluster event could not be read", e);
         }

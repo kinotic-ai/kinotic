@@ -9,9 +9,9 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.kinotic.core.api.event.ClusterEventHandler;
 import org.kinotic.core.api.event.ClusterEventPublisher;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CurrentLicenseService {
+public class CurrentLicenseService implements ClusterEventHandler<LicenseChangedEvent> {
 
     /** The property holding a license key the server installs as it starts, when it is newer than the installed key. */
     public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";
@@ -113,8 +113,8 @@ public class CurrentLicenseService {
                          .map(installing);
     }
 
-    @EventListener
-    public void onLicenseChanged(LicenseChangedEvent event) {
+    @Override
+    public void handle(LicenseChangedEvent event) {
         // runs on an Ignite compute thread, which waits so the publisher's completion means the node has the key
         long read = reads.incrementAndGet();
         apply(StringUtils.trimToEmpty(await(repository.findInstalledKey())), read);

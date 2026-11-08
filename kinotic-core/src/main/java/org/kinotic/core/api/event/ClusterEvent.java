@@ -4,7 +4,8 @@ import java.io.Serializable;
 import java.util.Set;
 
 /**
- * An application event a {@link ClusterEventPublisher} delivers to other nodes, which names the servers it is for.
+ * An event a {@link ClusterEventPublisher} delivers to the {@link ClusterEventHandler}s of its type on the nodes of the
+ * servers it names.
  * It crosses nodes, so it is serializable and holds nothing but data.
  */
 public interface ClusterEvent extends Serializable {

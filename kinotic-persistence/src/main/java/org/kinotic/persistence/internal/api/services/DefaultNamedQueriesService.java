@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.event.ClusterEventHandler;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
@@ -19,7 +20,6 @@ import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.cache.EvictionSourceType;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-public class DefaultNamedQueriesService implements NamedQueriesService {
+public class DefaultNamedQueriesService implements NamedQueriesService, ClusterEventHandler<CacheEvictionEvent> {
 
     private final AsyncLoadingCache<CacheKey, QueryExecutor> cache;
     private final ConcurrentHashMap<String, List<CacheKey>> cacheKeyTracker = new ConcurrentHashMap<>();
@@ -81,8 +81,8 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
      * Evicts the caches for a given named query, this is used when a named query is updated on a remote node.
      * @param event the event containing the named query to evict the caches for
      */
-    @EventListener
-    public void handleNamedQueryCacheEviction(CacheEvictionEvent event) {
+    @Override
+    public void handle(CacheEvictionEvent event) {
         // a failure propagates to the cluster event task, so the publisher retries the node instead of counting it as handled
         if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){
             cacheKeyTracker.computeIfPresent(event.getNamedQueryId(), (s, cacheKeys) -> {

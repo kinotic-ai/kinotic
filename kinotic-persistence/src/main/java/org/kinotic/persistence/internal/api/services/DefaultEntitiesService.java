@@ -7,13 +7,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.event.ClusterEventHandler;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.cache.EvictionSourceType;
 import org.kinotic.persistence.api.model.ParameterHolder;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,7 +23,7 @@ import java.util.List;
  */
 @Slf4j
 @Component
-public class DefaultEntitiesService implements EntitiesService {
+public class DefaultEntitiesService implements EntitiesService, ClusterEventHandler<CacheEvictionEvent> {
 
     private final EntityServiceCache entityServiceCache;
 
@@ -35,8 +35,8 @@ public class DefaultEntitiesService implements EntitiesService {
      * Evicts the caches for a given {@link EntityDefinition}, this is used when a {@link EntityDefinition} is updated on a remote node.
      * @param event the event containing the {@link EntityDefinition} to evict the caches for
      */
-    @EventListener
-    public void handleEntityDefinitionCacheEviction(CacheEvictionEvent event) {
+    @Override
+    public void handle(CacheEvictionEvent event) {
         // a failure propagates to the cluster event task, so the publisher retries the node instead of counting it as handled
         if(event.getEvictionSourceType() == EvictionSourceType.ENTITY_DEFINITION){
             this.entityServiceCache.evict(event.getApplicationKey().organizationId(), event.getEntityDefinitionId());

@@ -2,7 +2,7 @@ package org.kinotic.core.internal.api.event;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.PayloadApplicationEvent;
+import org.kinotic.core.api.event.ClusterEvent;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -19,18 +19,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins that the event a task carries reaches a node's Spring context as the event it was built from, and that an
- * event holding a type outside the ones a node may read is refused there.
+ * Pins that the event a task carries reaches the receiving node's handlers of its type as the event it was built
+ * from, and that an event holding a type outside the ones a node may read is refused there.
  */
 public class ClusterEventTaskTest {
 
     @Test
-    public void publishesTheEventItCarriesOnTheReceivingNode() {
+    public void handsTheEventItCarriesToTheHandlersOfItsType() {
         SampleClusterEvent event = sampleEvent("detail");
 
-        List<Object> published = run(new ClusterEventTask(event));
+        List<ClusterEvent> handled = run(new ClusterEventTask(event));
 
-        assertEquals(List.of(event), published);
+        // each of the two sample handlers receives it once, and the revocation handler not at all
+        assertEquals(List.of(event, event), handled);
     }
 
     @Test
@@ -53,21 +54,19 @@ public class ClusterEventTaskTest {
                                       Set.of("kinotic.sample"));
     }
 
-    // what the task publishes into a node's Spring context when it runs there
-    private static List<Object> run(ClusterEventTask task) {
-        List<Object> published = new ArrayList<>();
+    // what the handlers in the receiving node's Spring context are handed when the task runs there
+    private static List<ClusterEvent> run(ClusterEventTask task) {
+        List<ClusterEvent> handled = new ArrayList<>();
         try (GenericApplicationContext context = new GenericApplicationContext()) {
+            context.registerBean("first", SampleClusterEventHandler.class, () -> new SampleClusterEventHandler(handled));
+            context.registerBean("second", SampleClusterEventHandler.class, () -> new SampleClusterEventHandler(handled));
+            context.registerBean(ConnectionRevocationRecorder.class, () -> new ConnectionRevocationRecorder(handled));
             context.refresh();
-            context.addApplicationListener(applicationEvent -> {
-                if (applicationEvent instanceof PayloadApplicationEvent<?> payload) {
-                    published.add(payload.getPayload());
-                }
-            });
             // Ignite injects the receiving node's context into the field as the task is deployed there
             ReflectionTestUtils.setField(task, "applicationContext", context);
             task.run();
         }
-        return published;
+        return handled;
     }
 
 }
