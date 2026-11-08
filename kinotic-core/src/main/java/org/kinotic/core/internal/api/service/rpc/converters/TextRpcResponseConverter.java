@@ -6,8 +6,8 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.springframework.core.MethodParameter;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.stereotype.Component;
 
 /**
  *

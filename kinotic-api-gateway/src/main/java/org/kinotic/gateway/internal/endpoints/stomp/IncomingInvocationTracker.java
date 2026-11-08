@@ -22,8 +22,8 @@ import java.util.UUID;
  * is remembered when the client sends it, watched from the moment a node accepts it, and forgotten when its
  * reply comes back, the client cancels it, or the send fails. If the node serving a watched request leaves
  * the cluster, the client is answered with an {@link RpcServiceUnavailableException} in the reply's place.
- * Also holds the client's reply subscriptions, which are how replies reach it, and passes each stream value
- * through the connection's {@link ReplyFlowControl}: a stream that cannot be suspended is cancelled when its
+ * Also builds the consumers of the client's reply destinations, which are how replies reach it, and passes each
+ * stream value through the connection's {@link ReplyFlowControl}: a stream that cannot be suspended is cancelled when its
  * client falls too far behind, and the client is answered with an {@link RpcStreamOverflowException}.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
@@ -37,7 +37,6 @@ public class IncomingInvocationTracker {
     // RequestLivenessWatcher is shared by every connection on this node and correlation ids are chosen by
     // clients, so this connection's watch keys carry a prefix of its own
     private final String watchKeyPrefix = UUID.randomUUID() + ":";
-    private final Map<String, EventConsumer> replySubscriptions = new HashMap<>();
     // by correlation id; touched only on the connection's event loop
     private final Map<String, IncomingInvocation> awaitingReply = new HashMap<>();
     // streams the client cancelled, or the gateway cancelled because the client fell too far behind, whose
@@ -45,10 +44,11 @@ public class IncomingInvocationTracker {
     private final Set<String> cancelledStreams = new HashSet<>();
 
     /**
-     * Subscribes the client to one of its reply destinations. A terminal reply passing through finishes the
-     * request it answers.
+     * A consumer of one of the client's reply destinations, registering as this returns. A terminal reply passing
+     * through finishes the request it answers.
+     * @return the consumer, delivering to the handler
      */
-    public void subscribeReplies(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
+    public EventConsumer listenForReplies(CRI cri, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer = services.eventBusService.listen(cri);
         eventConsumer.handler(event -> {
                          String correlationId = event.metadata().get(EventConstants.CORRELATION_ID_HEADER);
@@ -68,22 +68,7 @@ public class IncomingInvocationTracker {
                          }
                      })
                      .exceptionHandler(subscriptionHandler::handleError);
-        // a subscription id the client reuses ends the consumer it named before
-        EventConsumer previous = replySubscriptions.put(subscriptionIdentifier, eventConsumer);
-        if (previous != null) {
-            previous.unregister();
-        }
-    }
-
-    /**
-     * @return true when the identifier was one of the client's reply subscriptions
-     */
-    public boolean unsubscribeReplies(String subscriptionIdentifier) {
-        EventConsumer consumer = replySubscriptions.remove(subscriptionIdentifier);
-        if (consumer != null) {
-            consumer.unregister();
-        }
-        return consumer != null;
+        return eventConsumer;
     }
 
     /**
@@ -140,14 +125,12 @@ public class IncomingInvocationTracker {
     }
 
     /**
-     * The connection closed: stops watching every request and drops every reply subscription.
+     * The connection closed: stops watching every request.
      */
     public void dispose() {
         awaitingReply.keySet().forEach(correlationId -> services.requestLivenessWatcher.unwatch(watchKeyPrefix + correlationId));
         awaitingReply.clear();
         cancelledStreams.clear();
-        replySubscriptions.values().forEach(EventConsumer::unregister);
-        replySubscriptions.clear();
     }
 
     // the node serving the request left the cluster before replying: answer the client in its place

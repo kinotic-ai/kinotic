@@ -3,11 +3,11 @@
 package org.kinotic.core.internal.api.service.rpc;
 
 import org.apache.commons.lang3.Validate;
-import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 /**
  *
