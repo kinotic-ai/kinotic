@@ -3,9 +3,9 @@
 package org.kinotic.core.internal.api.service;
 
 import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Default {@link ExceptionConverter} that delegates to all {@link ExceptionConverter}'s found in the {@link org.springframework.context.ApplicationContext}

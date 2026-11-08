@@ -8,9 +8,7 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.Metadata;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.apache.commons.lang3.Validate;
 import org.springframework.core.GenericTypeResolver;
@@ -29,7 +27,6 @@ import tools.jackson.databind.type.TypeFactory;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.lang.reflect.Type;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -41,16 +38,13 @@ public abstract class AbstractJacksonSupport {
 
     @Getter
     private final JsonMapper jsonMapper;
-    private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final KinoticProperties kinoticProperties;
 
     public AbstractJacksonSupport(JsonMapper jsonMapper,
                                   ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                  KinoticProperties kinoticProperties,
-                                  SecurityContext securityContext) {
+                                  KinoticProperties kinoticProperties) {
         this.jsonMapper = jsonMapper;
-        this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.kinoticProperties = kinoticProperties;
 
@@ -71,81 +65,27 @@ public abstract class AbstractJacksonSupport {
     }
 
     /**
-     * Resolves a {@link Participant} parameter from the current Vert.x context, narrowed to the
-     * {@link Participant} subtype the parameter declares.
-     *
-     * @param methodParameter the {@link Participant} parameter being resolved
-     * @return the participant bound to the current Vert.x context
-     * @throws IllegalStateException if no participant is bound to the current Vert.x context
-     * @throws org.kinotic.core.api.exceptions.AuthorizationException if the participant is not of
-     *         the declared subtype
+     * Splits the JSON content of the event into one {@link TokenBuffer} per value.
+     * @param event the message containing the JSON content
+     * @param dataInArray if true the content is an array holding one value per element, such as input arguments
+     * @return the values' tokens, bounded by {@link KinoticProperties#getMaxEventPayloadSize()}
      */
-    protected Participant resolveParticipant(MethodParameter methodParameter) {
-        // A service declares the participant scope it serves, so narrowing here turns a caller the
-        // service does not serve into an authorization failure rather than an "argument type
-        // mismatch" out of Method.invoke
-        @SuppressWarnings("unchecked")
-        Class<? extends Participant> participantType =
-                (Class<? extends Participant>) methodParameter.getParameterType();
-        return securityContext.requireParticipant(participantType);
+    protected List<TokenBuffer> tokenize(Event<byte[]> event, boolean dataInArray){
+        Validate.notNull(event, "event must not be null");
+        return JacksonTokenizer.tokenize(event.data(),
+                                         jsonMapper,
+                                         dataInArray,
+                                         kinoticProperties.getMaxEventPayloadSize());
     }
 
     /**
-     * Transforms the JSON content to Java objects using the given expected parameter types
-     * @param event the message containing the JSON content to be converted
-     * @param parameters to determine the correct type for the {@link TokenBuffer} being decoded.
-     * @param dataInArray if true the incoming data is expected to be within an array such as when decoding input arguments
-     *
-     * @return the deserialized JSON as Java objects
+     * Decodes one value into the parameter's type, unwrapping a reactive type to the value it carries.
+     * @param tokenBuffer the value's tokens
+     * @param methodParameter the parameter, or return type, the value is decoded for
+     * @return the decoded value, the {@link TokenBuffer} itself for a parameter of that type, or {@link Void#TYPE}
+     *         for a void parameter
      */
-    protected Object[] createJavaObjectsFromJsonEvent(Event<byte[]> event, MethodParameter[] parameters, boolean dataInArray){
-        Validate.notNull(event, "event must not be null");
-        Validate.notNull(parameters, "parameters must not be null");
-
-        List<TokenBuffer> tokens = JacksonTokenizer.tokenize(event.data(),
-                                                             jsonMapper,
-                                                             dataInArray,
-                                                             kinoticProperties.getMaxEventPayloadSize());
-
-        List<Object> ret = new LinkedList<>();
-        int tokenCount = tokens.size();
-
-        // Count the number of parameters that come from JSON tokens (i.e. not Participant)
-        int jsonParamCount = 0;
-        for (MethodParameter p : parameters) {
-            if (!Participant.class.isAssignableFrom(p.nestedIfOptional().getParameterType())) {
-                jsonParamCount++;
-            }
-        }
-
-        if (tokenCount > jsonParamCount) {
-            throw new IllegalArgumentException("Received too many json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
-        }
-
-        int tokenIdx = 0;
-        for (MethodParameter methodParameter : parameters) {
-
-            methodParameter = methodParameter.nestedIfOptional();
-
-            // If the parameter is a Participant we get this from the Vert.x context
-            if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
-
-                ret.add(resolveParticipant(methodParameter));
-
-            } else {
-                if (tokenIdx >= tokenCount) {
-                    throw new IllegalArgumentException("Received too few json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
-                }
-
-                Object arg = decodeInternal(tokens.get(tokenIdx), methodParameter);
-                ret.add(arg);
-                tokenIdx++;
-            }
-        }
-        return ret.toArray();
-    }
-
-    private Object decodeInternal(TokenBuffer tokenBuffer, MethodParameter methodParameter){
+    protected Object decode(TokenBuffer tokenBuffer, MethodParameter methodParameter){
         // Unwrap async classes, this is also used for method return values so this handles that..
         if(reactiveAdapterRegistry.getAdapter(methodParameter.getParameterType()) != null){
             methodParameter = methodParameter.nested();

@@ -126,6 +126,8 @@ public class EndpointConnectionHandlerTests {
             return replyConsumer;
         });
         when(replyConsumer.exceptionHandler(any())).thenReturn(replyConsumer);
+        when(replyConsumer.completion()).thenReturn(Future.succeededFuture());
+        when(replyConsumer.unregister()).thenReturn(Future.succeededFuture());
         when(eventBusService.listen(any())).thenReturn(replyConsumer);
 
         JsonMapper jsonMapper = JsonMapper.builder().build();
@@ -398,6 +400,87 @@ public class EndpointConnectionHandlerTests {
         subscribeReplies(handler);
         subscribeReplies(handler);
         verify(replyConsumer, times(1)).unregister();
+    }
+
+    @Test
+    public void testReusedSubscriptionIdIsRegisteredOnceThePreviousConsumerIsUnregistered() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Promise<Void> unregistration = Promise.promise();
+        when(replyConsumer.unregister()).thenReturn(unregistration.future());
+
+        Future<Void> subscribed = handler.subscribe(CRI.create(replyTo), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+
+        Assertions.assertFalse(subscribed.isComplete(), "the subscription completed before the previous consumer was unregistered");
+        unregistration.complete();
+        Assertions.assertTrue(subscribed.succeeded());
+    }
+
+    @Test
+    public void testSubscriptionIdReusedAcrossSchemesEndsThePreviousConsumer() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        handler.subscribe(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0"), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+        subscribeReplies(handler);
+        verify(replyConsumer, times(1)).unregister();
+
+        handler.unsubscribe("sub-1");
+        verify(replyConsumer, times(2)).unregister();
+    }
+
+    @Test
+    public void testUnsubscribeCompletesWithTheConsumersUnregistration() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        subscribeReplies(handler);
+        Promise<Void> unregistration = Promise.promise();
+        when(replyConsumer.unregister()).thenReturn(unregistration.future());
+
+        Future<Void> unsubscribed = handler.unsubscribe("sub-1");
+
+        Assertions.assertFalse(unsubscribed.isComplete(), "the unsubscribe completed before the consumer was unregistered");
+        unregistration.complete();
+        Assertions.assertTrue(unsubscribed.succeeded());
+        Assertions.assertTrue(handler.unsubscribe("sub-1").succeeded(), "an identifier naming no subscription completes at once");
+    }
+
+    @Test
+    public void testUnsubscribeWaitsForTheConsumerAReusedIdDisplaced() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Promise<Void> displacedUnregistration = Promise.promise();
+        when(replyConsumer.unregister()).thenReturn(displacedUnregistration.future());
+        // the consumer taking over the id registers and unregisters at once, so only the displaced one is pending
+        EventConsumer replacement = mock(EventConsumer.class);
+        when(replacement.handler(any())).thenReturn(replacement);
+        when(replacement.exceptionHandler(any())).thenReturn(replacement);
+        when(replacement.completion()).thenReturn(Future.succeededFuture());
+        when(replacement.unregister()).thenReturn(Future.succeededFuture());
+        when(eventBusService.listen(any())).thenReturn(replacement);
+        handler.subscribe(CRI.create(replyTo), "sub-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
+
+        Future<Void> unsubscribed = handler.unsubscribe("sub-1");
+
+        Assertions.assertFalse(unsubscribed.isComplete(), "the unsubscribe completed while the displaced consumer was still registered");
+        displacedUnregistration.complete();
+        Assertions.assertTrue(unsubscribed.succeeded());
+        verify(replacement).unregister();
     }
 
     @Test
