@@ -20,7 +20,9 @@ import org.kinotic.domain.api.model.license.LicenseStatus;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 
@@ -43,7 +45,10 @@ public class CurrentLicenseService {
     private final KinoticDomainProperties properties;
     private final LicenseVerifier verifier = LicenseVerifier.trusted();
 
+    // the license as verified, which is never handed out; callers receive a copy holding its status at the time
     private volatile License license;
+    // the status last logged for the license, guarded by this
+    private LicenseStatus loggedStatus;
     private String key = "";
     private long reloadTimer;
     // orders the reads of the installed key, so a read that finishes after a later one cannot apply an older key
@@ -75,7 +80,7 @@ public class CurrentLicenseService {
 
     /** Whether the license turns {@code feature} on now. */
     public boolean allows(EnterpriseFeature feature) {
-        License current = refreshStatus();
+        License current = snapshot();
         return current != null && current.getStatus() != LicenseStatus.EXPIRED && current.getFeatures().contains(feature);
     }
 
@@ -84,7 +89,7 @@ public class CurrentLicenseService {
      * installed.
      */
     public License find() {
-        return refreshStatus();
+        return snapshot();
     }
 
     /**
@@ -163,23 +168,26 @@ public class CurrentLicenseService {
         if (!Objects.equals(installedKey, key)) {
             key = installedKey;
             license = verifyOrNull(installedKey);
-            if (license != null) {
+            loggedStatus = null;
+            // snapshot logs a key in its grace period or expired
+            if (license != null && statusAt(license, Instant.now()) != LicenseStatus.EXPIRED) {
                 log.info("Kinotic Enterprise License for {}, expiring {}, turns on {}",
                          license.getLicensee(), license.getExpiresAt().toInstant(), license.getFeatures());
             } else if (installedKey.isEmpty()) {
                 log.info("No Kinotic Enterprise License key is installed, so no Enterprise Feature is on");
             }
         }
-        refreshStatus();
+        snapshot();
     }
 
-    // sets the license's status to where it stands now, logging when it enters its grace period or expires
-    private synchronized License refreshStatus() {
+    // a copy of the license with its status now, logging when it enters its grace period or expires
+    private synchronized License snapshot() {
         License current = license;
+        License ret = null;
         if (current != null) {
             LicenseStatus now = statusAt(current, Instant.now());
-            if (now != current.getStatus()) {
-                current.setStatus(now);
+            if (now != loggedStatus) {
+                loggedStatus = now;
                 if (now == LicenseStatus.GRACE_PERIOD) {
                     log.warn("The Kinotic Enterprise License for {} expired at {}; its Enterprise Features stay on until {}",
                              current.getLicensee(), current.getExpiresAt().toInstant(), current.getGraceEndsAt().toInstant());
@@ -188,8 +196,18 @@ public class CurrentLicenseService {
                               current.getLicensee(), current.getExpiresAt().toInstant(), current.getGraceEndsAt().toInstant());
                 }
             }
+            ret = new License().setLicensee(current.getLicensee())
+                               .setIssuedAt(copyOf(current.getIssuedAt()))
+                               .setExpiresAt(copyOf(current.getExpiresAt()))
+                               .setGraceEndsAt(copyOf(current.getGraceEndsAt()))
+                               .setStatus(now)
+                               .setFeatures(Set.copyOf(current.getFeatures()));
         }
-        return current;
+        return ret;
+    }
+
+    private static Date copyOf(Date date) {
+        return date != null ? new Date(date.getTime()) : null;
     }
 
     private static LicenseStatus statusAt(License license, Instant now) {
