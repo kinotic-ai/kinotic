@@ -4650,6 +4650,8 @@ await Kinotic.connect({
 
 A Kinotic-minted JWT already carries the `organizationId` / `applicationId` claims, so no scope headers are needed alongside it. The platform validates the JWT against the OIDC configurations enabled for your application, matches the token's email to a pre-existing user in your application's scope, and establishes a session.
 
+The gateway answers the WebSocket upgrade with `401` when it rejects the credentials and with `503` while its security service cannot answer, such as during an outage of the identity store. In Node, where the `ws` WebSocket reports that answer, a `401` ends the connection for good, on the initial connect and on every reconnect alike, so a revoked secret or token is not retried, while a `503` or an unreachable gateway is retried with backoff, within `maxConnectionAttempts` when it is set. The Java client applies the same rule.
+
 ### Browser applications
 
 A browser UI does **not** supply credentials. It signs its user in, or up, over REST at its application's API host, the `VITE_KINOTIC_HOST` of [the UI build contract](https://kinotic.ai/apps/application-structure/applications-and-projects#the-ui-build-contract), which sets a session cookie for that host, then connects to the same host with no credentials — the default resolution finds the session. The host names the application, so the UI never sends its organization or application id. Every call below takes `credentials: 'include'` and is made from a page that is one of the application's own UIs; the API host refuses a sign-in or sign-up from any other page with `403`.
@@ -4962,10 +4964,11 @@ authenticates the connection from them before the STOMP session starts; the clie
 whatever a gateway's security service expects, from a client id and secret to a bearer token, goes in the map as
 headers. Rejected credentials fail the connect with an `AuthenticationException`, and any other 4xx answer to the
 upgrade, such as the 404 of a URL that names no gateway, fails it with the rejection, since no retry changes
-either. A gateway that cannot be reached, or that answers with a 5xx, is retried with the backoff of the options'
-`ReconnectOptions`, forever unless `maxAttempts` bounds it. The connection keeps a copy of the options it was
-opened with, so a change to them afterwards does not reach it; only what the TLS options cannot copy is shared with
-it: the buffers holding its certificates, keys and revocation lists, and a key or trust manager factory it wraps.
+either. A gateway that cannot be reached, or that answers with a 5xx, as it does with a 503 while its own security
+service cannot answer, is retried with the backoff of the options' `ReconnectOptions`, forever unless `maxAttempts`
+bounds it. The connection keeps a copy of the options it was opened with, so a change to them afterwards does not
+reach it; only what the TLS options cannot copy is shared with it: the buffers holding its certificates, keys and
+revocation lists, and a key or trust manager factory it wraps.
 
 Once connected, `connectedInfo()` holds what the gateway reported: the participant it authenticated the connection
 as, and the reply destination id it issued for the connection. A `wss://` connection trusts the JDK's default
@@ -5104,9 +5107,8 @@ everything it held for the connection the moment it ends, so no reply can arrive
 [Service Call Liveness](https://kinotic.ai/platform/service-call-liveness)). A call made while the connection is `RECONNECTING`
 fails the same way at once rather than waiting for the reconnect. Every reconnect authenticates again with the
 same headers and gets a reply destination of its own; the proxies already created keep working across it. A
-reconnect retries and gives up on the same answers as the initial connect, with one exception: it retries rejected
-credentials within the attempt budget, because a gateway whose own security service is briefly unavailable answers
-every connection with the same 401.
+reconnect retries and gives up on the same answers as the initial connect, so a gateway that rejects the credentials
+on a reconnect closes the connection for good.
 
 The state handler runs on the connection's context, and so does the completion of a proxy result, since replies
 arrive there: a handler that blocks on a call made through the connection deadlocks it.
@@ -9107,7 +9109,7 @@ Documented in full on [System Security](https://kinotic.ai/platform/system-secur
 
 - **JWT scope claims are cross-checked against the user record.** A Kinotic-minted JWT carries `organizationId`/`applicationId` claims, and authentication requires them to match the scope of the `ParticipantIdentity` the `sub` claim resolves to — a token minted before the user was moved or re-scoped is rejected even though its signature verifies.
 
-Credential failures are also uniform: an unknown email and a wrong password produce the same `Invalid credentials` error, so the login surface cannot be used to enumerate which accounts exist.
+Credential failures are also uniform: an unknown email and a wrong password produce the same `Invalid credentials` error, so the login surface cannot be used to enumerate which accounts exist. A failure of the identity store behind the check is not a credential failure: it is answered as the server's own fault, a `503` on the WebSocket upgrade and on the routes that authenticate a request, so a client retries instead of discarding credentials that were never judged.
 
 
 # Deployment Guide
