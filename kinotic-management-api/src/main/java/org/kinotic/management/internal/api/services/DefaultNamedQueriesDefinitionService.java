@@ -75,7 +75,7 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
      */
     private Future<Void> evict(NamedQueriesDefinition definition) {
         CacheEvictionEvent event = CacheEvictionEvent.namedQuery(definition.applicationKey(), definition.getId());
-        return eventService.publishConfirmed(event)
+        return eventService.publish(event)
                            .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 

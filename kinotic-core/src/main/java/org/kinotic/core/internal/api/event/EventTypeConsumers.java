@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * The receiving side of one event type on this node: a single shared bus consumer whose events are handed to every
- * registered {@link org.kinotic.core.api.annotations.KinoticConsumer} method of the type.
+ * The receiving side of one event type and delivery on this node: a single shared bus consumer, and every registered
+ * {@link org.kinotic.core.api.annotations.KinoticConsumer} method of the type that declared that delivery.
  *
  * Created by Navid Mitchell on 2026-08-23.
  */

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.annotations.KinoticConsumer;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.core.internal.api.event.ConsumerMethodRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Pins that a confirmed event reaches the nodes registered as consumers of its type through the registrations
- * Vert.x keeps in Ignite and the compute job the publisher broadcasts, and that the publish completes only once
- * they have handled it.
+ * Pins that a published event reaches the nodes registered as confirmed consumers of its type through the
+ * registrations Vert.x keeps in Ignite and the compute job the publisher broadcasts, and that the publish completes
+ * only once they have handled it.
  */
 @SpringBootTest
 @ActiveProfiles({"test"})
@@ -37,13 +38,13 @@ public class ConfirmedEventTests {
     private ConsumerMethodRegistry consumerMethodRegistry;
 
     @Test
-    public void aConfirmedEventIsHandledBeforeThePublishCompletes() throws Exception {
+    public void anEventIsHandledByItsConfirmedConsumersBeforeThePublishCompletes() throws Exception {
         ProbeRecorder recorder = new ProbeRecorder();
         await(consumerMethodRegistry.register(recorder, ProbeRecorder.class.getDeclaredMethod("onProbe", Probe.class)));
         try {
             Probe probe = new Probe("probe-" + UUID.randomUUID());
 
-            await(eventService.publishConfirmed(probe));
+            await(eventService.publish(probe));
 
             assertEquals(List.of(probe), recorder.received);
         } finally {
@@ -52,19 +53,30 @@ public class ConfirmedEventTests {
     }
 
     @Test
-    public void aConfirmedEventFailsWhenItsConsumerKeepsFailing() throws Exception {
+    public void aPublishFailsWhenItsConfirmedConsumerKeepsFailing() throws Exception {
         RefusingConsumer refusing = new RefusingConsumer();
         await(consumerMethodRegistry.register(refusing, RefusingConsumer.class.getDeclaredMethod("onRefused", Refused.class)));
         try {
-            assertThrows(ExecutionException.class, () -> await(eventService.publishConfirmed(new Refused("refused"))));
+            assertThrows(ExecutionException.class, () -> await(eventService.publish(new Refused("refused"))));
         } finally {
             consumerMethodRegistry.unregister(refusing);
         }
     }
 
     @Test
-    public void aConfirmedEventNobodyConsumesCompletes() throws Exception {
-        await(eventService.publishConfirmed(new Unconsumed("nobody")));
+    public void aFailingBestEffortConsumerDoesNotFailThePublish() throws Exception {
+        BestEffortRefusingConsumer refusing = new BestEffortRefusingConsumer();
+        await(consumerMethodRegistry.register(refusing, BestEffortRefusingConsumer.class.getDeclaredMethod("onRefused", Refused.class)));
+        try {
+            await(eventService.publish(new Refused("best-effort")));
+        } finally {
+            consumerMethodRegistry.unregister(refusing);
+        }
+    }
+
+    @Test
+    public void anEventNobodyConsumesCompletes() throws Exception {
+        await(eventService.publish(new Unconsumed("nobody")));
     }
 
     private static <T> T await(Future<T> future) throws Exception {
@@ -95,13 +107,20 @@ public class ConfirmedEventTests {
     public static class ProbeRecorder {
         private final List<Probe> received = new CopyOnWriteArrayList<>();
 
-        @KinoticConsumer
+        @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
         void onProbe(Probe probe) {
             received.add(probe);
         }
     }
 
     public static class RefusingConsumer {
+        @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
+        Future<Void> onRefused(Refused refused) {
+            return Future.failedFuture(new IllegalStateException("This consumer always fails"));
+        }
+    }
+
+    public static class BestEffortRefusingConsumer {
         @KinoticConsumer
         Future<Void> onRefused(Refused refused) {
             return Future.failedFuture(new IllegalStateException("This consumer always fails"));

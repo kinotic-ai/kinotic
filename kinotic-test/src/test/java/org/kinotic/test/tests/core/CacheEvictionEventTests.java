@@ -14,8 +14,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins that this node, which runs the persistence module, consumes cache evictions, and that a confirmed eviction
- * completes once it has handled it.
+ * Pins that this node, which runs the persistence module, is a confirmed consumer of cache evictions, and that
+ * publishing an eviction completes once it has handled it.
  */
 @SpringBootTest
 public class CacheEvictionEventTests extends KinoticTestBase {
@@ -28,11 +28,11 @@ public class CacheEvictionEventTests extends KinoticTestBase {
 
     @Test
     public void thePersistenceModuleConsumesCacheEvictions() throws Exception {
-        CRI topic = CRI.create(EventConstants.TOPIC_DESTINATION_SCHEME, CacheEvictionEvent.class.getName());
-        assertTrue(await(eventBusService.isAnybodyListening(topic)), "this node consumes cache evictions");
+        CRI confirmed = CRI.create(EventConstants.TOPIC_DESTINATION_SCHEME, "confirmed", CacheEvictionEvent.class.getName());
+        assertTrue(await(eventBusService.isAnybodyListening(confirmed)), "this node is a confirmed consumer of cache evictions");
 
-        await(eventService.publishConfirmed(CacheEvictionEvent.entityDefinition(new ApplicationKey(TEST_ORG_ID, TEST_APP_ID),
-                                                                                "entity-" + suffix())));
+        await(eventService.publish(CacheEvictionEvent.entityDefinition(new ApplicationKey(TEST_ORG_ID, TEST_APP_ID),
+                                                                       "entity-" + suffix())));
     }
 
 }

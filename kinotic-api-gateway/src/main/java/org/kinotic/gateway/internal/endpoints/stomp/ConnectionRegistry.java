@@ -2,6 +2,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.annotations.KinoticConsumer;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.springframework.stereotype.Component;
@@ -45,7 +46,7 @@ public class ConnectionRegistry {
     }
 
     /** Ends every connection the revocation names; one that names none is handled as nothing. */
-    @KinoticConsumer
+    @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
     public void revoke(ConnectionRevocation revocation) {
         Set<Consumer<Throwable>> closers = connections.remove(revocation.getIdentityId());
         if (closers != null) {

@@ -10,9 +10,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Carries an event published with {@link org.kinotic.core.api.event.EventService#publishConfirmed(Object)} to a node,
- * as the compute job the publisher broadcasts, and hands it there to the node's
- * {@link org.kinotic.core.api.annotations.KinoticConsumer} methods of its type, returning once they have handled it.
+ * Carries an event published with {@link org.kinotic.core.api.event.EventService#publish(Object)} to a node with a
+ * {@link org.kinotic.core.api.event.EventDelivery#CONFIRMED} consumer of its type, as the compute job the publisher
+ * broadcasts, and hands it there to the node's confirmed consumers of the type, returning once they have handled it.
  */
 @RequiredArgsConstructor
 public class ConfirmedEventDispatchJob implements IgniteRunnable {

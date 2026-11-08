@@ -20,6 +20,7 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.core.api.event.EventStreamService;
 import org.kinotic.core.api.event.Metadata;
@@ -34,10 +35,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Routes raw events to the {@link EventBusService} or the {@link EventStreamService} by their scheme, publishes
- * typed events to their topic address, and delivers confirmed events as an Ignite compute job to the nodes that
- * registered a consumer of their type, waiting for every one's answer and retrying against the registrations of
- * the moment until each has handled it.
+ * Routes raw events to the {@link EventBusService} or the {@link EventStreamService} by their scheme. Publishes a
+ * typed event to the best-effort address of its type, and delivers it as an Ignite compute job to the nodes that
+ * registered a confirmed consumer of its type, waiting for every one's answer and retrying against the
+ * registrations of the moment until each has handled it.
  *
  * Created by navid on 12/19/19
  */
@@ -78,20 +79,20 @@ public class DefaultEventService implements EventService {
         this.vertx = vertx;
         Meter meter = openTelemetry.getMeter("kinotic.events");
         requestCounter = meter.counterBuilder("event.confirmed.requests")
-                              .setDescription("Events published with confirmation")
+                              .setDescription("Published events that had confirmed consumers")
                               .setUnit("events")
                               .build();
         resultCounter = meter.counterBuilder("event.confirmed.results")
-                             .setDescription("Confirmed event deliveries, by outcome")
+                             .setDescription("Deliveries to confirmed consumers, by outcome")
                              .setUnit("results")
                              .build();
         durationHistogram = meter.histogramBuilder("event.confirmed.duration")
-                                 .setDescription("Time until every consuming node handled a confirmed event")
+                                 .setDescription("Time until every node with a confirmed consumer handled an event")
                                  .setUnit("ms")
                                  .ofLongs()
                                  .build();
         retryCounter = meter.counterBuilder("event.confirmed.retries")
-                            .setDescription("Retried confirmed event deliveries")
+                            .setDescription("Retried deliveries to confirmed consumers")
                             .setUnit("retries")
                             .build();
     }
@@ -129,25 +130,34 @@ public class DefaultEventService implements EventService {
     }
 
     @Override
-    public void publish(Object event) {
-        Validate.notNull(event, "event must not be null");
-        Metadata metadata = Metadata.create();
-        metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_JSON);
-        eventBusService.publish(Event.create(ConsumerMethodRegistry.topicOf(event.getClass().getName()),
-                                             metadata,
-                                             jsonMapper.writeValueAsBytes(event)));
-    }
-
-    @Override
-    public Future<Void> publishConfirmed(Object event) {
+    public Future<Void> publish(Object event) {
         Validate.notNull(event, "event must not be null");
         String eventType = event.getClass().getName();
-        Attributes attributes = Attributes.builder().put("event.type", eventType).build();
-        requestCounter.add(1, attributes);
-        long startedAt = System.currentTimeMillis();
-        ConfirmedEventDispatchJob job = new ConfirmedEventDispatchJob(eventType, jsonMapper.writeValueAsBytes(event));
+        byte[] payload = jsonMapper.writeValueAsBytes(event);
+        Metadata metadata = Metadata.create();
+        metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_JSON);
+        eventBusService.publish(Event.create(ConsumerMethodRegistry.addressOf(eventType, EventDelivery.BEST_EFFORT),
+                                             metadata,
+                                             payload));
         Context context = vertx.getOrCreateContext();
-        return attempt(job, eventType, context, 1)
+        return consumingNodes(eventType, context).compose(nodes -> {
+            Future<Void> ret;
+            if (nodes.isEmpty()) {
+                ret = Future.succeededFuture();
+            } else {
+                ret = deliverConfirmed(new ConfirmedEventDispatchJob(eventType, payload), eventType, nodes, context);
+            }
+            return ret;
+        });
+    }
+
+    private Future<Void> deliverConfirmed(ConfirmedEventDispatchJob job,
+                                          String eventType,
+                                          Collection<ClusterNode> nodes,
+                                          Context context) {
+        requestCounter.add(1, Attributes.builder().put("event.type", eventType).build());
+        long startedAt = System.currentTimeMillis();
+        return attempt(job, eventType, nodes, context, 1)
                 .onComplete(ar -> {
                     Attributes result = Attributes.builder()
                                                   .put("event.type", eventType)
@@ -158,40 +168,39 @@ public class DefaultEventService implements EventService {
                 });
     }
 
-    // The consuming nodes are read once per attempt, so an attempt is delivered to, and reported on, one set of
-    // nodes; read again on the next attempt, so a node that left is not waited for and a node that registered a
-    // consumer meanwhile receives the event
-    private Future<Void> attempt(ConfirmedEventDispatchJob job, String eventType, Context context, int attempt) {
-        return consumingNodes(eventType, context).compose(nodes -> {
-            Future<Void> ret;
-            if (nodes.isEmpty()) {
-                log.debug("No node consumes {}, so no node handles it", eventType);
-                ret = Future.succeededFuture();
+    // An attempt is delivered to, and reported on, one set of nodes. A retry reads the consuming nodes again, so a
+    // node that left is not waited for and a node that registered a confirmed consumer meanwhile receives the event
+    private Future<Void> attempt(ConfirmedEventDispatchJob job,
+                                 String eventType,
+                                 Collection<ClusterNode> nodes,
+                                 Context context,
+                                 int attempt) {
+        return broadcast(ignite.cluster().forNodes(nodes), job, context).recover(error -> {
+            Future<Void> retried;
+            if (attempt < MAX_ATTEMPTS) {
+                log.warn("Delivery of {} to {} nodes failed on attempt {} of {}: {}", eventType, nodes.size(),
+                         attempt, MAX_ATTEMPTS, error.getMessage());
+                retryCounter.add(1, Attributes.builder().put("event.type", eventType).build());
+                retried = vertx.timer(RETRY_DELAY_MS)
+                               .compose(id -> consumingNodes(eventType, context))
+                               .compose(current -> current.isEmpty()
+                                       ? Future.<Void>succeededFuture()
+                                       : attempt(job, eventType, current, context, attempt + 1));
             } else {
-                ret = broadcast(ignite.cluster().forNodes(nodes), job, context).recover(error -> {
-                    Future<Void> retried;
-                    if (attempt < MAX_ATTEMPTS) {
-                        log.warn("Delivery of {} to {} nodes failed on attempt {} of {}: {}", eventType, nodes.size(),
-                                 attempt, MAX_ATTEMPTS, error.getMessage());
-                        retryCounter.add(1, Attributes.builder().put("event.type", eventType).build());
-                        retried = vertx.timer(RETRY_DELAY_MS).compose(id -> attempt(job, eventType, context, attempt + 1));
-                    } else {
-                        log.error("Delivery of {} was not acknowledged by every node after {} attempts", eventType, MAX_ATTEMPTS, error);
-                        retried = Future.failedFuture(error);
-                    }
-                    return retried;
-                });
+                log.error("Delivery of {} was not acknowledged by every node after {} attempts", eventType, MAX_ATTEMPTS, error);
+                retried = Future.failedFuture(error);
             }
-            return ret;
+            return retried;
         });
     }
 
-    // the nodes holding a registration of the type's topic address, which every node with a consumer of the type
-    // registers, less any whose node already left. The registrations are read on an Ignite thread, so the outcome
+    // the nodes holding a registration of the type's confirmed address, which every node with a confirmed consumer
+    // of the type registers, less any whose node already left. The registrations are read on an Ignite thread, so the outcome
     // is handed back to the caller's context
     private Future<Collection<ClusterNode>> consumingNodes(String eventType, Context context) {
         Promise<List<RegistrationInfo>> promise = Promise.promise();
-        clusterManager.getClusterRegistrations(ConsumerMethodRegistry.topicOf(eventType).baseResource(), promise);
+        clusterManager.getClusterRegistrations(ConsumerMethodRegistry.addressOf(eventType, EventDelivery.CONFIRMED).baseResource(),
+                                              promise);
         return Future.fromCompletionStage(promise.future().toCompletionStage(), context).map(registrations -> {
             Set<UUID> nodeIds = registrations.stream()
                                              .map(registration -> UUID.fromString(registration.nodeId()))

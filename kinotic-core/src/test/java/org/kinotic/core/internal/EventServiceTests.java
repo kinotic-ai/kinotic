@@ -1,8 +1,10 @@
 package org.kinotic.core.internal;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.vertx.core.Completable;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.spi.cluster.RegistrationInfo;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.internal.api.event.ConfirmedEventDispatchJob;
 import org.kinotic.core.internal.api.event.ConsumerMethodRegistry;
 import org.kinotic.core.internal.api.event.DefaultEventBusService;
@@ -33,14 +36,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
  * Behavioral tests for {@link DefaultEventService#publish(Object)}, the {@link ConsumerMethodRegistry} and the
  * {@link ConfirmedEventDispatchJob}: published events travel the real event bus (codec included) and reach every
- * {@link KinoticConsumer} method, and a confirmed delivery to a node returns once its consumers have handled the event.
- * Uses a plain non-clustered Vert.x, publish still fans out locally.
+ * best-effort {@link KinoticConsumer} method, and a confirmed delivery to a node returns once its confirmed consumers
+ * have handled the event. Uses a plain non-clustered Vert.x, publish still fans out locally.
  *
  * Created by Navid Mitchell on 2026-08-23.
  */
@@ -62,6 +68,11 @@ public class EventServiceTests {
         // A plain Vert.x has no node id; a consumer's acknowledgement names the one the cluster manager reports
         KinoticIgniteClusterManager clusterManager = mock(KinoticIgniteClusterManager.class);
         when(clusterManager.getNodeId()).thenReturn("test-node");
+        // no node holds a confirmed registration, so publish dispatches to none
+        doAnswer(invocation -> {
+            invocation.<Completable<List<RegistrationInfo>>>getArgument(1).succeed(List.of());
+            return null;
+        }).when(clusterManager).getClusterRegistrations(anyString(), any());
         DefaultEventBusService eventBusService = new DefaultEventBusService(clusterManager, vertx);
         registry = new ConsumerMethodRegistry(eventBusService, jsonMapper, vertx);
         postProcessor = new ConsumerBeanPostProcessor(new ObjectProvider<>() {
@@ -70,7 +81,7 @@ public class EventServiceTests {
                 return registry;
             }
         });
-        // publish never reaches Ignite, which only confirmed deliveries are broadcast over
+        // publish never reaches Ignite, which deliveries to confirmed consumers are broadcast over
         eventService = new DefaultEventService(eventBusService, new DefaultEventStreamService(), jsonMapper,
                                                mock(Ignite.class), clusterManager, vertx, OpenTelemetry.noop());
     }
@@ -124,8 +135,21 @@ public class EventServiceTests {
     }
 
     @Test
-    public void confirmedDeliveryReturnsOnceEveryConsumerHasHandledTheEvent() {
-        TestReceiver receiver = register(new TestReceiver(1));
+    public void publishSendsOnlyToBestEffortConsumersOverTheBus() throws Exception {
+        TestReceiver bestEffort = register(new TestReceiver(1));
+        ConfirmedReceiver confirmed = register(new ConfirmedReceiver());
+
+        await(eventService.publish(new TestEvent("best-effort", 6)));
+
+        assertTrue(bestEffort.latch.await(5, TimeUnit.SECONDS), "best-effort consumer did not receive the event");
+        // Delivery is asynchronous, so allow time for a wrongly delivered event to arrive
+        Thread.sleep(250);
+        assertEquals(List.of(), confirmed.received, "confirmed consumer received the event over the bus");
+    }
+
+    @Test
+    public void confirmedDeliveryReturnsOnceEveryConfirmedConsumerHasHandledTheEvent() {
+        ConfirmedReceiver receiver = register(new ConfirmedReceiver());
         SlowReceiver slow = register(new SlowReceiver(vertx));
 
         dispatch(new TestEvent("confirmed", 3));
@@ -135,9 +159,20 @@ public class EventServiceTests {
     }
 
     @Test
+    public void confirmedDeliverySkipsBestEffortConsumers() {
+        TestReceiver bestEffort = register(new TestReceiver(1));
+        ConfirmedReceiver confirmed = register(new ConfirmedReceiver());
+
+        dispatch(new TestEvent("confirmed only", 7));
+
+        assertEquals(List.of(new TestEvent("confirmed only", 7)), confirmed.received);
+        assertEquals(List.of(), bestEffort.received);
+    }
+
+    @Test
     public void confirmedDeliveryFailsWhenAConsumerFails() {
-        register(new TestReceiver(1));
-        register(new FailingReceiver());
+        register(new ConfirmedReceiver());
+        register(new ConfirmedFailingReceiver());
 
         assertThrows(IllegalStateException.class, () -> dispatch(new TestEvent("refused", 4)));
     }
@@ -157,6 +192,10 @@ public class EventServiceTests {
     public void consumerReturningAValueFailsBeanInitialization() {
         assertThrows(FatalBeanException.class,
                      () -> postProcessor.postProcessAfterInitialization(new ValueReturningConsumer(), "valueReturningConsumer"));
+    }
+
+    private static <T> T await(Future<T> future) throws Exception {
+        return future.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
     }
 
     private <T> T register(T bean) {
@@ -199,6 +238,15 @@ public class EventServiceTests {
         }
     }
 
+    public static class ConfirmedReceiver {
+        private final List<TestEvent> received = new CopyOnWriteArrayList<>();
+
+        @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
+        void onEvent(TestEvent event) {
+            received.add(event);
+        }
+    }
+
     public static class SlowReceiver {
         private final List<TestEvent> handled = new CopyOnWriteArrayList<>();
         private final Vertx vertx;
@@ -207,7 +255,7 @@ public class EventServiceTests {
             this.vertx = vertx;
         }
 
-        @KinoticConsumer
+        @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
         Future<Void> onEvent(TestEvent event) {
             return vertx.timer(200).map(id -> {
                 handled.add(event);
@@ -225,6 +273,13 @@ public class EventServiceTests {
 
     public static class FailingReceiver {
         @KinoticConsumer
+        Future<Void> onEvent(TestEvent event) {
+            return Future.failedFuture(new IllegalStateException("This consumer always fails"));
+        }
+    }
+
+    public static class ConfirmedFailingReceiver {
+        @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
         Future<Void> onEvent(TestEvent event) {
             return Future.failedFuture(new IllegalStateException("This consumer always fails"));
         }

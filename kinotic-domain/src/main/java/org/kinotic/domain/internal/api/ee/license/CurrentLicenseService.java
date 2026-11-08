@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.annotations.KinoticConsumer;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.SecretStorageBackendType;
@@ -108,7 +109,7 @@ public class CurrentLicenseService {
                          .compose(v -> {
                              // this node runs on the key it returns, whether or not its own notice is handled
                              apply(trimmed, reads.incrementAndGet());
-                             return eventService.publishConfirmed(new LicenseChangedEvent())
+                             return eventService.publish(new LicenseChangedEvent())
                                                 // a node the event missed, or whose read of the key failed, reads it on its next reload
                                                 .recover(error -> {
                                                     log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
@@ -134,7 +135,7 @@ public class CurrentLicenseService {
         return ret;
     }
 
-    @KinoticConsumer
+    @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
     public Future<Void> onLicenseChanged(LicenseChangedEvent event) {
         return readInstalledKey();
     }

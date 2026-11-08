@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.annotations.KinoticConsumer;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
@@ -81,7 +82,7 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
      * Evicts the caches for a given named query, this is used when a named query is updated on a remote node.
      * @param event the event containing the named query to evict the caches for
      */
-    @KinoticConsumer
+    @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
     public void handleNamedQueryCacheEviction(CacheEvictionEvent event) {
         // a failure fails the confirmed delivery to this node, so the publisher retries it instead of counting it as handled
         if(event.getEvictionSourceType() == EvictionSourceType.NAMED_QUERY){

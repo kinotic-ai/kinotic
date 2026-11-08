@@ -9,8 +9,8 @@ import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.springframework.stereotype.Component;
 
 /**
- * Publishes each revocation with {@link EventService#publishConfirmed(Object)} to every node consuming it, so every
- * gateway holding a connection it names ends it.
+ * Publishes each revocation with {@link EventService#publish(Object)} to every node with a confirmed consumer of it,
+ * so every gateway holding a connection it names ends it.
  */
 @Component
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class DefaultConnectionRevocationService implements ConnectionRevocationS
     @Override
     public Future<Void> revoke(String identityId) {
         Validate.notBlank(identityId, "identityId must not be blank");
-        eventService.publishConfirmed(new ConnectionRevocation(identityId));
+        eventService.publish(new ConnectionRevocation(identityId));
         return Future.succeededFuture();
     }
 

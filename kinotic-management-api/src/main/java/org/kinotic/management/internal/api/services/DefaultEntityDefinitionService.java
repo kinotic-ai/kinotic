@@ -357,7 +357,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
      */
     private Future<Void> evict(EntityDefinition entityDefinition) {
         CacheEvictionEvent event = CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId());
-        return eventService.publishConfirmed(event)
+        return eventService.publish(event)
                            .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 }

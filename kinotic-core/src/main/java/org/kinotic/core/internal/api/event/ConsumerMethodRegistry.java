@@ -11,6 +11,7 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.EventDelivery;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
@@ -26,9 +27,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The {@link KinoticConsumer} methods of this node, by event type. Each event type has one bus consumer on the type's topic
- * address, whose registration is how the cluster knows the node consumes the type, and every event published to the
- * address is handed to every {@link KinoticConsumer} method of the type here.
+ * The {@link KinoticConsumer} methods of this node, by event type and {@link EventDelivery}. Each pair has one bus
+ * consumer on its address, whose registration is how the cluster knows the node consumes the type with that delivery.
+ * Every event published to a {@link EventDelivery#BEST_EFFORT} address is handed to the type's best-effort methods,
+ * and every event {@link #deliverConfirmed(String, byte[])} receives to the type's {@link EventDelivery#CONFIRMED}
+ * methods.
  *
  * Created by Navid Mitchell on 2026-08-23.
  */
@@ -44,24 +47,36 @@ public class ConsumerMethodRegistry {
     // Keyed by bean identity: bean equals() must not merge two beans' registrations
     private final Map<Object, List<ConsumerRegistration>> registrations = Collections.synchronizedMap(new IdentityHashMap<>());
 
-    // One bus consumer per event type per node, shared by every @KinoticConsumer method of that type; keyed by the type's
-    // name, which names its topic address
-    private final Map<String, EventTypeConsumers> consumersByType = new ConcurrentHashMap<>();
+    // The scope of the address CONFIRMED consumers register on, so they register apart from the best-effort ones
+    private static final String CONFIRMED_SCOPE = "confirmed";
+
+    // One bus consumer per event type and delivery per node, shared by every @KinoticConsumer method of that pair;
+    // keyed by the pair's address
+    private final Map<String, EventTypeConsumers> consumersByAddress = new ConcurrentHashMap<>();
 
     /**
-     * The topic address the events of a type are published to and consumed from.
+     * The address the consumers of an event type with a delivery register on.
      * @param eventType the fully qualified name of the event type
-     * @return the topic {@link CRI} of the type
+     * @param delivery the delivery the consumers declared
+     * @return the topic {@link CRI} for the type and delivery
      */
-    static CRI topicOf(String eventType) {
-        return CRI.create(EventConstants.TOPIC_DESTINATION_SCHEME, eventType);
+    static CRI addressOf(String eventType, EventDelivery delivery) {
+        CRI ret;
+        if(delivery == EventDelivery.CONFIRMED){
+            ret = CRI.create(EventConstants.TOPIC_DESTINATION_SCHEME, CONFIRMED_SCOPE, eventType);
+        }else{
+            ret = CRI.create(EventConstants.TOPIC_DESTINATION_SCHEME, eventType);
+        }
+        return ret;
     }
 
     /**
-     * Registers the bean's {@link KinoticConsumer} method to receive every event of its parameter type.
+     * Registers the bean's {@link KinoticConsumer} method to receive every event of its parameter type, as its
+     * {@link KinoticConsumer#delivery()} declares.
      * @param bean hosting the consumer method
      * @param method the {@link KinoticConsumer} method
-     * @return a {@link Future} that completes when the type's bus consumer is registered with the cluster
+     * @return a {@link Future} that completes when the bus consumer of the type and delivery is registered with the
+     *         cluster
      * @throws IllegalArgumentException when the method does not satisfy the {@link KinoticConsumer} contract
      */
     public Future<Void> register(Object bean, Method method) {
@@ -72,20 +87,21 @@ public class ConsumerMethodRegistry {
             throw new IllegalArgumentException("@KinoticConsumer method must return void or a Future: " + method);
         }
         Class<?> eventType = resolveEventType(ResolvableType.forMethodParameter(method, 0), method);
+        String address = addressOf(eventType.getName(), method.getAnnotation(KinoticConsumer.class).delivery()).baseResource();
 
         ReflectionUtils.makeAccessible(method);
         ConsumerMethod consumerMethod = new ConsumerMethod(bean, method);
 
-        // the method is added inside compute, so an unregister of the type's last method cannot remove the bus
+        // the method is added inside compute, so an unregister of the address's last method cannot remove the bus
         // consumer between the lookup and the add; the CopyOnWriteArrayList makes the add safe against a delivery
-        EventTypeConsumers consumers = consumersByType.compute(eventType.getName(), (name, existing) -> {
-            EventTypeConsumers ret = existing != null ? existing : createConsumers(eventType);
+        EventTypeConsumers consumers = consumersByAddress.compute(address, (key, existing) -> {
+            EventTypeConsumers ret = existing != null ? existing : createConsumers(eventType, address);
             ret.methods.add(consumerMethod);
             return ret;
         });
         registrations.computeIfAbsent(bean, b -> new ArrayList<>())
-                     .add(new ConsumerRegistration(eventType.getName(), consumerMethod));
-        log.info("Registered @KinoticConsumer of {} at {}", eventType.getName(), method);
+                     .add(new ConsumerRegistration(address, consumerMethod));
+        log.info("Registered @KinoticConsumer of {} on {} at {}", eventType.getName(), address, method);
         return consumers.busConsumer.completion();
     }
 
@@ -98,8 +114,8 @@ public class ConsumerMethodRegistry {
     }
 
     /**
-     * Removes every {@link KinoticConsumer} method of the bean, unregistering a type's bus consumer once its last method is
-     * gone.
+     * Removes every {@link KinoticConsumer} method of the bean, unregistering an address's bus consumer once its last
+     * method is gone.
      * @param bean whose consumer methods are removed
      */
     public void unregister(Object bean) {
@@ -108,7 +124,7 @@ public class ConsumerMethodRegistry {
             return;
         }
         for(ConsumerRegistration registration : removed){
-            consumersByType.computeIfPresent(registration.eventType(), (type, consumers) -> {
+            consumersByAddress.computeIfPresent(registration.address(), (address, consumers) -> {
                 consumers.methods.remove(registration.method());
                 EventTypeConsumers ret = consumers;
                 if(consumers.methods.isEmpty()){
@@ -121,15 +137,15 @@ public class ConsumerMethodRegistry {
     }
 
     /**
-     * Hands an event published with {@link org.kinotic.core.api.event.EventService#publishConfirmed(Object)} to
-     * every {@link KinoticConsumer} method of its type on this node, on a Vert.x event loop.
+     * Hands an event to every {@link EventDelivery#CONFIRMED} {@link KinoticConsumer} method of its type on this node,
+     * on a Vert.x event loop.
      * @param eventType the fully qualified name of the event's type
      * @param payload the event as JSON
-     * @return a {@link Future} that completes once every consumer has handled the event, at once when this node has
-     *         none, and fails when the event cannot be read or a consumer fails
+     * @return a {@link Future} that completes once every confirmed consumer has handled the event, at once when this
+     *         node has none, and fails when the event cannot be read or a consumer fails
      */
     public Future<Void> deliverConfirmed(String eventType, byte[] payload) {
-        EventTypeConsumers consumers = consumersByType.get(eventType);
+        EventTypeConsumers consumers = consumersByAddress.get(addressOf(eventType, EventDelivery.CONFIRMED).baseResource());
         Future<Void> ret;
         if(consumers == null){
             ret = Future.succeededFuture();
@@ -153,8 +169,10 @@ public class ConsumerMethodRegistry {
         return ret;
     }
 
-    private EventTypeConsumers createConsumers(Class<?> eventType) {
-        EventTypeConsumers consumers = new EventTypeConsumers(eventType, eventBusService.listen(topicOf(eventType.getName())));
+    // publish sends only to the best-effort address; the bus consumer of a confirmed address receives nothing over the
+    // bus, and its registration tells publish which nodes to dispatch the event to
+    private EventTypeConsumers createConsumers(Class<?> eventType, String address) {
+        EventTypeConsumers consumers = new EventTypeConsumers(eventType, eventBusService.listen(CRI.create(address)));
         consumers.busConsumer
                 .handler(event -> deliver(consumers, event))
                 .exceptionHandler(error -> log.error("Bus consumer for {} signaled an error", eventType.getName(), error));
