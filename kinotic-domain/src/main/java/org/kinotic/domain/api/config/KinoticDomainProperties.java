@@ -11,7 +11,7 @@ import org.springframework.validation.annotation.Validated;
 
 /**
  * Contributes domain-level configuration (e.g. {@link EmailProperties}) under the
- * {@code kinotic.domain} prefix.
+ * {@code kinotic.domain} prefix, and the Enterprise Features' configuration under {@code kinotic.ee}.
  */
 @Getter
 @Setter
@@ -23,5 +23,7 @@ public class KinoticDomainProperties extends KinoticProperties {
 
     @Valid
     private DomainProperties domain = new DomainProperties();
+
+    private EnterpriseProperties ee = new EnterpriseProperties();
 
 }

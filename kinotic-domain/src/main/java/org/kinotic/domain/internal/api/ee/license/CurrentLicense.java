@@ -5,11 +5,12 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.event.ClusterEventPublisher;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -24,6 +25,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class CurrentLicense {
 
     /** The property holding a license key the server installs as it starts, when it is newer than the installed key. */
@@ -36,7 +38,7 @@ public class CurrentLicense {
     private final InstalledLicenseKeyRepository repository;
     private final ClusterEventPublisher clusterEventPublisher;
     private final Vertx vertx;
-    private final Environment environment;
+    private final KinoticDomainProperties properties;
     private final LicenseVerifier verifier = LicenseVerifier.trusted();
 
     private volatile License license;
@@ -44,19 +46,9 @@ public class CurrentLicense {
     private LicenseStatus status;
     private long reloadTimer;
 
-    public CurrentLicense(InstalledLicenseKeyRepository repository,
-                          ClusterEventPublisher clusterEventPublisher,
-                          Vertx vertx,
-                          Environment environment) {
-        this.repository = repository;
-        this.clusterEventPublisher = clusterEventPublisher;
-        this.vertx = vertx;
-        this.environment = environment;
-    }
-
     @PostConstruct
     void start() {
-        String propertyKey = StringUtils.trimToEmpty(environment.getProperty(LICENSE_KEY_PROPERTY));
+        String propertyKey = StringUtils.trimToEmpty(properties.getEe().getLicenseKey());
         String installedKey = StringUtils.trimToEmpty(await(repository.findInstalledKey()));
         License fromProperty = verifyOrNull(propertyKey, LICENSE_KEY_PROPERTY);
         License installed = verifyOrNull(installedKey, "the installed license key");
