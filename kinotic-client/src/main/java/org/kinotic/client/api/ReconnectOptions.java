@@ -1,9 +1,12 @@
 package org.kinotic.client.api;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.hibernate.validator.constraints.time.DurationMin;
 
 import java.time.Duration;
 
@@ -27,16 +30,22 @@ public class ReconnectOptions {
     /**
      * The delay before the first retry, doubled on every further failed attempt.
      */
+    @NotNull
+    @DurationMin(millis = 1)
     private Duration initialDelay = Duration.ofSeconds(2);
 
     /**
      * The longest delay between two attempts.
      */
+    @NotNull
+    @DurationMin(millis = 1)
     private Duration maxDelay = Duration.ofMinutes(2);
 
     /**
      * The most jitter added to the delay of an attempt that follows a lost connection.
      */
+    @NotNull
+    @DurationMin(millis = 0)
     private Duration maxJitter = Duration.ofSeconds(5);
 
     /**
@@ -44,12 +53,15 @@ public class ReconnectOptions {
      * WebSocket handshake, then the gateway's answer to the CONNECT frame. It also bounds the wait for the gateway's
      * DISCONNECT receipt on close.
      */
+    @NotNull
+    @DurationMin(millis = 1)
     private Duration connectionTimeout = Duration.ofSeconds(10);
 
     /**
      * The number of consecutive failed attempts that ends the connection for good, failing the initial connect or
      * closing an established connection; {@code 0} retries forever.
      */
+    @Min(0)
     private int maxAttempts = 0;
 
     /**

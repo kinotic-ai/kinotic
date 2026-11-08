@@ -12,6 +12,8 @@ dependencies {
     // the client is auto-configured in a Spring Boot application
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
     implementation 'org.springframework:spring-context'
+    // the options carry Bean Validation constraints, checked with the application's Validator
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // api scope: ConnectOptions customizes the JsonMapper the proxies convert with
     api 'tools.jackson.core:jackson-databind'

@@ -1,6 +1,10 @@
 package org.kinotic.client.api;
 
 import io.vertx.core.net.ClientSSLOptions;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -26,13 +30,15 @@ public class ConnectOptions {
      * default applies, its port, such as {@code wss://api.kinotic.ai}. The client appends the gateway's STOMP
      * endpoint path itself.
      */
+    @NotBlank
     private String serverUrl;
 
     /**
      * The headers the WebSocket upgrade request carries, which the gateway hands to its {@code SecurityService}
      * as the connection's authentication info. They are sent on every connect and reconnect.
      */
-    private Map<String, String> authHeaders = new HashMap<>();
+    @NotNull
+    private Map<@NotNull String, @NotNull String> authHeaders = new HashMap<>();
 
     /**
      * The TLS options of a {@code wss://} connection: trust and key material, or trust-all for a development
@@ -51,6 +57,7 @@ public class ConnectOptions {
      * larger than the gateway's {@code kinotic.maxEventPayloadSize} is refused by the gateway. Defaults to that
      * property's default.
      */
+    @Min(1)
     private int maxBodyLength = KinoticProperties.DEFAULT_MAX_EVENT_PAYLOAD_SIZE;
 
     /**
@@ -58,11 +65,14 @@ public class ConnectOptions {
      * reply in WebSocket frames of at most its {@code kinotic.maxEventPayloadSize}, so this is at least that. Defaults
      * to that property's default.
      */
+    @Min(1)
     private int maxWebSocketFrameSize = KinoticProperties.DEFAULT_MAX_EVENT_PAYLOAD_SIZE;
 
     /**
      * How the connection retries connecting.
      */
+    @NotNull
+    @Valid
     private ReconnectOptions reconnect = new ReconnectOptions();
 
     /**

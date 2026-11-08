@@ -249,6 +249,19 @@ public class KinoticConnectionTests {
     }
 
     @Test
+    public void testOptionsOutsideTheirConstraintsAreRejected() {
+        IllegalArgumentException tooSmall = Assertions.assertThrows(IllegalArgumentException.class,
+                                                                    () -> factory.connect(options(TestGatewayApplication.CLIENT_SECRET).setMaxBodyLength(0)));
+        Assertions.assertTrue(tooSmall.getMessage().contains("maxBodyLength"), tooSmall.getMessage());
+
+        // the reconnect options validate with the options they belong to
+        IllegalArgumentException nested = Assertions.assertThrows(IllegalArgumentException.class,
+                                                                  () -> factory.connect(options(TestGatewayApplication.CLIENT_SECRET)
+                                                                                           .setReconnect(reconnectOptions().setMaxJitter(null))));
+        Assertions.assertTrue(nested.getMessage().contains("reconnect.maxJitter"), nested.getMessage());
+    }
+
+    @Test
     public void testCredentialsOverCleartextToARemoteHostNeedTheOption() {
         // 192.0.2.1 is reserved for documentation, so it is not loopback and nothing answers there
         ConnectOptions options = options(TestGatewayApplication.CLIENT_SECRET)

@@ -1,6 +1,7 @@
 package org.kinotic.client_autoconfig;
 
 import io.vertx.core.Vertx;
+import jakarta.validation.Validator;
 import org.kinotic.client.api.KinoticConnectionFactory;
 import org.kinotic.client.internal.api.DefaultKinoticConnectionFactory;
 import org.kinotic.core.api.RpcServiceProxyFactory;
@@ -29,8 +30,8 @@ public class KinoticClientAutoConfiguration {
     }
 
     @Bean
-    public KinoticConnectionFactory kinoticConnectionFactory(Vertx vertx, RpcServiceProxyFactory proxyFactory, JsonMapper jsonMapper) {
-        return new DefaultKinoticConnectionFactory(vertx, proxyFactory, jsonMapper);
+    public KinoticConnectionFactory kinoticConnectionFactory(Vertx vertx, RpcServiceProxyFactory proxyFactory, Validator validator, JsonMapper jsonMapper) {
+        return new DefaultKinoticConnectionFactory(vertx, proxyFactory, validator, jsonMapper);
     }
 
 }
