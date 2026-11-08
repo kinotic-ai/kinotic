@@ -177,8 +177,6 @@ systemSecrets:
   objects:
     # kinotic.domain.secretStorage.masterKey, the same for every server
     secretStorageMasterKey: kinotic-secret-storage-master-key
-    # kinotic.ee.licenseKey, the Kinotic Enterprise License key that turns on the Enterprise Features every server runs
-    eeLicenseKey: kinotic-ee-license-key
     # kinotic.managementApi.github.appPrivateKey and webhookSecret, on a server with githubApp set
     githubAppPrivateKey: kinotic-github-app-private-key
     githubWebhookSecret: kinotic-github-webhook-secret

@@ -11,8 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Covers {@link License}: its features stay on through the grace period after it expires and go off after it, and a
- * license issued later is newer than one issued earlier or without an issue time.
+ * Covers {@link License}: its features stay on through the grace period after it expires and go off after it.
  */
 class LicenseTest {
 
@@ -35,13 +34,4 @@ class LicenseTest {
         assertFalse(license.allows(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS, beforeExpiry));
     }
 
-    @Test
-    void aLicenseIssuedLaterIsNewer() {
-        License later = new License("Acme", Instant.parse("2026-12-02T00:00:00Z"), EXPIRES_AT, EnumSet.noneOf(EnterpriseFeature.class));
-        License undated = new License("Acme", null, EXPIRES_AT, EnumSet.noneOf(EnterpriseFeature.class));
-        assertTrue(later.isNewerThan(license));
-        assertFalse(license.isNewerThan(later));
-        assertTrue(license.isNewerThan(undated));
-        assertFalse(undated.isNewerThan(license));
-    }
 }

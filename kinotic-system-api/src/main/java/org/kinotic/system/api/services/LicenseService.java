@@ -20,7 +20,8 @@ public interface LicenseService {
      * Installs {@code licenseKey} for the whole cluster in place of the installed key. Each node runs on it once the
      * call completes, except a node the notice did not reach or that could not read the key then, which reads it at its
      * next reload, tried every ten minutes.
-     * Fails when the key is not one Minds Ignited signed, names no licensee or expiry, or ended its grace period.
+     * Fails when the key is not one Minds Ignited signed, names no licensee or expiry, or ended its grace period,
+     * or when the cluster stores secrets in Azure Key Vault and the key does not turn that feature on.
      *
      * @param licenseKey a Kinotic Enterprise License key, as Minds Ignited issued it
      * @return the license the key holds

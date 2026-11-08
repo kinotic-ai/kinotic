@@ -6,7 +6,6 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
 import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
 import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
-import org.kinotic.domain.internal.api.ee.license.License;
 import org.kinotic.domain.internal.api.ee.services.AzureKeyVaultBackend;
 import org.kinotic.domain.internal.api.services.secret.InMemoryBackend;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -29,16 +28,11 @@ public class SecretStorageConfiguration {
     public SecretStorageBackend azureKeyVaultBackend(KinoticDomainProperties properties,
                                                      Vertx vertx,
                                                      CurrentLicenseService currentLicenseService) {
-        License license = currentLicenseService.find();
-        if (license == null || !license.features().contains(EnterpriseFeature.AZURE_KEY_VAULT)) {
-            throw new IllegalStateException("Azure Key Vault secret storage needs an installed Kinotic Enterprise License key, or one in "
-                                                    + CurrentLicenseService.LICENSE_KEY_PROPERTY + ", that names "
-                                                    + EnterpriseFeature.AZURE_KEY_VAULT);
-        }
-        // a license past its grace period still starts the server, so the secrets it stored stay readable; the backend refuses new ones
+        // the server starts whatever its license, so a restart never depends on one; the backend refuses new
+        // secrets until a key that turns the feature on is installed
         if (!currentLicenseService.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
-            log.warn("The Kinotic Enterprise License for {} ended its grace period at {}, so Azure Key Vault secrets can be read and deleted but not stored",
-                     license.licensee(), license.graceEndsAt());
+            log.warn("No installed Kinotic Enterprise License key turns on {} now, so Azure Key Vault secrets can be read and deleted but not stored until one is installed",
+                     EnterpriseFeature.AZURE_KEY_VAULT);
         }
         log.info("Using Azure Key Vault secret storage");
         return new AzureKeyVaultBackend(properties.getDomain().getSecretStorage().getAzure(), vertx, currentLicenseService);

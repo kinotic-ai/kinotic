@@ -41,12 +41,4 @@ public record License(String licensee, Instant issuedAt, Instant expiresAt, Set<
         return features.contains(feature) && status(now) != LicenseStatus.EXPIRED;
     }
 
-    /** Whether this license was issued after {@code other}; a license whose key does not say when is the oldest. */
-    public boolean isNewerThan(License other) {
-        return issuedOrEpoch().isAfter(other.issuedOrEpoch());
-    }
-
-    private Instant issuedOrEpoch() {
-        return issuedAt != null ? issuedAt : Instant.EPOCH;
-    }
 }

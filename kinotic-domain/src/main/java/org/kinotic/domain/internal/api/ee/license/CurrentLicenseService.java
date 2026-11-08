@@ -12,6 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.annotations.Consumer;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SecretStorageBackendType;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -22,16 +23,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * The Kinotic Enterprise License the cluster runs on, which decides at each call whether an Enterprise Feature is
  * on. Every node runs on the same installed key: a key installed on one node reaches every node without a restart.
- * When no unexpired key is installed, or the {@value #LICENSE_KEY_PROPERTY} property holds an unexpired key issued
- * later than the one installed, the property's key is installed as the node starts.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class CurrentLicenseService {
-
-    /** The property holding a license key the server installs as it starts, when it is newer than the installed key. */
-    public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";
 
     // re-reads the installed key, so a node that missed a LicenseChangedEvent catches up, and notices expiry
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
@@ -53,20 +49,19 @@ public class CurrentLicenseService {
 
     @PostConstruct
     void start() {
-        String propertyKey = StringUtils.trimToEmpty(properties.getEe().getLicenseKey());
-        String installedKey = StringUtils.trimToEmpty(await(repository.findInstalledKey()));
-        License fromProperty = verifyOrNull(propertyKey, LICENSE_KEY_PROPERTY);
-        License installed = verifyOrNull(installedKey, "the installed license key");
-        String startKey;
-        if (isUnexpired(fromProperty) && (!isUnexpired(installed) || fromProperty.isNewerThan(installed))) {
-            await(repository.install(propertyKey));
-            log.info("Installed the Kinotic Enterprise License key in {}, which is newer than the installed key", LICENSE_KEY_PROPERTY);
-            notifyNodes();
-            startKey = propertyKey;
-        } else {
-            startKey = installedKey;
+        String installedKey;
+        try {
+            installedKey = repository.findInstalledKey()
+                                     .toCompletionStage()
+                                     .toCompletableFuture()
+                                     .get(STORAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while reading the installed license key", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("The installed license key could not be read", e);
         }
-        apply(startKey, reads.incrementAndGet());
+        apply(StringUtils.trimToEmpty(installedKey), reads.incrementAndGet());
         reloadTimer = vertx.setPeriodic(RELOAD_INTERVAL_MS, id -> reload());
     }
 
@@ -94,20 +89,33 @@ public class CurrentLicenseService {
      * @return the license the key holds
      * @throws JwtException             when the key is not a valid license key, or expired
      *                                  {@link License#GRACE_PERIOD} or longer ago
-     * @throws IllegalArgumentException when the key names no licensee or no expiry
+     * @throws IllegalArgumentException when the key names no licensee or no expiry, or when this cluster stores
+     *                                  secrets in Azure Key Vault and the key does not turn
+     *                                  {@link EnterpriseFeature#AZURE_KEY_VAULT} on
      */
     public Future<License> install(String key) {
         String trimmed = StringUtils.trimToEmpty(key);
         License installing = verifier.verify(trimmed);
-        if (!isUnexpired(installing)) {
+        if (installing.status(Instant.now()) == LicenseStatus.EXPIRED) {
             throw new ExpiredJwtException(null, null, "The license key expired at " + installing.expiresAt()
                     + " and its grace period ended at " + installing.graceEndsAt());
+        }
+        if (properties.getDomain().getSecretStorage().getBackend() == SecretStorageBackendType.AZURE
+                && !installing.allows(EnterpriseFeature.AZURE_KEY_VAULT, Instant.now())) {
+            throw new IllegalArgumentException("This cluster stores secrets in Azure Key Vault, so its license key must turn on "
+                                                       + EnterpriseFeature.AZURE_KEY_VAULT);
         }
         return repository.install(trimmed)
                          .compose(v -> {
                              // this node runs on the key it returns, whether or not its own notice is handled
                              apply(trimmed, reads.incrementAndGet());
-                             return notifyNodes();
+                             return eventService.publishConfirmed(new LicenseChangedEvent())
+                                                // a node the event missed, or whose read of the key failed, reads it on its next reload
+                                                .recover(error -> {
+                                                    log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
+                                                             TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
+                                                    return Future.succeededFuture();
+                                                });
                          })
                          .map(installing);
     }
@@ -115,16 +123,6 @@ public class CurrentLicenseService {
     @Consumer
     public Future<Void> onLicenseChanged(LicenseChangedEvent event) {
         return readInstalledKey();
-    }
-
-    // a node the event missed, or whose read of the key failed, reads it on its next reload
-    private Future<Void> notifyNodes() {
-        return eventService.publishConfirmed(new LicenseChangedEvent())
-                           .recover(error -> {
-                               log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
-                                        TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
-                               return Future.succeededFuture();
-                           });
     }
 
     private void reload() {
@@ -149,7 +147,7 @@ public class CurrentLicenseService {
     private void applyKey(String installedKey) {
         if (!Objects.equals(installedKey, key)) {
             key = installedKey;
-            license = verifyOrNull(installedKey, "the installed license key");
+            license = verifyOrNull(installedKey);
             status = null;
             if (license != null) {
                 log.info("Kinotic Enterprise License for {}, expiring {}, turns on {}", license.licensee(), license.expiresAt(), license.features());
@@ -175,30 +173,15 @@ public class CurrentLicenseService {
         }
     }
 
-    private static boolean isUnexpired(License license) {
-        return license != null && license.status(Instant.now()) != LicenseStatus.EXPIRED;
-    }
-
-    private License verifyOrNull(String key, String source) {
+    private License verifyOrNull(String key) {
         License ret = null;
         if (!key.isEmpty()) {
             try {
                 ret = verifier.verify(key);
             } catch (JwtException | IllegalArgumentException e) {
-                log.error("The Kinotic Enterprise License key in {} is not valid: {}", source, e.getMessage());
+                log.error("The installed Kinotic Enterprise License key is not valid: {}", e.getMessage());
             }
         }
         return ret;
-    }
-
-    private static <T> T await(Future<T> future) {
-        try {
-            return future.toCompletionStage().toCompletableFuture().get(STORAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while reading the installed license key", e);
-        } catch (Exception e) {
-            throw new IllegalStateException("The installed license key could not be read or written", e);
-        }
     }
 }
