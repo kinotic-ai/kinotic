@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -45,6 +46,9 @@ public class CurrentLicense {
     private String key = "";
     private LicenseStatus status;
     private long reloadTimer;
+    // orders the reads of the installed key, so a read that finishes after a later one cannot apply an older key
+    private final AtomicLong reads = new AtomicLong();
+    private long appliedRead;
 
     @PostConstruct
     void start() {
@@ -60,7 +64,7 @@ public class CurrentLicense {
         } else {
             startKey = installedKey;
         }
-        apply(startKey);
+        apply(startKey, reads.incrementAndGet());
         reloadTimer = vertx.setPeriodic(RELOAD_INTERVAL_MS, id -> reload());
     }
 
@@ -107,16 +111,25 @@ public class CurrentLicense {
     @EventListener
     public void onLicenseChanged(LicenseChangedEvent event) {
         // runs on an Ignite compute thread, which waits so the publisher's completion means the node has the key
-        apply(StringUtils.trimToEmpty(await(repository.findInstalledKey())));
+        long read = reads.incrementAndGet();
+        apply(StringUtils.trimToEmpty(await(repository.findInstalledKey())), read);
     }
 
     private void reload() {
+        long read = reads.incrementAndGet();
         repository.findInstalledKey()
-                  .onSuccess(installed -> apply(StringUtils.trimToEmpty(installed)))
+                  .onSuccess(installed -> apply(StringUtils.trimToEmpty(installed), read))
                   .onFailure(error -> log.warn("The installed license key could not be read; the node keeps its license", error));
     }
 
-    private synchronized void apply(String installedKey) {
+    private synchronized void apply(String installedKey, long read) {
+        if (read > appliedRead) {
+            appliedRead = read;
+            applyKey(installedKey);
+        }
+    }
+
+    private void applyKey(String installedKey) {
         if (!Objects.equals(installedKey, key)) {
             key = installedKey;
             license = verifyOrNull(installedKey, "the installed license key");
