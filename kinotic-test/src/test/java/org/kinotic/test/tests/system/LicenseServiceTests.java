@@ -41,7 +41,7 @@ public class LicenseServiceTests extends KinoticTestBase {
 
     @Test
     public void aKeyMindsIgnitedDidNotSignIsRefused() throws Exception {
-        LicenseDetails before = await(licenseService.findCurrent());
+        LicenseDetails before = await(licenseService.install(EVALUATION_KEY));
         ExecutionException refused = assertThrows(ExecutionException.class, () -> await(licenseService.install("not-a-license-key")));
         assertInstanceOf(JwtException.class, refused.getCause());
         assertEquals(before.getLicensee(), await(licenseService.findCurrent()).getLicensee());

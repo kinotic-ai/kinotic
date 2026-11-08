@@ -1,5 +1,6 @@
 package org.kinotic.core.internal.api.event;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.ignite.lang.IgniteRunnable;
 import org.apache.ignite.resources.SpringApplicationContextResource;
 import org.springframework.context.ApplicationContext;
@@ -13,22 +14,16 @@ import java.util.concurrent.TimeoutException;
  * as the compute job the publisher broadcasts, and hands it there to the node's
  * {@link org.kinotic.core.api.annotations.Consumer} methods of its type, returning once they have handled it.
  */
+@RequiredArgsConstructor
 public class ConfirmedEventDispatchJob implements IgniteRunnable {
 
     @SpringApplicationContextResource
     private transient ApplicationContext applicationContext;
 
+    // the fully qualified name of the event's type
     private final String eventType;
+    // the event as JSON
     private final byte[] payload;
-
-    /**
-     * @param eventType the fully qualified name of the event's type
-     * @param payload   the event as JSON
-     */
-    public ConfirmedEventDispatchJob(String eventType, byte[] payload) {
-        this.eventType = eventType;
-        this.payload = payload;
-    }
 
     @Override
     public void run() {
