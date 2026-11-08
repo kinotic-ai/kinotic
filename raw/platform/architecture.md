@@ -138,7 +138,7 @@ connection with:
     </td>
     
     <td>
-      Who a connection is: it authenticates the STOMP CONNECT headers and returns the connection's <code>
+      Who a connection is: it authenticates the headers of the WebSocket upgrade request and returns the connection's <code>
         Participant
       </code>
     </td>
@@ -168,6 +168,12 @@ connection with:
 
 Kinotic OS's servers supply each from their own module: the `SecurityService` of the server, and kinotic-domain's
 resolver, which gives system, organization and application participants their zones.
+
+Two clients call a gateway from outside its cluster over the same STOMP-over-WebSocket protocol: `@kinotic-ai/core`
+for TypeScript, and `kinotic-client` for Java, which hands out the typed service proxies of `kinotic-core` over a
+gateway connection instead of the cluster's event bus (see
+[Calling Services from Java](https://kinotic.ai/apps/services/calling-services-from-java)). Both authenticate with the headers of
+the WebSocket upgrade, which the gateway's `SecurityService` reads.
 
 ### Never block the event loop
 

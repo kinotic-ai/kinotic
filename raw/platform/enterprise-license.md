@@ -58,6 +58,10 @@ the repository to its license, and the license texts govern wherever this page s
       </code>
       
       , <code>
+        kinotic-client/
+      </code>
+      
+      , <code>
         kinotic-idl/
       </code>
       

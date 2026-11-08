@@ -29,6 +29,7 @@ Every page below is available as raw markdown.
 - [Decorators Reference](https://kinotic.ai/raw/apps/reference/decorators.md): Complete reference for all Kinotic decorators.
 - [Migration SQL Grammar](https://kinotic.ai/raw/apps/reference/migration-sql-grammar.md): Complete SQL grammar reference for migration scripts.
 - [Authentication](https://kinotic.ai/raw/apps/security/authentication.md): Authentication methods and identity management in Kinotic.
+- [Calling Services from Java](https://kinotic.ai/raw/apps/services/calling-services-from-java.md): How a Java program outside a Kinotic cluster connects to a gateway and calls services through typed proxies.
 - [Overview](https://kinotic.ai/raw/apps/services/overview.md): How services work in Kinotic and the communication patterns they support.
 - [Publishing Services](https://kinotic.ai/raw/apps/services/publishing-services.md): How to publish TypeScript services in Kinotic using decorators.
 - [Service Proxies](https://kinotic.ai/raw/apps/services/service-proxies.md): How to call remote services using service proxies in Kinotic.

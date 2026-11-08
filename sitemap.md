@@ -21,6 +21,7 @@
 - [Decorators Reference](https://kinotic.ai/raw/apps/reference/decorators.md)
 - [Migration SQL Grammar](https://kinotic.ai/raw/apps/reference/migration-sql-grammar.md)
 - [Authentication](https://kinotic.ai/raw/apps/security/authentication.md)
+- [Calling Services from Java](https://kinotic.ai/raw/apps/services/calling-services-from-java.md)
 - [Overview](https://kinotic.ai/raw/apps/services/overview.md)
 - [Publishing Services](https://kinotic.ai/raw/apps/services/publishing-services.md)
 - [Service Proxies](https://kinotic.ai/raw/apps/services/service-proxies.md)
