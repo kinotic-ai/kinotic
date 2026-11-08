@@ -1,4 +1,4 @@
-package org.kinotic.client.gateway;
+package org.kinotic.client_test.gateway;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;

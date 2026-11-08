@@ -1,4 +1,4 @@
-package org.kinotic.client.gateway;
+package org.kinotic.client_test.gateway;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;

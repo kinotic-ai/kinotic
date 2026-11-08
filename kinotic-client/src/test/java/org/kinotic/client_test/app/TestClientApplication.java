@@ -1,9 +1,9 @@
-package org.kinotic.client.app;
+package org.kinotic.client_test.app;
 
 import org.apache.ignite.configuration.IgniteConfiguration;
-import org.kinotic.client.gateway.Circle;
-import org.kinotic.client.gateway.TestGatewayApplication;
-import org.kinotic.client.gateway.Shape;
+import org.kinotic.client_test.gateway.Circle;
+import org.kinotic.client_test.gateway.TestGatewayApplication;
+import org.kinotic.client_test.gateway.Shape;
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.gateway_autoconfig.KinoticApiGatewayAutoConfiguration;
 import org.springframework.beans.factory.config.BeanPostProcessor;

@@ -1,4 +1,4 @@
-package org.kinotic.client.gateway;
+package org.kinotic.client_test.gateway;
 
 /**
  * A value whose concrete type the client's mapper only knows once a module tells it.

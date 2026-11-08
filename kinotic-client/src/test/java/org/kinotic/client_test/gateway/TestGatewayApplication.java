@@ -1,5 +1,6 @@
-package org.kinotic.client.gateway;
+package org.kinotic.client_test.gateway;
 
+import org.kinotic.client_autoconfig.KinoticClientAutoConfiguration;
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.event.ZoneRulesResolver;
@@ -22,11 +23,12 @@ import java.util.concurrent.TimeUnit;
 /**
  * A gateway for the client tests: kinotic-core and the api gateway in one Ignite node of their own, with
  * {@link TestGatewaySecurityService} authenticating connections, {@link ClientTestService} to call and
- * {@link RestrictedService} in a zone the test participant may not address.
+ * {@link RestrictedService} in a zone the test participant may not address. The fixtures of this suite are defined
+ * outside {@code org.kinotic.client} because the client's component scan must not sweep them into the client node.
  *
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
-@SpringBootApplication(exclude = {JmxAutoConfiguration.class})
+@SpringBootApplication(exclude = {KinoticClientAutoConfiguration.class, JmxAutoConfiguration.class})
 @EnableKinotic
 public class TestGatewayApplication {
 

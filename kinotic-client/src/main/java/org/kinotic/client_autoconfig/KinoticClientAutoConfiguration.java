@@ -1,29 +1,17 @@
 package org.kinotic.client_autoconfig;
 
-import io.vertx.core.Vertx;
-import jakarta.validation.Validator;
-import org.kinotic.client.api.KinoticConnectionFactory;
-import org.kinotic.client.internal.api.DefaultKinoticConnectionFactory;
-import org.kinotic.core.api.RpcServiceProxyFactory;
-import org.kinotic.core_autoconfig.KinoticCoreAutoConfiguration;
+import org.kinotic.client.KinoticClientLibrary;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.context.annotation.Bean;
-import tools.jackson.databind.json.JsonMapper;
+import org.springframework.context.annotation.Import;
 
 /**
- * Auto-configures the Java client in a Spring Boot application: the {@link KinoticConnectionFactory} the application
- * connects to gateways with, over the Vert.x instance and the beans a service proxy is built from of the Kinotic node
- * {@code kinotic-core} makes the application. It is defined in a separate package because it must not be scanned by
- * the Spring context.
+ * This is the autoconfiguration class for this library
+ * It is defined in a separate package because it must not be scanned by the spring context
  *
  * Created by Navíd Mitchell 🤪 on 11/7/26.
  */
-@AutoConfiguration(after = KinoticCoreAutoConfiguration.class)
+@AutoConfiguration
+@Import(KinoticClientLibrary.class)
 public class KinoticClientAutoConfiguration {
-
-    @Bean
-    public KinoticConnectionFactory kinoticConnectionFactory(Vertx vertx, RpcServiceProxyFactory proxyFactory, Validator validator, JsonMapper jsonMapper) {
-        return new DefaultKinoticConnectionFactory(vertx, proxyFactory, validator, jsonMapper);
-    }
 
 }

@@ -15,6 +15,7 @@ import org.kinotic.core.api.RpcServiceProxyFactory;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
+import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectReader;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
  *
  * Created by Navíd Mitchell 🤪 on 11/7/26.
  */
+@Component
 public class DefaultKinoticConnectionFactory implements KinoticConnectionFactory {
 
     private static final Set<String> WEBSOCKET_SCHEMES = Set.of("ws", "wss");
