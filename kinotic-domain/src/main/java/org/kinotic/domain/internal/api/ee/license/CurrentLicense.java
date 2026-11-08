@@ -81,8 +81,9 @@ public class CurrentLicense {
     }
 
     /**
-     * Installs {@code key} as the license key of the whole cluster, in place of the one installed, and completes once
-     * every node runs on it.
+     * Installs {@code key} as the license key of the whole cluster, in place of the one installed. The future
+     * completes once the key is stored and the nodes have been told of it; a node the notice misses reads the key
+     * within ten minutes.
      *
      * @return the license the key holds
      * @throws JwtException             when the key is not a valid license key, or expired

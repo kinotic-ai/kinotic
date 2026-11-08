@@ -17,7 +17,8 @@ public interface LicenseService {
     Future<LicenseDetails> findCurrent();
 
     /**
-     * Installs {@code licenseKey} on every node in place of the installed key, completing once every node runs on it.
+     * Installs {@code licenseKey} for the whole cluster in place of the installed key. Each node runs on it once the
+     * call completes, except a node the cluster could not reach, which reads it within ten minutes.
      * Fails when the key is not one Minds Ignited signed, names no licensee or expiry, or ended its grace period.
      *
      * @param licenseKey a Kinotic Enterprise License key, as Minds Ignited issued it
