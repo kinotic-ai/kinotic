@@ -340,6 +340,14 @@ CREATE TABLE IF NOT EXISTS kinotic_llm_configuration (
     updated DATE
 );
 
+-- Installed license key: the one Kinotic Enterprise License key the whole cluster runs on (CurrentLicense), under
+-- the id 'installed'. A node installs the key in kinotic.ee.licenseKey as it starts when it is newer than this one.
+CREATE TABLE IF NOT EXISTS kinotic_installed_license_key (
+    id KEYWORD,
+    licenseKey KEYWORD NOT INDEXED,
+    installed DATE
+);
+
 -- Organization: orgs developing applications on the platform.
 CREATE TABLE IF NOT EXISTS kinotic_organization (
     id KEYWORD,

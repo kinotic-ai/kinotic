@@ -107,7 +107,9 @@ TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... TF_VAR_cloudflar
 This creates the platform zone on Cloudflare with the email records, the Entra ID app
 registrations, and the platform Key Vault holding the secrets the servers mount. Later applies
 leave the license key secret as it is, so a renewed key is set with
-`az keyvault secret set --vault-name kv-kinotic-platform --name kinotic-ee-license-key --value <key>`.
+`az keyvault secret set --vault-name kv-kinotic-platform --name kinotic-ee-license-key --value <key>`, which a
+server installs for the whole cluster as it next starts. A system user can also install a key without a restart
+(see the Enterprise License page of the docs).
 
 Point the domain at Cloudflare's nameservers at your registrar:
 
