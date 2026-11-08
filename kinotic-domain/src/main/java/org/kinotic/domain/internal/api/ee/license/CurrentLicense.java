@@ -86,8 +86,8 @@ public class CurrentLicense {
 
     /**
      * Installs {@code key} as the license key of the whole cluster, in place of the one installed. The future
-     * completes once the key is stored and the nodes have been told of it; a node the notice misses reads the key
-     * at its next reload, which it tries every ten minutes.
+     * completes once the key is stored and the nodes have been told of it; a node the notice misses, or that could
+     * not read the key then, reads it at its next reload, which it tries every ten minutes.
      *
      * @return the license the key holds
      * @throws JwtException             when the key is not a valid license key, or expired
@@ -99,7 +99,7 @@ public class CurrentLicense {
         License installing = verifier.verify(trimmed);
         return repository.install(trimmed)
                          .compose(v -> clusterEventPublisher.publish(new LicenseChangedEvent())
-                                                            // a node the event missed reads the key on its next reload
+                                                            // a node the event missed, or whose read of the key failed, reads it on its next reload
                                                             .recover(error -> {
                                                                 log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
                                                                          TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);

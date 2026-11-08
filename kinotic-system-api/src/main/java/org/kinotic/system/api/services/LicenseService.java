@@ -18,8 +18,8 @@ public interface LicenseService {
 
     /**
      * Installs {@code licenseKey} for the whole cluster in place of the installed key. Each node runs on it once the
-     * call completes, except a node the cluster could not reach, which reads it at its next reload, tried every ten
-     * minutes.
+     * call completes, except a node the notice did not reach or that could not read the key then, which reads it at its
+     * next reload, tried every ten minutes.
      * Fails when the key is not one Minds Ignited signed, names no licensee or expiry, or ended its grace period.
      *
      * @param licenseKey a Kinotic Enterprise License key, as Minds Ignited issued it
