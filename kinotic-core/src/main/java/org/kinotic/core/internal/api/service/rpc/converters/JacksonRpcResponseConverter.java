@@ -13,11 +13,13 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by navid on 2019-04-23.
  */
+@Component
 public class JacksonRpcResponseConverter extends AbstractJacksonSupport implements RpcResponseConverter {
 
     public JacksonRpcResponseConverter(JsonMapper jsonMapper,

@@ -26,5 +26,7 @@ dependencies {
     testImplementation project(':kinotic-api-gateway')
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-jackson'
+    // the test application names its Ignite instance, so its node shares the JVM with the test gateway's
+    testImplementation 'org.apache.ignite:ignite-core'
     testImplementation 'io.projectreactor:reactor-test'
 }

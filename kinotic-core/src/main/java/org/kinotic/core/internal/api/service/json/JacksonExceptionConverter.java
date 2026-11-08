@@ -20,12 +20,14 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by Navid Mitchell on 2019-04-08.
  */
 @Order
+@Component
 public class JacksonExceptionConverter implements ExceptionConverter {
 
     private static final Logger log = LoggerFactory.getLogger(JacksonExceptionConverter.class);

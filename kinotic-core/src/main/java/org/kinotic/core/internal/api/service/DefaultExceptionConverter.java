@@ -5,6 +5,7 @@ package org.kinotic.core.internal.api.service;
 import org.springframework.context.annotation.Primary;
 
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Default {@link ExceptionConverter} that delegates to all {@link ExceptionConverter}'s found in the {@link org.springframework.context.ApplicationContext}
@@ -12,6 +13,7 @@ import java.util.List;
  * Created by navid on 2019-04-25.
  */
 @Primary
+@Component
 public class DefaultExceptionConverter extends ExceptionConverterComposite {
 
     public DefaultExceptionConverter(List<ExceptionConverter> exceptionConverters) {

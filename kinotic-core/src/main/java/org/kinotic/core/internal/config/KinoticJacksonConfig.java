@@ -3,8 +3,10 @@ package org.kinotic.core.internal.config;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.internal.serializer.PageSerializer;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.serializer.PageableDeserializer;
 import org.kinotic.vertx.jackson3.VertxJackson3Module;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
@@ -61,12 +63,29 @@ public class KinoticJacksonConfig {
     }
 
     // FIXME: Make sure this works with Spring WebFlux
-    // KinoticRpcProxyAutoConfiguration registers the Vert.x Future on this bean, as on one the application supplies
+    // vertxFutureAdapterRegistrar registers the Vert.x Future on this bean, as on one the application supplies
     @ConditionalOnMissingBean
     @Bean
     public ReactiveAdapterRegistry reactiveAdapterRegistry(){
         return new ReactiveAdapterRegistry();
     }
 
+    /**
+     * Registers the Vert.x {@code Future} on the {@link ReactiveAdapterRegistry} of the context, whichever bean supplies
+     * it, so a service method returning one is invoked and proxied as returning its value.
+     * @return the post processor that registers it
+     */
+    @Bean
+    static BeanPostProcessor vertxFutureAdapterRegistrar() {
+        return new BeanPostProcessor() {
+            @Override
+            public Object postProcessBeforeInitialization(Object bean, String beanName) {
+                if (bean instanceof ReactiveAdapterRegistry registry) {
+                    KinoticUtil.registerVertxFutureAdapter(registry);
+                }
+                return bean;
+            }
+        };
+    }
 
 }

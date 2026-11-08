@@ -7,11 +7,13 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.springframework.core.MethodParameter;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by Navid Mitchell on 6/23/20
  */
+@Component
 public class TextRpcResponseConverter implements RpcResponseConverter {
 
     @Override

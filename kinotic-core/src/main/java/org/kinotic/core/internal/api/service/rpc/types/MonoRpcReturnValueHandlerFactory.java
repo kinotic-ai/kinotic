@@ -13,11 +13,13 @@ import org.springframework.core.MethodParameter;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Method;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by navid on 10/30/19
  */
+@Component
 public class MonoRpcReturnValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(MonoRpcReturnValueHandlerFactory.class);

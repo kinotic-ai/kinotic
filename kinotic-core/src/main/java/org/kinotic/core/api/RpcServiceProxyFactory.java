@@ -14,6 +14,7 @@ import org.kinotic.core.internal.api.service.rpc.RpcProxyServices;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
 
 import java.util.function.Supplier;
+import org.springframework.stereotype.Component;
 
 /**
  * Mints the service proxies of a process: those a {@link ServiceRegistry} hands out to a cluster member, and those a
@@ -25,6 +26,7 @@ import java.util.function.Supplier;
  * Created by Navíd Mitchell 🤪 on 10/25/26.
  */
 @RequiredArgsConstructor
+@Component
 public class RpcServiceProxyFactory {
 
     private final RpcArgumentConverterResolver argumentConverters;

@@ -7,11 +7,13 @@ import org.apache.commons.lang3.Validate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by Navid Mitchell on 6/23/20
  */
+@Component
 public class DefaultRpcArgumentConverterResolver implements RpcArgumentConverterResolver {
 
     private final Map<String, RpcArgumentConverter> converterMap;

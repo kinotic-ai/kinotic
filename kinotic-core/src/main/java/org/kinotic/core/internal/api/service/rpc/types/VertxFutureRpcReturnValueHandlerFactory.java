@@ -13,11 +13,13 @@ import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.MethodParameter;
 
 import java.lang.reflect.Method;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by navid on 2019-04-25.
  */
+@Component
 public class VertxFutureRpcReturnValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(VertxFutureRpcReturnValueHandlerFactory.class);

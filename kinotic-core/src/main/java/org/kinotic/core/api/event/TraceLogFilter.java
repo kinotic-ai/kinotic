@@ -6,6 +6,7 @@ import org.kinotic.core.api.config.TraceLogProperties;
 import org.springframework.util.AntPathMatcher;
 
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Answers whether traffic addressed to a given {@link CRI} is excluded from trace logging.
@@ -13,6 +14,7 @@ import java.util.List;
  * The patterns start as {@code kinotic.traceLog} and can be replaced while the node runs.
  * Call sites test {@code log.isTraceEnabled()} first, so they cost nothing unless trace logging is on.
  */
+@Component
 public class TraceLogFilter {
 
     private final AntPathMatcher matcher = new AntPathMatcher();

@@ -7,6 +7,7 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.stereotype.Component;
 
 /**
  *
@@ -18,6 +19,7 @@ import org.springframework.validation.annotation.Validated;
 @Getter
 @Setter
 @Accessors(chain = true)
+@Component
 public class KinoticProperties {
 
     /**

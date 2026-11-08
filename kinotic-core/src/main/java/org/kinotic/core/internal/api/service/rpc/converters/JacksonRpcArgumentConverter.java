@@ -12,11 +12,13 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.Method;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by navid on 2019-04-23.
  */
+@Component
 public class JacksonRpcArgumentConverter extends AbstractJacksonSupport implements RpcArgumentConverter {
 
     public JacksonRpcArgumentConverter(JsonMapper jsonMapper,

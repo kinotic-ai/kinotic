@@ -11,10 +11,12 @@ import org.springframework.core.MethodParameter;
 
 import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
+import org.springframework.stereotype.Component;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/24/23.
  */
+@Component
 public class CompletableFutureValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(CompletableFutureValueHandlerFactory.class);

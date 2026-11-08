@@ -13,11 +13,13 @@ import org.springframework.core.MethodParameter;
 import reactor.core.publisher.Flux;
 
 import java.lang.reflect.Method;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by Navid Mitchell on 5/30/20
  */
+@Component
 public class FluxReturnValueHandlerFactory implements RpcReturnValueHandlerFactory {
 
     private static final Logger log = LoggerFactory.getLogger(FluxReturnValueHandlerFactory.class);
