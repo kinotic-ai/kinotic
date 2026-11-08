@@ -1,7 +1,6 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.event.ClusterEventHandler;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.springframework.stereotype.Component;
@@ -18,7 +17,7 @@ import java.util.function.Consumer;
  */
 @Slf4j
 @Component
-public class ConnectionRegistry implements ClusterEventHandler<ConnectionRevocation> {
+public class ConnectionRegistry {
 
     private final Map<String, Set<Consumer<Throwable>>> connections = new ConcurrentHashMap<>();
 
@@ -45,8 +44,8 @@ public class ConnectionRegistry implements ClusterEventHandler<ConnectionRevocat
     }
 
     /** Ends every connection the revocation names; one that names none is handled as nothing. */
-    @Override
-    public void handle(ConnectionRevocation revocation) {
+    @org.kinotic.core.api.annotations.Consumer
+    public void revoke(ConnectionRevocation revocation) {
         Set<Consumer<Throwable>> closers = connections.remove(revocation.getIdentityId());
         if (closers != null) {
             log.debug("Ending {} connection(s) of identity {}", closers.size(), revocation.getIdentityId());
