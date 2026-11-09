@@ -12,7 +12,7 @@ const gives = [
 </script>
 
 <template>
-  <section class="k-section partner" aria-labelledby="partner-title">
+  <section id="design-partners" class="k-section partner" aria-labelledby="partner-title">
     <div class="k-wrap">
       <div class="partner__panel" data-reveal>
         <div class="partner__intro">
@@ -59,6 +59,7 @@ const gives = [
 <style scoped>
 .partner {
   --k-section-padding: 96px 0;
+  scroll-margin-top: 76px;
   border-top: 1px solid var(--color-k-border);
 }
 

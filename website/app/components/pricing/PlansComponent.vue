@@ -89,6 +89,11 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   <section class="plans" aria-labelledby="pricing-title">
     <div class="k-wrap">
       <div class="plans__intro" data-reveal>
+        <a class="promo" href="#design-partners">
+          <span class="k-livedot" aria-hidden="true" />
+          <span class="promo__text">Design partners get 50% off for three years</span>
+          <span class="promo__arrow" aria-hidden="true">→</span>
+        </a>
         <div class="k-eyebrow plans__eyebrow">
           <span>PRICING · RUNS IN YOUR CLOUD</span>
         </div>
@@ -187,6 +192,53 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   text-align: center;
   max-width: 760px;
   margin: 0 auto 56px;
+}
+
+.promo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  padding: 8px 16px;
+  border: 1px solid rgba(40, 254, 180, 0.35);
+  border-radius: 999px;
+  background: rgba(40, 254, 180, 0.06);
+  color: var(--color-k-heading);
+  font-size: 14px;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.promo:hover {
+  border-color: var(--color-k-mint);
+  background: rgba(40, 254, 180, 0.1);
+}
+
+.promo:focus-visible {
+  outline: 2px solid var(--color-k-mint);
+  outline-offset: 3px;
+}
+
+.promo .k-livedot {
+  flex: none;
+}
+
+.promo__arrow {
+  color: var(--color-k-mint);
+  transition: transform 0.2s ease;
+}
+
+.promo:hover .promo__arrow {
+  transform: translateX(3px);
+}
+
+@media (max-width: 480px) {
+  .promo {
+    gap: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
 }
 
 .plans__eyebrow {
