@@ -3,6 +3,9 @@ package org.kinotic.system.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.license.License;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 /**
  * The Kinotic Enterprise License key the whole cluster runs on, which system users read and replace without
@@ -11,9 +14,11 @@ import org.kinotic.domain.api.model.license.License;
  * Published in the system zone, which only SYSTEM participants and the system's own cluster members may address.
  */
 @Publish
+@AuthzResource(value = AuthzConstants.SYSTEM_TYPE, resourceId = AuthzConstants.SYSTEM_OBJECT_ID, permission = AuthzConstants.CAN_MANAGE_CLUSTER)
 public interface LicenseService {
 
     /** The license the cluster runs on, or {@code null} when no valid key is installed. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_CLUSTER)
     Future<License> findCurrent();
 
     /**
