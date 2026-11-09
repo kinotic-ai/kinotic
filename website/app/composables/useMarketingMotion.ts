@@ -49,7 +49,20 @@ export function useMarketingMotion() {
       }
     }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' })
 
-    targets.forEach(el => observer!.observe(el))
+    targets.forEach((el) => {
+      // The observer measures the displaced box from app.css, and its threshold and
+      // margin trim the bottom of the viewport, so a target resting just above the
+      // fold on load would stay hidden until the first scroll. Reveal any target
+      // whose resting position is already on screen; the rest wait for the observer.
+      const rect = el.getBoundingClientRect()
+      const offset = new DOMMatrixReadOnly(getComputedStyle(el).transform).m42
+      if (rect.top - offset < window.innerHeight && rect.bottom - offset > 0) {
+        reveal(el)
+      }
+      else {
+        observer!.observe(el)
+      }
+    })
   })
 
   onBeforeUnmount(() => observer?.disconnect())
