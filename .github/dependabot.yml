@@ -1,5 +1,10 @@
 # Keeps the workflow actions current, including the ones pinned to commit SHAs, whose trailing
 # version comment Dependabot rewrites along with the SHA.
+#
+# Every JavaScript project gets security updates only: open-pull-requests-limit 0 turns off version
+# updates, which security updates are not subject to. Each project has its own entry and group, so a
+# project's fixes arrive as one PR touching only its lockfile and merge without conflicting with
+# another project's. Gradle dependencies reach Dependabot alerts through dependency-graph.yml.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -9,25 +14,70 @@ updates:
       - /.github/actions/load-staged-images
     schedule:
       interval: weekly
+    assignees: [NavidMitchell]
     groups:
       github-actions:
         patterns:
           - "*"
 
-  # Security updates only: open-pull-requests-limit 0 turns off version updates, which security
-  # updates are not subject to. Each fix PR runs the whole Build and Publish pipeline, so the group
-  # batches them instead of opening one PR per vulnerable package.
   - package-ecosystem: npm
-    directories:
-      - /kinotic-frontend
-      - /kinotic-js/e2e-tests
-      - /kinotic-js/kinotic-cli
-      - /kinotic-js/load-generator
+    directory: /kinotic-frontend
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
+    assignees: [NavidMitchell]
+    labels: [dependencies, javascript, frontend]
     groups:
-      npm-security:
+      frontend-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /kinotic-js/kinotic-cli
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    assignees: [NavidMitchell]
+    groups:
+      kinotic-cli-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /kinotic-js/e2e-tests
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    assignees: [NavidMitchell]
+    groups:
+      e2e-tests-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /kinotic-js/load-generator
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    assignees: [NavidMitchell]
+    groups:
+      load-generator-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # The Kinotic RPC packages and the rest of the published workspace
+  - package-ecosystem: bun
+    directory: /kinotic-js/workspace
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    assignees: [NavidMitchell]
+    groups:
+      workspace-security:
         applies-to: security-updates
         patterns:
           - "*"
