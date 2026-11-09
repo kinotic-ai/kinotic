@@ -21,7 +21,7 @@ const plans: Plan[] = [
   {
     id: 'free',
     name: 'Free',
-    band: 'Under $1M annual revenue',
+    band: 'Under $1M annual revenue and under $5M raised',
     revenue: 'Under $1M',
     monthly: 0,
     summary: 'For founders and small teams getting started.',
@@ -96,7 +96,8 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         <p class="plans__lede">
           Each plan is a license for Kinotic's Enterprise features, running in your own cloud. The rest of Kinotic
           is available under the Elastic License 2.0, and Kinotic RPC under the Apache License 2.0. Companies under
-          $1M in annual revenue get an Enterprise license at no charge. Above that, your price is set by your company's annual revenue.
+          $1M in annual revenue that have raised under $5M get an Enterprise license at no charge. Above that, your
+          price is set by your company's annual revenue.
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">

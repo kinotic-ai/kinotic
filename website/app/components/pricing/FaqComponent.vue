@@ -2,8 +2,10 @@
 const questions = [
   {
     q: 'How do I know which plan I need?',
-    a: 'Your plan is set by your company\'s annual revenue, including any companies it owns. You confirm it when you '
-      + 'buy, and again once a year at renewal.',
+    a: 'Your plan is set by your company\'s annual revenue, including any companies it owns. The Free plan also '
+      + 'needs your company to have raised under $5M in total, counting equity, SAFEs and convertible notes but not '
+      + 'grants or loans; a company under $1M in revenue that has raised more is on Small. You confirm your revenue '
+      + 'and funding when you buy, and again once a year at renewal.',
   },
   {
     q: 'What happens when my company grows?',
@@ -30,8 +32,8 @@ const questions = [
   {
     q: 'Do I need a license to use Kinotic?',
     a: 'Only to use the Enterprise features. The rest of Kinotic is available under the Elastic License 2.0, and '
-      + 'Kinotic RPC under the Apache License 2.0. If your company is under $1M in annual revenue, an Enterprise '
-      + 'license costs nothing.',
+      + 'Kinotic RPC under the Apache License 2.0. If your company is under $1M in annual revenue and has raised under '
+      + '$5M, an Enterprise license costs nothing.',
   },
   {
     q: 'Do I get new Enterprise features?',
