@@ -9,7 +9,6 @@ import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.spi.cluster.RegistrationInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
@@ -24,7 +23,6 @@ import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.core.api.event.EventStreamService;
 import org.kinotic.core.api.event.Metadata;
-import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -41,6 +39,7 @@ import java.util.stream.Collectors;
  * registrations of the moment until each has handled it.
  *
  * Created by navid on 12/19/19
+ * Created By Nic Padilla on 2/12/25
  */
 @Slf4j
 @Component
@@ -57,7 +56,6 @@ public class DefaultEventService implements EventService {
     private final EventStreamService eventStreamService;
     private final JsonMapper jsonMapper;
     private final Ignite ignite;
-    private final KinoticIgniteClusterManager clusterManager;
     private final Vertx vertx;
     private final LongCounter requestCounter;
     private final LongCounter resultCounter;
@@ -68,14 +66,12 @@ public class DefaultEventService implements EventService {
                                EventStreamService eventStreamService,
                                JsonMapper jsonMapper,
                                Ignite ignite,
-                               KinoticIgniteClusterManager clusterManager,
                                Vertx vertx,
                                OpenTelemetry openTelemetry) {
         this.eventBusService = eventBusService;
         this.eventStreamService = eventStreamService;
         this.jsonMapper = jsonMapper;
         this.ignite = ignite;
-        this.clusterManager = clusterManager;
         this.vertx = vertx;
         Meter meter = openTelemetry.getMeter("kinotic.events");
         requestCounter = meter.counterBuilder("event.confirmed.requests")
@@ -131,9 +127,17 @@ public class DefaultEventService implements EventService {
 
     @Override
     public Future<Void> publish(Object event) {
-        Validate.notNull(event, "event must not be null");
-        String eventType = event.getClass().getName();
-        byte[] payload = jsonMapper.writeValueAsBytes(event);
+        Future<Void> ret;
+        try {
+            ret = publishSerialized(Validate.notNull(event, "event must not be null").getClass().getName(),
+                                    jsonMapper.writeValueAsBytes(event));
+        } catch (RuntimeException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
+    }
+
+    private Future<Void> publishSerialized(String eventType, byte[] payload) {
         Metadata metadata = Metadata.create();
         metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_JSON);
         eventBusService.publish(Event.create(ConsumerMethodRegistry.addressOf(eventType, EventDelivery.BEST_EFFORT),
@@ -195,16 +199,12 @@ public class DefaultEventService implements EventService {
     }
 
     // the nodes holding a registration of the type's confirmed address, which every node with a confirmed consumer
-    // of the type registers, less any whose node already left. The registrations are read on an Ignite thread, so the outcome
-    // is handed back to the caller's context
+    // of the type registers, less any whose node already left. The registrations are read on an Ignite thread, so the
+    // outcome is handed back to the caller's context
     private Future<Collection<ClusterNode>> consumingNodes(String eventType, Context context) {
-        Promise<List<RegistrationInfo>> promise = Promise.promise();
-        clusterManager.getClusterRegistrations(ConsumerMethodRegistry.addressOf(eventType, EventDelivery.CONFIRMED).baseResource(),
-                                              promise);
-        return Future.fromCompletionStage(promise.future().toCompletionStage(), context).map(registrations -> {
-            Set<UUID> nodeIds = registrations.stream()
-                                             .map(registration -> UUID.fromString(registration.nodeId()))
-                                             .collect(Collectors.toSet());
+        CRI confirmed = ConsumerMethodRegistry.addressOf(eventType, EventDelivery.CONFIRMED);
+        return Future.fromCompletionStage(eventBusService.findListeningNodes(confirmed).toCompletionStage(), context).map(listening -> {
+            Set<UUID> nodeIds = listening.stream().map(UUID::fromString).collect(Collectors.toSet());
             return nodeIds.isEmpty() ? List.<ClusterNode>of() : ignite.cluster().forNodeIds(nodeIds).nodes();
         });
     }

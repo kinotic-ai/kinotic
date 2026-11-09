@@ -33,6 +33,15 @@ public interface EventBusService extends RpcTransport {
     Future<Boolean> isAnybodyListening(CRI cri);
 
     /**
+     * Finds the cluster nodes with a listener registered for the {@link CRI#baseResource()} of the given
+     * {@link CRI}, whether or not this server's {@link ZonePartitioningService} reaches it. Node ids are the ones
+     * {@link #sendWithAck(Event)} completes with.
+     * @param cri to find the listening nodes of
+     * @return a {@link Future} that contains the ids of the listening nodes, empty when none listens
+     */
+    Future<Set<String>> findListeningNodes(CRI cri);
+
+    /**
      * Monitors the status of listeners anywhere in the cluster for the {@link CRI#baseResource()} of the given
      * {@link CRI}, whether or not this server's {@link ZonePartitioningService} reaches it
      * @param cri to check for registered listeners

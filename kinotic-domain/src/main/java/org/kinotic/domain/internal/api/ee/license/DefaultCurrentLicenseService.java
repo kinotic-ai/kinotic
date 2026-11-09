@@ -17,6 +17,8 @@ import org.kinotic.domain.api.config.SecretStorageBackendType;
 import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.kinotic.domain.api.model.license.License;
 import org.kinotic.domain.api.model.license.LicenseStatus;
+import org.kinotic.domain.api.services.CurrentLicenseService;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -27,13 +29,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The Kinotic Enterprise License the cluster runs on, which decides at each call whether an Enterprise Feature is
- * on. Every node runs on the same installed key: a key installed on one node reaches every node without a restart.
+ * Runs every node on the license key installed in the cluster, reading it at startup, whenever a
+ * {@link LicenseChangedEvent} announces a new one, and every ten minutes.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CurrentLicenseService {
+public class DefaultCurrentLicenseService implements CurrentLicenseService, SmartInitializingSingleton {
 
     // re-reads the installed key, so a node that missed a LicenseChangedEvent catches up, and notices expiry
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
@@ -45,7 +47,7 @@ public class CurrentLicenseService {
     private final KinoticDomainProperties properties;
     private final LicenseVerifier verifier = LicenseVerifier.trusted();
 
-    // the license as verified, which is never handed out; callers receive a copy holding its status at the time
+    // the license as verified, never handed out or changed; find() hands out a copy holding its status at the time
     private volatile License license;
     // the status last logged for the license, guarded by this
     private LicenseStatus loggedStatus;
@@ -55,22 +57,30 @@ public class CurrentLicenseService {
     private final AtomicLong reads = new AtomicLong();
     private long appliedRead;
 
+    // reads the key before the beans that check a feature initialize; a failed read leaves the node with no
+    // Enterprise Feature until a later read succeeds, so a server never fails to start over its license
     @PostConstruct
     void start() {
-        String installedKey;
         try {
-            installedKey = repository.findInstalledKey()
-                                     .toCompletionStage()
-                                     .toCompletableFuture()
-                                     .get(STORAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            String installedKey = repository.findInstalledKey()
+                                            .toCompletionStage()
+                                            .toCompletableFuture()
+                                            .get(STORAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            apply(StringUtils.trimToEmpty(installedKey), reads.incrementAndGet());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while reading the installed license key", e);
+            log.error("Interrupted while reading the installed license key; no Enterprise Feature is on until it is read");
         } catch (Exception e) {
-            throw new IllegalStateException("The installed license key could not be read", e);
+            log.error("The installed license key could not be read; no Enterprise Feature is on until it is read", e);
         }
-        apply(StringUtils.trimToEmpty(installedKey), reads.incrementAndGet());
         reloadTimer = vertx.setPeriodic(RELOAD_INTERVAL_MS, id -> reload());
+    }
+
+    // onLicenseChanged registers with the cluster after start() has read the key, so a key installed between the
+    // two is announced to no consumer here; reading it again once every bean is initialized picks it up
+    @Override
+    public void afterSingletonsInstantiated() {
+        reload();
     }
 
     @PreDestroy
@@ -78,30 +88,30 @@ public class CurrentLicenseService {
         vertx.cancelTimer(reloadTimer);
     }
 
-    /** Whether the license turns {@code feature} on now. */
+    @Override
     public boolean allows(EnterpriseFeature feature) {
-        License current = snapshot();
-        return current != null && current.getStatus() != LicenseStatus.EXPIRED && current.getFeatures().contains(feature);
+        License current = license;
+        return current != null
+                && statusAt(current, Instant.now()) != LicenseStatus.EXPIRED
+                && current.getFeatures().contains(feature);
     }
 
-    /**
-     * The license the cluster runs on, expired or not, with its status now, or {@code null} when no valid key is
-     * installed.
-     */
+    @Override
     public License find() {
-        return snapshot();
+        License current = license;
+        License ret = null;
+        if (current != null) {
+            ret = new License().setLicensee(current.getLicensee())
+                               .setIssuedAt(copyOf(current.getIssuedAt()))
+                               .setExpiresAt(copyOf(current.getExpiresAt()))
+                               .setGraceEndsAt(copyOf(current.getGraceEndsAt()))
+                               .setStatus(statusAt(current, Instant.now()))
+                               .setFeatures(Set.copyOf(current.getFeatures()));
+        }
+        return ret;
     }
 
-    /**
-     * Installs {@code key} as the license key of the whole cluster, in place of the one installed. The future
-     * completes once the key is stored and the nodes have been told of it; a node the notice misses, or that could
-     * not read the key then, reads it at its next reload, which it tries every ten minutes.
-     *
-     * @return the license the key holds; fails with a {@link JwtException} when the key is not a valid license key
-     *         or its grace period has ended, and with an {@link IllegalArgumentException} when the key names no
-     *         licensee or no expiry, or when this cluster stores secrets in Azure Key Vault and the key does not turn
-     *         {@link EnterpriseFeature#AZURE_KEY_VAULT} on
-     */
+    @Override
     public Future<License> install(String key) {
         String trimmed = StringUtils.trimToEmpty(key);
         License installing;
@@ -169,7 +179,7 @@ public class CurrentLicenseService {
             key = installedKey;
             license = verifyOrNull(installedKey);
             loggedStatus = null;
-            // snapshot logs a key in its grace period or expired
+            // logStatusChange logs a key in its grace period or expired
             if (license != null && statusAt(license, Instant.now()) != LicenseStatus.EXPIRED) {
                 log.info("Kinotic Enterprise License for {}, expiring {}, turns on {}",
                          license.getLicensee(), license.getExpiresAt().toInstant(), license.getFeatures());
@@ -177,13 +187,13 @@ public class CurrentLicenseService {
                 log.info("No Kinotic Enterprise License key is installed, so no Enterprise Feature is on");
             }
         }
-        snapshot();
+        logStatusChange();
     }
 
-    // a copy of the license with its status now, logging when it enters its grace period or expires
-    private synchronized License snapshot() {
+    // logs when the license enters its grace period or expires; runs at every read of the installed key, so a change
+    // is logged within one reload interval
+    private synchronized void logStatusChange() {
         License current = license;
-        License ret = null;
         if (current != null) {
             LicenseStatus now = statusAt(current, Instant.now());
             if (now != loggedStatus) {
@@ -196,14 +206,7 @@ public class CurrentLicenseService {
                               current.getLicensee(), current.getExpiresAt().toInstant(), current.getGraceEndsAt().toInstant());
                 }
             }
-            ret = new License().setLicensee(current.getLicensee())
-                               .setIssuedAt(copyOf(current.getIssuedAt()))
-                               .setExpiresAt(copyOf(current.getExpiresAt()))
-                               .setGraceEndsAt(copyOf(current.getGraceEndsAt()))
-                               .setStatus(now)
-                               .setFeatures(Set.copyOf(current.getFeatures()));
         }
-        return ret;
     }
 
     private static Date copyOf(Date date) {

@@ -4,7 +4,7 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
-import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
+import org.kinotic.domain.api.services.CurrentLicenseService;
 import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.kinotic.domain.internal.api.ee.services.AzureKeyVaultBackend;
 import org.kinotic.domain.internal.api.services.secret.InMemoryBackend;

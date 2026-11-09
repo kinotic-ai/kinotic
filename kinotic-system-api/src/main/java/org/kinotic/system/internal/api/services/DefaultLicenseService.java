@@ -3,7 +3,7 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.model.license.License;
-import org.kinotic.domain.internal.api.ee.license.CurrentLicenseService;
+import org.kinotic.domain.api.services.CurrentLicenseService;
 import org.kinotic.system.api.services.LicenseService;
 import org.springframework.stereotype.Component;
 

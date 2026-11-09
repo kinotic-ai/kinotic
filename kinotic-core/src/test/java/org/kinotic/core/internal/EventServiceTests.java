@@ -83,7 +83,7 @@ public class EventServiceTests {
         });
         // publish never reaches Ignite, which deliveries to confirmed consumers are broadcast over
         eventService = new DefaultEventService(eventBusService, new DefaultEventStreamService(), jsonMapper,
-                                               mock(Ignite.class), clusterManager, vertx, OpenTelemetry.noop());
+                                               mock(Ignite.class), vertx, OpenTelemetry.noop());
     }
 
     @AfterEach
@@ -180,6 +180,12 @@ public class EventServiceTests {
     @Test
     public void confirmedDeliveryToANodeWithoutConsumersSucceeds() {
         dispatch(new TestEvent("nobody", 5));
+    }
+
+    @Test
+    public void publishFailsItsFutureForAnEventItCannotWrite() {
+        assertTrue(eventService.publish(null).failed(), "a null event did not fail the publish");
+        assertTrue(eventService.publish(new UnwritableEvent()).failed(), "an event Jackson cannot write did not fail the publish");
     }
 
     @Test
@@ -282,6 +288,12 @@ public class EventServiceTests {
         @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
         Future<Void> onEvent(TestEvent event) {
             return Future.failedFuture(new IllegalStateException("This consumer always fails"));
+        }
+    }
+
+    public static class UnwritableEvent {
+        public String getValue() {
+            throw new IllegalStateException("This event cannot be written");
         }
     }
 
