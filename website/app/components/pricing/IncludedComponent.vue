@@ -1,32 +1,16 @@
 <script setup lang="ts">
-const groups = [
+const features = [
   {
-    title: 'Enterprise features',
-    note: 'Included in every plan, Free too',
-    items: [
-      'Sign-in through your own Okta or Microsoft Entra, for your team, your applications and each of their tenants',
-      'Secrets kept in your own Azure Key Vault',
-      'New Enterprise features in your edition as we ship them',
-    ],
+    title: 'Sign-in through your own identity provider',
+    body: 'Okta or Microsoft Entra, for your team, your applications and each of their tenants.',
   },
   {
-    title: 'Kinotic OS',
-    note: 'The platform your applications run on',
-    items: [
-      'Services, persistence and multi-tenancy, generated from your application model',
-      'Push-to-deploy, with isolated builds and environments',
-      'Logs, traces and metrics for every application',
-      'MCP tools, so AI agents can build and operate on Kinotic',
-    ],
+    title: 'Secrets in your own vault',
+    body: 'Your secrets kept in your own Azure Key Vault.',
   },
   {
-    title: 'No license needed',
-    note: 'For everyone, at any size',
-    items: [
-      'Local, test and staging environments that serve no real users, on as many of your own machines as you like',
-      'Kinotic RPC, open source under the Apache License 2.0',
-      'The source of the whole platform, to read and build',
-    ],
+    title: 'New Enterprise features as we ship them',
+    body: 'Every feature we add to your edition is yours at no extra cost.',
   },
 ]
 </script>
@@ -38,20 +22,19 @@ const groups = [
         <span>EVERY PLAN INCLUDES</span>
       </div>
       <h2 id="included-title" class="k-heading included__title" data-reveal>
-        One price, every feature. Your plan only reflects your size.
+        Every Enterprise feature, Free plan too. Your plan only reflects your size.
       </h2>
 
       <div class="included__grid" data-reveal>
-        <div v-for="group in groups" :key="group.title" class="included__group">
-          <h3 class="k-heading included__group-title">{{ group.title }}</h3>
-          <p class="included__note">{{ group.note }}</p>
-          <ul class="included__list">
-            <li v-for="item in group.items" :key="item">
-              <span class="included__check" aria-hidden="true">✓</span>{{ item }}
-            </li>
-          </ul>
+        <div v-for="feature in features" :key="feature.title" class="included__feature">
+          <h3 class="k-heading included__feature-title">{{ feature.title }}</h3>
+          <p class="included__body">{{ feature.body }}</p>
         </div>
       </div>
+
+      <p class="included__license" data-reveal>
+        The rest of Kinotic is available under the Elastic License 2.0.
+      </p>
     </div>
   </section>
 </template>
@@ -80,43 +63,29 @@ const groups = [
   gap: 40px;
 }
 
-.included__group {
+.included__feature {
   min-width: 0;
   padding-top: 22px;
   border-top: 2px solid var(--color-k-red);
 }
 
-.included__group-title {
+.included__feature-title {
   font-size: 20px;
+  line-height: 1.3;
 }
 
-.included__note {
-  margin: 6px 0 0;
-  color: var(--color-k-muted);
-  font-family: var(--font-k-mono);
-  font-size: 12.5px;
-}
-
-.included__list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 22px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.included__list li {
-  display: flex;
-  gap: 10px;
+.included__body {
+  margin: 10px 0 0;
   color: var(--color-k-body);
   font-size: 15px;
   line-height: 1.5;
 }
 
-.included__check {
-  flex: none;
-  color: var(--color-k-mint);
+.included__license {
+  margin: 48px 0 0;
+  color: var(--color-k-muted);
+  font-family: var(--font-k-mono);
+  font-size: 13px;
 }
 
 @media (max-width: 900px) {

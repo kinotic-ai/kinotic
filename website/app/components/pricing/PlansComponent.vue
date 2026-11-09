@@ -25,7 +25,7 @@ const plans: Plan[] = [
     revenue: 'Under $1M',
     monthly: 0,
     summary: 'For founders and small teams getting started.',
-    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Community support'],
+    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Community support'],
     cta: { label: 'Request a free license', to: 'https://licenses.kinotic.ai/free' },
   },
   {
@@ -35,7 +35,7 @@ const plans: Plan[] = [
     revenue: '$1M – under $20M',
     monthly: 5000,
     summary: 'For growing companies running Kinotic in production.',
-    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Email support'],
+    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Email support'],
     cta: { label: 'Buy Small', to: 'https://licenses.kinotic.ai/buy?plan=small' },
   },
   {
@@ -45,7 +45,7 @@ const plans: Plan[] = [
     revenue: '$20M – $100M',
     monthly: 10000,
     summary: 'For established companies building on Kinotic.',
-    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Priority support'],
+    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Priority support'],
     cta: { label: 'Buy Medium', to: 'https://licenses.kinotic.ai/buy?plan=medium' },
   },
   {
@@ -55,7 +55,7 @@ const plans: Plan[] = [
     revenue: 'Over $100M',
     monthly: 20000,
     summary: 'For enterprises running critical systems on Kinotic.',
-    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Priority support and a named contact'],
+    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Priority support and a named contact'],
     cta: { label: 'Buy Large', to: 'https://licenses.kinotic.ai/buy?plan=large' },
   },
 ]
@@ -94,10 +94,9 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         </div>
         <h1 id="pricing-title" class="k-heading plans__title">Free for small companies. Simple pricing as you grow.</h1>
         <p class="plans__lede">
-          Each plan is a license to run Kinotic Enterprise in your own cloud. You only need a license for
-          production, where Kinotic serves your users, customers or business; local, test and staging environments
-          need none. Companies under $1M in annual revenue run production at no charge. Above that, your price is set
-          by your company's annual revenue, and every plan includes every Enterprise feature.
+          Each plan is a license for Kinotic's Enterprise features, running in your own cloud. The rest of Kinotic
+          is available under the Elastic License 2.0. Companies under $1M in annual revenue get an Enterprise license
+          at no charge. Above that, your price is set by your company's annual revenue.
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">
