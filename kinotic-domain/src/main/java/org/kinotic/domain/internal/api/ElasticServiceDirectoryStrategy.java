@@ -11,21 +11,26 @@ import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * {@link ServiceDirectoryStrategy} persisting directory entries in Elasticsearch. A written contract renews the
- * intent of the authorization store the entry belongs to, or of every store for a system contract, so the store's
- * model is generated again from the directory.
+ * {@link ServiceDirectoryStrategy} persisting directory entries in Elasticsearch. An application's contract is
+ * stored only once its store's model can be generated with it, so a registration fails with the reason instead of
+ * leaving the store on a model the directory no longer implies. A written contract renews the intent of the
+ * authorization store the entry belongs to, or of every store for a system contract, so the store's model is
+ * generated again from the directory.
  */
 @Slf4j
 @Component
@@ -34,6 +39,8 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
 
     private final ServiceDirectoryEntryRepository repository;
     private final AuthzStoreRepository authzStores;
+    // the model service reads the directory this strategy backs, so it is resolved once both exist
+    private final ObjectProvider<AuthzModelService> models;
 
     @Override
     public Future<Set<String>> upsertEntry(ServiceDirectoryEntry entry) {
@@ -42,7 +49,22 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
 
     @Override
     public Future<Set<String>> upsertEntries(Collection<ServiceDirectoryEntry> entries) {
-        return repository.upsertEntries(entries).onSuccess(changed -> renewStoresOf(entries, changed));
+        return generable(entries).compose(v -> repository.upsertEntries(entries))
+                                 .onSuccess(changed -> renewStoresOf(entries, changed));
+    }
+
+    // A declaration the derivation accepts can still give the generator nothing to build: a role bundling a
+    // permission no function requires, a parent forking the type tree. Stored, it would fail the store's every
+    // reconcile until replaced, so the generator is asked first and its refusal fails the registration. The
+    // system's own contracts are generated from at startup, so only an application's are tried here
+    private Future<Void> generable(Collection<ServiceDirectoryEntry> entries) {
+        List<Future<?>> trials = new ArrayList<>();
+        for (ServiceDirectoryEntry entry : entries) {
+            if (entry.getApplicationId() != null) {
+                trials.add(models.getObject().findApplicationModel(entry.getOrganizationId(), entry.getApplicationId(), entry.getServiceDefinition()));
+            }
+        }
+        return Future.all(trials).mapEmpty();
     }
 
     // The entries are stored whether or not the store's renewal lands; a store left behind is regenerated when

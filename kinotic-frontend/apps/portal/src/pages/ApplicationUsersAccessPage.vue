@@ -50,7 +50,7 @@
         </DataTable>
       </DashboardSection>
 
-      <EndUserAccessCheckPanel v-if="!loading" :tint="TINTS.blue" :application-id="applicationId" :users="members" :machines="machines" :roles="roles"
+      <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :machines="machines" :roles="roles"
                                :catalog="catalog" :tenants="tenants" :definitions="definitions" :label-of="labelOf" :initial-subject-id="subjectFilter?.id"
                                :initial-resource="resource" />
 
@@ -110,6 +110,8 @@ const definitions = ref<DefinitionOption[]>([])
 const tenantRecords = ref<string[]>([])
 const canManageAccess = ref(false)
 const loading = ref(true)
+// whether the application's roles, definitions, tenants and subjects are read, which the check panel is built on
+const contextLoaded = ref(false)
 const refused = ref(false)
 const error = ref<string | null>(null)
 const grantDrawerVisible = ref(false)
@@ -179,45 +181,68 @@ const catalog = computed(() => {
   return [...names].sort()
 })
 
-// the tenant picker is editable, so a keystroke starts a load while an earlier one is in flight; only the latest
-// load's answer, or failure, reaches the page
-let latestLoad = 0
+// The page is kept when the header switches the application in place, and the tenant picker is editable, so a
+// keystroke starts a load of the grants while an earlier one is in flight; only the latest load's answer, or
+// failure, reaches the page. The application's context is read apart from its grants, so a keystroke reads the
+// grants alone and the check panel keeps what was chosen in it
+let latestContextLoad = 0
+let latestGrantsLoad = 0
 
-watch(() => [props.applicationId, resource.value.type, resource.value.id], load, { immediate: true })
+watch(() => props.applicationId, loadContext, { immediate: true })
+watch(() => [props.applicationId, resource.value.type, resource.value.id], loadGrants, { immediate: true })
 
-async function load(): Promise<void> {
-  const thisLoad = ++latestLoad
-  loading.value = true
-  error.value = null
+async function loadContext(): Promise<void> {
+  const thisLoad = ++latestContextLoad
+  contextLoaded.value = false
   try {
-    const [found, defined, managed, published, created] = await Promise.all([
-      Kinotic.applicationAccess.findGrants(props.applicationId, resource.value),
+    const [defined, managed, published, created] = await Promise.all([
       Kinotic.applicationAccess.findRoles(props.applicationId),
       Kinotic.permissions.listAccessible('application', 'can_manage_access'),
       Kinotic.entityDefinitions.findAllPublishedForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
       Kinotic.tenants.findAllForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
       loadSubjects()
     ])
-    if (thisLoad !== latestLoad) {
+    if (thisLoad !== latestContextLoad) {
       return
     }
-    grants.value = found
     roles.value = defined
     definitions.value = (published.content ?? []).flatMap(entity => entity.id ? [{ id: entity.id, name: entity.name }] : [])
     tenantRecords.value = (created.content ?? []).flatMap(tenant => tenant.id ? [tenant.id] : [])
     canManageAccess.value = managed.includes(props.applicationId)
-    refused.value = false
+    contextLoaded.value = true
   } catch (err) {
-    if (thisLoad !== latestLoad) {
+    if (thisLoad === latestContextLoad) {
+      failed(err)
+    }
+  }
+}
+
+async function loadGrants(): Promise<void> {
+  const thisLoad = ++latestGrantsLoad
+  loading.value = true
+  error.value = null
+  try {
+    const found = await Kinotic.applicationAccess.findGrants(props.applicationId, resource.value)
+    if (thisLoad !== latestGrantsLoad) {
       return
     }
-    refused.value = isAuthorizationError(err)
-    error.value = refused.value ? null : errorMessage(err, 'Failed to load the application\'s end-user access')
+    grants.value = found
+    refused.value = false
+  } catch (err) {
+    if (thisLoad !== latestGrantsLoad) {
+      return
+    }
+    failed(err)
   } finally {
-    if (thisLoad === latestLoad) {
+    if (thisLoad === latestGrantsLoad) {
       loading.value = false
     }
   }
+}
+
+function failed(err: unknown): void {
+  refused.value = isAuthorizationError(err)
+  error.value = refused.value ? null : errorMessage(err, 'Failed to load the application\'s end-user access')
 }
 
 // a machine is a user subject to the store, so the row says which of the two it is

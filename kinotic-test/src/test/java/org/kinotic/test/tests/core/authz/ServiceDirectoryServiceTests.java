@@ -149,6 +149,16 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         ServiceDefinition underived = reports(name, type);
         underived.addFunction(function("render", null, "reportId"));
         assertInstanceOf(IllegalStateException.class, failure(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, underived))));
+        // a declaration the derivation accepts but no model can be generated from: the role bundles a permission
+        // no function requires once generate is served unchecked
+        ServiceDefinition ungenerable = reports(name, type, false);
+        ungenerable.findDecorator(AuthzResourceC3Decorator.class)
+                   .setRoles(List.of(new AuthzRoleDeclaration().setId(type + ".generator").setPermissions(List.of("can_generate"))));
+        assertInstanceOf(IllegalArgumentException.class, failure(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, ungenerable))));
+        // the service stays registered as it was, generate checked
+        ServiceDefinition kept = await(serviceDirectory.findEntry(service)).getServiceDefinition();
+        assertEquals("can_generate", kept.getFunctions().stream().filter(f -> f.getName().equals("generate")).findFirst().orElseThrow()
+                                         .findDecorator(AuthzCheckC3Decorator.class).getPermission());
     }
 
     private static ServiceDirectoryEntry entry(String applicationId, String zone, ServiceDefinition definition) {

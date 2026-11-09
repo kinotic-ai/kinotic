@@ -2,6 +2,7 @@ package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.idl.api.schema.ServiceDefinition;
 
 /**
  * The authorization models the service directory implies, as it holds the services now.
@@ -24,5 +25,17 @@ public interface AuthzModelService {
      * @return the model
      */
     Future<AuthzModel> findApplicationModel(String organizationId, String applicationId);
+
+    /**
+     * The model an application's store would run once {@code candidate} is registered, standing in for the
+     * service of the same qualified name the directory holds now. The future fails with an
+     * {@link IllegalArgumentException} when no model can be generated from the candidate's declarations.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @param candidate      the converted contract of the service about to be registered
+     * @return the model
+     */
+    Future<AuthzModel> findApplicationModel(String organizationId, String applicationId, ServiceDefinition candidate);
 
 }
