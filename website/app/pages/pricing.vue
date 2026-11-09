@@ -7,7 +7,7 @@ useHead({ titleTemplate: '%s', htmlAttrs: { class: 'k-smooth-scroll' } })
 useSeoMeta({
   title: 'Kinotic — Pricing',
   description: 'Free for small companies. Above $1M in annual revenue, your price is set by your company\'s '
-    + 'annual revenue, and every plan includes every Enterprise feature.',
+    + 'annual revenue, every plan includes every Enterprise feature, and you can try any paid plan free for three months.',
   robots: 'noindex, nofollow',
 })
 
