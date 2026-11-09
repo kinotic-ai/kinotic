@@ -94,10 +94,10 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         </div>
         <h1 id="pricing-title" class="k-heading plans__title">Free for small companies. Simple pricing as you grow.</h1>
         <p class="plans__lede">
-          Each plan is a license to run Kinotic Enterprise in your own cloud. You don't need a license for
-          development and testing. Companies under $1M in annual revenue run Kinotic in production at no charge.
-          Above that, your price is set by your company's annual revenue, and every plan includes every Enterprise
-          feature.
+          Each plan is a license to run Kinotic Enterprise in your own cloud. You only need a license for
+          production, where Kinotic serves your users, customers or business; local, test and staging environments
+          need none. Companies under $1M in annual revenue run production at no charge. Above that, your price is set
+          by your company's annual revenue, and every plan includes every Enterprise feature.
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">

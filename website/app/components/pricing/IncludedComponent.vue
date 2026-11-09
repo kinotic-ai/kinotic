@@ -23,7 +23,7 @@ const groups = [
     title: 'No license needed',
     note: 'For everyone, at any size',
     items: [
-      'Development and testing, on as many of your own machines as you like',
+      'Local, test and staging environments that serve no real users, on as many of your own machines as you like',
       'Kinotic RPC, open source under the Apache License 2.0',
       'The source of the whole platform, to read and build',
     ],

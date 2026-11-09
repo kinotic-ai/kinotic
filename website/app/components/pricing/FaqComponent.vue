@@ -28,8 +28,9 @@ const questions = [
   },
   {
     q: 'Do I need a license to try Kinotic?',
-    a: 'No. Development and testing need no license, at any company size; they run on your own machines or cloud. '
-      + 'You need a license to run Kinotic in production, and it costs nothing if your company is under $1M in '
+    a: 'No. You only need a license for production: an environment where Kinotic serves your users, customers or '
+      + 'business. Local, test and staging environments that serve no real users need none, at any company size, '
+      + 'and run on your own machines or cloud. A production license costs nothing if your company is under $1M in '
       + 'annual revenue.',
   },
   {
