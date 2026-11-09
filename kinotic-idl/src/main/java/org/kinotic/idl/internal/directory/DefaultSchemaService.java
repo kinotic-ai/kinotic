@@ -14,6 +14,7 @@ import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.HasDecorators;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -130,6 +131,7 @@ public class DefaultSchemaService implements SchemaService {
         Assert.hasText(definition.getNamespace(), "The definition names no namespace");
         Assert.hasText(definition.getName(), "The definition names no name");
         String declarer = definition.getQualifiedName();
+        requireAtMostOne(definition, AuthzResourceC3Decorator.class, "The service " + declarer);
         AuthzResourceC3Decorator declaredResource = definition.findDecorator(AuthzResourceC3Decorator.class);
         AuthzResourceC3Decorator authzResource = declaredResource == null
                 ? null
@@ -144,6 +146,7 @@ public class DefaultSchemaService implements SchemaService {
         for (FunctionDefinition function : definition.getFunctions()) {
             // a runtime's definition leaves the parameters out of a function taking none
             List<ParameterDefinition> parameters = function.getParameters() == null ? List.of() : function.getParameters();
+            requireAtMostOne(function, AuthzCheckC3Decorator.class, "The function " + function.getName() + " on " + declarer);
             AuthzCheckC3Decorator declaredCheck = function.findDecorator(AuthzCheckC3Decorator.class);
             AuthzCheckC3Decorator check;
             if (declaredCheck != null && declaredCheck.getPermissionResolver() != null) {
@@ -179,6 +182,14 @@ public class DefaultSchemaService implements SchemaService {
             ret.addFunction(derived);
         }
         return ret;
+    }
+
+    // Every reader takes the first decorator of a type, so a second one would reach the directory unresolved
+    private static void requireAtMostOne(HasDecorators declarer, Class<? extends C3Decorator> type, String where) {
+        List<C3Decorator> decorators = declarer.getDecorators();
+        if (decorators != null && decorators.stream().filter(type::isInstance).count() > 1) {
+            throw new IllegalStateException(where + " declares more than one " + type.getSimpleName());
+        }
     }
 
     // The decorators with the declared one replaced by its resolved form, or dropped when it resolves to none;

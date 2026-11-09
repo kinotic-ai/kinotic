@@ -46,6 +46,8 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final String TENANT_DEFINITION = AuthzConstants.TENANT_DEFINITION_TYPE;
     private static final String DEFINITION = AuthzConstants.DEFINITION_RELATION;
     private static final String PLACED = AuthzConstants.PLACED_RELATION;
+    // the types every model defines beside the resource types, which a service's type would define a second time
+    private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION);
 
     @Override
     public AuthzModel systemModel(Collection<ServiceDefinition> services) {
@@ -359,6 +361,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
 
     private static void validate(Map<String, ResourceType> types) {
         for (ResourceType type : types.values()) {
+            if (FIXED_TYPES.contains(type.name)) {
+                throw new IllegalArgumentException("Resource type '" + type.name + "' is one the model defines itself");
+            }
             // the model names a type's roles and bindings by suffixing it, so a type named like one would collide
             if (type.name.endsWith(AuthzConstants.ROLE_TYPE_SUFFIX) || type.name.endsWith(AuthzConstants.ROLE_BINDING_TYPE_SUFFIX)) {
                 throw new IllegalArgumentException("Resource type '" + type.name + "' ends with '" + AuthzConstants.ROLE_TYPE_SUFFIX

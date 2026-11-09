@@ -30,7 +30,7 @@
             <span v-if="member.displayName" class="truncate text-xs text-muted-color">{{ member.email }}</span>
           </span>
           <Button v-if="canManageAccess" icon="pi pi-times" size="small" severity="danger" text aria-label="Remove from group"
-                  v-tooltip.top="'Remove from group'" @click="remove(member)" />
+                  v-tooltip.top="'Remove from group'" :loading="removing.has(member.id ?? '')" @click="remove(member)" />
         </li>
       </ul>
     </div>
@@ -71,6 +71,8 @@ const members = ref<OrganizationParticipantIdentity[]>([])
 const loading = ref(false)
 const busy = ref(false)
 const adding = ref<string | null>(null)
+// the ids of the members whose removal is in flight, so a second click sends nothing
+const removing = ref(new Set<string>())
 
 const addable = computed(() => {
   const inGroup = new Set(members.value.map(member => member.id))
@@ -112,14 +114,19 @@ async function add(): Promise<void> {
 }
 
 async function remove(member: OrganizationParticipantIdentity): Promise<void> {
-  if (!props.group?.id || !member.id) {
+  if (!props.group?.id || !member.id || removing.value.has(member.id)) {
     return
   }
+  removing.value = new Set(removing.value).add(member.id)
   try {
     await Kinotic.permissions.removeGroupMember(props.group.id, member.id)
     members.value = members.value.filter(listed => listed.id !== member.id)
   } catch (err) {
     showErrorToast(toast, 'Failed to remove the member', err, { life: 8000 })
+  } finally {
+    const next = new Set(removing.value)
+    next.delete(member.id)
+    removing.value = next
   }
 }
 </script>

@@ -138,7 +138,9 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         return super.findById(project.getId())
                 .compose(existing -> {
                     if (existing != null) {
-                        return Future.succeededFuture(existing);
+                        // a create whose placement failed left the record without its place in the graph; ensure is
+                        // idempotent, so a project placed already keeps its grants
+                        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(existing))).map(existing);
                     }
                     // the create refuses an id already held, so of two callers at once only the first places the
                     // project in the graph, and grants made on it since are kept

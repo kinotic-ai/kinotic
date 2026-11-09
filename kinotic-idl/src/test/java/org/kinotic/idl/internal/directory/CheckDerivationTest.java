@@ -149,6 +149,21 @@ public class CheckDerivationTest {
     }
 
     @Test
+    public void aDefinitionDeclaringTwoResourcesOrTwoChecksIsRefused() {
+        // the directory reads the first decorator of a type, so a second one would be stored unresolved
+        ServiceDefinition twoResources = reports(function("findById", null, "reportId"));
+        twoResources.setDecorators(List.of(twoResources.getDecorators().getFirst(),
+                                           new AuthzResourceC3Decorator().setResourceType("invoice").setParent("tenant")));
+        String message = assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(twoResources)).getMessage();
+        assertTrue(message.contains("more than one AuthzResourceC3Decorator"), message);
+
+        FunctionDefinition twoChecks = function("generate", new AuthzCheckC3Decorator().setPermission("can_generate"), "reportId");
+        twoChecks.setDecorators(List.of(twoChecks.getDecorators().getFirst(), new AuthzCheckC3Decorator().setUnchecked(true)));
+        message = assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(reports(twoChecks))).getMessage();
+        assertTrue(message.contains("generate on com.acme.reports.ReportService declares more than one AuthzCheckC3Decorator"), message);
+    }
+
+    @Test
     public void aRoleNotNamedAfterTheTypeIsRefused() {
         ServiceDefinition service = reports();
         service.findDecorator(AuthzResourceC3Decorator.class)

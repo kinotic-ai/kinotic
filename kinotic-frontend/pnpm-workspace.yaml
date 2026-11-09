@@ -6,11 +6,11 @@ packages:
 # workspace packages. management-api augments core's Kinotic singleton, so two versions
 # of it in one graph give the apps different `Kinotic.*` service types.
 catalog:
-  '@kinotic-ai/core': ^5.0.0-beta.30
+  '@kinotic-ai/core': ^5.0.0-beta.31
   '@kinotic-ai/idl': ^5.0.0-beta.7
-  '@kinotic-ai/management-api': ^5.0.0-beta.72
+  '@kinotic-ai/management-api': ^5.0.0-beta.73
   '@kinotic-ai/persistence': ^5.0.0-beta.20
-  '@kinotic-ai/system-api': ^5.0.0-beta.40
+  '@kinotic-ai/system-api': ^5.0.0-beta.41
 
   # The build toolchain the apps and frontend-common's library build share
   '@vitejs/plugin-vue': ^6.0.8

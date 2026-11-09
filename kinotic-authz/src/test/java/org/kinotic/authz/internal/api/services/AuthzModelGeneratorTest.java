@@ -362,6 +362,18 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aDeclaredTypeTheModelDefinesItselfFails() {
+        for (String fixed : List.of("user", "group", "tenant_definition")) {
+            List<ServiceDefinition> services = List.of(service("FixedService", fixed, "system",
+                                                               function("findById", fixed, fixed, "can_read")));
+
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+            assertTrue(e.getMessage().contains("'" + fixed + "'"), e.getMessage());
+        }
+    }
+
+    @Test
     public void aDeclaredRoleTheModelAlreadyDefinesFails() {
         List<ServiceDefinition> services = List.of(service("VmNodeService", "vm_node", "system",
                                                            List.of(role("vm_node.editor", "can_register_node")),

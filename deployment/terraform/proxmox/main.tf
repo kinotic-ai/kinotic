@@ -138,6 +138,8 @@ locals {
   }
   # Postgres listens on TCP only once its initialization is done, so a connection is readiness
   openfga_db_listening = "timeout 2 bash -c 'exec 3<>/dev/tcp/${local.openfga_db_private_ip}/5432'"
+  # The engine's API, which no preshared key guards: the private network is the isolation here as
+  # it is for its Postgres and for Elasticsearch
   openfga_url          = "http://${local.openfga_private_ip}:8080"
   openfga_healthy      = "curl -sf ${local.openfga_url}/healthz >/dev/null"
   # Creates the system store, the one store named kinotic-system that every server looks up by
