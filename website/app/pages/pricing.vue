@@ -6,8 +6,8 @@ definePageMeta({ layout: 'home', header: false, footer: false })
 useHead({ titleTemplate: '%s' })
 useSeoMeta({
   title: 'Kinotic — Pricing',
-  description: 'Free until Kinotic makes you money. In production, your price is set by your company\'s annual '
-    + 'revenue, and every Enterprise feature is included.',
+  description: 'Free for small companies. Above $1M in annual revenue, your price is set by your company\'s '
+    + 'annual revenue, and every plan includes every Enterprise feature.',
   robots: 'noindex, nofollow',
 })
 
