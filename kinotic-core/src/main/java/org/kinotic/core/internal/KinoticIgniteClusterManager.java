@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 /**
  * An {@link IgniteClusterManager} confined to this server's {@link ZonePartitioningService}: it advertises a consumer to the
@@ -254,13 +255,17 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
         };
     }
 
+    private List<RegistrationInfo> liveRegistrations(List<RegistrationInfo> registrations) {
+        return registrations.stream().filter(live()).toList();
+    }
+
     // The subscription cache can list a node that has left until the node cleaning up after it has removed them,
     // so membership decides which registrations count. A running cluster always lists this node, so an empty
-    // membership is getNodes() answering for a grid that is starting or stopping, and the registrations pass as
-    // they are rather than every one being dropped
-    private List<RegistrationInfo> liveRegistrations(List<RegistrationInfo> registrations) {
+    // membership is getNodes() answering for a grid that is starting or stopping, and every registration passes
+    // rather than every one being dropped
+    private Predicate<RegistrationInfo> live() {
         Set<String> members = Set.copyOf(getNodes());
-        return members.isEmpty() ? registrations : registrations.stream().filter(info -> members.contains(info.nodeId())).toList();
+        return members.isEmpty() ? info -> true : info -> members.contains(info.nodeId());
     }
 
     private static List<RegistrationInfo> registrationsOf(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry) {
@@ -349,11 +354,10 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             throw new IllegalStateException("The vertx subscription cache is not available");
         }
         Set<String> addresses = new HashSet<>();
-        Set<String> members = Set.copyOf(getNodes());
+        Predicate<RegistrationInfo> live = live();
         for(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry : cache){
             String address = entry.getKey();
-            if(address.startsWith(SERVICE_ADDRESS_PREFIX)
-                    && registrationsOf(entry).stream().anyMatch(info -> members.contains(info.nodeId()))){
+            if(address.startsWith(SERVICE_ADDRESS_PREFIX) && registrationsOf(entry).stream().anyMatch(live)){
                 addresses.add(address);
             }
         }

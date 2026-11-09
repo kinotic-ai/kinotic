@@ -1,7 +1,9 @@
 # Creates the system store, the one store named kinotic-system, unless the engine has it; every
 # server looks the store up by name and never creates it. Runs before the servers on each install and
-# upgrade, as the migration does. Store names are not unique, so the listing is checked before the
-# create, and a listing that fails stops the script rather than creating a second store.
+# upgrade, as the migration does, and waits for the engine to answer its health check first, since
+# the openfga release is installed separately and may still be starting. Store names are not unique,
+# so the listing is checked before the create, and a listing that fails stops the script rather than
+# creating a second store.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -35,6 +37,9 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - |
+              until curl -sf '{{ .Values.kinotic.authz.apiUrl }}/healthz' >/dev/null; do
+                echo 'Waiting for OpenFGA'; sleep 5
+              done
               stores=$(curl -sf -H "Authorization: Bearer $OPENFGA_API_TOKEN" '{{ .Values.kinotic.authz.apiUrl }}/stores?name=kinotic-system')
               if echo "$stores" | grep -Eq '"name":[[:space:]]*"kinotic-system"'; then
                 echo 'The system store kinotic-system exists'

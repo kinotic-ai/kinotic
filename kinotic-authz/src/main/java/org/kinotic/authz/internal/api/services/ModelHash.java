@@ -1,5 +1,7 @@
 package org.kinotic.authz.internal.api.services;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
@@ -16,14 +18,12 @@ import java.util.TreeSet;
  * same definition read back from a store.
  * Created by Navíd Mitchell 🤪on 10/4/26
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 final class ModelHash {
 
     // an empty object under these keys is the meaning itself: `this` marks a directly assignable relation and
     // `wildcard` marks a type reference to every object of the type
     private static final Set<String> MEANINGFUL_EMPTY_OBJECTS = Set.of("this", "wildcard");
-
-    private ModelHash() {
-    }
 
     /**
      * The hex digest of the definition's canonical form: its 128-bit xxHash, which equal definitions share and

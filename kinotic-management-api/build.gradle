@@ -3,7 +3,8 @@ plugins {
 }
 
 dependencies {
-    implementation project(':kinotic-authz')
+    // api scope: authz types (Subject, Resource, Grant) appear in the access services' public API
+    api project(':kinotic-authz')
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
     implementation project(':kinotic-grind')

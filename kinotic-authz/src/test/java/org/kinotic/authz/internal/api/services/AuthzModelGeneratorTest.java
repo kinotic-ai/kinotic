@@ -501,6 +501,17 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aMissingParentHigherUpTheTreeFails() {
+        List<ServiceDefinition> services = List.of(service("WidgetService", "widget", "gadget",
+                                                           function("findById", "widget", "widget", "can_read")),
+                                                   service("GadgetService", "gadget", "galaxy"));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+        assertTrue(e.getMessage().contains("gadget") && e.getMessage().contains("galaxy"));
+    }
+
+    @Test
     public void aSecondParentForTheSameTypeFails() {
         List<ServiceDefinition> services = List.of(service("ProjectService", "project", "application"),
                                                    service("OtherProjectService", "project", "organization"));

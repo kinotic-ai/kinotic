@@ -4,7 +4,8 @@ plugins {
 
 dependencies {
     implementation project(':kinotic-core')
-    implementation project(':kinotic-idl')
+    // api scope: idl types (ServiceDefinition) appear in the generator's public API
+    api project(':kinotic-idl')
 
     implementation 'dev.openfga:openfga-sdk'
     implementation 'io.vertx:vertx-core'
