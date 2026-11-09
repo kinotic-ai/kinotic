@@ -1,0 +1,1 @@
+{"id":"c304e6e0da0db78a6e4295365d3e4881.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.EventServiceTests.confirmedDeliveryReturnsOnceEveryConfirmedConsumerHasHandledTheEvent","name":"confirmedDeliveryReturnsOnceEveryConfirmedConsumerHasHandledTheEvent()","status":"passed","testResultsByEnv":{"default":"d4765971ff5242656e59d0db25bccaae"}}

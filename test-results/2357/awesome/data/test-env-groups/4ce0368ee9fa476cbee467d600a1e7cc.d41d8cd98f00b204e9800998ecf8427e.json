@@ -1,0 +1,1 @@
+{"id":"4ce0368ee9fa476cbee467d600a1e7cc.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.core.security.OAuthGrantTests.twoRotationsOfOneRefreshTokenAtOnceMintAtMostOneReplacement","name":"twoRotationsOfOneRefreshTokenAtOnceMintAtMostOneReplacement()","status":"passed","testResultsByEnv":{"default":"e47c0f234214c7d56df671a58e0ecac4"}}
