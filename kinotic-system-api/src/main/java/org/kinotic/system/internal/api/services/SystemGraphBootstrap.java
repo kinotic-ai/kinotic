@@ -4,11 +4,15 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.AuthzModelRevision;
+import org.kinotic.domain.api.model.AuthzStore;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
@@ -27,8 +31,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 
 /**
  * Places the system's staff and nodes in the authorization graph when the system has no administrator, once the
- * server is up and the system store runs a model: every node on the system, every enabled system machine as a
- * registrar of nodes, and every enabled system user as the system's administrator. A system a migration seeds has
+ * server is up and the system store runs a model with the roles it binds: every node on the system, every enabled
+ * system machine as a registrar of nodes, and every enabled system user as the system's administrator. A system a migration seeds has
  * system users, a vm-manager and nodes but no tuples, and this gives it the ones it needs to be run; a system with
  * an administrator, whatever else was granted or revoked since, is left as it is.
  */
@@ -47,7 +51,8 @@ public class SystemGraphBootstrap {
     private final Vertx vertx;
     private final ParticipantIdentityService identities;
     private final VmNodeRepository nodes;
-    private final AuthzStoreService stores;
+    private final AuthzStoreRepository stores;
+    private final AuthzModelService models;
     private final RelationshipService relationships;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -56,16 +61,28 @@ public class SystemGraphBootstrap {
     }
 
     private void run() {
-        stores.modelId(SYSTEM)
-              .compose(modelId -> relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT))
+        Future.all(stores.findById(AuthzStore.SYSTEM), models.findSystemModel())
+              .compose(both -> {
+                  AuthzStore store = both.resultAt(0);
+                  AuthzModel model = both.resultAt(1);
+                  // The reconciler writes the system model from the directory shortly after the servers start, and
+                  // a model written before this server's own services were registered lacks the roles the sweep
+                  // binds, so the sweep waits until the engine runs a model the directory implies that has them
+                  AuthzModelRevision running = store == null ? null : store.getState().getObserved();
+                  if (running == null || !running.hash().equals(model.hash())
+                          || !model.roles().containsKey(VmNodeOrchestrationService.REGISTRAR_ROLE)
+                          || !model.roles().containsKey(AuthzConstants.SYSTEM_ADMIN_ROLE)) {
+                      throw new IllegalStateException("the system store does not run a model with the roles the sweep binds yet");
+                  }
+                  return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT);
+              })
               .onSuccess(grants -> {
                   // the administrators are bound last, so a sweep cut short before them is made again
                   if (grants.stream().noneMatch(grant -> AuthzConstants.SYSTEM_ADMIN_ROLE.equals(grant.roleId()))) {
                       place(RETRY_MILLIS);
                   }
               })
-              // the reconciler writes the system model shortly after the servers start, so a store that runs
-              // none yet, like one that cannot be reached, is asked again
+              // a store not running the model yet, or one that cannot be read or reached, is asked again
               .onFailure(e -> {
                   log.debug("The system staff sweep waits: {}", e.getMessage());
                   vertx.setTimer(RETRY_MILLIS, t -> run());

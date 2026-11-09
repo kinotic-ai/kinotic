@@ -56,6 +56,9 @@
         </TabPanel>
       </TabPanels>
     </Tabs>
+    <!-- findById answers null both for an id no definition has and for one the caller may not read -->
+    <NoAccessState v-else class="m-6" :back-to="entitiesPath" back-label="Back to entities" title="Not found or no access"
+                   description="No entity definition has this id, or no grant you hold reaches it. An administrator can grant you access from its Access page." />
   </Dialog>
 </template>
 

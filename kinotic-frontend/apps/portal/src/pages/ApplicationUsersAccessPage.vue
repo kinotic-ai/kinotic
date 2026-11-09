@@ -179,11 +179,11 @@ const catalog = computed(() => {
   return [...names].sort()
 })
 
-watch(() => [props.applicationId, resource.value.type, resource.value.id], load, { immediate: true })
-
 // the tenant picker is editable, so a keystroke starts a load while an earlier one is in flight; only the latest
 // load's answer, or failure, reaches the page
 let latestLoad = 0
+
+watch(() => [props.applicationId, resource.value.type, resource.value.id], load, { immediate: true })
 
 async function load(): Promise<void> {
   const thisLoad = ++latestLoad

@@ -200,6 +200,14 @@ public class TenantSelectionTests extends KinoticTestBase {
                     .as("A tenanted participant selecting another tenant through the query's parameter is refused")
                     .expectError(AuthorizationException.class)
                     .verify();
+
+        // the check holds for every parameter of the request, so a selection of the caller's own tenant ahead of a wider one widens nothing
+        ListParameterHolder twice = new ListParameterHolder(List.of(new QueryParameter("tenantSelection", List.of("tenant1")),
+                                                                    new QueryParameter("tenantSelection", List.of("tenant1", "tenant2"))));
+        StepVerifier.create(Mono.fromCompletionStage(countWith(definition, applicationParticipant("tenant1", "user1"), twice).toCompletionStage()))
+                    .as("A tenanted participant naming the selection twice is refused the wider one")
+                    .expectError(AuthorizationException.class)
+                    .verify();
     }
 
     private void createCountQuery(EntityDefinition definition) {
@@ -226,9 +234,12 @@ public class TenantSelectionTests extends KinoticTestBase {
                 .map(rows -> objectMapper.readTree(rows.getFirst().data()).get("count").asLong());
     }
 
-    @SuppressWarnings("rawtypes")
     private Future<Long> countWithQueryParameter(EntityDefinition definition, ScopedParticipant participant, String... tenants) {
-        ListParameterHolder parameters = new ListParameterHolder(List.of(new QueryParameter("tenantSelection", List.of(tenants))));
+        return countWith(definition, participant, new ListParameterHolder(List.of(new QueryParameter("tenantSelection", List.of(tenants)))));
+    }
+
+    @SuppressWarnings("rawtypes")
+    private Future<Long> countWith(EntityDefinition definition, ScopedParticipant participant, ListParameterHolder parameters) {
         return runAsOrganization(() -> entitiesService.namedQuery(definition.getId(),
                                                                   COUNT_QUERY,
                                                                   parameters,
