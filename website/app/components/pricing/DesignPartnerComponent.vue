@@ -6,8 +6,8 @@ const gets = [
 
 const gives = [
   'We may name your company as a Kinotic customer on our site',
-  'We may say what you use Kinotic for',
-  'A case study we write and publish with you',
+  'We may describe what you use Kinotic for, in words you approve',
+  'A case study we write together, published with your approval',
 ]
 </script>
 
@@ -45,6 +45,10 @@ const gives = [
                 <span class="partner__check" aria-hidden="true">✓</span>{{ item }}
               </li>
             </ul>
+            <p class="partner__promise">
+              You approve everything we publish about you before it goes out. We never share your code, your data or
+              anything else you tell us is confidential.
+            </p>
           </div>
         </div>
       </div>
@@ -125,6 +129,13 @@ const gives = [
   color: var(--color-k-body);
   font-size: 15px;
   line-height: 1.5;
+}
+
+.partner__promise {
+  margin: 16px 0 0;
+  color: var(--color-k-muted);
+  font-size: 13.5px;
+  line-height: 1.55;
 }
 
 .partner__check {
