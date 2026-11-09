@@ -4,6 +4,8 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.annotations.KinoticConsumer;
+import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -19,7 +21,6 @@ import org.kinotic.sql.domain.statements.DeleteStatement;
 import org.kinotic.sql.domain.statements.InsertStatement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
 import org.kinotic.sql.parsers.MigrationParser;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -94,7 +95,7 @@ public class NamedQueryPermissionResolver implements RequestPermissionResolver {
     /**
      * Drops the permissions kept for an organization whose named queries or entity definitions changed.
      */
-    @EventListener
+    @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
     public void handleCacheEviction(CacheEvictionEvent event) {
         String prefix = event.getApplicationKey().organizationId() + "|";
         permissions.asMap().keySet().removeIf(key -> key.startsWith(prefix));

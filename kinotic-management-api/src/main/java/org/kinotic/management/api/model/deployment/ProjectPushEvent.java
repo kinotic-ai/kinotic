@@ -7,15 +7,15 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * A push to the default branch of the repository backing a project, delivered to every node through
- * the event fabric: the commit the project should now be deployed at.
+ * A push to the default branch of the repository backing a project, published to every node consuming
+ * it: the commit the project should now be deployed at.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProjectPushEvent {
+public final class ProjectPushEvent {
 
     private String organizationId;
 

@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@kinotic-ai/core": "^5.0.0-beta.29",
-    "@kinotic-ai/management-api": "^5.0.0-beta.71"
+    "@kinotic-ai/core": "^5.0.0-beta.30",
+    "@kinotic-ai/management-api": "^5.0.0-beta.72"
   }
 }

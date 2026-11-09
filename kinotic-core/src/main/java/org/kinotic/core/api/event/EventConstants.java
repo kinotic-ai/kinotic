@@ -49,6 +49,11 @@ public class EventConstants {
     public static final String CONNECTED_INFO_HEADER = "connected-info";
 
     /**
+     * The path the gateway serves STOMP over WebSocket on, which a client appends to the gateway's URL.
+     */
+    public static final String STOMP_WEBSOCKET_PATH = "/api/v1";
+
+    /**
      * Correlates a response with a given request
      * Headers that start with __ will always be persisted between messages
      */

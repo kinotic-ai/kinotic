@@ -56,10 +56,13 @@ bootBuildImage {
     ]
     buildpacks = [
         "urn:cnb:builder:paketo-buildpacks/java",
-        "docker.io/paketobuildpacks/health-checker" // https://github.com/paketo-buildpacks/health-checker/tree/main
+        paketoHealthCheckerImage // https://github.com/paketo-buildpacks/health-checker/tree/main
     ]
     // the :latest tag can be a single-platform image the runner cannot execute, so the builder is pinned
-    builder = "docker.io/paketobuildpacks/builder-noble-java-tiny:${paketoBuilderVersion}"
+    builder = "${paketoBuilderImage}:${paketoBuilderVersion}"
+    // PAKETO_BINDINGS lists volume bindings for the builder, comma separated; CI sets it to a dependency-mapping
+    // binding and the files it maps, so the buildpacks read their dependencies from disk instead of downloading them
+    bindings = (System.getenv("PAKETO_BINDINGS") ?: "").split(",").findAll { !it.isBlank() }
     docker {
         // Use standard Docker socket to avoid API version issues
         // host = System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock"

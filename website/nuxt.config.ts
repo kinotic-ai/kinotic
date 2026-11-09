@@ -29,12 +29,12 @@ export default defineNuxtConfig({
   routeRules: Object.fromEntries(
     Object.entries(docsRedirects).map(([from, to]) => [from, { redirect: to }]),
   ),
-  // /V2, /V3 and /vc are unlinked pages shared by URL, so prerendering never discovers them
-  // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
+  // /V2, /V3, /vc and /pricing are unlinked pages shared by URL, so prerendering never discovers
+  // them by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
   // Their own `noindex` meta tag keeps them out of search results and out of /sitemap.xml.
   nitro: {
     prerender: {
-      routes: ['/V2', '/V3', '/vc', ...Object.keys(docsRedirects)],
+      routes: ['/V2', '/V3', '/vc', '/pricing', ...Object.keys(docsRedirects)],
     },
   },
   // The docus sitemap lists content pages only; these are the indexable pages in app/pages.

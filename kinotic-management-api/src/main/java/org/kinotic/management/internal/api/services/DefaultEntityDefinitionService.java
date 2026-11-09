@@ -26,7 +26,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
-import org.kinotic.core.api.event.ClusterEventPublisher;
+import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.cache.CacheEvictionException;
@@ -42,7 +42,7 @@ import java.util.function.Function;
 public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
         implements EntityDefinitionService {
 
-    private final ClusterEventPublisher clusterEventPublisher;
+    private final EventService eventService;
     private final CrudServiceTemplate crudServiceTemplate;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionRepository entityDefinitionRepository;
@@ -51,7 +51,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final RelationshipService relationships;
     private final DefaultPermissionService permissions;
 
-    public DefaultEntityDefinitionService(ClusterEventPublisher clusterEventPublisher,
+    public DefaultEntityDefinitionService(EventService eventService,
                                           CrudServiceTemplate crudServiceTemplate,
                                           EntityDefinitionConversionService entityDefinitionConversionService,
                                           EntityDefinitionRepository entityDefinitionRepository,
@@ -63,7 +63,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
         this.permissions = permissions;
-        this.clusterEventPublisher = clusterEventPublisher;
+        this.eventService = eventService;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -425,7 +425,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
      */
     private Future<Void> evict(EntityDefinition entityDefinition) {
         CacheEvictionEvent event = CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId());
-        return clusterEventPublisher.publish(event)
-                                    .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
+        return eventService.publish(event)
+                           .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 }

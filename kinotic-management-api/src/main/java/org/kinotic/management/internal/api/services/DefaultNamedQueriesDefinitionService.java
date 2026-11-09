@@ -8,7 +8,7 @@ import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
-import org.kinotic.core.api.event.ClusterEventPublisher;
+import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.cache.CacheEvictionException;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -22,14 +22,14 @@ import org.springframework.stereotype.Component;
 public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedService<NamedQueriesDefinition> implements NamedQueriesDefinitionService {
 
     private final NamedQueriesDefinitionRepository namedQueriesRepository;
-    private final ClusterEventPublisher clusterEventPublisher;
+    private final EventService eventService;
 
     public DefaultNamedQueriesDefinitionService(NamedQueriesDefinitionRepository repository,
-                                                ClusterEventPublisher clusterEventPublisher,
+                                                EventService eventService,
                                                 SecurityContext securityContext) {
         super(repository, securityContext);
         this.namedQueriesRepository = repository;
-        this.clusterEventPublisher = clusterEventPublisher;
+        this.eventService = eventService;
     }
 
 
@@ -92,8 +92,8 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
      */
     private Future<Void> evict(NamedQueriesDefinition definition) {
         CacheEvictionEvent event = CacheEvictionEvent.namedQuery(definition.applicationKey(), definition.getId());
-        return clusterEventPublisher.publish(event)
-                                    .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
+        return eventService.publish(event)
+                           .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 
     @Override

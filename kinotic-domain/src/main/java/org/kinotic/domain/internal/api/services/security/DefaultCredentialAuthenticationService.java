@@ -158,13 +158,14 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
      * Authenticates a machine by its identity id and provisioned secret. The machine's scope
      * comes from the identity itself; the scope headers, when supplied, must agree with it —
      * a client configured for the wrong organization or application is rejected. Every
-     * failure is the same generic error.
+     * rejection is the same generic error; a failure of the stores behind the checks is not a rejection and
+     * fails the authentication as itself.
      */
     private Future<AuthenticatedIdentity> authenticateMachine(String organizationId,
                                                       String applicationId,
                                                       String clientId,
                                                       String clientSecret) {
-        if (clientId == null || clientSecret == null) {
+        if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
             return Future.failedFuture(new AuthenticationException(
                     "clientId and clientSecret headers are required for credential authentication"));
         }
@@ -178,8 +179,7 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                                       ret = Future.succeededFuture(new AuthenticatedIdentity(machine, DomainUtil.createParticipant(machine)));
                                   }
                                   return ret;
-                              })
-                              .recover(err -> Future.failedFuture(new AuthenticationException("Invalid credentials")));
+                              });
     }
 
     /**
@@ -209,8 +209,8 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
     }
 
     private Future<AuthenticatedIdentity> resolveIdentity(String sub, String jwtOrgId, String jwtAppId) {
+        // a failure of the identity store is not a rejection of the token and fails the authentication as itself
         return identityService.findById(sub)
-                              .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
                               .compose(identity -> identity == null
                                       ? Future.failedFuture(new AuthenticationException("No user for sub " + sub))
                                       : identityService.resolveParticipant(identity, jwtOrgId, jwtAppId)

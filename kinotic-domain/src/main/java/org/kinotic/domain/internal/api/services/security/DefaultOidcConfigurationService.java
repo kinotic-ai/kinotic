@@ -26,7 +26,6 @@ import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.internal.api.ee.services.security.EnterpriseIdentityProviders;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -47,7 +46,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     private final SecurityContext securityContext;
     private final OrganizationSignInGuard signInGuard;
     private final GoogleIdentityProvider googleIdentityProvider;
-    private final ObjectProvider<EnterpriseIdentityProviders> enterpriseIdentityProviders;
+    private final EnterpriseIdentityProviders enterpriseIdentityProviders;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            ApplicationRepository applicationRepository,
@@ -56,7 +55,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                            SecurityContext securityContext,
                                            OrganizationSignInGuard signInGuard,
                                            GoogleIdentityProvider googleIdentityProvider,
-                                           ObjectProvider<EnterpriseIdentityProviders> enterpriseIdentityProviders) {
+                                           EnterpriseIdentityProviders enterpriseIdentityProviders) {
         super(repository);
         this.oidcRepository = repository;
         this.applicationRepository = applicationRepository;
@@ -143,11 +142,10 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
 
     private String authorityOf(OidcProviderType provider, String providerAccount) {
         String ret;
-        EnterpriseIdentityProviders enterprise = enterpriseIdentityProviders.getIfAvailable();
         if (provider == OidcProviderType.GOOGLE) {
             ret = googleIdentityProvider.authority(providerAccount);
-        } else if (enterprise != null && enterprise.supports(provider)) {
-            ret = enterprise.authority(provider, providerAccount);
+        } else if (enterpriseIdentityProviders.supports(provider)) {
+            ret = enterpriseIdentityProviders.authority(provider, providerAccount);
         } else {
             throw new IllegalArgumentException(("An organization cannot configure a %s provider with a client of its own on this server;"
                     + " Okta and Microsoft Entra are Kinotic Enterprise Features").formatted(provider.key()));

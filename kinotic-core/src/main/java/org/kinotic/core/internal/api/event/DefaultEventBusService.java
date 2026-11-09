@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Default implementation of {@link EventBusService} using the vertx {@link io.vertx.core.eventbus.EventBus} as a backend
@@ -46,9 +47,16 @@ public class DefaultEventBusService implements EventBusService {
 
     @Override
     public Future<Boolean> isAnybodyListening(CRI cri) {
+        return findListeningNodes(cri).map(nodes -> !nodes.isEmpty());
+    }
+
+    @Override
+    public Future<Set<String>> findListeningNodes(CRI cri) {
         Promise<List<RegistrationInfo>> promise = Promise.promise();
         clusterManager.getClusterRegistrations(cri.baseResource(), promise);
-        return promise.future().map(registrations -> registrations != null && !registrations.isEmpty());
+        return promise.future().map(registrations -> registrations == null
+                ? Set.of()
+                : registrations.stream().map(RegistrationInfo::nodeId).collect(Collectors.toSet()));
     }
 
     @Override

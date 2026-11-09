@@ -4,15 +4,13 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
-import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
-import org.kinotic.domain.internal.api.ee.license.License;
-import org.kinotic.domain.internal.api.ee.license.LicenseVerifier;
+import org.kinotic.domain.api.services.EntitlementService;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.kinotic.domain.internal.api.ee.services.AzureKeyVaultBackend;
 import org.kinotic.domain.internal.api.services.secret.InMemoryBackend;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 
 @Configuration
 @Slf4j
@@ -27,15 +25,16 @@ public class SecretStorageConfiguration {
 
     @Bean
     @ConditionalOnProperty(value = "kinotic.domain.secretStorage.backend", havingValue = "AZURE")
-    public SecretStorageBackend azureKeyVaultBackend(KinoticDomainProperties properties, Vertx vertx, Environment environment) {
-        License license = LicenseVerifier.licenseOf(environment);
-        // falling back to in-memory storage would lose every secret on restart, so the server refuses to start
-        if (license == null || !license.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
-            throw new IllegalStateException("Azure Key Vault secret storage needs a Kinotic Enterprise License key in "
-                                                    + LicenseVerifier.LICENSE_KEY_PROPERTY + " that turns on "
-                                                    + EnterpriseFeature.AZURE_KEY_VAULT);
+    public SecretStorageBackend azureKeyVaultBackend(KinoticDomainProperties properties,
+                                                     Vertx vertx,
+                                                     EntitlementService entitlementService) {
+        // the server starts whatever its license, so a restart never depends on one; the backend refuses new
+        // secrets until a key that turns the feature on is installed
+        if (!entitlementService.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
+            log.warn("No installed Kinotic Enterprise License key turns on {} now, so Azure Key Vault secrets can be read and deleted but not stored until one is installed",
+                     EnterpriseFeature.AZURE_KEY_VAULT);
         }
         log.info("Using Azure Key Vault secret storage");
-        return new AzureKeyVaultBackend(properties.getDomain().getSecretStorage().getAzure(), vertx);
+        return new AzureKeyVaultBackend(properties.getDomain().getSecretStorage().getAzure(), vertx, entitlementService);
     }
 }

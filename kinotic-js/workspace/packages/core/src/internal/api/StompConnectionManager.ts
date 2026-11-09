@@ -371,7 +371,9 @@ export class StompConnectionManager {
                     // The Node/Bun WebSocket accepts a `headers` option that the DOM lib typings omit.
                     const WS = WebSocket as unknown as
                         new (url: string, opts: {headers: Record<string, string>}) => IWebSocket
-                    activation.preparedSocket = new WS(url, {headers: resolved.authHeaders})
+                    const socket = new WS(url, {headers: resolved.authHeaders})
+                    this.endOnRejectedUpgrade(activation, socket)
+                    activation.preparedSocket = socket
                 }
             } catch (e) {
                 this.failConnection(activation, new Error('Credential resolution failed', { cause: e }))
@@ -381,6 +383,29 @@ export class StompConnectionManager {
         if (activation.ended && activation.preparedSocket) {
             activation.preparedSocket.close()
             activation.preparedSocket = null
+        }
+    }
+
+    /**
+     * Ends the connection for good when the gateway answers the socket's upgrade with a 4xx, on the initial
+     * connect and on a reconnect alike: the answer is the gateway's verdict on the credentials, which no retry
+     * changes. Any other answer is a failed attempt, retried as a socket that could not be opened is. Only the
+     * ws WebSocket reports the answer; the DOM one hides it, and a rejection there stays a failed attempt.
+     */
+    private endOnRejectedUpgrade(activation: StompActivation, socket: IWebSocket): void {
+        const emitter = socket as unknown as {
+            on?: (event: 'unexpected-response', listener: (request: unknown, response: {statusCode?: number}) => void) => unknown
+        }
+        if (typeof emitter.on === 'function') {
+            emitter.on('unexpected-response', (_request, response) => {
+                const status = response.statusCode ?? 0
+                if (status >= 400 && status < 500) {
+                    this.failConnection(activation, new Error('Connection rejected with status ' + status))
+                }
+                // with a listener, ws leaves the answered handshake to it: closing aborts the handshake, which stompjs
+                // reads as the attempt's close
+                socket.close()
+            })
         }
     }
 

@@ -1,0 +1,87 @@
+name: Paketo dependencies
+description: >-
+  Downloads the dependencies the buildpacks of bootBuildImage would otherwise download for every image (the
+  JRE, Syft, the tiny health checker and Spring Cloud Bindings), caches them across runs, and sets PAKETO_BINDINGS
+  so every image build in the job reads them from disk.
+
+inputs:
+  java-version:
+    description: The Java major version the images run, which selects the JRE.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The buildpacks fetch these from GitHub releases and Maven Central once per image, and a single 504 or slow
+    # response fails the image; resolving them from the buildpack.toml files of the pinned builder keeps the list
+    # in step with paketoBuilderVersion
+    - name: Resolve the buildpack dependencies
+      id: resolve
+      shell: bash
+      env:
+        JAVA_MAJOR: ${{ inputs.java-version }}
+      run: |
+        set -euo pipefail
+        property() { grep -E "^$1=" gradle.properties | cut -d= -f2; }
+        builder="$(property paketoBuilderImage):$(property paketoBuilderVersion)"
+        health_checker="$(property paketoHealthCheckerImage)"
+        case "$(uname -m)" in
+          x86_64) arch=amd64 ;;
+          aarch64) arch=arm64 ;;
+          *) echo "::error::Unsupported architecture $(uname -m)"; exit 1 ;;
+        esac
+
+        work="$RUNNER_TEMP/paketo-dependencies"
+        mkdir -p "$work/buildpacks"
+        # copies only the buildpacks whose dependencies resolve.py selects, not the builder's whole /cnb/buildpacks
+        copy_buildpacks() {
+          local image="$1"; shift
+          docker pull --quiet "$image" > /dev/null
+          local container
+          container=$(docker create --entrypoint /none "$image")
+          for buildpack in "$@"; do
+            docker cp --quiet "$container:/cnb/buildpacks/$buildpack" "$work/buildpacks/$buildpack"
+          done
+          docker rm "$container" > /dev/null
+        }
+        copy_buildpacks "$builder" paketo-buildpacks_bellsoft-liberica paketo-buildpacks_syft paketo-buildpacks_spring-boot
+        copy_buildpacks "$health_checker" paketo-buildpacks_health-checker
+
+        find "$work/buildpacks" -name buildpack.toml -print0 \
+          | xargs -0 python3 "$GITHUB_ACTION_PATH/resolve.py" --arch "$arch" --java-version "$JAVA_MAJOR" \
+          > "$work/dependencies.txt"
+        cat "$work/dependencies.txt"
+        echo "work=$work" >> "$GITHUB_OUTPUT"
+        echo "key=paketo-dependencies-$arch-$(sha256sum "$work/dependencies.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the buildpack dependencies
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/paketo-dependencies
+        key: ${{ steps.resolve.outputs.key }}
+
+    # A dependency-mapping binding maps a dependency's sha256 to the URI the buildpack reads it from; the files are
+    # mounted beside the binding rather than inside it, because every file in a binding is read into memory
+    - name: Download the missing dependencies and bind them
+      shell: bash
+      env:
+        WORK: ${{ steps.resolve.outputs.work }}
+      run: |
+        set -euo pipefail
+        files="$HOME/.cache/paketo-dependencies"
+        binding="$WORK/bindings/dependency-mapping"
+        mkdir -p "$files" "$binding"
+        printf '%s' dependency-mapping > "$binding/type"
+        while read -r sha256 uri; do
+          name="${uri##*/}"
+          file="$files/$sha256/$name"
+          if ! echo "$sha256  $file" | sha256sum --check --status 2> /dev/null; then
+            mkdir -p "$files/$sha256"
+            curl --fail --silent --show-error --location --connect-timeout 20 \
+                 --retry 5 --retry-all-errors --retry-delay 5 --output "$file" "$uri"
+            echo "$sha256  $file" | sha256sum --check --quiet
+          fi
+          # libcnb reads a binding's values verbatim, so the URI is written without a trailing newline
+          printf '%s' "file:///kinotic/paketo-dependencies/$sha256/$name" > "$binding/$sha256"
+        done < "$WORK/dependencies.txt"
+        echo "PAKETO_BINDINGS=$binding:/platform/bindings/dependency-mapping:ro,$files:/kinotic/paketo-dependencies:ro" >> "$GITHUB_ENV"

@@ -5,7 +5,6 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -26,7 +25,7 @@ import java.util.Set;
  * fields bind to the invoked method's parameters by name.
  */
 @Component
-public class NamedJsonArgumentResolver extends AbstractJacksonSupport implements ArgumentResolver {
+public class NamedJsonArgumentResolver extends AbstractJacksonArgumentResolver {
 
     public NamedJsonArgumentResolver(JsonMapper jsonMapper,
                                      ReactiveAdapterRegistry reactiveAdapterRegistry,
