@@ -64,7 +64,7 @@ const groups: { title?: string, rows: Row[] }[] = [
           </thead>
           <tbody v-for="group in groups" :key="group.rows[0]!.feature">
             <tr v-if="group.title" class="compare__group">
-              <th scope="colgroup" colspan="3">{{ group.title }}</th>
+              <th scope="rowgroup" colspan="3">{{ group.title }}</th>
             </tr>
             <tr v-for="row in group.rows" :key="row.feature">
               <th scope="row" class="compare__feature">{{ row.feature }}</th>
