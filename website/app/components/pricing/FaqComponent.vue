@@ -11,9 +11,10 @@ const questions = [
       + 'price on your locked price list. If your revenue falls, you move down the same way.',
   },
   {
-    q: 'What does the price lock mean?',
-    a: 'When you first subscribe you get the price list in effect that day, for every plan. You keep it for as long '
-      + 'as your license stays active, even when our prices go up for new customers.',
+    q: 'What does "your terms never change" mean?',
+    a: 'When you first subscribe you get the price list in effect that day, for every plan, and the license terms in '
+      + 'effect that day. You keep both for as long as your license stays active, even when our prices or terms change '
+      + 'for new customers.',
   },
   {
     q: 'What counts as an active license?',
@@ -33,9 +34,13 @@ const questions = [
       + 'license costs nothing.',
   },
   {
-    q: 'Will there be more editions?',
-    a: 'Yes. Every plan today includes every Enterprise feature we have. As we add more, we\'ll offer higher editions '
-      + 'you can upgrade to. Your current edition keeps every feature it has.',
+    q: 'Do I get new Enterprise features?',
+    a: 'Yes. Every Enterprise feature we release is added to your plan at the same price, for as long as your license '
+      + 'stays active, even if we later sell it in a higher tier.',
+  },
+  {
+    q: 'What does the Free plan ask in return?',
+    a: 'Only that we may name your company as a Kinotic customer, on our site and in what we publish about Kinotic.',
   },
   {
     q: 'How can I pay?',
