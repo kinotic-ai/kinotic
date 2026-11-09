@@ -340,7 +340,7 @@ CREATE TABLE IF NOT EXISTS kinotic_llm_configuration (
     updated DATE
 );
 
--- Installed license key: the one Kinotic Enterprise License key the whole cluster runs on (CurrentLicenseService),
+-- Installed license key: the one Kinotic Enterprise License key the whole cluster runs on (EntitlementService),
 -- under the id 'installed', which a system user installs on the system console's License page.
 CREATE TABLE IF NOT EXISTS kinotic_installed_license_key (
     id KEYWORD,
