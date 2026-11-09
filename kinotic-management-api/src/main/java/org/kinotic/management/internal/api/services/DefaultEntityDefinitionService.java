@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+@Slf4j
 @Component
 public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
         implements EntityDefinitionService {
@@ -134,18 +136,23 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                        .compose(this::contained);
     }
 
-    // The definition's place in the graph, written once the record is, so a write that fails leaves a
-    // definition nobody can reach rather than one nobody stores: in the system's store, where the
+    // The definition's place in the graph, written once the record is: in the system's store, where the
     // organization's members hold it, and in the application's, where its rows are reached through it. What a
     // deleted definition of the same id left on itself, when the removal after its record's deletion failed, is
-    // removed first, so the definition starts with no grant made on it
+    // removed first, so the definition starts with no grant made on it. A record whose place could not be
+    // written is removed again, since nothing places it later and nobody could reach it, so the create can be
+    // made again; the record alone is removed, as the graph holds nothing of it yet
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
         String object = containment(entityDefinition).object();
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
                 .compose(v -> relationships.removeObject(storeOf(entityDefinition), object))
                 .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(entityDefinition))))
                 .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
-                .map(entityDefinition);
+                .map(entityDefinition)
+                .recover(err -> super.deleteByIdSync(entityDefinition.getId())
+                                     .onFailure(deleteErr -> log.warn("Could not remove entity definition {} after its graph placement failed: {}",
+                                                                      entityDefinition.getId(), deleteErr.getMessage()))
+                                     .transform(v -> Future.failedFuture(err)));
     }
 
     // The definition leaves both stores with every grant made on it and on its rows within each tenant placed in the
