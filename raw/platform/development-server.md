@@ -155,8 +155,9 @@ The servers' Key Vault is kept deliberately. Without it the secret storage backe
 the cloud. Nothing calls `SecretStorageService` today, so the cost is nil this week; the first
 feature that stores a peer's secret would turn it into silent data loss. With the `AZURE`
 backend, the peers' secrets are already in Azure on migration day. It is an Enterprise Feature, so
-each server's `secrets.yml` carries a license key that turns on `AZURE_KEY_VAULT`; without one the
-servers refuse to start.
+a system user installs a license key that turns on `AZURE_KEY_VAULT` on the system console's License page once the
+servers first run. Until then, and once its grace period ends, the servers read the secrets already stored but
+refuse to store new ones.
 
 ### Migrations become append-only from the first peer sign-up
 
@@ -1422,32 +1423,6 @@ What the three share:
     
     <td>
       The Key Vault decision above
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        kinotic.ee.licenseKey
-      </code>
-    </td>
-    
-    <td>
-      from <code>
-        secrets.yml
-      </code>
-      
-      , a key that turns on <code>
-        AZURE_KEY_VAULT
-      </code>
-    </td>
-    
-    <td>
-      The <code>
-        AZURE
-      </code>
-      
-       backend is an Enterprise Feature, and a server that selects it without such a key refuses to start
     </td>
   </tr>
   
