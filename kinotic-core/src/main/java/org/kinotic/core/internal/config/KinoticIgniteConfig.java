@@ -16,6 +16,8 @@ import org.apache.ignite.spi.discovery.tcp.ipfinder.TcpDiscoveryIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.kubernetes.TcpDiscoveryKubernetesIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.sharedfs.TcpDiscoverySharedFsIpFinder;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.apache.ignite.ssl.SslContextFactory;
+import org.kinotic.core.api.config.ClusterTlsProperties;
 import org.kinotic.core.api.KinoticNodeAttributes;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
@@ -124,6 +126,22 @@ public class KinoticIgniteConfig {
         // Override default communication SPI.
         if (tcpCommunicationSpi != null) {
             cfg.setCommunicationSpi(tcpCommunicationSpi);
+        }
+
+        // Discovery, communication and the thin client connector all take their TLS from the node's SSL context factory;
+        // discovery and the connector require the connecting side's certificate
+        ClusterTlsProperties tls = properties.getClusterTls();
+        if (tls.isEnabled()) {
+            tls.requireStores();
+            SslContextFactory sslContextFactory = new SslContextFactory();
+            sslContextFactory.setKeyStoreType("PKCS12");
+            sslContextFactory.setKeyStoreFilePath(tls.getKeyStorePath());
+            sslContextFactory.setKeyStorePassword(password(tls.getKeyStorePassword()));
+            sslContextFactory.setTrustStoreType("PKCS12");
+            sslContextFactory.setTrustStoreFilePath(tls.getTrustStorePath());
+            sslContextFactory.setTrustStorePassword(password(tls.getTrustStorePassword()));
+            cfg.setSslContextFactory(sslContextFactory);
+            cfg.setClientConnectorConfiguration(new ClientConnectorConfiguration().setSslEnabled(true).setSslClientAuth(true));
         }
 
         // Setup calcite sql engine
@@ -280,5 +298,9 @@ public class KinoticIgniteConfig {
     private static String otelSetting(String systemProperty, String environmentVariable) {
         String ret = System.getProperty(systemProperty, System.getenv(environmentVariable));
         return StringUtils.isBlank(ret) ? null : ret;
+    }
+
+    private static char[] password(String password) {
+        return password != null ? password.toCharArray() : new char[0];
     }
 }
