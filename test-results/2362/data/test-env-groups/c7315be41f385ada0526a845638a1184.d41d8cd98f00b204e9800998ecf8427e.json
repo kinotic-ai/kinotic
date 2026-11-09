@@ -1,0 +1,1 @@
+{"id":"c7315be41f385ada0526a845638a1184.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.core.security.OAuthGrantTests.aRefreshTokenRotatesOnceAndItsReuseRevokesTheFamily","name":"aRefreshTokenRotatesOnceAndItsReuseRevokesTheFamily()","status":"passed","testResultsByEnv":{"default":"dcf7f72ba42648e18d1154f1e83d4f32"}}
