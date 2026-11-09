@@ -1,6 +1,7 @@
 """Prints the dependencies the image builds download, read from the buildpack.toml files given, one per line as
 <sha256> <uri>, for the CPU architecture the build runs on."""
 import argparse
+import sys
 import tomllib
 from urllib.parse import parse_qs, urlparse
 
@@ -39,6 +40,10 @@ def main():
             current = chosen.get(id)
             if current is None or version_key(dependency["version"]) > version_key(current["version"]):
                 chosen[id] = dependency
+
+    # without a JRE mapping the builder downloads it from GitHub again, the failure this action exists to prevent
+    if "jre" not in chosen:
+        sys.exit(f"No JRE {args.java_version} for {args.arch} in {', '.join(args.buildpacks)}")
 
     for id in sorted(chosen):
         print(chosen[id]["sha256"], chosen[id]["uri"])
