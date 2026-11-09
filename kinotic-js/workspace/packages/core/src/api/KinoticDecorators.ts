@@ -4,6 +4,7 @@ import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import { validateZone } from '@/api/ZoneUtil'
 import type { AuthzCheckDeclaration } from '@/api/AuthzCheckDeclaration'
 import type { AuthzResourceDeclaration } from '@/api/AuthzResourceDeclaration'
+import { AuthzCheckDecorator, AuthzResourceDecorator, AuthzRoleDeclaration } from '@kinotic-ai/idl'
 
 /**
  * Decorator for registering services with the Kinotic ServiceRegistry.
@@ -17,8 +18,11 @@ const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
 const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
-const authzResourceClasses = new WeakSet<Function>()
+const authzResourceDeclarations = new WeakMap<Function, AuthzResourceDeclaration>()
 const authzUncheckedClasses = new WeakSet<Function>()
+// keyed by the method function itself, as Context is
+const authzCheckedFunctions = new WeakMap<Function, AuthzCheckDeclaration>()
+const authzUncheckedFunctions = new WeakSet<Function>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
 // original, so the lookup walks the constructor prototype chain to find either.
@@ -202,9 +206,8 @@ function resolveEffectiveZone(constructor: Function): string | null {
  * @param declaration the resource type, or the type with its parent, resource id, permission and roles
  */
 export function AuthzResource(declaration: AuthzResourceDeclaration | string) {
-    void declaration
     return function (value: Function, _context: ClassDecoratorContext<any>): void {
-        authzResourceClasses.add(value)
+        authzResourceDeclarations.set(value, typeof declaration === 'string' ? {value: declaration} : declaration)
     }
 }
 
@@ -219,8 +222,8 @@ export function AuthzResource(declaration: AuthzResourceDeclaration | string) {
  * @param declaration the parts of the check derivation cannot read from the function's name and parameters
  */
 export function AuthzCheck(declaration: AuthzCheckDeclaration) {
-    void declaration
-    return function (_value: Function, _context: ClassMethodDecoratorContext): void {
+    return function (value: Function, _context: ClassMethodDecoratorContext): void {
+        authzCheckedFunctions.set(value, declaration)
     }
 }
 
@@ -236,6 +239,8 @@ export function AuthzCheck(declaration: AuthzCheckDeclaration) {
 export function AuthzUnchecked(value: Function, context: ClassDecoratorContext<any> | ClassMethodDecoratorContext): void {
     if (context.kind === 'class') {
         authzUncheckedClasses.add(value)
+    } else {
+        authzUncheckedFunctions.add(value)
     }
 }
 
@@ -248,10 +253,58 @@ export function declaresAuthz(serviceInstance: object): boolean {
     let ret = false
     let current: Function | null = serviceInstance.constructor
     while (current && !ret) {
-        ret = authzResourceClasses.has(current) || authzUncheckedClasses.has(current)
+        ret = authzResourceDeclarations.has(current) || authzUncheckedClasses.has(current)
         current = Object.getPrototypeOf(current)
     }
     return ret
+}
+
+/**
+ * The authorization decorators `kinotic sync` writes into a service's definition, as the service instance declares
+ * them: the {@link AuthzResource} of its class or of the nearest class it extends, and for each named function the
+ * {@link AuthzCheck} or {@link AuthzUnchecked} of the function the instance serves under that name, a class or
+ * class it extends marked unchecked marking every function. A function declaring neither maps to null.
+ * @param serviceInstance the service instance to inspect
+ * @param functionNames the functions the instance serves
+ */
+export function authzDecoratorsOf(serviceInstance: object, functionNames: string[]): {
+    resource: AuthzResourceDecorator | null
+    checks: Map<string, AuthzCheckDecorator | null>
+} {
+    const declared = findInConstructorChain(authzResourceDeclarations, serviceInstance.constructor)
+    let resource: AuthzResourceDecorator | null = null
+    if (declared) {
+        resource = new AuthzResourceDecorator(declared.value)
+        resource.parent = declared.parent ?? null
+        resource.resourceId = declared.resourceId ?? null
+        resource.permission = declared.permission ?? null
+        resource.roles = (declared.roles ?? []).map(role => new AuthzRoleDeclaration(role.id, role.permissions ?? []))
+    }
+    let uncheckedClass = false
+    let current: Function | null = serviceInstance.constructor
+    while (current && !uncheckedClass) {
+        uncheckedClass = authzUncheckedClasses.has(current)
+        current = Object.getPrototypeOf(current)
+    }
+    const checks = new Map<string, AuthzCheckDecorator | null>()
+    for (const name of functionNames) {
+        const method = (serviceInstance as any)[name]
+        const check = typeof method === 'function' ? authzCheckedFunctions.get(method) : undefined
+        let decorator: AuthzCheckDecorator | null = null
+        if (check) {
+            decorator = new AuthzCheckDecorator()
+            decorator.permission = check.permission ?? null
+            decorator.resource = check.resource ?? null
+            decorator.resourceId = check.resourceId ?? null
+            decorator.implies = check.implies ?? []
+            decorator.consistent = check.consistent === true
+        } else if (uncheckedClass || (typeof method === 'function' && authzUncheckedFunctions.has(method))) {
+            decorator = new AuthzCheckDecorator()
+            decorator.unchecked = true
+        }
+        checks.set(name, decorator)
+    }
+    return { resource, checks }
 }
 
 /**

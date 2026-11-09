@@ -172,6 +172,31 @@ public class CheckDerivationTest {
         assertTrue(assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(service)).getMessage().contains("report."));
     }
 
+    @Test
+    public void aPermissionLongerThanARelationNameIsRefused() {
+        // report_ and the permission make the relation, which may have 50 characters
+        String tooLong = "can_" + "x".repeat(40);
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission(tooLong);
+
+        String message = assertThrows(IllegalStateException.class,
+                                      () -> schemaService.deriveChecks(reports(function("generate", check, "reportId")))).getMessage();
+        assertTrue(message.contains("report_" + tooLong), message);
+
+        ServiceDefinition bundling = reports(function("findById", null, "reportId"));
+        bundling.findDecorator(AuthzResourceC3Decorator.class)
+                .setRoles(List.of(new AuthzRoleDeclaration().setId("report.generator").setPermissions(List.of(tooLong))));
+        assertTrue(assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(bundling)).getMessage().contains("50 characters"));
+    }
+
+    @Test
+    public void aRoleWithNoPermissionListIsRefused() {
+        ServiceDefinition service = reports(function("findById", null, "reportId"));
+        service.findDecorator(AuthzResourceC3Decorator.class)
+               .setRoles(List.of(new AuthzRoleDeclaration().setId("report.generator").setPermissions(null)));
+
+        assertTrue(assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(service)).getMessage().contains("bundles no permission"));
+    }
+
     private static ServiceDefinition reports(FunctionDefinition... functions) {
         AuthzResourceC3Decorator resource = new AuthzResourceC3Decorator()
                 .setResourceType("report")

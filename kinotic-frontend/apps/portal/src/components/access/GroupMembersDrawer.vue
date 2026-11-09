@@ -86,15 +86,28 @@ watch(() => [props.visible, props.group?.id], ([visible]) => {
   }
 })
 
+// The drawer may be opened for another group while a read is in flight, so the list is emptied as a read starts
+// and only the latest read's answer, or failure, reaches it
+let latestLoad = 0
+
 async function load(): Promise<void> {
+  const thisLoad = ++latestLoad
   loading.value = true
   adding.value = null
+  members.value = []
   try {
-    members.value = await Kinotic.permissions.findGroupMembers(props.group!.id!)
+    const found = await Kinotic.permissions.findGroupMembers(props.group!.id!)
+    if (thisLoad === latestLoad) {
+      members.value = found
+    }
   } catch (err) {
-    showErrorToast(toast, 'Failed to load the group\'s members', err, { life: 8000 })
+    if (thisLoad === latestLoad) {
+      showErrorToast(toast, 'Failed to load the group\'s members', err, { life: 8000 })
+    }
   } finally {
-    loading.value = false
+    if (thisLoad === latestLoad) {
+      loading.value = false
+    }
   }
 }
 

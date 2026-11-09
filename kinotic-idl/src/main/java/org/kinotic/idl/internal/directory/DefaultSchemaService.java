@@ -110,7 +110,12 @@ public class DefaultSchemaService implements SchemaService {
 
         Map<String, AuthzPermissionResolver> resolvers = new HashMap<>();
         for (AuthzPermissionResolver resolver : permissionResolvers.get()) {
-            resolvers.put(resolver.name(), resolver);
+            AuthzPermissionResolver previous = resolvers.put(resolver.name(), resolver);
+            // a check names its resolver, so two of one name would leave which one runs to the beans' order
+            if (previous != null) {
+                throw new IllegalStateException("Two permission resolvers are named '" + resolver.name() + "': "
+                                                        + previous.getClass().getName() + " and " + resolver.getClass().getName());
+            }
         }
 
         NamespaceDefinition ret = new NamespaceDefinition();

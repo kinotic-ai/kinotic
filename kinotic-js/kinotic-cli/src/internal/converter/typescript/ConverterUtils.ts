@@ -199,14 +199,22 @@ function authzResourceDecorator(decorator: Decorator): AuthzResourceDecorator {
     }
     const declaration = parseExpressionToJs(argument)
     const declared = typeof declaration === 'string' ? {value: declaration} : declaration
-    if (typeof declared?.value !== 'string' || declared.value.length === 0) {
+    if (!isObjectLiteral(declared)) {
+        throw new Error(`AuthzResource takes the resource type or an object literal declaring it, not ${argument.getText()}`)
+    }
+    if (typeof declared.value !== 'string' || declared.value.length === 0) {
         throw new Error('AuthzResource must name the resource type')
     }
     const ret = new AuthzResourceDecorator(declared.value)
     ret.parent = declared.parent ?? null
     ret.resourceId = declared.resourceId ?? null
     ret.permission = declared.permission ?? null
-    ret.roles = (declared.roles ?? []).map((role: any) => new AuthzRoleDeclaration(role.id, role.permissions ?? []))
+    ret.roles = (declared.roles ?? []).map((role: any) => {
+        if (typeof role?.id !== 'string' || role.id.length === 0) {
+            throw new Error(`A role of AuthzResource '${declared.value}' must declare its id`)
+        }
+        return new AuthzRoleDeclaration(role.id, role.permissions ?? [])
+    })
     return ret
 }
 
@@ -217,6 +225,9 @@ function authzCheckDecorator(decorator: Decorator): AuthzCheckDecorator {
         throw new Error('AuthzCheck must declare what the derivation cannot read')
     }
     const declared = parseExpressionToJs(argument)
+    if (!isObjectLiteral(declared)) {
+        throw new Error(`AuthzCheck takes an object literal declaring the check, not ${argument.getText()}`)
+    }
     const ret = new AuthzCheckDecorator()
     ret.permission = declared.permission ?? null
     ret.resource = declared.resource ?? null
@@ -224,6 +235,11 @@ function authzCheckDecorator(decorator: Decorator): AuthzCheckDecorator {
     ret.implies = declared.implies ?? []
     ret.consistent = declared.consistent === true
     return ret
+}
+
+// an object literal parses to a plain object; an array, a string or a number is no declaration
+function isObjectLiteral(value: unknown): value is Record<string, any> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function parseExpressionToJs(expression: any): any {

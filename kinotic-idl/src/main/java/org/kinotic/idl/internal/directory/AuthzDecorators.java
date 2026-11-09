@@ -120,7 +120,8 @@ final class AuthzDecorators {
      * @param declared what it declares
      * @throws IllegalStateException when the declared type, parent or permission is not an identifier, a
      *                               declared role is not named after the type, takes the level of a built-in
-     *                               role or bundles nothing, or a service of another type than
+     *                               role, bundles nothing or bundles a permission whose name on the type is
+     *                               longer than a relation name may be, or a service of another type than
      *                               {@code entity_definition} is declared acting across tenants
      */
     static AuthzResourceC3Decorator resourceOf(String declarer, AuthzResourceC3Decorator declared) {
@@ -197,13 +198,14 @@ final class AuthzDecorators {
         if (BUILT_IN_LEVELS.contains(role.getId().substring(prefix.length()))) {
             throw new IllegalStateException(where + " redefines a built-in role; the model defines the viewer, editor and admin of every type");
         }
-        if (role.getPermissions().isEmpty()) {
+        if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
             throw new IllegalStateException(where + " bundles no permission");
         }
         for (String permission : role.getPermissions()) {
             if (!AuthzUtil.isIdentifier(permission)) {
                 throw new IllegalStateException(where + " bundles '" + permission + "', which is not a lowercase identifier");
             }
+            requireRelationLength(where, type, permission);
         }
         return new AuthzRoleDeclaration().setId(role.getId()).setPermissions(List.copyOf(role.getPermissions()));
     }
@@ -250,9 +252,11 @@ final class AuthzDecorators {
      * @param conversionContext the context the parameters were converted in, which resolves their references
      * @param resolvers         the permission resolvers a check may name, by name
      * @throws IllegalStateException when the function derives no check and declares none, a declaration
-     *                               references a parameter the function does not have, or it names a permission
-     *                               resolver beside a permission, one not in {@code resolvers}, one requiring
-     *                               no permission, or one reading a parameter the function does not have
+     *                               references a parameter the function does not have, a permission it may
+     *                               require has a name on its type longer than a relation name may be, or it
+     *                               names a permission resolver beside a permission, one not in
+     *                               {@code resolvers}, one requiring no permission, or one reading a parameter
+     *                               the function does not have
      */
     static AuthzCheckC3Decorator checkOf(String declarer,
                                          AuthzResourceC3Decorator resource,
@@ -285,6 +289,13 @@ final class AuthzDecorators {
                     throw new IllegalStateException("The implied permission '" + implied + "' of " + where
                                                             + " is not a lowercase identifier");
                 }
+                requireRelationLength(where, checked.permissionResource(), implied);
+            }
+            if (permission != null) {
+                requireRelationLength(where, checked.permissionResource(), permission);
+            }
+            for (AuthzPermissionChoice choice : possiblePermissions) {
+                requireRelationLength(where, checked.permissionResource(), choice.getPermission());
             }
             ret = new AuthzCheckC3Decorator()
                     .setResource(checked.resource())
@@ -363,6 +374,15 @@ final class AuthzDecorators {
                                                     + " is not a lowercase identifier");
         }
         return ret;
+    }
+
+    // A permission becomes the relation <type>_<permission> of the model, whose name the engine caps
+    private static void requireRelationLength(String where, String type, String permission) {
+        String name = AuthzUtil.permissionName(type, permission);
+        if (name.length() > AuthzConstants.MAX_RELATION_NAME_LENGTH) {
+            throw new IllegalStateException("The permission '" + name + "' of " + where + " is longer than the "
+                                                    + AuthzConstants.MAX_RELATION_NAME_LENGTH + " characters a relation name may have");
+        }
     }
 
     // Every reference of the resource id names the caller's scope or a parameter the request carries
