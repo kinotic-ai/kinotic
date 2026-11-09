@@ -35,8 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * additionally provides a {@link Flux} of {@link ListenerStatus} for any event bus address, fed by the
  * registration updates it already receives for message routing, and a {@link Flux} of the cluster membership,
  * fed by the discovery events it already receives. Both fluxes, and {@link #getClusterRegistrations}, observe the
- * whole cluster whatever the partitioning. A registration of a node that has left the cluster is never reported,
- * by a lookup, an update or a monitor, and every address the node was registered on is announced when it leaves.
+ * whole cluster whatever the partitioning. A lookup, an update and a monitor report only the registrations of
+ * current cluster members, and every address a departed node was registered on is announced when it leaves.
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
  * how often monitors come and go. All monitor signals are delivered on a vertx context, never on the
  * cluster threads that observe registration changes.
@@ -217,7 +217,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                         List<RegistrationInfo> remaining = registrations.stream()
                                                                         .filter(info -> !nodeId.equals(info.nodeId()))
                                                                         .toList();
-                        registrationUpdates.registrationsUpdated(new RegistrationUpdateEvent(entry.getKey(), remaining));
+                        announce(entry.getKey(), remaining);
                     }
                 }
             }
@@ -234,6 +234,15 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
         }
     }
 
+    // A listener failing on one address leaves the other addresses of the departure to be announced
+    private void announce(String address, List<RegistrationInfo> remaining) {
+        try {
+            registrationUpdates.registrationsUpdated(new RegistrationUpdateEvent(address, remaining));
+        } catch (RuntimeException e) {
+            log.warn("Could not announce the departure from address {}", address, e);
+        }
+    }
+
     // Completes the promise with the registrations held by current cluster members
     private Completable<List<RegistrationInfo>> liveOnly(Completable<List<RegistrationInfo>> promise) {
         return (registrations, err) -> {
@@ -246,10 +255,12 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     }
 
     // The subscription cache can list a node that has left until the node cleaning up after it has removed them,
-    // so membership decides which registrations count
+    // so membership decides which registrations count. A running cluster always lists this node, so an empty
+    // membership is getNodes() answering for a grid that is starting or stopping, and the registrations pass as
+    // they are rather than every one being dropped
     private List<RegistrationInfo> liveRegistrations(List<RegistrationInfo> registrations) {
         Set<String> members = Set.copyOf(getNodes());
-        return registrations.stream().filter(info -> members.contains(info.nodeId())).toList();
+        return members.isEmpty() ? registrations : registrations.stream().filter(info -> members.contains(info.nodeId())).toList();
     }
 
     private static List<RegistrationInfo> registrationsOf(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry) {

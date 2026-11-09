@@ -10,7 +10,10 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 @Component
@@ -31,8 +34,8 @@ public class DefaultAuthzModelService implements AuthzModelService {
     }
 
     @Override
-    public Future<AuthzModel> findApplicationModel(String organizationId, String applicationId, ServiceDefinition candidate) {
-        return applicationModel(organizationId, applicationId, services -> with(services, candidate));
+    public Future<AuthzModel> findApplicationModel(String organizationId, String applicationId, Collection<ServiceDefinition> candidates) {
+        return applicationModel(organizationId, applicationId, services -> with(services, candidates));
     }
 
     private Future<AuthzModel> applicationModel(String organizationId,
@@ -43,15 +46,19 @@ public class DefaultAuthzModelService implements AuthzModelService {
                                                     .map(registered -> generator.applicationModel(system, services.apply(registered))));
     }
 
-    // the directory stores a service under its qualified name, so the candidate takes the place of the one it holds
-    private static List<ServiceDefinition> with(List<ServiceDefinition> services, ServiceDefinition candidate) {
-        List<ServiceDefinition> ret = new ArrayList<>(services.size() + 1);
+    // the directory stores a service under its qualified name, so each candidate takes the place of the one it holds
+    private static List<ServiceDefinition> with(List<ServiceDefinition> services, Collection<ServiceDefinition> candidates) {
+        Set<String> replaced = new HashSet<>();
+        for (ServiceDefinition candidate : candidates) {
+            replaced.add(candidate.getQualifiedName());
+        }
+        List<ServiceDefinition> ret = new ArrayList<>(services.size() + candidates.size());
         for (ServiceDefinition service : services) {
-            if (!service.getQualifiedName().equals(candidate.getQualifiedName())) {
+            if (!replaced.contains(service.getQualifiedName())) {
                 ret.add(service);
             }
         }
-        ret.add(candidate);
+        ret.addAll(candidates);
         return ret;
     }
 }

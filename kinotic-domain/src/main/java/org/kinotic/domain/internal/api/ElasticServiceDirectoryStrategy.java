@@ -13,6 +13,7 @@ import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -56,13 +58,23 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     // A declaration the derivation accepts can still give the generator nothing to build: a role bundling a
     // permission no function requires, a parent forking the type tree. Stored, it would fail the store's every
     // reconcile until replaced, so the generator is asked first and its refusal fails the registration. The
+    // reconciler generates a store's model from all of its services at once, so a batch's entries of one
+    // application are tried together, as a role one declares may bundle a permission another requires. The
     // system's own contracts are generated from at startup, so only an application's are tried here
     private Future<Void> generable(Collection<ServiceDirectoryEntry> entries) {
-        List<Future<?>> trials = new ArrayList<>();
+        Map<String, List<ServiceDefinition>> byApplication = new HashMap<>();
+        Map<String, ServiceDirectoryEntry> applications = new HashMap<>();
         for (ServiceDirectoryEntry entry : entries) {
             if (entry.getApplicationId() != null) {
-                trials.add(models.getObject().findApplicationModel(entry.getOrganizationId(), entry.getApplicationId(), entry.getServiceDefinition()));
+                String store = AuthzGraphUtil.authzApplicationId(entry.getOrganizationId(), entry.getApplicationId());
+                byApplication.computeIfAbsent(store, k -> new ArrayList<>()).add(entry.getServiceDefinition());
+                applications.putIfAbsent(store, entry);
             }
+        }
+        List<Future<?>> trials = new ArrayList<>();
+        for (Map.Entry<String, List<ServiceDefinition>> candidates : byApplication.entrySet()) {
+            ServiceDirectoryEntry application = applications.get(candidates.getKey());
+            trials.add(models.getObject().findApplicationModel(application.getOrganizationId(), application.getApplicationId(), candidates.getValue()));
         }
         return Future.all(trials).mapEmpty();
     }

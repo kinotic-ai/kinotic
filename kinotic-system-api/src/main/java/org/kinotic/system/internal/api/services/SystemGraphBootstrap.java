@@ -42,8 +42,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 public class SystemGraphBootstrap {
 
     private static final long RETRY_MILLIS = 2_000;
-    // a staff member who could not be bound is tried again by a later sweep, after a delay that doubles with each sweep
-    // that leaves one, since a model the system store runs at startup may lack the types the sweep writes
+    // A wait for the model and a sweep that leaves a staff member unbound are both made again after a delay that
+    // doubles each time, up to this, since the first may last as long as the reconciler takes and the second may
+    // keep failing on a model that lacks the types the sweep writes
     private static final long MAX_RETRY_MILLIS = 60_000;
     // The system users, machines and nodes fit one page: a system has a handful of each
     private static final int PAGE_SIZE = 1000;
@@ -57,10 +58,10 @@ public class SystemGraphBootstrap {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
-        vertx.runOnContext(v -> run());
+        vertx.runOnContext(v -> run(RETRY_MILLIS));
     }
 
-    private void run() {
+    private void run(long delay) {
         Future.all(stores.findById(AuthzStore.SYSTEM), models.findSystemModel())
               .compose(both -> {
                   AuthzStore store = both.resultAt(0);
@@ -82,10 +83,11 @@ public class SystemGraphBootstrap {
                       place(RETRY_MILLIS);
                   }
               })
-              // a store not running the model yet, or one that cannot be read or reached, is asked again
+              // A store not running the model yet, or one that cannot be read or reached, is asked again; each wait
+              // reads the directory and generates the model, so the delay doubles instead of repeating every two seconds
               .onFailure(e -> {
                   log.debug("The system staff sweep waits: {}", e.getMessage());
-                  vertx.setTimer(RETRY_MILLIS, t -> run());
+                  vertx.setTimer(delay, t -> run(Math.min(delay * 2, MAX_RETRY_MILLIS)));
               });
     }
 

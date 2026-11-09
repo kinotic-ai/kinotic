@@ -369,7 +369,7 @@ public class AuthzModelGeneratorTest {
 
             IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
-            assertTrue(e.getMessage().contains("'" + fixed + "'"), e.getMessage());
+            assertTrue(e.getMessage().contains("'" + fixed + "' is one the model defines itself"), e.getMessage());
         }
     }
 

@@ -112,11 +112,20 @@ const canManageAccess = ref(false)
 const loading = ref(true)
 // whether the application's roles, definitions, tenants and subjects are read, which the check panel is built on
 const contextLoaded = ref(false)
-const refused = ref(false)
-const error = ref<string | null>(null)
+// Each load keeps its own failure, so a load of the grants alone neither clears nor hides what the context's load
+// reported: the page is refused when either was, and otherwise shows the first failure
+const contextFailure = ref<unknown>(null)
+const grantsFailure = ref<unknown>(null)
 const grantDrawerVisible = ref(false)
 const where = ref<string>(typeof route.query.tenant === 'string' ? route.query.tenant : WHOLE_APPLICATION)
 const definition = ref<string>(EVERY_DEFINITION)
+
+const failures = computed(() => [contextFailure.value, grantsFailure.value].filter(failure => failure !== null))
+const refused = computed(() => failures.value.some(isAuthorizationError))
+const error = computed(() => {
+  const other = failures.value.find(failure => !isAuthorizationError(failure))
+  return other === undefined ? null : errorMessage(other, 'Failed to load the application\'s end-user access')
+})
 
 /** The subject the page was opened for, from its query, or null for everyone's grants. */
 const subjectFilter = computed<Subject | null>(() => {
@@ -194,6 +203,7 @@ watch(() => [props.applicationId, resource.value.type, resource.value.id], loadG
 async function loadContext(): Promise<void> {
   const thisLoad = ++latestContextLoad
   contextLoaded.value = false
+  contextFailure.value = null
   try {
     const [defined, managed, published, created] = await Promise.all([
       Kinotic.applicationAccess.findRoles(props.applicationId),
@@ -212,7 +222,7 @@ async function loadContext(): Promise<void> {
     contextLoaded.value = true
   } catch (err) {
     if (thisLoad === latestContextLoad) {
-      failed(err)
+      contextFailure.value = err
     }
   }
 }
@@ -220,29 +230,23 @@ async function loadContext(): Promise<void> {
 async function loadGrants(): Promise<void> {
   const thisLoad = ++latestGrantsLoad
   loading.value = true
-  error.value = null
+  grantsFailure.value = null
   try {
     const found = await Kinotic.applicationAccess.findGrants(props.applicationId, resource.value)
     if (thisLoad !== latestGrantsLoad) {
       return
     }
     grants.value = found
-    refused.value = false
   } catch (err) {
     if (thisLoad !== latestGrantsLoad) {
       return
     }
-    failed(err)
+    grantsFailure.value = err
   } finally {
     if (thisLoad === latestGrantsLoad) {
       loading.value = false
     }
   }
-}
-
-function failed(err: unknown): void {
-  refused.value = isAuthorizationError(err)
-  error.value = refused.value ? null : errorMessage(err, 'Failed to load the application\'s end-user access')
 }
 
 // a machine is a user subject to the store, so the row says which of the two it is

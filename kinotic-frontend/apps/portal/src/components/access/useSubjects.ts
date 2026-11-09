@@ -2,7 +2,7 @@ import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { Kinotic, type Page, Pageable } from '@kinotic-ai/core'
 import { type ApplicationParticipantIdentity, type Group, type MachineParticipantIdentity, type OrganizationParticipantIdentity, type Subject,
   SubjectType } from '@kinotic-ai/management-api'
-import { createDebug } from '@kinotic-ai/frontend-common'
+import { createDebug, isAuthorizationError } from '@kinotic-ai/frontend-common'
 import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
 const debug = createDebug('access')
@@ -15,8 +15,8 @@ const SUBJECT_PAGE_SIZE = 500
  * Who a grant can be made to, read once per panel: the organization's members and groups, as the pickers of
  * the system store's panels list them, or, for an application, its users and machines, as the pickers of the
  * application's own store list them; the grant rows name whichever were read. Each list is read on its own,
- * so a caller who may read access but not the members still sees the grants, with such a subject named by its
- * id.
+ * and one the caller may not read is left empty, so a caller who may read access but not the members still
+ * sees the grants, with such a subject named by its id; any other failure to read a list fails the load.
  *
  * @param applicationId reads the application whose users and machines are the subjects, or null for the
  *                      organization's members and groups; read on every load, so a page that switches application
@@ -48,12 +48,15 @@ export function useSubjects(applicationId: () => string | null = () => null): {
     }
   }
 
-  // a list the caller may not read is left empty, and the panel shows the rest
+  // a list the caller may not read is left empty, and the panel shows the rest; any other failure is the caller's
   async function read<T>(what: string, page: Promise<Page<T>>, into: Ref<SubjectOption[]>, option: (item: T) => SubjectOption): Promise<void> {
     try {
       into.value = ((await page).content ?? []).map(option)
     } catch (err) {
-      debug('Failed to read the %s a grant can be made to: %O', what, err)
+      if (!isAuthorizationError(err)) {
+        throw err
+      }
+      debug('The caller may not read the %s a grant can be made to: %O', what, err)
       into.value = []
     }
   }

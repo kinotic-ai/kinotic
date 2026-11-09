@@ -140,8 +140,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // organization's members hold it, and in the application's, where its rows are reached through it. What a
     // deleted definition of the same id left on itself, when the removal after its record's deletion failed, is
     // removed first, so the definition starts with no grant made on it. A record whose place could not be
-    // written is removed again, since nothing places it later and nobody could reach it, so the create can be
-    // made again; the record alone is removed, as the graph holds nothing of it yet
+    // written is removed again, with whatever of its place was written, since nothing places it later and
+    // nobody could reach it, so the create can be made again
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
         String object = containment(entityDefinition).object();
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
@@ -149,7 +149,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                 .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(entityDefinition))))
                 .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
                 .map(entityDefinition)
-                .recover(err -> super.deleteByIdSync(entityDefinition.getId())
+                .recover(err -> deleted(entityDefinition)
                                      .onFailure(deleteErr -> log.warn("Could not remove entity definition {} after its graph placement failed: {}",
                                                                       entityDefinition.getId(), deleteErr.getMessage()))
                                      .transform(v -> Future.failedFuture(err)));
@@ -210,14 +210,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    // Sync delete, then evict: the deletion must be searchable before the
-                    // eviction fires, and the eviction must fire last — either way around,
-                    // a concurrent read could re-cache the old row with no eviction behind it.
-                    // The delete completes once every node holding the caches has evicted.
-                    return super.deleteByIdSync(entityDefinitionId)
-                                .compose(v -> evict(entityDefinition))
-                                .compose(v -> removed(entityDefinition));
+                    return deleted(entityDefinition);
                 });
+    }
+
+    // Sync delete, then evict: the deletion must be searchable before the eviction fires, and the eviction must
+    // fire last; either way around, a concurrent read could re-cache the old row with no eviction behind it. The
+    // delete completes once every node holding the caches has evicted, then the definition leaves the graph
+    private Future<Void> deleted(EntityDefinition entityDefinition) {
+        return super.deleteByIdSync(entityDefinition.getId())
+                    .compose(v -> evict(entityDefinition))
+                    .compose(v -> removed(entityDefinition));
     }
 
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the

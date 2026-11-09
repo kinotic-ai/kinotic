@@ -4,6 +4,8 @@ import io.vertx.core.Future;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 
+import java.util.Collection;
+
 /**
  * The authorization models the service directory implies, as it holds the services now.
  */
@@ -27,15 +29,15 @@ public interface AuthzModelService {
     Future<AuthzModel> findApplicationModel(String organizationId, String applicationId);
 
     /**
-     * The model an application's store would run once {@code candidate} is registered, standing in for the
-     * service of the same qualified name the directory holds now. The future fails with an
-     * {@link IllegalArgumentException} when no model can be generated from the candidate's declarations.
+     * The model an application's store would run once {@code candidates} are registered, each standing in for
+     * the service of the same qualified name the directory holds now. The future fails with an
+     * {@link IllegalArgumentException} when no model can be generated from the candidates' declarations.
      *
      * @param organizationId the application's organization
      * @param applicationId  the application
-     * @param candidate      the converted contract of the service about to be registered
+     * @param candidates     the converted contracts of the application's services about to be registered
      * @return the model
      */
-    Future<AuthzModel> findApplicationModel(String organizationId, String applicationId, ServiceDefinition candidate);
+    Future<AuthzModel> findApplicationModel(String organizationId, String applicationId, Collection<ServiceDefinition> candidates);
 
 }
