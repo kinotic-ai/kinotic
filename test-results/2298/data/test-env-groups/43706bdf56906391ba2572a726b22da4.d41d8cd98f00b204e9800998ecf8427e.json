@@ -1,1 +1,0 @@
-{"id":"43706bdf56906391ba2572a726b22da4.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.api.event.ClusterEventTaskTest.refusesAnEventHoldingATypeOutsideTheAllowedPackages","name":"refusesAnEventHoldingATypeOutsideTheAllowedPackages()","status":"passed","testResultsByEnv":{"default":"d69e8e008254965159f2bbe0cb4eaeaa"}}
