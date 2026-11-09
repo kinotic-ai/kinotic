@@ -62,8 +62,8 @@ const plans: Plan[] = [
 
 const billing = ref<Billing>('annual')
 
-// The plan matching the revenue the visitor picked, or null until they pick one.
-const selected = ref<string | null>(null)
+// The plan matching the revenue the visitor picked; the free plan until they pick one.
+const selected = ref<string>('free')
 
 const usd = (amount: number) => '$' + Math.round(amount).toLocaleString('en-US')
 
