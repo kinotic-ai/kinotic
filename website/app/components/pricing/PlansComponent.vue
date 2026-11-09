@@ -94,8 +94,8 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         </div>
         <h1 id="pricing-title" class="k-heading plans__title">Free for small companies. Simple pricing as you grow.</h1>
         <p class="plans__lede">
-          Each plan licenses Kinotic's Enterprise features in your own cloud. Your price is set by your company's
-          annual revenue.
+          <span class="plans__lede-line">Each plan licenses Kinotic's Enterprise features in your own cloud.</span>
+          <span class="plans__lede-line">Your price is set by your company's annual revenue.</span>
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">
@@ -206,6 +206,10 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   color: var(--color-k-body);
   font-size: 17px;
   line-height: 1.6;
+}
+
+.plans__lede-line {
+  display: block;
 }
 
 .plans__toggle {
