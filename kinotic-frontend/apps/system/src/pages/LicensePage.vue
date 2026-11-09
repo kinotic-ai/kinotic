@@ -58,7 +58,7 @@ import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
 import { BadgeCheck, CalendarClock, CalendarX, KeyRound, Sparkles, User } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
-import { EnterpriseFeature, LicenseStatus, type LicenseDetails } from '@kinotic-ai/system-api'
+import { EnterpriseFeature, LicenseStatus, type License } from '@kinotic-ai/system-api'
 import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage, showErrorToast } from '@kinotic-ai/frontend-common'
 
 const FEATURE_NAMES: Record<EnterpriseFeature, string> = {
@@ -85,7 +85,7 @@ interface LicenseStat {
 
 const toast = useToast()
 
-const license = ref<LicenseDetails | null>(null)
+const license = ref<License | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const licenseKey = ref('')
