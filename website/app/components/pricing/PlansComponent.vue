@@ -31,8 +31,8 @@ const plans: Plan[] = [
   {
     id: 'small',
     name: 'Small',
-    band: '$1M – $20M annual revenue',
-    revenue: '$1M – $20M',
+    band: '$1M to under $20M annual revenue',
+    revenue: '$1M – under $20M',
     monthly: 5000,
     summary: 'For growing companies running Kinotic in production.',
     includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Email support'],
