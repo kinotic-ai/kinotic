@@ -14,13 +14,13 @@ const groups: { title?: string, rows: Row[] }[] = [
       { feature: 'Logs, traces and metrics for every application', elastic: true, enterprise: true },
       { feature: 'MCP tools, so AI agents can build and operate on Kinotic', elastic: true, enterprise: true },
       { feature: 'Multi-node clusters for high availability', elastic: true, enterprise: true },
-      { feature: 'Sign-in through Google, for your team, your applications and each of their tenants', elastic: true, enterprise: true },
+      { feature: 'Sign-in with Google and Microsoft accounts', elastic: true, enterprise: true },
     ],
   },
   {
     title: 'Enterprise features',
     rows: [
-      { feature: 'Sign-in through your own Okta or Microsoft Entra, for your team, your applications and each of their tenants', elastic: false, enterprise: true },
+      { feature: 'Sign-in through your own Okta or Microsoft Entra directory, for your team, your applications and each of their tenants', elastic: false, enterprise: true },
       { feature: 'Secrets kept in your own Azure Key Vault', elastic: false, enterprise: true },
       { feature: 'New Enterprise features in your edition as we ship them', elastic: false, enterprise: true },
     ],
