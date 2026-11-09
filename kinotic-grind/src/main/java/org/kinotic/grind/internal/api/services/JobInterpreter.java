@@ -125,7 +125,9 @@ public class JobInterpreter {
     }
 
     private void executeChild(String parentPath, DefaultJobContext scope, JobNode child) {
-        if (Thread.currentThread().isInterrupted()) {
+        // a cancellation is recorded before its interrupt lands, so a child that follows a failed one
+        // checks both
+        if (Thread.currentThread().isInterrupted() || RunThread.cancelled()) {
             throw new RunCancelledException();
         }
         String childPath = parentPath + "/" + child.sequence();
