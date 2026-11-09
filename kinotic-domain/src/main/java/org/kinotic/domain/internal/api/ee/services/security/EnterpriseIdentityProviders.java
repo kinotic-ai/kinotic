@@ -1,9 +1,10 @@
 package org.kinotic.domain.internal.api.ee.services.security;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.OidcProviderType;
-import org.kinotic.domain.internal.api.ee.license.ConditionalOnEnterpriseFeature;
-import org.kinotic.domain.internal.api.ee.license.EnterpriseFeature;
+import org.kinotic.domain.api.services.EntitlementService;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.springframework.stereotype.Component;
 
 import java.util.regex.Pattern;
@@ -15,7 +16,7 @@ import java.util.regex.Pattern;
  * hosts.
  */
 @Component
-@ConditionalOnEnterpriseFeature(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS)
+@RequiredArgsConstructor
 public class EnterpriseIdentityProviders {
 
     // the Entra directory named by its tenant id, or common for every Microsoft account and organizations for every
@@ -26,11 +27,15 @@ public class EnterpriseIdentityProviders {
     private static final Pattern OKTA_ACCOUNT =
             Pattern.compile("[a-z0-9-]{1,63}\\.(okta\\.com|oktapreview\\.com|okta-emea\\.com)");
 
+    private final EntitlementService entitlementService;
+
     /**
-     * Whether an organization may configure a provider of this type with a client of its own.
+     * Whether an organization may configure a provider of this type with a client of its own: the type is one of
+     * these providers and the license turns {@link EnterpriseFeature#ENTERPRISE_IDENTITY_PROVIDERS} on now.
      */
     public boolean supports(OidcProviderType type) {
-        return type == OidcProviderType.AZURE_AD || type == OidcProviderType.OKTA;
+        return (type == OidcProviderType.AZURE_AD || type == OidcProviderType.OKTA)
+                && entitlementService.allows(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS);
     }
 
     /**

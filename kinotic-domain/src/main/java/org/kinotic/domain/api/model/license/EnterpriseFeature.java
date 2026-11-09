@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.ee.license;
+package org.kinotic.domain.api.model.license;
 
 /**
  * The Enterprise Features a Kinotic Enterprise License key turns on, named in the key's {@code features} claim by

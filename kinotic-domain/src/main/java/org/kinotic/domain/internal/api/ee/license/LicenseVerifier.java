@@ -1,33 +1,30 @@
 package org.kinotic.domain.internal.api.ee.license;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.core.env.Environment;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
+import org.kinotic.domain.api.model.license.License;
 
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Verifies Kinotic Enterprise License keys. A key is a JWT signed with ES256 by Minds Ignited's EC P-256 license
- * signing key: its {@code sub} names the licensee, its {@code exp} is when the license expires, and its {@code features} claim
- * lists the {@link EnterpriseFeature} names it turns on, or {@value #ALL_FEATURES} for every feature the server knows.
+ * signing key: its {@code sub} names the licensee, its {@code iat} is when it was issued, its {@code exp} is when the
+ * license expires, and its {@code features} claim lists the {@link EnterpriseFeature} names it turns on, or
+ * {@value #ALL_FEATURES} for every feature the server knows.
  */
-@Slf4j
 public class LicenseVerifier {
-
-    /** The property holding the server's license key. */
-    public static final String LICENSE_KEY_PROPERTY = "kinotic.ee.licenseKey";
 
     // X.509 SubjectPublicKeyInfo of Minds Ignited's EC P-256 license signing key (the kinotic-license-signing key in
     // the platform Key Vault, deployment/terraform/azure/global/license.tf), Base64 without the PEM armor
@@ -38,7 +35,8 @@ public class LicenseVerifier {
     /** The {@code features} entry that turns on every Enterprise Feature. */
     public static final String ALL_FEATURES = "*";
 
-    private static final Map<String, Optional<License>> VERIFIED = new ConcurrentHashMap<>();
+    /** How long after its expiry a license keeps its features on. */
+    public static final Duration GRACE_PERIOD = Duration.ofDays(14);
 
     private final PublicKey publicKey;
 
@@ -46,7 +44,8 @@ public class LicenseVerifier {
         this.publicKey = publicKey;
     }
 
-    private static LicenseVerifier trusted() {
+    /** A verifier that trusts Minds Ignited's license signing key. */
+    public static LicenseVerifier trusted() {
         try {
             X509EncodedKeySpec spec = new X509EncodedKeySpec(Base64.getDecoder().decode(TRUSTED_PUBLIC_KEY));
             return new LicenseVerifier(KeyFactory.getInstance("EC").generatePublic(spec));
@@ -56,43 +55,34 @@ public class LicenseVerifier {
     }
 
     /**
-     * The license the {@value #LICENSE_KEY_PROPERTY} property of {@code environment} holds, verified against the
-     * trusted license signing key, or {@code null} when it holds no key or one that is not valid or has expired.
-     */
-    public static License licenseOf(Environment environment) {
-        String key = StringUtils.trimToEmpty(environment.getProperty(LICENSE_KEY_PROPERTY));
-        return VERIFIED.computeIfAbsent(key, LicenseVerifier::verifyAndLog).orElse(null);
-    }
-
-    // every Spring condition on a feature asks for the license, so each key is verified and logged once
-    private static Optional<License> verifyAndLog(String key) {
-        License ret = null;
-        if (key.isEmpty()) {
-            log.info("No Kinotic Enterprise License key is set in {}, so no Enterprise Feature is on", LICENSE_KEY_PROPERTY);
-        } else {
-            try {
-                ret = trusted().verify(key);
-                log.info("Kinotic Enterprise License for {}, expiring {}, turns on {}", ret.licensee(), ret.expiresAt(), ret.features());
-            } catch (JwtException | IllegalArgumentException e) {
-                log.error("The Kinotic Enterprise License key in {} is not valid, so no Enterprise Feature is on: {}",
-                          LICENSE_KEY_PROPERTY, e.getMessage());
-            }
-        }
-        return Optional.ofNullable(ret);
-    }
-
-    /**
-     * The license {@code key} holds.
+     * The license {@code key} holds, whether or not it has expired, with its grace period ending {@link #GRACE_PERIOD}
+     * after its expiry. Its {@link License#getStatus() status} is left unset.
      *
-     * @throws JwtException             when the key is not signed with the trusted key, is malformed, or has expired
+     * @throws JwtException             when the key is not signed with the trusted key, is malformed, or is not valid
+     *                                  yet by its {@code nbf}
      * @throws IllegalArgumentException when the key names no licensee or no expiry
      */
     public License verify(String key) {
-        Claims claims = Jwts.parser().verifyWith(publicKey).build().parseSignedClaims(key).getPayload();
+        Claims claims;
+        try {
+            claims = Jwts.parser()
+                         .verifyWith(publicKey)
+                         .build()
+                         .parseSignedClaims(key)
+                         .getPayload();
+        } catch (ExpiredJwtException e) {
+            // jjwt checks exp only after it has verified the signature, so these claims are signed by the trusted key
+            claims = e.getClaims();
+        }
         if (StringUtils.isBlank(claims.getSubject()) || claims.getExpiration() == null) {
             throw new IllegalArgumentException("A license key names its licensee in sub and its expiry in exp");
         }
-        return new License(claims.getSubject(), claims.getExpiration().toInstant(), features(claims));
+        Date expiresAt = claims.getExpiration();
+        return new License().setLicensee(claims.getSubject())
+                            .setIssuedAt(claims.getIssuedAt())
+                            .setExpiresAt(expiresAt)
+                            .setGraceEndsAt(Date.from(expiresAt.toInstant().plus(GRACE_PERIOD)))
+                            .setFeatures(features(claims));
     }
 
     // a key may name features a newer server knows; this server turns on the ones it knows

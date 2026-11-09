@@ -44,10 +44,6 @@ kinotic:
       # Generated once: SecretNameDeriver derives every stored secret's name from it, so it
       # is carried to the cloud at migration
       masterKey: "$master_key"
-  ee:
-    # A Kinotic Enterprise License key that turns on AZURE_KEY_VAULT, which the dev-server profile's
-    # secret storage needs to start
-    licenseKey: ""
 YAML
 done
 
@@ -70,6 +66,6 @@ KINOTIC_DOMAIN_PUBLISHEDSITES_CLOUDFLARE_APITOKEN=
 ENV
 
 chmod -R go-rwx "$OUT"
-echo "Written to $OUT. Fill in kinotic-servers.env from the dev-server root's secrets_env output, the license key in every"
-echo "secrets.yml, and the GitHub App values in kinotic-server-management/secrets.yml and kinotic-server-system/secrets.yml,"
+echo "Written to $OUT. Fill in kinotic-servers.env from the dev-server root's secrets_env output and the GitHub App values"
+echo "in kinotic-server-management/secrets.yml and kinotic-server-system/secrets.yml,"
 echo "then: ./sync-secrets.sh $OUT"

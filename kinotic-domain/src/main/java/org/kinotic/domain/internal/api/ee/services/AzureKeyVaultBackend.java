@@ -10,6 +10,8 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.kinotic.domain.api.config.AzureProperties;
 import org.kinotic.domain.api.ee.services.SecretStorageBackend;
+import org.kinotic.domain.api.services.EntitlementService;
+import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -19,6 +21,8 @@ import java.util.Map;
 /**
  * Azure Key Vault backed secret storage.
  * Batch methods use Reactor to parallelize vault operations.
+ * Secrets are read and deleted whatever the license; storing a secret fails with an {@link IllegalStateException}
+ * unless the current license turns {@link EnterpriseFeature#AZURE_KEY_VAULT} on.
  */
 public class AzureKeyVaultBackend implements SecretStorageBackend {
 
@@ -26,8 +30,9 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
 
     private final SecretAsyncClient client;
     private final Vertx vertx;
+    private final EntitlementService entitlementService;
 
-    public AzureKeyVaultBackend(AzureProperties settings, Vertx vertx) {
+    public AzureKeyVaultBackend(AzureProperties settings, Vertx vertx, EntitlementService entitlementService) {
         if (settings == null || settings.getVaultUrl() == null) {
             throw new IllegalArgumentException("Azure vault URL must be configured when using azure backend");
         }
@@ -36,10 +41,14 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
                 .credential(new DefaultAzureCredentialBuilder().build())
                 .buildAsyncClient();
         this.vertx = vertx;
+        this.entitlementService = entitlementService;
     }
 
     @Override
     public Future<Void> setSecret(String derivedName, String value) {
+        if (!entitlementService.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
+            return unlicensedWrite();
+        }
         return Future.fromCompletionStage(set(derivedName, value)
                                                 .then()
                                                 .toFuture(),
@@ -63,6 +72,9 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
 
     @Override
     public Future<Void> setSecrets(Map<String, String> derivedNameToValue) {
+        if (!entitlementService.allows(EnterpriseFeature.AZURE_KEY_VAULT)) {
+            return unlicensedWrite();
+        }
         return Future.fromCompletionStage(Flux.fromIterable(derivedNameToValue.entrySet())
                                               .flatMap(e -> set(e.getKey(), e.getValue()))
                                               .then()
@@ -112,6 +124,12 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
                      .next()
                      .then()
                      .onErrorResume(ResourceNotFoundException.class, e -> Mono.empty());
+    }
+
+    private static Future<Void> unlicensedWrite() {
+        return Future.failedFuture(new IllegalStateException(
+                "Storing a secret in Azure Key Vault needs a Kinotic Enterprise License that turns on "
+                        + EnterpriseFeature.AZURE_KEY_VAULT + "; secrets already stored can still be read and deleted"));
     }
 
     private static boolean isNameReserved(Throwable error) {
