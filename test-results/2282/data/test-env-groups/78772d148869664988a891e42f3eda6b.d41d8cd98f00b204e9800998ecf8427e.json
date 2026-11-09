@@ -1,1 +1,0 @@
-{"id":"78772d148869664988a891e42f3eda6b.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testStreamThatCannotBeSuspendedIsCancelledPastTheCap","name":"testStreamThatCannotBeSuspendedIsCancelledPastTheCap()","status":"passed","testResultsByEnv":{"default":"f1c8a5fda2d69a2deed86fd47e95529c"}}

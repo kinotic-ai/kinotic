@@ -1,0 +1,1 @@
+{"id":"e8228d81bff89c3ac685584c42b16072.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.client.KinoticConnectionTests.testReplyOverTheWebSocketFrameLimitFailsTheCallAndTheConnectionRecovers","name":"testReplyOverTheWebSocketFrameLimitFailsTheCallAndTheConnectionRecovers()","status":"passed","testResultsByEnv":{"default":"d2de5bc5f90759b6aa60bd0692ee4d93"}}
