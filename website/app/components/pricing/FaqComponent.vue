@@ -32,7 +32,7 @@ const questions = [
   },
   {
     q: 'How can I pay?',
-    a: 'By card, or by bank account through Link. Annual billing charges ten months for twelve.',
+    a: 'By card, or by bank account through Link. Paying annually saves 10%.',
   },
 ]
 </script>

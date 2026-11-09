@@ -13,8 +13,8 @@ interface Plan {
   recommended?: boolean
 }
 
-// Annual billing charges ten months for twelve.
-const ANNUAL_MONTHS = 10
+// Annual billing takes this fraction off twelve months at the monthly price.
+const ANNUAL_DISCOUNT = 0.1
 
 const plans: Plan[] = [
   {
@@ -61,14 +61,14 @@ const billing = ref<Billing>('annual')
 const usd = (amount: number) => '$' + Math.round(amount).toLocaleString('en-US')
 
 // The monthly figure shown on a card: the list price, or the annual price spread over twelve months.
-const shownMonthly = (plan: Plan) => billing.value === 'annual' ? plan.monthly * ANNUAL_MONTHS / 12 : plan.monthly
+const shownMonthly = (plan: Plan) => billing.value === 'annual' ? plan.monthly * (1 - ANNUAL_DISCOUNT) : plan.monthly
 
 const billedNote = (plan: Plan) => {
   let ret: string
   if (plan.monthly === 0) {
     ret = 'Free for as long as you qualify'
   } else if (billing.value === 'annual') {
-    ret = `Billed ${usd(plan.monthly * ANNUAL_MONTHS)} a year`
+    ret = `Billed ${usd(plan.monthly * 12 * (1 - ANNUAL_DISCOUNT))} a year`
   } else {
     ret = 'Billed monthly'
   }
@@ -103,7 +103,7 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
             class="plans__toggle-option"
             :aria-pressed="billing === 'annual'"
             @click="billing = 'annual'"
-          >Annual <span class="plans__save">2 months free</span></button>
+          >Annual <span class="plans__save">Save 10%</span></button>
         </div>
       </div>
 
