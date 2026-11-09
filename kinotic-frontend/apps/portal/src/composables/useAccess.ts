@@ -21,8 +21,9 @@ export function useAccess(): { canManageAccess: Ref<boolean> } {
     loadedFor = memberId
     canManageAccess.value = false
     const organizationId = userState.getOrganizationId()
+    // a member who signed in while this read was in flight gets their own answer, not this one
     Kinotic.permissions.listAccessible('organization', 'can_manage_access')
-           .then(ids => { canManageAccess.value = ids.includes(organizationId) })
+           .then(ids => { if (loadedFor === memberId) canManageAccess.value = ids.includes(organizationId) })
            .catch(err => debug('Failed to read whether the member manages access: %O', err))
   }
   return { canManageAccess }

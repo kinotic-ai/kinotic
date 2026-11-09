@@ -102,7 +102,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
-const { members, machines, load: loadSubjects, labelOf } = useSubjects(props.applicationId)
+const { members, machines, load: loadSubjects, labelOf } = useSubjects(() => props.applicationId)
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])

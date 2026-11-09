@@ -113,7 +113,10 @@ public final class AuthzUtil {
     public static String builtInRoleName(String roleId) {
         List<String> words = new ArrayList<>();
         for (String word : roleId.split("[._]")) {
-            words.add(Character.toUpperCase(word.charAt(0)) + word.substring(1));
+            // an identifier may hold consecutive underscores, which split as an empty word
+            if (!word.isEmpty()) {
+                words.add(Character.toUpperCase(word.charAt(0)) + word.substring(1));
+            }
         }
         return String.join(" ", words);
     }

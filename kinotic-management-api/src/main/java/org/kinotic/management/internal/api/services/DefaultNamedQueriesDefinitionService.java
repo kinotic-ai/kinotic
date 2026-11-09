@@ -42,15 +42,21 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     // the queries are written for
     @Override
     protected Future<Void> beforeSave(NamedQueriesDefinition definition) {
-        Validate.notBlank(definition.getApplicationId(), "NamedQueriesDefinition applicationId cannot be blank");
-        Validate.notBlank(definition.getEntityDefinitionName(), "NamedQueriesDefinition entityDefinitionName cannot be blank");
-        String id = DomainUtil.createEntityDefinitionId(definition.applicationKey(), definition.getEntityDefinitionName());
-        if (definition.getId() == null) {
-            definition.setId(id);
+        Future<Void> ret;
+        try {
+            Validate.notBlank(definition.getApplicationId(), "NamedQueriesDefinition applicationId cannot be blank");
+            Validate.notBlank(definition.getEntityDefinitionName(), "NamedQueriesDefinition entityDefinitionName cannot be blank");
+            String id = DomainUtil.createEntityDefinitionId(definition.applicationKey(), definition.getEntityDefinitionName());
+            if (definition.getId() == null) {
+                definition.setId(id);
+            }
+            Validate.isTrue(id.equals(definition.getId()),
+                            "NamedQueriesDefinition id '%s' must be the id of its entity definition, '%s'", definition.getId(), id);
+            ret = Future.succeededFuture();
+        } catch (IllegalArgumentException | NullPointerException e) {
+            ret = Future.failedFuture(e);
         }
-        Validate.isTrue(id.equals(definition.getId()),
-                        "NamedQueriesDefinition id '%s' must be the id of its entity definition, '%s'", definition.getId(), id);
-        return Future.succeededFuture();
+        return ret;
     }
 
     // Every mutation below uses the Refresh.WaitFor write/delete variant and evicts after

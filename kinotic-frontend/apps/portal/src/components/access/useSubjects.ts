@@ -13,10 +13,11 @@ const SUBJECT_PAGE_SIZE = 500
  * the system store's panels list them, or, for an application, its users and machines, as the pickers of the
  * application's own store list them; the grant rows name whichever were read.
  *
- * @param applicationId the application whose users and machines are the subjects, or null for the organization's
- *                      members and groups
+ * @param applicationId reads the application whose users and machines are the subjects, or null for the
+ *                      organization's members and groups; read on every load, so a page that switches application
+ *                      in place reads the new application's subjects
  */
-export function useSubjects(applicationId: string | null = null): {
+export function useSubjects(applicationId: () => string | null = () => null): {
   members: Ref<SubjectOption[]>
   groups: Ref<SubjectOption[]>
   machines: Ref<SubjectOption[]>
@@ -28,15 +29,16 @@ export function useSubjects(applicationId: string | null = null): {
   const machines = ref<SubjectOption[]>([])
 
   async function load(): Promise<void> {
-    if (applicationId === null) {
+    const application = applicationId()
+    if (application === null) {
       const memberPage = await Kinotic.members.findMembers(Pageable.create(0, SUBJECT_PAGE_SIZE))
       members.value = (memberPage.content ?? []).map(memberOption)
       const groupPage = await Kinotic.permissions.findGroups(Pageable.create(0, SUBJECT_PAGE_SIZE))
       groups.value = (groupPage.content ?? []).map(groupOption)
     } else {
-      const userPage = await Kinotic.members.findApplicationUsers(applicationId, Pageable.create(0, SUBJECT_PAGE_SIZE))
+      const userPage = await Kinotic.members.findApplicationUsers(application, Pageable.create(0, SUBJECT_PAGE_SIZE))
       members.value = (userPage.content ?? []).map(memberOption)
-      const machinePage = await Kinotic.machines.findMachines(applicationId, Pageable.create(0, SUBJECT_PAGE_SIZE))
+      const machinePage = await Kinotic.machines.findMachines(application, Pageable.create(0, SUBJECT_PAGE_SIZE))
       machines.value = (machinePage.content ?? []).map(machineOption)
     }
   }
