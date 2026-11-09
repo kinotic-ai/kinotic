@@ -1988,6 +1988,114 @@ patterns on a running node the same way it sets log levels — see
 [Observability](https://kinotic.ai/platform/observability#application-logs). Those edits last until the node restarts,
 which returns it to its configured `kinotic.traceLog`.
 
+## Cluster TLS
+
+Traffic between Kinotic's nodes — the clustered event bus and Ignite's discovery and communication — uses mutual TLS when `kinotic.clusterTls.enabled` is `true`, and so does Ignite's thin client port, 10800 by default, or the next free port up to 10900 when that one is taken, so clients and firewalls allow the range. Each node presents the certificate in its key store, and accepts a peer only when the peer's certificate chains to one in its trust store, so a process without a certificate the cluster trusts can neither join the cluster, send messages to its nodes, nor read or write its caches through the thin client port. Every node of a cluster must agree on whether TLS is on.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Description
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic.clusterTls.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Whether traffic between nodes uses mutual TLS. The cluster's ports stay on a private network either way: with TLS off, anything that reaches them can join the cluster and read and write its caches, and with TLS on, the network is the first check and the certificate the second.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.clusterTls.keyStorePath
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The PKCS12 file holding the node's private key and certificate. Required when TLS is on.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.clusterTls.keyStorePassword
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The key store's password.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.clusterTls.trustStorePath
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The PKCS12 file holding the certificates, usually the issuing CA's, a peer's certificate must chain to. Required when TLS is on. Ignite does not authenticate users, so every holder of a certificate that chains to one of these joins the cluster and reads and writes its caches: the store holds a CA issued for this cluster's nodes alone, never a shared or public one.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.clusterTls.trustStorePassword
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The trust store's password.
+    </td>
+  </tr>
+</tbody>
+</table>
+
+A node with TLS on and a store missing fails to start.
+
 
 ## Sitemap
 
