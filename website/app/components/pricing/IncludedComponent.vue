@@ -33,7 +33,7 @@ const features = [
       </div>
 
       <p class="included__license" data-reveal>
-        The rest of Kinotic is available under the Elastic License 2.0.
+        The rest of Kinotic is available under the Elastic License 2.0, and Kinotic RPC under the Apache License 2.0.
       </p>
     </div>
   </section>

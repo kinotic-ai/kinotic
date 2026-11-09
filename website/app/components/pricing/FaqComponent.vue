@@ -28,8 +28,9 @@ const questions = [
   },
   {
     q: 'Do I need a license to use Kinotic?',
-    a: 'Only to use the Enterprise features. The rest of Kinotic is available under the Elastic License 2.0. If your '
-      + 'company is under $1M in annual revenue, an Enterprise license costs nothing.',
+    a: 'Only to use the Enterprise features. The rest of Kinotic is available under the Elastic License 2.0, and '
+      + 'Kinotic RPC under the Apache License 2.0. If your company is under $1M in annual revenue, an Enterprise '
+      + 'license costs nothing.',
   },
   {
     q: 'Will there be more editions?',

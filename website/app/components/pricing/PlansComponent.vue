@@ -95,8 +95,8 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         <h1 id="pricing-title" class="k-heading plans__title">Free for small companies. Simple pricing as you grow.</h1>
         <p class="plans__lede">
           Each plan is a license for Kinotic's Enterprise features, running in your own cloud. The rest of Kinotic
-          is available under the Elastic License 2.0. Companies under $1M in annual revenue get an Enterprise license
-          at no charge. Above that, your price is set by your company's annual revenue.
+          is available under the Elastic License 2.0, and Kinotic RPC under the Apache License 2.0. Companies under
+          $1M in annual revenue get an Enterprise license at no charge. Above that, your price is set by your company's annual revenue.
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">
