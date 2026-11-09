@@ -121,6 +121,24 @@ public class CheckDerivationTest {
     }
 
     @Test
+    public void aDeclaredResourceOfAnotherTypeIsNamedByItsOwnId() {
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_audit").setResource("organization");
+        ServiceDefinition service = schemaService.deriveChecks(reports(function("audit", check, "organizationId", "reportId")));
+
+        assertEquals("organization:{organizationId}", at(check(service, "audit")));
+        assertEquals("organization_can_audit", permission(check(service, "audit")));
+    }
+
+    @Test
+    public void aDeclaredResourceNoParameterOrScopeNamesIsRefused() {
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_audit").setResource("project");
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                                               () -> schemaService.deriveChecks(reports(function("audit", check, "reportId"))));
+
+        assertTrue(e.getMessage().contains("names no resource to check"), e.getMessage());
+    }
+
+    @Test
     public void aTemplateNamingAnUnknownParameterIsRefused() {
         AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_generate").setResourceId("{missing}");
         IllegalStateException e = assertThrows(IllegalStateException.class,

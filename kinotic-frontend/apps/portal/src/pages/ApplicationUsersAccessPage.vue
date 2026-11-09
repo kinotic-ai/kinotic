@@ -197,6 +197,12 @@ const catalog = computed(() => {
 let latestContextLoad = 0
 let latestGrantsLoad = 0
 
+// the pickers name a tenant and a definition of the application the page showed, which the next one does not have;
+// declared first, so the grants load once, for the reset resource
+watch(() => props.applicationId, () => {
+  where.value = WHOLE_APPLICATION
+  definition.value = EVERY_DEFINITION
+})
 watch(() => props.applicationId, loadContext, { immediate: true })
 watch(() => [props.applicationId, resource.value.type, resource.value.id], loadGrants, { immediate: true })
 
