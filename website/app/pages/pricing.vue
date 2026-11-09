@@ -3,7 +3,7 @@
 // nitro.prerender.routes so `nuxt generate` emits it without a link to crawl.
 definePageMeta({ layout: 'home', header: false, footer: false })
 
-useHead({ titleTemplate: '%s' })
+useHead({ titleTemplate: '%s', htmlAttrs: { class: 'k-smooth-scroll' } })
 useSeoMeta({
   title: 'Kinotic — Pricing',
   description: 'Free for small companies. Above $1M in annual revenue, your price is set by your company\'s '
