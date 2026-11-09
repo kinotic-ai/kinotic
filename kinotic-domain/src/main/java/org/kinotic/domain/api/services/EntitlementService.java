@@ -6,10 +6,10 @@ import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.kinotic.domain.api.model.license.License;
 
 /**
- * The Kinotic Enterprise License the cluster runs on, which decides at each call whether an Enterprise Feature is
- * on. Every node runs on the same installed key: a key installed on one node reaches every node without a restart.
+ * The Enterprise Features the cluster's Kinotic Enterprise License entitles it to, decided at each call. Every node
+ * runs on the same installed key: a key installed on one node reaches every node without a restart.
  */
-public interface CurrentLicenseService {
+public interface EntitlementService {
 
     /** Whether the license turns {@code feature} on now. */
     boolean allows(EnterpriseFeature feature);

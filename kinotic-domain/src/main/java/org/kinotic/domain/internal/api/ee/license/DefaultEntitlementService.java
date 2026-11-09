@@ -17,7 +17,7 @@ import org.kinotic.domain.api.config.SecretStorageBackendType;
 import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.kinotic.domain.api.model.license.License;
 import org.kinotic.domain.api.model.license.LicenseStatus;
-import org.kinotic.domain.api.services.CurrentLicenseService;
+import org.kinotic.domain.api.services.EntitlementService;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultCurrentLicenseService implements CurrentLicenseService, SmartInitializingSingleton {
+public class DefaultEntitlementService implements EntitlementService, SmartInitializingSingleton {
 
     // re-reads the installed key, so a node that missed a LicenseChangedEvent catches up, and notices expiry
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);

@@ -3,7 +3,7 @@ package org.kinotic.domain.internal.api.ee.services.security;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.OidcProviderType;
-import org.kinotic.domain.api.services.CurrentLicenseService;
+import org.kinotic.domain.api.services.EntitlementService;
 import org.kinotic.domain.api.model.license.EnterpriseFeature;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +27,7 @@ public class EnterpriseIdentityProviders {
     private static final Pattern OKTA_ACCOUNT =
             Pattern.compile("[a-z0-9-]{1,63}\\.(okta\\.com|oktapreview\\.com|okta-emea\\.com)");
 
-    private final CurrentLicenseService currentLicenseService;
+    private final EntitlementService entitlementService;
 
     /**
      * Whether an organization may configure a provider of this type with a client of its own: the type is one of
@@ -35,7 +35,7 @@ public class EnterpriseIdentityProviders {
      */
     public boolean supports(OidcProviderType type) {
         return (type == OidcProviderType.AZURE_AD || type == OidcProviderType.OKTA)
-                && currentLicenseService.allows(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS);
+                && entitlementService.allows(EnterpriseFeature.ENTERPRISE_IDENTITY_PROVIDERS);
     }
 
     /**
