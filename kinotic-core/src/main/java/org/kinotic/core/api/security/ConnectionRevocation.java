@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ConnectionRevocation {
+public final class ConnectionRevocation {
 
     private String identityId;
 

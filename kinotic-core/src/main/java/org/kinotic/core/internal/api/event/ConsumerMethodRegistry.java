@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventDelivery;
@@ -25,6 +24,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The {@link KinoticConsumer} methods of this node, by event type and {@link EventDelivery}. Each pair has one bus
@@ -46,6 +46,11 @@ public class ConsumerMethodRegistry {
 
     // Keyed by bean identity: bean equals() must not merge two beans' registrations
     private final Map<Object, List<ConsumerRegistration>> registrations = Collections.synchronizedMap(new IdentityHashMap<>());
+
+    /**
+     * How long {@link #deliverConfirmed(String, byte[])} waits for this node's confirmed consumers to handle an event.
+     */
+    static final long CONFIRMED_TIMEOUT_MS = 4000L;
 
     // The scope of the address CONFIRMED consumers register on, so they register apart from the best-effort ones
     private static final String CONFIRMED_SCOPE = "confirmed";
@@ -142,7 +147,8 @@ public class ConsumerMethodRegistry {
      * @param eventType the fully qualified name of the event's type
      * @param payload the event as JSON
      * @return a {@link Future} that completes once every confirmed consumer has handled the event, at once when this
-     *         node has none, and fails when the event cannot be read or a consumer fails
+     *         node has none, and fails when the event cannot be read, a consumer fails, or the consumers have not all
+     *         handled it within {@link #CONFIRMED_TIMEOUT_MS}
      */
     public Future<Void> deliverConfirmed(String eventType, byte[] payload) {
         EventTypeConsumers consumers = consumersByAddress.get(addressOf(eventType, EventDelivery.CONFIRMED).baseResource());
@@ -152,19 +158,8 @@ public class ConsumerMethodRegistry {
         }else{
             Promise<Void> promise = Promise.promise();
             Context context = vertx.getOrCreateContext();
-            context.runOnContext(v -> {
-                try {
-                    Object event = jsonMapper.readValue(payload, consumers.eventType);
-                    List<Future<Void>> handled = new ArrayList<>();
-                    for(ConsumerMethod method : consumers.methods){
-                        handled.add(invoke(method, event));
-                    }
-                    Future.all(handled).<Void>mapEmpty().onComplete(promise);
-                } catch (Exception e) {
-                    promise.fail(e);
-                }
-            });
-            ret = promise.future();
+            context.runOnContext(v -> dispatch(consumers, payload).onComplete(promise));
+            ret = promise.future().timeout(CONFIRMED_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         }
         return ret;
     }
@@ -174,24 +169,29 @@ public class ConsumerMethodRegistry {
     private EventTypeConsumers createConsumers(Class<?> eventType, String address) {
         EventTypeConsumers consumers = new EventTypeConsumers(eventType, eventBusService.listen(CRI.create(address)));
         consumers.busConsumer
-                .handler(event -> deliver(consumers, event))
+                .handler(event -> dispatch(consumers, event.data()))
                 .exceptionHandler(error -> log.error("Bus consumer for {} signaled an error", eventType.getName(), error));
         return consumers;
     }
 
-    private void deliver(EventTypeConsumers consumers, Event<byte[]> event) {
-        Object element;
+    // reads the event and hands it to every method, each failure logged; one method failing does not affect delivery
+    // to the others. The future completes once every method has handled the event, and fails when it cannot be read
+    // or a method fails
+    private Future<Void> dispatch(EventTypeConsumers consumers, byte[] payload) {
+        Future<Void> ret;
         try {
-            element = jsonMapper.readValue(event.data(), consumers.eventType);
+            Object event = jsonMapper.readValue(payload, consumers.eventType);
+            List<Future<Void>> handled = new ArrayList<>();
+            for(ConsumerMethod method : consumers.methods){
+                handled.add(invoke(method, event).onFailure(error -> log.error("@KinoticConsumer method failed for {} event: {}",
+                                                                               consumers.eventType.getName(), method.method(), error)));
+            }
+            ret = Future.all(handled).mapEmpty();
         } catch (Exception e) {
             log.error("Failed to deserialize {} event, dropping it", consumers.eventType.getName(), e);
-            return;
+            ret = Future.failedFuture(e);
         }
-        // One consumer failing must not affect delivery to the others
-        for(ConsumerMethod method : consumers.methods){
-            invoke(method, element).onFailure(error -> log.error("@KinoticConsumer method failed for {} event: {}",
-                                                                 consumers.eventType.getName(), method.method(), error));
-        }
+        return ret;
     }
 
     private static Future<Void> invoke(ConsumerMethod method, Object event) {

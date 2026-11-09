@@ -141,7 +141,9 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
                             log.debug("No Kinotic project for repo {}; dropping the push of {}", event.getRepoFullName(), commitSha);
                         } else {
                             for (Project project : projects) {
-                                eventService.publish(new ProjectPushEvent(project.getOrganizationId(), project.getId(), commitSha));
+                                eventService.publish(new ProjectPushEvent(project.getOrganizationId(), project.getId(), commitSha))
+                                            .onFailure(error -> log.error("The push of {} to project {} could not be published",
+                                                                          commitSha, project.getId(), error));
                             }
                         }
                         return Future.succeededFuture();

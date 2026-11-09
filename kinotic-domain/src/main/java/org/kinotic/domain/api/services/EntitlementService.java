@@ -22,8 +22,9 @@ public interface EntitlementService {
 
     /**
      * Installs {@code key} as the license key of the whole cluster, in place of the one installed. The future
-     * completes once the key is stored and the nodes have been told of it; a node the notice misses, or that could
-     * not read the key then, reads it at its next reload, which it tries every ten minutes.
+     * completes once the key is stored and this node runs on it; every other node is told of it then and runs on it
+     * once it has read it, and a node the notice misses, or that could not read the key then, reads it at its next
+     * reload, which it tries every ten minutes.
      *
      * @return the license the key holds; fails with a {@link JwtException} when the key is not a valid license key
      *         or its grace period has ended, and with an {@link IllegalArgumentException} when the key names no

@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeJobContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -209,14 +211,20 @@ public class EventServiceTests {
         return bean;
     }
 
-    // runs the job the publisher broadcasts as a node receiving it does
+    // runs the job the publisher broadcasts as a node receiving it does: Ignite injects the node's Spring context and
+    // job context, and runs the job again once it calls callcc()
     private void dispatch(TestEvent event) {
         ConfirmedEventDispatchJob job = new ConfirmedEventDispatchJob(TestEvent.class.getName(), jsonMapper.writeValueAsBytes(event));
+        CompletableFuture<Void> continued = new CompletableFuture<>();
+        ComputeJobContext jobContext = mock(ComputeJobContext.class);
+        doAnswer(invocation -> continued.complete(null)).when(jobContext).callcc();
         try (GenericApplicationContext context = new GenericApplicationContext()) {
             context.registerBean(ConsumerMethodRegistry.class, () -> registry);
             context.refresh();
-            // Ignite injects the receiving node's context into the field as the job is deployed there
             ReflectionTestUtils.setField(job, "applicationContext", context);
+            ReflectionTestUtils.setField(job, "jobContext", jobContext);
+            job.run();
+            continued.orTimeout(10, TimeUnit.SECONDS).join();
             job.run();
         }
     }

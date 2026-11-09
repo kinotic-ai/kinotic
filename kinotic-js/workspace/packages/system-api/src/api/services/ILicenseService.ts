@@ -14,8 +14,8 @@ export interface ILicenseService {
 
     /**
      * Installs licenseKey for the whole cluster in place of the installed key, resolving with the license it holds.
-     * Each node runs on it once the call resolves, except a node the cluster could not reach, which reads it within
-     * ten minutes. Rejects a key Minds Ignited did not sign, one naming no licensee or expiry, one whose grace
+     * The call resolves once the key is stored and the node that took the call runs on it; every other node runs on
+     * it shortly after, except a node the cluster could not reach, which reads it within ten minutes. Rejects a key Minds Ignited did not sign, one naming no licensee or expiry, one whose grace
      * period has ended, and, on a cluster that stores secrets in Azure Key Vault, one that does not turn
      * AZURE_KEY_VAULT on.
      */

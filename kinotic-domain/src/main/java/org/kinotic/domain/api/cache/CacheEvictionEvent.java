@@ -15,7 +15,7 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CacheEvictionEvent {
+public final class CacheEvictionEvent {
 
     private EvictionSourceType evictionSourceType;
 

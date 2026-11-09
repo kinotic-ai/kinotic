@@ -121,18 +121,16 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
             return Future.failedFuture(e);
         }
         return repository.install(trimmed)
-                         .compose(v -> {
+                         .map(v -> {
                              // this node runs on the key it returns, whether or not its own notice is handled
                              apply(trimmed, reads.incrementAndGet());
-                             return eventService.publish(new LicenseChangedEvent())
-                                                // a node the event missed, or whose read of the key failed, reads it on its next reload
-                                                .recover(error -> {
-                                                    log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
-                                                             TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error);
-                                                    return Future.succeededFuture();
-                                                });
-                         })
-                         .map(installing);
+                             // the caller is answered without waiting on the other nodes; a node the event misses, or
+                             // whose read of the key fails, reads it on its next reload
+                             eventService.publish(new LicenseChangedEvent())
+                                         .onFailure(error -> log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
+                                                                      TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error));
+                             return installing;
+                         });
     }
 
     private License verifyInstallable(String key) {

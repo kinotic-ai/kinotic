@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProjectPushEvent {
+public final class ProjectPushEvent {
 
     private String organizationId;
 

@@ -48,9 +48,10 @@ public class DefaultEventService implements EventService {
     private static final int MAX_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MS = 1000L;
     // bounds a whole broadcast, so one node that has not answered within it fails the attempt for every node; a
-    // caller is held for at most MAX_ATTEMPTS of these plus the retry delays between them. ConfirmedEventDispatchJob
-    // waits on a node's consumers no longer than this, so a consumer that never completes does not hold an Ignite thread
-    static final long NODE_TIMEOUT_MS = 5000L;
+    // caller is held for at most MAX_ATTEMPTS of these plus the retry delays between them. It exceeds the time a node
+    // waits on its consumers, so a node whose consumers are slow answers with its own failure before the broadcast
+    // times out, and its job has ended before the retry reaches it
+    private static final long NODE_TIMEOUT_MS = ConsumerMethodRegistry.CONFIRMED_TIMEOUT_MS + 1000L;
 
     private final EventBusService eventBusService;
     private final EventStreamService eventStreamService;
@@ -149,19 +150,19 @@ public class DefaultEventService implements EventService {
             if (nodes.isEmpty()) {
                 ret = Future.succeededFuture();
             } else {
-                ret = deliverConfirmed(new ConfirmedEventDispatchJob(eventType, payload), eventType, nodes, context);
+                ret = deliverConfirmed(eventType, payload, nodes, context);
             }
             return ret;
         });
     }
 
-    private Future<Void> deliverConfirmed(ConfirmedEventDispatchJob job,
-                                          String eventType,
+    private Future<Void> deliverConfirmed(String eventType,
+                                          byte[] payload,
                                           Collection<ClusterNode> nodes,
                                           Context context) {
         requestCounter.add(1, Attributes.builder().put("event.type", eventType).build());
         long startedAt = System.currentTimeMillis();
-        return attempt(job, eventType, nodes, context, 1)
+        return attempt(eventType, payload, nodes, context, 1)
                 .onComplete(ar -> {
                     Attributes result = Attributes.builder()
                                                   .put("event.type", eventType)
@@ -174,12 +175,12 @@ public class DefaultEventService implements EventService {
 
     // An attempt is delivered to, and reported on, one set of nodes. A retry reads the consuming nodes again, so a
     // node that left is not waited for and a node that registered a confirmed consumer meanwhile receives the event
-    private Future<Void> attempt(ConfirmedEventDispatchJob job,
-                                 String eventType,
+    private Future<Void> attempt(String eventType,
+                                 byte[] payload,
                                  Collection<ClusterNode> nodes,
                                  Context context,
                                  int attempt) {
-        return broadcast(ignite.cluster().forNodes(nodes), job, context).recover(error -> {
+        return broadcast(ignite.cluster().forNodes(nodes), new ConfirmedEventDispatchJob(eventType, payload), context).recover(error -> {
             Future<Void> retried;
             if (attempt < MAX_ATTEMPTS) {
                 log.warn("Delivery of {} to {} nodes failed on attempt {} of {}: {}", eventType, nodes.size(),
@@ -189,7 +190,7 @@ public class DefaultEventService implements EventService {
                                .compose(id -> consumingNodes(eventType, context))
                                .compose(current -> current.isEmpty()
                                        ? Future.<Void>succeededFuture()
-                                       : attempt(job, eventType, current, context, attempt + 1));
+                                       : attempt(eventType, payload, current, context, attempt + 1));
             } else {
                 log.error("Delivery of {} was not acknowledged by every node after {} attempts", eventType, MAX_ATTEMPTS, error);
                 retried = Future.failedFuture(error);
