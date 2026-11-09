@@ -47,6 +47,8 @@ final class AuthzDecorators {
     private static final String CREATE_VERB = "create";
     private static final Set<String> SCOPED_PARENTS = Set.of(AuthzConstants.ORGANIZATION_TYPE, AuthzConstants.APPLICATION_TYPE,
                                                              AuthzConstants.TENANT_TYPE);
+    // the levels of the roles the model defines for every type, which a declared role would redefine
+    private static final Set<String> BUILT_IN_LEVELS = Set.of(AuthzConstants.VIEWER, AuthzConstants.EDITOR, AuthzConstants.ADMIN);
 
     private AuthzDecorators() {
     }
@@ -117,9 +119,9 @@ final class AuthzDecorators {
      * @param declarer the service, named in errors
      * @param declared what it declares
      * @throws IllegalStateException when the declared type, parent or permission is not an identifier, a
-     *                               declared role is not named after the type or bundles nothing, or a service
-     *                               of another type than {@code entity_definition} is declared acting across
-     *                               tenants
+     *                               declared role is not named after the type, takes the level of a built-in
+     *                               role or bundles nothing, or a service of another type than
+     *                               {@code entity_definition} is declared acting across tenants
      */
     static AuthzResourceC3Decorator resourceOf(String declarer, AuthzResourceC3Decorator declared) {
         String where = "@AuthzResource on " + declarer;
@@ -183,13 +185,17 @@ final class AuthzDecorators {
         return value == null || value.isEmpty() ? null : value;
     }
 
-    // A declared role is named <type>.<level> as a built-in role is, and bundles at least one permission; whether
-    // the permissions exist on the type is known only once every service's checks are, so the generator decides it
+    // A declared role is named <type>.<level> as a built-in role is, at a level the model does not define for every
+    // type, and bundles at least one permission; whether the permissions exist on the type is known only once every
+    // service's checks are, so the generator decides it
     private static AuthzRoleDeclaration roleOf(String declarer, String type, AuthzRoleDeclaration role) {
         String where = "@AuthzRole '" + role.getId() + "' on " + declarer;
         String prefix = type + ".";
         if (role.getId() == null || !role.getId().startsWith(prefix) || !AuthzUtil.isIdentifier(role.getId().substring(prefix.length()))) {
             throw new IllegalStateException(where + " is not named '" + prefix + "<level>' with a lowercase identifier as the level");
+        }
+        if (BUILT_IN_LEVELS.contains(role.getId().substring(prefix.length()))) {
+            throw new IllegalStateException(where + " redefines a built-in role; the model defines the viewer, editor and admin of every type");
         }
         if (role.getPermissions().isEmpty()) {
             throw new IllegalStateException(where + " bundles no permission");

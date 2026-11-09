@@ -181,7 +181,12 @@ const catalog = computed(() => {
 
 watch(() => [props.applicationId, resource.value.type, resource.value.id], load, { immediate: true })
 
+// the tenant picker is editable, so a keystroke starts a load while an earlier one is in flight; only the latest
+// load's answer, or failure, reaches the page
+let latestLoad = 0
+
 async function load(): Promise<void> {
+  const thisLoad = ++latestLoad
   loading.value = true
   error.value = null
   try {
@@ -193,6 +198,9 @@ async function load(): Promise<void> {
       Kinotic.tenants.findAllForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
       loadSubjects()
     ])
+    if (thisLoad !== latestLoad) {
+      return
+    }
     grants.value = found
     roles.value = defined
     definitions.value = (published.content ?? []).flatMap(entity => entity.id ? [{ id: entity.id, name: entity.name }] : [])
@@ -200,10 +208,15 @@ async function load(): Promise<void> {
     canManageAccess.value = managed.includes(props.applicationId)
     refused.value = false
   } catch (err) {
+    if (thisLoad !== latestLoad) {
+      return
+    }
     refused.value = isAuthorizationError(err)
     error.value = refused.value ? null : errorMessage(err, 'Failed to load the application\'s end-user access')
   } finally {
-    loading.value = false
+    if (thisLoad === latestLoad) {
+      loading.value = false
+    }
   }
 }
 

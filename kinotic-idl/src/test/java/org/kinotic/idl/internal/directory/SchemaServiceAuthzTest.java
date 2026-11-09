@@ -13,6 +13,7 @@ import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.authz.TestAcrossTenantsWidgetService;
 import org.kinotic.idl.internal.support.authz.TestAdminRowsService;
+import org.kinotic.idl.internal.support.authz.TestBuiltInRoleService;
 import org.kinotic.idl.internal.support.authz.TestContradictoryService;
 import org.kinotic.idl.internal.support.authz.TestEntityService;
 import org.kinotic.idl.internal.support.authz.TestMemberService;
@@ -306,6 +307,14 @@ public class SchemaServiceAuthzTest {
 
         assertTrue(e.getMessage().contains("gadget.keeper"), e.getMessage());
         assertTrue(e.getMessage().contains("widget."), e.getMessage());
+    }
+
+    @Test
+    public void aRoleAtTheLevelOfABuiltInRoleRejectsTheService() {
+        IllegalStateException e = assertThrows(IllegalStateException.class, () -> convert(TestBuiltInRoleService.class));
+
+        assertTrue(e.getMessage().contains("widget.viewer"), e.getMessage());
+        assertTrue(e.getMessage().contains("built-in"), e.getMessage());
     }
 
     @Test
