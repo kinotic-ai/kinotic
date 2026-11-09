@@ -4,7 +4,7 @@
 # Every JavaScript project gets security updates only: open-pull-requests-limit 0 turns off version
 # updates, which security updates are not subject to. Each project has its own entry and group, so a
 # project's fixes arrive as one PR touching only its lockfile and merge without conflicting with
-# another project's. Gradle dependencies reach Dependabot alerts through dependency-graph.yml.
+# another project's. dependabot-merge.yml merges each PR once its checks pass.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -14,7 +14,6 @@ updates:
       - /.github/actions/load-staged-images
     schedule:
       interval: weekly
-    assignees: [NavidMitchell]
     groups:
       github-actions:
         patterns:
@@ -25,7 +24,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-    assignees: [NavidMitchell]
     labels: [dependencies, javascript, frontend]
     groups:
       frontend-security:
@@ -38,7 +36,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-    assignees: [NavidMitchell]
     groups:
       kinotic-cli-security:
         applies-to: security-updates
@@ -50,7 +47,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-    assignees: [NavidMitchell]
     groups:
       e2e-tests-security:
         applies-to: security-updates
@@ -62,7 +58,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-    assignees: [NavidMitchell]
     groups:
       load-generator-security:
         applies-to: security-updates
@@ -75,7 +70,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-    assignees: [NavidMitchell]
     groups:
       workspace-security:
         applies-to: security-updates
