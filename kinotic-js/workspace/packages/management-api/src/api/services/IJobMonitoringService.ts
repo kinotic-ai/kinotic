@@ -7,8 +7,8 @@ import type { TaskRecord } from '@/api/model/grind/TaskRecord'
 import type { JobRunEvent } from '@/api/model/grind/events/JobRunEvent'
 
 /**
- * Access to grind job runs for the authenticated participant: an organization or application
- * participant sees the runs its organization owns, a system participant sees every run. A
+ * Access to grind job runs for the authenticated participant: an organization participant
+ * sees the runs its organization owns, a system participant sees every run. A
  * run's TaskRecords are its task ledger - every discovered task has a record, PENDING until
  * it starts executing.
  *
@@ -19,9 +19,9 @@ import type { JobRunEvent } from '@/api/model/grind/events/JobRunEvent'
 export interface IJobMonitoringService {
 
     /**
-     * Finds the job runs the participant may view that the filter matches. An organization or
-     * application participant's runs are always narrowed to its own organization or application;
-     * a filter naming another one fails.
+     * Finds the job runs the participant may view that the filter matches. An organization
+     * participant's runs are always narrowed to its own organization; a filter naming another
+     * organization fails.
      * @param filter which runs to return; a field left null matches every run
      * @param pageable the page of runs to return
      */

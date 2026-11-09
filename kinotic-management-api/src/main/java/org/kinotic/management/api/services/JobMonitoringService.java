@@ -18,8 +18,8 @@ import org.kinotic.idl.api.utils.AuthzConstants;
 import reactor.core.publisher.Flux;
 
 /**
- * Access to grind job runs for the authenticated participant: an organization or application
- * participant sees the runs its organization owns, a system participant sees every run. A
+ * Access to grind job runs for the authenticated participant: an organization participant
+ * sees the runs its organization owns, a system participant sees every run. A
  * run's {@link TaskRecord}s are its task ledger - every discovered task has a record, PENDING
  * until it starts executing.
  *
@@ -41,13 +41,13 @@ public interface JobMonitoringService {
     String nodeId();
 
     /**
-     * Finds the job runs the participant may view that the filter matches. An organization or
-     * application participant's runs are always narrowed to its own organization or application.
+     * Finds the job runs the participant may view that the filter matches. An organization
+     * participant's runs are always narrowed to its own organization.
      *
      * @param filter   which runs to return; a field left null matches every run
      * @param pageable the page of runs to return
      * @return a future that will complete with the page of runs, or fail if the filter names an
-     *         organization or application other than the participant's own
+     *         organization other than the participant's own
      */
     @AuthzCheck(permission = AuthzConstants.CAN_READ_JOBS)
     @ScopeOptional
