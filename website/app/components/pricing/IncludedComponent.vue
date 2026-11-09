@@ -20,10 +20,10 @@ const groups = [
     ],
   },
   {
-    title: 'Always free',
+    title: 'No license needed',
     note: 'For everyone, at any size',
     items: [
-      'Development and testing, on as many machines as you like',
+      'Development and testing, on as many of your own machines as you like',
       'Kinotic RPC, open source under the Apache License 2.0',
       'The source of the whole platform, to read and build',
     ],
