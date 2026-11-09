@@ -32,7 +32,9 @@ public class ClusterTlsProperties {
     private String keyStorePassword;
 
     /**
-     * The PKCS12 file holding the certificates, usually the issuing CA's, a peer's certificate must chain to.
+     * The PKCS12 file holding the certificates, usually the issuing CA's, a peer's certificate must chain to. Ignite does
+     * not authenticate users, so every holder of a certificate that chains to one of these joins the cluster and reads
+     * and writes its caches: the store holds a CA issued for this cluster's nodes alone, never a shared or public one.
      */
     private String trustStorePath;
 
