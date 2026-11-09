@@ -128,6 +128,8 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         </div>
       </div>
 
+      <PricingCouponCardComponent class="plans__coupon" />
+
       <div class="plans__grid" data-reveal>
         <article
           v-for="plan in plans"
@@ -187,6 +189,10 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   text-align: center;
   max-width: 760px;
   margin: 0 auto 56px;
+}
+
+.plans__coupon {
+  display: none;
 }
 
 .plans__eyebrow {
@@ -468,6 +474,11 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
 @media (max-width: 640px) {
   .plans {
     padding: 128px 0 64px;
+  }
+
+  .plans__coupon {
+    display: flex;
+    margin: -24px 0 32px;
   }
 
   .plans__grid {

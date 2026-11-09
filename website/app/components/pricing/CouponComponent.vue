@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// A floating coupon for the design partner offer. It appears once the visitor has scrolled past the pricing
-// intro, hides while the design partner section it points to is on screen, and sits above the cookie banner
-// while that banner is open.
+// The design partner coupon, floating in the corner on wider screens; PlansComponent shows the same card in the
+// page on phones. It appears once the visitor has scrolled past the pricing intro, hides while the design partner
+// section it points to is on screen, and sits above the cookie banner while that banner is open.
 const DISMISSED_KEY = 'kinotic-pricing-coupon-dismissed'
 const GAP = 16
 
@@ -85,15 +85,7 @@ onBeforeUnmount(() => {
 <template>
   <Transition name="coupon">
     <aside v-if="shown" class="coupon" :style="lift" aria-label="Design partner offer">
-      <div class="coupon__stub">
-        <span class="coupon__amount">50%</span>
-        <span class="coupon__off">OFF</span>
-      </div>
-      <div class="coupon__body">
-        <p class="coupon__label">DESIGN PARTNERS</p>
-        <p class="coupon__text">Half off any paid plan for three years.</p>
-        <a class="coupon__link" href="#design-partners">See the offer →</a>
-      </div>
+      <PricingCouponCardComponent class="coupon__card" />
       <button class="coupon__close" type="button" aria-label="Dismiss the design partner offer" @click="dismiss">
         ×
       </button>
@@ -107,73 +99,10 @@ onBeforeUnmount(() => {
   right: 24px;
   bottom: 24px;
   z-index: 40;
-  display: flex;
-  align-items: stretch;
   width: 340px;
-  border: 1px dashed rgba(40, 254, 180, 0.55);
   border-radius: 12px;
-  background: radial-gradient(ellipse at 0% 0%, rgba(40, 254, 180, 0.1), transparent 70%), var(--color-k-bg-panel);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   transition: bottom 0.25s ease;
-}
-
-.coupon__stub {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  border-right: 1px dashed rgba(40, 254, 180, 0.45);
-}
-
-.coupon__amount {
-  color: var(--color-k-mint);
-  font-family: var(--font-k-display);
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.coupon__off {
-  margin-top: 4px;
-  color: var(--color-k-mint);
-  font-family: var(--font-k-mono);
-  font-size: 11px;
-  letter-spacing: 0.2em;
-}
-
-.coupon__body {
-  min-width: 0;
-  padding: 16px 36px 16px 18px;
-}
-
-.coupon__label {
-  margin: 0;
-  color: var(--color-k-muted);
-  font-family: var(--font-k-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-}
-
-.coupon__text {
-  margin: 6px 0 0;
-  color: var(--color-k-heading);
-  font-size: 14.5px;
-  line-height: 1.4;
-}
-
-.coupon__link {
-  display: inline-block;
-  margin-top: 10px;
-  color: var(--color-k-mint);
-  font-family: var(--font-k-mono);
-  font-size: 13px;
-  text-decoration: none;
-}
-
-.coupon__link:hover {
-  color: var(--color-k-mint-hover);
 }
 
 .coupon__close {
@@ -193,7 +122,6 @@ onBeforeUnmount(() => {
   color: var(--color-k-heading);
 }
 
-.coupon__link:focus-visible,
 .coupon__close:focus-visible {
   outline: 2px solid var(--color-k-mint);
   outline-offset: 3px;
@@ -218,16 +146,10 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 480px) {
+/* phones get the card in the page instead, from PlansComponent */
+@media (max-width: 640px) {
   .coupon {
-    right: 16px;
-    bottom: 16px;
-    left: 16px;
-    width: auto;
-  }
-
-  .coupon__stub {
-    width: 84px;
+    display: none;
   }
 }
 </style>
