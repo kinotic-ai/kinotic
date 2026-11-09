@@ -65,6 +65,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Supply the buildpack dependencies
+        uses: ./.github/actions/paketo-dependencies
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
       - name: Build migration image
         run: ./gradlew :kinotic-migration:bootBuildImage
 
@@ -150,6 +155,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Supply the buildpack dependencies
+        uses: ./.github/actions/paketo-dependencies
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+
       - name: Build server images
         run: ./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
 
@@ -203,6 +213,11 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+
+      - name: Supply the buildpack dependencies
+        uses: ./.github/actions/paketo-dependencies
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Build the migration and server images
         run: ./gradlew :kinotic-migration:bootBuildImage :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage

@@ -4,16 +4,20 @@ import io.vertx.core.Context;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.RoutingContext;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.exceptions.AuthenticationException;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Vertx Authentication handler that uses the {@link SecurityService} to authenticate requests, in the
- * {@link AuthenticationContext} the route serves.
+ * {@link AuthenticationContext} the route serves. Rejected credentials fail the request with a 401, and a security
+ * service that could not answer fails it with a 503.
  * Created by Navíd Mitchell 🤪on 6/19/23.
  */
+@Slf4j
 public class AuthenticationHandler implements Handler<RoutingContext> {
 
     private final SecurityService securityService;
@@ -54,7 +58,14 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
                                ctx.next();
                            }else{
                                ctx.request().resume();
-                               ctx.fail(401, event.cause());
+                               // rejected credentials are the caller's to change; a security service that could not
+                               // answer is an outage the caller should retry through
+                               if (event.cause() instanceof AuthenticationException) {
+                                   ctx.fail(401, event.cause());
+                               } else {
+                                   log.warn("The security service could not authenticate a request", event.cause());
+                                   ctx.fail(503, event.cause());
+                               }
                            }
                        });
     }

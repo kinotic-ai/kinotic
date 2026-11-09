@@ -71,12 +71,13 @@ public interface ServiceRegistry {
 
     /**
      * Creates a new service proxy that can be used to access the desired service.
-     * NOTE: the interface provided must have a {@link Proxy} annotation
+     * NOTE: the interface provided must have a {@link Proxy} annotation, or be the
+     * {@link org.kinotic.core.api.annotations.Publish}ed interface of the service itself
      *
      * @param serviceInterface the interface that the service should implement and the target class of the returned proxy
      * @param <T> the type of the serviceInterface
      * @return the {@link RpcServiceProxyHandle<T>} that can be used to access the service
-     * @throws IllegalArgumentException if the {@link Proxy} annotation is not present or the proxy value is not provided
+     * @throws IllegalArgumentException if neither annotation is present or the interface declares no version
      */
     <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface);
 }

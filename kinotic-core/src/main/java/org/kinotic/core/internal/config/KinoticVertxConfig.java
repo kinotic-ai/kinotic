@@ -8,11 +8,14 @@ import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.file.FileSystem;
+import io.vertx.core.http.ClientAuth;
+import io.vertx.core.net.PfxOptions;
 import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.spi.cluster.ClusterManager;
 import io.vertx.micrometer.MicrometerMetricsFactory;
 import io.vertx.micrometer.MicrometerMetricsOptions;
 import org.apache.ignite.Ignite;
+import org.kinotic.core.api.config.ClusterTlsProperties;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.ZonePartitioningService;
@@ -105,8 +108,8 @@ public class KinoticVertxConfig {
                        SecurityContext securityContext,
                        ClusterManager clusterManager) throws Throwable {
 
-        // one mapper platform wide: vertx JSON binds with the Spring mapper, which carries every
-        // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
+        // one mapper platform wide: vertx JSON binds with the Spring mapper, which KinoticJacksonConfig.configure
+        // gives the Vert.x types and the platform's own, beside every JacksonModule bean the other modules contribute
         VertxJackson3Codec.setMapper(jsonMapper);
 
         // With OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true the agent bridges Micrometer's global registry
@@ -128,6 +131,17 @@ public class KinoticVertxConfig {
         }
         if(properties.getEventBusClusterPublicHost() != null) {
             eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
+        }
+        ClusterTlsProperties tls = properties.getClusterTls();
+        if (tls.isEnabled()) {
+            tls.requireStores();
+            // EventBusOptions trusts every server certificate by default, which would let any host answering a peer's
+            // address pass as a cluster node
+            eventBusOptions.setSsl(true)
+                           .setTrustAll(false)
+                           .setKeyCertOptions(new PfxOptions().setPath(tls.getKeyStorePath()).setPassword(tls.getKeyStorePassword()))
+                           .setTrustOptions(new PfxOptions().setPath(tls.getTrustStorePath()).setPassword(tls.getTrustStorePassword()))
+                           .setClientAuth(ClientAuth.REQUIRED);
         }
 
         Vertx vertx = Vertx.builder()

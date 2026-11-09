@@ -1,0 +1,58 @@
+package org.kinotic.core.api.config;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+/**
+ * Mutual TLS between the platform's nodes, on the clustered event bus and on Ignite's discovery and communication.
+ * Each node presents the certificate in its key store and accepts a peer only when the peer's certificate chains to one
+ * in the trust store, so only nodes holding a certificate the cluster trusts can join it or send messages to its nodes.
+ * Both stores are PKCS12 files.
+ */
+@Getter
+@Setter
+@Accessors(chain = true)
+public class ClusterTlsProperties {
+
+    /**
+     * Whether traffic between the platform's nodes uses mutual TLS. Every node of a cluster must agree.
+     */
+    private boolean enabled = false;
+
+    /**
+     * The PKCS12 file holding this node's private key and certificate.
+     */
+    private String keyStorePath;
+
+    private String keyStorePassword;
+
+    /**
+     * The PKCS12 file holding the certificates, usually the issuing CA's, a peer's certificate must chain to. Ignite does
+     * not authenticate users, so every holder of a certificate that chains to one of these joins the cluster and reads
+     * and writes its caches: the store holds a CA issued for this cluster's nodes alone, never a shared or public one.
+     */
+    private String trustStorePath;
+
+    private String trustStorePassword;
+
+    /**
+     * @throws IllegalStateException when the key store or the trust store is not configured or is not a readable file
+     */
+    public void requireStores() {
+        if (keyStorePath == null || keyStorePath.isBlank() || trustStorePath == null || trustStorePath.isBlank()) {
+            throw new IllegalStateException("kinotic.clusterTls is enabled, so kinotic.clusterTls.keyStorePath and"
+                                                    + " kinotic.clusterTls.trustStorePath must be set");
+        }
+        for (String path : List.of(keyStorePath, trustStorePath)) {
+            Path store = Path.of(path);
+            if (!Files.isRegularFile(store) || !Files.isReadable(store)) {
+                throw new IllegalStateException("kinotic.clusterTls store " + path + " is not a readable file");
+            }
+        }
+    }
+}

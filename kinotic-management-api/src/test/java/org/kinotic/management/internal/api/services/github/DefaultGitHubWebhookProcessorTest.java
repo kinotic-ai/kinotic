@@ -1,11 +1,10 @@
 package org.kinotic.management.internal.api.services.github;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.event.EventService;
 import org.kinotic.management.api.model.github.GitHubWebhookEvent;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.ProjectPushEvent;
@@ -18,53 +17,42 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Deliveries over the real emitter: only a push to the default branch of a project's repository
- * reaches the fabric, as a project push.
+ * Only a push to the default branch of a project's repository is published, as a project push.
  */
 public class DefaultGitHubWebhookProcessorTest {
 
     private static final String SHA_1 = "1".repeat(40);
     private static final String SHA_2 = "2".repeat(40);
 
-    private Vertx vertx;
     private DefaultGitHubWebhookProcessor processor;
     private final List<ProjectPushEvent> pushes = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void setUp() {
-        vertx = Vertx.vertx();
         Project project = new Project();
         project.setId("proj-1");
         project.setOrganizationId("org-1");
         ProjectRepository projects = mock(ProjectRepository.class);
         when(projects.findByRepoFullName(anyString())).thenReturn(Future.succeededFuture(List.of(project)));
-        processor = new DefaultGitHubWebhookProcessor(mock(GitHubAppInstallationRepository.class), projects, vertx);
-        processor.init();
-        processor.projectPushes().subscribe(pushes::add);
-    }
-
-    @AfterEach
-    void tearDown() {
-        vertx.close();
+        EventService eventService = mock(EventService.class);
+        doAnswer(invocation -> pushes.add(invocation.getArgument(0))).when(eventService).publish(any());
+        processor = new DefaultGitHubWebhookProcessor(mock(GitHubAppInstallationRepository.class), projects, eventService);
     }
 
     @Test
-    public void onlyAPushToTheDefaultBranchReachesTheFabric() throws Exception {
+    public void onlyAPushToTheDefaultBranchIsPublished() throws Exception {
         process(push(SHA_1, "refs/heads/feature", "main", false));
         process(webhook("pull_request", new JsonObject()));
         process(push("0".repeat(40), "refs/heads/main", "main", false));
         process(push(SHA_1, "refs/heads/main", "main", true));
         process(push(SHA_2, "refs/heads/main", "main", false));
 
-        // the emission is posted to the delivery context after the delivery completes
-        long deadline = System.currentTimeMillis() + 5_000;
-        while (pushes.isEmpty() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(20);
-        }
         assertEquals(1, pushes.size());
         assertEquals("org-1", pushes.get(0).getOrganizationId());
         assertEquals("proj-1", pushes.get(0).getProjectId());
