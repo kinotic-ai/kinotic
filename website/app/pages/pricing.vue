@@ -16,6 +16,6 @@ useMarketingMotion()
 
 <template>
   <PricingPlansComponent />
-  <PricingIncludedComponent />
+  <PricingCompareComponent />
   <PricingFaqComponent />
 </template>

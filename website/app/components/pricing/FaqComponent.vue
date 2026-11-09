@@ -22,14 +22,15 @@ const questions = [
   },
   {
     q: 'Do you host Kinotic for me?',
-    a: 'Not yet. These plans license Kinotic Enterprise to run in your own cloud, on infrastructure you control. '
+    a: 'Not yet. These plans license Kinotic\'s Enterprise features in your own cloud, on infrastructure you control. '
       + 'Kinotic Cloud, which we host for you, is coming: join the waitlist on our home page to hear first.',
     link: { label: 'Join the Kinotic Cloud waitlist', to: '/#cloud-waitlist' },
   },
   {
-    q: 'Do I need a license to try Kinotic?',
-    a: 'No. Development and testing are free for everyone, at any company size. You need a license to run Kinotic in '
-      + 'production, and it\'s free if your company qualifies.',
+    q: 'Do I need a license to use Kinotic?',
+    a: 'Only to use the Enterprise features. The rest of Kinotic is available under the Elastic License 2.0, and '
+      + 'Kinotic RPC under the Apache License 2.0. If your company is under $1M in annual revenue, an Enterprise '
+      + 'license costs nothing.',
   },
   {
     q: 'Will there be more editions?',
