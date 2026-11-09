@@ -21,6 +21,12 @@ const questions = [
       + 'renewing it starts you on the price list in effect at that time.',
   },
   {
+    q: 'Do you host Kinotic for me?',
+    a: 'Not yet. These plans license Kinotic Enterprise to run in your own cloud, on infrastructure you control. '
+      + 'Kinotic Cloud, which we host for you, is coming: join the waitlist on our home page to hear first.',
+    link: { label: 'Join the Kinotic Cloud waitlist', to: '/#cloud-waitlist' },
+  },
+  {
     q: 'Do I need a license to try Kinotic?',
     a: 'No. Development and testing are free for everyone, at any company size. You need a license to run Kinotic in '
       + 'production, and it\'s free if your company qualifies.',
@@ -50,7 +56,10 @@ const questions = [
       <div class="faq__list" data-reveal>
         <details v-for="item in questions" :key="item.q" class="faq__item">
           <summary class="faq__question">{{ item.q }}</summary>
-          <p class="faq__answer">{{ item.a }}</p>
+          <p class="faq__answer">
+            {{ item.a }}
+            <NuxtLink v-if="item.link" :to="item.link.to" class="faq__link">{{ item.link.label }} →</NuxtLink>
+          </p>
         </details>
       </div>
     </div>
@@ -127,6 +136,19 @@ const questions = [
 .faq__question:focus-visible {
   outline: 2px solid var(--color-k-mint);
   outline-offset: 4px;
+}
+
+.faq__link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--color-k-mint);
+  font-family: var(--font-k-mono);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.faq__link:hover {
+  color: var(--color-k-mint-hover);
 }
 
 .faq__answer {

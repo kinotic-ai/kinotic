@@ -5,12 +5,13 @@ interface Plan {
   id: string
   name: string
   band: string
+  // The revenue band as the revenue picker labels it.
+  revenue: string
   // The monthly list price in US dollars; 0 for the free plan.
   monthly: number
   summary: string
   includes: string[]
   cta: { label: string, to: string }
-  recommended?: boolean
 }
 
 // Annual billing takes this fraction off twelve months at the monthly price.
@@ -21,42 +22,48 @@ const plans: Plan[] = [
     id: 'free',
     name: 'Free',
     band: 'Under $1M annual revenue',
+    revenue: 'Under $1M',
     monthly: 0,
     summary: 'For founders and small teams getting started.',
-    includes: ['Kinotic OS in production', 'Every Enterprise feature', 'Community support'],
+    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Community support'],
     cta: { label: 'Request a free license', to: 'https://licenses.kinotic.ai/free' },
   },
   {
     id: 'small',
     name: 'Small',
     band: '$1M – $20M annual revenue',
+    revenue: '$1M – $20M',
     monthly: 5000,
     summary: 'For growing companies running Kinotic in production.',
-    includes: ['Kinotic OS in production', 'Every Enterprise feature', 'Email support'],
+    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Email support'],
     cta: { label: 'Buy Small', to: 'https://licenses.kinotic.ai/buy?plan=small' },
   },
   {
     id: 'medium',
     name: 'Medium',
     band: '$20M – $100M annual revenue',
+    revenue: '$20M – $100M',
     monthly: 10000,
     summary: 'For established companies building on Kinotic.',
-    includes: ['Kinotic OS in production', 'Every Enterprise feature', 'Priority support'],
+    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Priority support'],
     cta: { label: 'Buy Medium', to: 'https://licenses.kinotic.ai/buy?plan=medium' },
-    recommended: true,
   },
   {
     id: 'large',
     name: 'Large',
     band: 'Over $100M annual revenue',
+    revenue: 'Over $100M',
     monthly: 20000,
     summary: 'For enterprises running critical systems on Kinotic.',
-    includes: ['Kinotic OS in production', 'Every Enterprise feature', 'Priority support and a named contact'],
+    includes: ['Kinotic OS in production, in your own cloud', 'Every Enterprise feature', 'Priority support and a named contact'],
     cta: { label: 'Buy Large', to: 'https://licenses.kinotic.ai/buy?plan=large' },
   },
 ]
 
 const billing = ref<Billing>('annual')
+
+// The plan matching the revenue the visitor picked, or null until they pick one.
+const selected = ref<string | null>(null)
 
 const usd = (amount: number) => '$' + Math.round(amount).toLocaleString('en-US')
 
@@ -83,12 +90,14 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
     <div class="k-wrap">
       <div class="plans__intro" data-reveal>
         <div class="k-eyebrow plans__eyebrow">
-          <span>PRICING</span>
+          <span>PRICING · RUNS IN YOUR CLOUD</span>
         </div>
-        <h1 id="pricing-title" class="k-heading plans__title">Free until Kinotic makes you money</h1>
+        <h1 id="pricing-title" class="k-heading plans__title">Free for small companies. Simple pricing as you grow.</h1>
         <p class="plans__lede">
-          Build and test on Kinotic for free, always. In production, your price is set by your company's annual
-          revenue, and every Enterprise feature is included.
+          Each plan is a license to run Kinotic Enterprise in your own cloud. Build and test on Kinotic for free,
+          always. Companies under $1M in annual revenue run it in production for
+          free. Above that, your price is set by your company's annual revenue, and every plan includes every
+          Enterprise feature.
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">
@@ -105,6 +114,20 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
             @click="billing = 'annual'"
           >Annual <span class="plans__save">Save 10%</span></button>
         </div>
+
+        <div class="plans__revenue">
+          <p id="revenue-label" class="plans__revenue-label">Your company's annual revenue</p>
+          <div class="plans__chips" role="group" aria-labelledby="revenue-label">
+            <button
+              v-for="plan in plans"
+              :key="plan.id"
+              type="button"
+              class="plans__chip"
+              :aria-pressed="selected === plan.id"
+              @click="selected = plan.id"
+            >{{ plan.revenue }}</button>
+          </div>
+        </div>
       </div>
 
       <div class="plans__grid" data-reveal>
@@ -112,10 +135,10 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
           v-for="plan in plans"
           :key="plan.id"
           class="plan"
-          :class="{ 'plan--recommended': plan.recommended }"
+          :class="{ 'plan--selected': selected === plan.id }"
           :aria-labelledby="`plan-${plan.id}`"
         >
-          <span v-if="plan.recommended" class="plan__flag">Recommended</span>
+          <span v-if="selected === plan.id" class="plan__flag">Your plan</span>
           <h2 :id="`plan-${plan.id}`" class="k-heading plan__name">{{ plan.name }}</h2>
           <p class="plan__band">{{ plan.band }}</p>
 
@@ -130,7 +153,7 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
           <a
             :href="ctaHref(plan)"
             class="k-btn plan__cta"
-            :class="plan.recommended ? 'k-btn--mint' : 'k-btn--ghost'"
+            :class="selected === plan.id ? 'k-btn--mint' : 'k-btn--ghost'"
           >{{ plan.cta.label }}</a>
 
           <ul class="plan__includes">
@@ -222,6 +245,57 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   outline-offset: 2px;
 }
 
+.plans__revenue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.plans__revenue-label {
+  margin: 0;
+  color: var(--color-k-muted);
+  font-family: var(--font-k-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plans__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.plans__chip {
+  padding: 9px 16px;
+  border: 1px solid var(--color-k-border);
+  border-radius: 999px;
+  background: var(--color-k-bg-chip);
+  color: var(--color-k-text);
+  font-family: var(--font-k-mono);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.plans__chip:hover {
+  border-color: var(--color-k-muted);
+}
+
+.plans__chip[aria-pressed='true'] {
+  border-color: var(--color-k-mint);
+  background: rgba(40, 254, 180, 0.12);
+  color: var(--color-k-mint);
+}
+
+.plans__chip:focus-visible {
+  outline: 2px solid var(--color-k-mint);
+  outline-offset: 2px;
+}
+
 .plans__save {
   padding: 2px 8px;
   border-radius: 999px;
@@ -253,7 +327,7 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   background: var(--color-k-bg-card);
 }
 
-.plan--recommended {
+.plan--selected {
   border-color: var(--color-k-mint);
   background: linear-gradient(180deg, rgba(40, 254, 180, 0.06), transparent 45%), var(--color-k-bg-card);
 }
