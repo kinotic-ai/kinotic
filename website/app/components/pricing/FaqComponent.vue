@@ -33,9 +33,9 @@ const questions = [
       + 'license costs nothing.',
   },
   {
-    q: 'Will there be more editions?',
-    a: 'Yes. Every plan today includes every Enterprise feature we have. As we add more, we\'ll offer higher editions '
-      + 'you can upgrade to. Your current edition keeps every feature it has.',
+    q: 'Do I get new Enterprise features?',
+    a: 'Yes. Every Enterprise feature we release is added to your plan at the same price, for as long as your license '
+      + 'stays active.',
   },
   {
     q: 'How can I pay?',

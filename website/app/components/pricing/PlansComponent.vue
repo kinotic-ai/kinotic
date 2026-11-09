@@ -25,7 +25,7 @@ const plans: Plan[] = [
     revenue: 'Under $1M',
     monthly: 0,
     summary: 'For founders and small teams getting started.',
-    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Community support'],
+    includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Community support'],
     cta: { label: 'Request a free license', to: 'https://licenses.kinotic.ai/free' },
   },
   {
@@ -35,7 +35,7 @@ const plans: Plan[] = [
     revenue: '$1M – under $20M',
     monthly: 5000,
     summary: 'For growing companies running Kinotic in production.',
-    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Email support'],
+    includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Email support'],
     cta: { label: 'Buy Small', to: 'https://licenses.kinotic.ai/buy?plan=small' },
   },
   {
@@ -45,7 +45,7 @@ const plans: Plan[] = [
     revenue: '$20M – $100M',
     monthly: 10000,
     summary: 'For established companies building on Kinotic.',
-    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Priority support'],
+    includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Priority support'],
     cta: { label: 'Buy Medium', to: 'https://licenses.kinotic.ai/buy?plan=medium' },
   },
   {
@@ -55,7 +55,7 @@ const plans: Plan[] = [
     revenue: 'Over $100M',
     monthly: 20000,
     summary: 'For enterprises running critical systems on Kinotic.',
-    includes: ['Every Enterprise feature, in your own cloud', 'New Enterprise features as we ship them', 'Priority support and a named contact'],
+    includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Priority support and a named contact'],
     cta: { label: 'Buy Large', to: 'https://licenses.kinotic.ai/buy?plan=large' },
   },
 ]

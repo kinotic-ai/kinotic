@@ -22,7 +22,7 @@ const groups: { title?: string, rows: Row[] }[] = [
     rows: [
       { feature: 'Sign-in through your own Okta or Microsoft Entra directory, for your team, your applications and each of their tenants', elastic: false, enterprise: true },
       { feature: 'Secrets kept in your own Azure Key Vault', elastic: false, enterprise: true },
-      { feature: 'New Enterprise features in your edition as we ship them', elastic: false, enterprise: true },
+      { feature: 'Every new Enterprise feature we release, at the same price, while your license stays active', elastic: false, enterprise: true },
     ],
   },
   {
