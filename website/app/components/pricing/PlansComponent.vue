@@ -60,7 +60,7 @@ const plans: Plan[] = [
   },
 ]
 
-const billing = ref<Billing>('annual')
+const billing = ref<Billing>('monthly')
 
 // The plan matching the revenue the visitor picked; the free plan until they pick one.
 const selected = ref<string>('free')
@@ -316,10 +316,15 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
   align-items: stretch;
 }
 
+/* Each card spans seven rows of the grid and shares them through subgrid (name, band, price, billing note,
+   summary, button, feature list), so every row lines up across cards whatever its content's length. */
 .plan {
   position: relative;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-row: span 7;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  align-content: start;
   min-width: 0;
   padding: 30px 26px 28px;
   border: 1px solid var(--color-k-border);
@@ -394,6 +399,7 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
 }
 
 .plan__cta {
+  align-self: start;
   justify-content: center;
   margin-top: 22px;
   padding: 13px 18px;
