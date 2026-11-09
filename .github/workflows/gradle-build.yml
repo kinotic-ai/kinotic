@@ -66,7 +66,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build migration image
-        run: ./gradlew :kinotic-migration:bootBuildImage
+        uses: ./.github/actions/build-images
+        with:
+          tasks: :kinotic-migration:bootBuildImage
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -151,7 +153,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build server images
-        run: ./gradlew :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
+        uses: ./.github/actions/build-images
+        with:
+          tasks: :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage :kinotic-server-test:bootBuildImage
 
       # The local edge of the compose stack, versioned and promoted with the servers
       - name: Build the sites edge image
@@ -205,7 +209,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build the migration and server images
-        run: ./gradlew :kinotic-migration:bootBuildImage :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage
+        uses: ./.github/actions/build-images
+        with:
+          tasks: :kinotic-migration:bootBuildImage :kinotic-server-management:bootBuildImage :kinotic-server-system:bootBuildImage :kinotic-server-app:bootBuildImage
 
       - name: Build the sites edge and UI images
         run: |

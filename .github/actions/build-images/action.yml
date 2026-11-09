@@ -1,0 +1,33 @@
+name: Build images
+description: >-
+  Runs the given bootBuildImage tasks, retrying the whole invocation when it fails, so a dependency
+  download the Paketo builder could not complete does not fail the run.
+
+inputs:
+  tasks:
+    description: The Gradle tasks to run, space separated.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The builder downloads the JRE from github.com/bell-sw/Liberica/releases, which intermittently
+    # answers 504 for a few minutes at a time; a later attempt fetches it once GitHub serves it again
+    - name: Build images
+      shell: bash
+      env:
+        TASKS: ${{ inputs.tasks }}
+      run: |
+        max_attempts=3
+        for attempt in $(seq 1 "$max_attempts"); do
+          if ./gradlew $TASKS; then
+            exit 0
+          fi
+          if [ "$attempt" -lt "$max_attempts" ]; then
+            delay=$((attempt * 60))
+            echo "::warning::Image build attempt $attempt of $max_attempts failed; retrying in ${delay}s"
+            sleep "$delay"
+          fi
+        done
+        echo "::error::Image build failed after $max_attempts attempts"
+        exit 1
