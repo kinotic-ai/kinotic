@@ -46,6 +46,8 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final String TENANT_DEFINITION = AuthzConstants.TENANT_DEFINITION_TYPE;
     private static final String DEFINITION = AuthzConstants.DEFINITION_RELATION;
     private static final String PLACED = AuthzConstants.PLACED_RELATION;
+    // the types every model defines beside the resource types, which a service's type would define a second time
+    private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION);
 
     @Override
     public AuthzModel systemModel(Collection<ServiceDefinition> services) {
@@ -358,16 +360,22 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     }
 
     private static void validate(Map<String, ResourceType> types) {
+        // walking an ancestor chain follows every parent up the tree, so each must exist before any chain is walked
         for (ResourceType type : types.values()) {
+            if (type.parent != null && !types.containsKey(type.parent)) {
+                throw new IllegalArgumentException("Resource type '" + type.name + "' declares the parent '" + type.parent
+                                                           + "', which this model does not have");
+            }
+        }
+        for (ResourceType type : types.values()) {
+            if (FIXED_TYPES.contains(type.name)) {
+                throw new IllegalArgumentException("Resource type '" + type.name + "' is one the model defines itself");
+            }
             // the model names a type's roles and bindings by suffixing it, so a type named like one would collide
             if (type.name.endsWith(AuthzConstants.ROLE_TYPE_SUFFIX) || type.name.endsWith(AuthzConstants.ROLE_BINDING_TYPE_SUFFIX)) {
                 throw new IllegalArgumentException("Resource type '" + type.name + "' ends with '" + AuthzConstants.ROLE_TYPE_SUFFIX
                                                            + "' or '" + AuthzConstants.ROLE_BINDING_TYPE_SUFFIX
                                                            + "', which name the model's roles and bindings");
-            }
-            if (type.parent != null && !types.containsKey(type.parent)) {
-                throw new IllegalArgumentException("Resource type '" + type.name + "' declares the parent '" + type.parent
-                                                           + "', which this model does not have");
             }
             Set<String> seen = new HashSet<>();
             for (String ancestor = type.name; ancestor != null; ancestor = types.get(ancestor).parent) {

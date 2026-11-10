@@ -362,6 +362,18 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aDeclaredTypeTheModelDefinesItselfFails() {
+        for (String fixed : List.of("user", "group", "tenant_definition")) {
+            List<ServiceDefinition> services = List.of(service("FixedService", fixed, "system",
+                                                               function("findById", fixed, fixed, "can_read")));
+
+            IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+            assertTrue(e.getMessage().contains("'" + fixed + "' is one the model defines itself"), e.getMessage());
+        }
+    }
+
+    @Test
     public void aDeclaredRoleTheModelAlreadyDefinesFails() {
         List<ServiceDefinition> services = List.of(service("VmNodeService", "vm_node", "system",
                                                            List.of(role("vm_node.editor", "can_register_node")),
@@ -486,6 +498,17 @@ public class AuthzModelGeneratorTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
         assertTrue(e.getMessage().contains("galaxy"));
+    }
+
+    @Test
+    public void aMissingParentHigherUpTheTreeFails() {
+        List<ServiceDefinition> services = List.of(service("WidgetService", "widget", "gadget",
+                                                           function("findById", "widget", "widget", "can_read")),
+                                                   service("GadgetService", "gadget", "galaxy"));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+        assertTrue(e.getMessage().contains("gadget") && e.getMessage().contains("galaxy"));
     }
 
     @Test

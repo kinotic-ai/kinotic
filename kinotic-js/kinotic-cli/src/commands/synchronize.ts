@@ -84,12 +84,17 @@ export class Synchronize extends Command {
                                              namedQueries.push(...serviceInfo.namedQueries)
                                          }
 
-                                         if(!flags.dryRun && namedQueries.length > 0){
-                                             await this.synchronizeNamedQueries(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, namedQueries)
-                                         }
-
                                          if(!flags.dryRun) {
-                                             await this.synchronizeEntity(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
+                                             const projectId = (project as Project).id as string
+                                             // the definition first: a write of its named queries is checked on the definition, which
+                                             // is placed in the authorization graph when it is created
+                                             const entityDefinition = await this.synchronizeEntity(kinoticProjectConfig.organizationId, projectId, entityInfo.entity, flags.verbose)
+                                             if(namedQueries.length > 0){
+                                                 await this.synchronizeNamedQueries(kinoticProjectConfig.organizationId, projectId, entityInfo.entity, namedQueries)
+                                             }
+                                             if(flags.publish) {
+                                                 await this.publishEntity(entityDefinition, entityInfo.entity, flags.verbose)
+                                             }
                                          }
                                      },
                                      flags.force)
@@ -126,11 +131,14 @@ export class Synchronize extends Command {
         }
     }
 
+    /**
+     * Creates the entity definition, or updates its schema when it exists.
+     * @return the definition as the server stored it
+     */
     private async synchronizeEntity(organizationId: string,
                                     projectId: string,
                                     entitySchema:  ObjectC3Type,
-                                    publish: boolean,
-                                    verbose: boolean): Promise<void> {
+                                    verbose: boolean): Promise<EntityDefinition> {
         const entityDefinitionService: IEntityDefinitionService = Kinotic.entityDefinitions
         const application = entitySchema.namespace
         const name = entitySchema.name
@@ -155,16 +163,27 @@ export class Synchronize extends Command {
 
                 entityDefinition = await entityDefinitionService.create(entityDefinition)
             }
-            // publish if we need to
-            if(!entityDefinition.published && publish && entityDefinition?.id){
-                this.logVerbose(`Publishing Entity: ${application}.${name}`, verbose)
-
-                await entityDefinitionService.publish(entityDefinition.id)
-            }
+            return entityDefinition
         } catch (e: any) {
             const message = e?.message || e
             this.log(chalk.red('Error') + ` Synchronizing Entity: ${entityDefinitionId}, Exception: ${message}`)
             throw e
+        }
+    }
+
+    /** Publishes the definition unless it is published already. */
+    private async publishEntity(entityDefinition: EntityDefinition, entitySchema: ObjectC3Type, verbose: boolean): Promise<void> {
+        const application = entitySchema.namespace
+        const name = entitySchema.name
+        if(!entityDefinition.published && entityDefinition.id){
+            this.logVerbose(`Publishing Entity: ${application}.${name}`, verbose)
+            try {
+                await Kinotic.entityDefinitions.publish(entityDefinition.id)
+            } catch (e: any) {
+                const message = e?.message || e
+                this.log(chalk.red('Error') + ` Publishing Entity: ${entityDefinition.id}, Exception: ${message}`)
+                throw e
+            }
         }
     }
 

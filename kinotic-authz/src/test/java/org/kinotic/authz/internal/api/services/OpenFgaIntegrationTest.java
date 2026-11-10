@@ -186,7 +186,7 @@ class OpenFgaIntegrationTest {
         assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:bob", "end_user", "application:" + store))));
 
         String name = await(fga.getStore(storeId)).getName();
-        // a duplicate a concurrent creator left under the name goes with the store
+        // a second store listed under the name goes with the store
         await(fga.createStore(new CreateStoreRequest().name(name)));
 
         await(storeService.deleteStore(store));
@@ -194,6 +194,23 @@ class OpenFgaIntegrationTest {
         assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));
         assertTrue(await(fga.listStores(10, null, name)).getStores().isEmpty());
         // a store already gone leaves nothing to delete
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void nodesCreatingAStoreTogetherCreateOne() throws Exception {
+        String store = "together-" + System.nanoTime();
+        List<Future<String>> creators = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            creators.add(new DefaultAuthzStoreService(fga, properties, vertx).ensureStore(store));
+        }
+
+        await(Future.all(creators));
+
+        Set<String> ids = creators.stream().map(Future::result).collect(Collectors.toSet());
+        assertEquals(1, ids.size());
+        String name = await(fga.getStore(ids.iterator().next())).getName();
+        assertEquals(1, await(fga.listStores(10, null, name)).getStores().size());
         await(storeService.deleteStore(store));
     }
 

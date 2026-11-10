@@ -19,6 +19,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The zone rules of Kinotic OS's participants, as {@link DomainUtil#zoneRules} derives them. An organization's
@@ -37,8 +38,8 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
     @Override
     public Future<ZoneRules> resolve(Participant participant) {
         Validate.notNull(participant, "participant must not be null");
-        boolean machine = ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(participant.getMetadata()
-                                                                                       .get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY));
+        Map<String, String> metadata = participant.getMetadata() != null ? participant.getMetadata() : Map.of();
+        boolean machine = ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(metadata.get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY));
         Future<List<String>> hostedZones;
         // only a server hosting the organization's application zones asks the engine, so a server that hosts none
         // connects its organization participants without reaching it

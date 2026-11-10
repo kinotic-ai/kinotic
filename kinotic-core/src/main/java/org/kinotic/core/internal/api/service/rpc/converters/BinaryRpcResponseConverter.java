@@ -8,8 +8,8 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.internal.api.service.rpc.RpcResponseConverter;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.stereotype.Component;
 
 /**
  * Decodes {@code application/octet-stream} responses into the {@code byte[]} or {@link Buffer} the caller declared

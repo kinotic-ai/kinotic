@@ -50,7 +50,7 @@
         </DataTable>
       </DashboardSection>
 
-      <EndUserAccessCheckPanel v-if="!loading" :tint="TINTS.blue" :application-id="applicationId" :users="members" :machines="machines" :roles="roles"
+      <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :machines="machines" :roles="roles"
                                :catalog="catalog" :tenants="tenants" :definitions="definitions" :label-of="labelOf" :initial-subject-id="subjectFilter?.id"
                                :initial-resource="resource" />
 
@@ -102,7 +102,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
-const { members, machines, load: loadSubjects, labelOf } = useSubjects(props.applicationId)
+const { members, machines, load: loadSubjects, labelOf } = useSubjects(() => props.applicationId)
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
@@ -110,11 +110,22 @@ const definitions = ref<DefinitionOption[]>([])
 const tenantRecords = ref<string[]>([])
 const canManageAccess = ref(false)
 const loading = ref(true)
-const refused = ref(false)
-const error = ref<string | null>(null)
+// whether the application's roles, definitions, tenants and subjects are read, which the check panel is built on
+const contextLoaded = ref(false)
+// Each load keeps its own failure, so a load of the grants alone neither clears nor hides what the context's load
+// reported: the page is refused when either was, and otherwise shows the first failure
+const contextFailure = ref<unknown>(null)
+const grantsFailure = ref<unknown>(null)
 const grantDrawerVisible = ref(false)
 const where = ref<string>(typeof route.query.tenant === 'string' ? route.query.tenant : WHOLE_APPLICATION)
 const definition = ref<string>(EVERY_DEFINITION)
+
+const failures = computed(() => [contextFailure.value, grantsFailure.value].filter(failure => failure !== null))
+const refused = computed(() => failures.value.some(isAuthorizationError))
+const error = computed(() => {
+  const other = failures.value.find(failure => !isAuthorizationError(failure))
+  return other === undefined ? null : errorMessage(other, 'Failed to load the application\'s end-user access')
+})
 
 /** The subject the page was opened for, from its query, or null for everyone's grants. */
 const subjectFilter = computed<Subject | null>(() => {
@@ -179,31 +190,68 @@ const catalog = computed(() => {
   return [...names].sort()
 })
 
-watch(() => [props.applicationId, resource.value.type, resource.value.id], load, { immediate: true })
+// The page is kept when the header switches the application in place, and the tenant picker is editable, so a
+// keystroke starts a load of the grants while an earlier one is in flight; only the latest load's answer, or
+// failure, reaches the page. The application's context is read apart from its grants, so a keystroke reads the
+// grants alone and the check panel keeps what was chosen in it
+let latestContextLoad = 0
+let latestGrantsLoad = 0
 
-async function load(): Promise<void> {
-  loading.value = true
-  error.value = null
+// the pickers name a tenant and a definition of the application the page showed, which the next one does not have;
+// declared first, so the grants load once, for the reset resource
+watch(() => props.applicationId, () => {
+  where.value = WHOLE_APPLICATION
+  definition.value = EVERY_DEFINITION
+})
+watch(() => props.applicationId, loadContext, { immediate: true })
+watch(() => [props.applicationId, resource.value.type, resource.value.id], loadGrants, { immediate: true })
+
+async function loadContext(): Promise<void> {
+  const thisLoad = ++latestContextLoad
+  contextLoaded.value = false
+  contextFailure.value = null
   try {
-    const [found, defined, managed, published, created] = await Promise.all([
-      Kinotic.applicationAccess.findGrants(props.applicationId, resource.value),
+    const [defined, managed, published, created] = await Promise.all([
       Kinotic.applicationAccess.findRoles(props.applicationId),
       Kinotic.permissions.listAccessible('application', 'can_manage_access'),
       Kinotic.entityDefinitions.findAllPublishedForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
       Kinotic.tenants.findAllForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
       loadSubjects()
     ])
-    grants.value = found
+    if (thisLoad !== latestContextLoad) {
+      return
+    }
     roles.value = defined
     definitions.value = (published.content ?? []).flatMap(entity => entity.id ? [{ id: entity.id, name: entity.name }] : [])
     tenantRecords.value = (created.content ?? []).flatMap(tenant => tenant.id ? [tenant.id] : [])
     canManageAccess.value = managed.includes(props.applicationId)
-    refused.value = false
+    contextLoaded.value = true
   } catch (err) {
-    refused.value = isAuthorizationError(err)
-    error.value = refused.value ? null : errorMessage(err, 'Failed to load the application\'s end-user access')
+    if (thisLoad === latestContextLoad) {
+      contextFailure.value = err
+    }
+  }
+}
+
+async function loadGrants(): Promise<void> {
+  const thisLoad = ++latestGrantsLoad
+  loading.value = true
+  grantsFailure.value = null
+  try {
+    const found = await Kinotic.applicationAccess.findGrants(props.applicationId, resource.value)
+    if (thisLoad !== latestGrantsLoad) {
+      return
+    }
+    grants.value = found
+  } catch (err) {
+    if (thisLoad !== latestGrantsLoad) {
+      return
+    }
+    grantsFailure.value = err
   } finally {
-    loading.value = false
+    if (thisLoad === latestGrantsLoad) {
+      loading.value = false
+    }
   }
 }
 

@@ -1,0 +1,234 @@
+package org.kinotic.client.internal.api;
+
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.internal.ContextInternal;
+import io.vertx.ext.stomp.lite.client.StompClientConnection;
+import io.vertx.ext.stomp.lite.client.StompErrorException;
+import io.vertx.ext.stomp.lite.frame.Frame;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.EventConsumer;
+import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.api.event.RpcTransport;
+import org.kinotic.core.api.exceptions.RpcInvocationException;
+import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
+import org.kinotic.core.api.utils.KinoticUtil;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * The {@link RpcTransport} of a gateway connection: requests go out as STOMP SEND frames and replies come back
+ * through the connection's reply subscriptions. Every proxy's reply address is subscribed on each connection under
+ * a destination the gateway authorizes for it, built from the connection's reply-to id, and the reply-to of every
+ * request is rewritten to it; a request waits for the gateway's receipt of that subscription, so its reply is
+ * never sent before the reply destination is known across the cluster. A request is acknowledged by the gateway's
+ * RECEIPT for its frame, which the gateway writes once a node of its cluster has taken the request; the
+ * acknowledgement names the connection, and a request still pending when the connection ends fails. The
+ * connection's state is only touched on its context.
+ *
+ * Created by Navíd Mitchell 🤪 on 10/25/26.
+ */
+@Slf4j
+@RequiredArgsConstructor
+public class StompRpcTransport implements RpcTransport {
+
+    private final ContextInternal context;
+    private final String serverUrl;
+    private final String nodeName;
+    // how long the gateway has to receipt a subscription before the connection counts as lost
+    private final long subscriptionTimeoutMillis;
+    // by the address a proxy listens on, which its requests name as their reply-to
+    private final Map<String, StompReplyConsumer> consumers = new HashMap<>();
+    private StompClientConnection connection;
+    private String connectionId;
+    private String replyToId;
+
+    /**
+     * A connection was accepted: every consumer with a handler is subscribed on it.
+     * @param connection the accepted connection
+     * @param connectionId the id acknowledgements on this connection complete with
+     * @param replyToId the reply-to id the gateway issued for the connection
+     */
+    void connected(StompClientConnection connection, String connectionId, String replyToId) {
+        this.connection = connection;
+        this.connectionId = connectionId;
+        this.replyToId = replyToId;
+        for (StompReplyConsumer consumer : consumers.values()) {
+            if (consumer.hasHandler()) {
+                subscribe(consumer);
+            }
+        }
+    }
+
+    /**
+     * The connection ended, and the gateway released its subscriptions with it.
+     */
+    void disconnected() {
+        connection = null;
+        connectionId = null;
+        consumers.values().forEach(StompReplyConsumer::unsubscribed);
+    }
+
+    @Override
+    public EventConsumer listen(CRI cri) {
+        StompReplyConsumer consumer = new StompReplyConsumer(cri, this);
+        context.execute(() -> consumers.put(cri.raw(), consumer));
+        return consumer;
+    }
+
+    @Override
+    public Future<String> sendWithAck(Event<byte[]> event) {
+        CompletableFuture<String> result = new CompletableFuture<>();
+        context.execute(() -> {
+            if (connection == null) {
+                result.completeExceptionally(new RpcServiceUnavailableException(
+                        "Not connected to " + serverUrl + ", the request to " + event.cri().raw() + " was not sent"));
+            } else {
+                try {
+                    ReplySubscription subscription = replySubscriptionOf(event);
+                    // the reply-to names the address the proxy listens on; the gateway knows it as the subscription's
+                    // destination on this connection
+                    Map<String, String> headers = headersOf(event);
+                    headers.put(EventConstants.REPLY_TO_HEADER, subscription.destination().raw());
+                    String receipt = UUID.randomUUID().toString();
+                    headers.put(Frame.RECEIPT, receipt);
+                    String acknowledgedBy = connectionId;
+                    StompClientConnection sentOn = connection;
+                    subscription.receipt()
+                            .compose(v -> sentOn.send(event.cri().raw(), headers, body(event)))
+                            .onSuccess(v -> result.complete(acknowledgedBy))
+                            .onFailure(cause -> result.completeExceptionally(mapSendFailure(cause, event.cri(), receipt)));
+                } catch (Exception e) {
+                    result.completeExceptionally(e);
+                }
+            }
+        });
+        // the proxy composes on the result where it made the request
+        return KinoticUtil.toFuture(result);
+    }
+
+    @Override
+    public void publish(Event<byte[]> event) {
+        context.execute(() -> {
+            if (connection == null) {
+                log.debug("Not connected to {}, dropping the control event for {}", serverUrl, event.cri());
+            } else {
+                try {
+                    connection.send(event.cri().raw(), headersOf(event), body(event))
+                              .onFailure(cause -> log.debug("Could not send the control event for {}", event.cri(), cause));
+                } catch (Exception e) {
+                    log.warn("Could not send the control event for {}", event.cri(), e);
+                }
+            }
+        });
+    }
+
+    // a consumer is subscribed once it has a handler, like a Vert.x consumer registers on its first handler
+    void consumerReady(StompReplyConsumer consumer) {
+        context.execute(() -> {
+            if (connection != null && consumer.subscription() == null) {
+                subscribe(consumer);
+            }
+        });
+    }
+
+    Future<Void> remove(StompReplyConsumer consumer) {
+        Promise<Void> promise = Promise.promise();
+        context.execute(() -> {
+            consumers.remove(consumer.listenAddress().raw());
+            ReplySubscription subscription = consumer.subscription();
+            Future<Void> ret;
+            if (connection != null && subscription != null) {
+                ret = connection.unsubscribe(subscription.id());
+            } else {
+                ret = Future.succeededFuture();
+            }
+            consumer.unsubscribed();
+            ret.onComplete(promise);
+        });
+        return promise.future();
+    }
+
+    // A fresh destination per connection: its scope is the connection's reply-to id, which the gateway requires,
+    // followed by a discriminator of this subscription's own, which doubles as the STOMP subscription id and as
+    // the receipt the gateway answers once the subscription is registered across its cluster
+    private void subscribe(StompReplyConsumer consumer) {
+        String subscriptionId = UUID.randomUUID().toString();
+        CRI address = consumer.listenAddress();
+        CRI destination = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
+                                     replyToId + ":" + subscriptionId,
+                                     address.resourceName(),
+                                     address.path(),
+                                     address.version());
+        StompClientConnection subscribedOn = connection;
+        Future<Void> receipt = connection.subscribe(subscriptionId,
+                                                    destination.raw(),
+                                                    Map.of(Frame.RECEIPT, subscriptionId),
+                                                    frame -> consumer.deliver(toEvent(frame, destination)))
+                                         .timeout(subscriptionTimeoutMillis, TimeUnit.MILLISECONDS);
+        // a gateway that confirms no subscription cannot carry the proxy's calls, so the connection is lost and the
+        // reconnect subscribes again; a receipt the gateway refused ends the connection already
+        receipt.onFailure(cause -> subscribedOn.close());
+        consumer.subscribed(new ReplySubscription(subscriptionId, destination, receipt));
+    }
+
+    /**
+     * The subscription on this connection of the consumer a request's reply-to names.
+     * @throws IllegalStateException when no consumer listens on the reply-to, since the gateway ends the connection
+     *                               over a reply-to outside its scope
+     */
+    private ReplySubscription replySubscriptionOf(Event<byte[]> event) {
+        String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
+        StompReplyConsumer consumer = replyTo != null ? consumers.get(replyTo) : null;
+        ReplySubscription ret = consumer != null ? consumer.subscription() : null;
+        if (ret == null) {
+            throw new IllegalStateException("No reply subscription on " + serverUrl + " for " + replyTo);
+        }
+        return ret;
+    }
+
+    private Map<String, String> headersOf(Event<byte[]> event) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : event.metadata()) {
+            headers.put(entry.getKey(), entry.getValue());
+        }
+        return headers;
+    }
+
+    private Buffer body(Event<byte[]> event) {
+        return event.data() != null ? Buffer.buffer(event.data()) : null;
+    }
+
+    // the destination is the subscription's, so a frame's own is not parsed again per reply
+    private Event<byte[]> toEvent(Frame frame, CRI destination) {
+        Metadata metadata = Metadata.create(frame.getHeaders());
+        byte[] data = frame.getBody() != null ? frame.getBody().getBytes() : null;
+        return Event.create(destination, metadata, data);
+    }
+
+    // The gateway answers a request it refuses, such as one to a zone the participant may not address, with an
+    // ERROR frame naming the request's receipt, so only that request fails with the error. An ERROR frame naming
+    // no receipt fails every pending request, and like every other failure means the connection ended before the
+    // gateway acknowledged the request
+    private Throwable mapSendFailure(Throwable cause, CRI destination, String receipt) {
+        Throwable ret;
+        if (cause instanceof StompErrorException error && receipt.equals(error.getFrame().getHeader(Frame.RECEIPT_ID))) {
+            ret = new RpcInvocationException(error.getMessage());
+        } else {
+            ret = new RpcServiceUnavailableException("The connection to " + serverUrl + " ended before the request to "
+                                                             + destination.raw() + " was acknowledged", cause);
+        }
+        return ret;
+    }
+
+}

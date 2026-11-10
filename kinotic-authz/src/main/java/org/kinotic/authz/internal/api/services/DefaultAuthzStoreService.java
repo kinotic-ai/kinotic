@@ -48,6 +48,10 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     // the address every node hears a store's deletion on, so none keeps answering with the id of a store the
     // engine has deleted while another node already resolved the one created again under its name
     static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
+    // the cluster lock a store's creators hold in turn, by the store's engine name
+    private static final String STORE_LOCK_PREFIX = "kinotic.authz.store-creation.";
+    // how long a creator waits for another creating the same store
+    private static final long STORE_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
@@ -69,15 +73,23 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
             // resolved it is created again rather than answered with the id the engine no longer knows
             String name = storeNameOf(store);
             ret = findStore(name)
-                    .compose(found -> found != null
-                            ? Future.succeededFuture(found)
-                            : fga.createStore(new CreateStoreRequest().name(name))
-                                 .map(CreateStoreResponse::getId)
-                                 .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store))
-                                 .compose(id -> keepOldest(store, name, id)))
+                    .compose(found -> found != null ? Future.succeededFuture(found) : createStore(store, name))
                     .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
         }
         return ret;
+    }
+
+    // Nodes creating a store together, as the provisioner and the reconciler do for a new application, hold the
+    // name's cluster lock in turn, so the first creates the store and the others find it. A listing shows a store
+    // only once its creation commits, so creators that each listed before the other's commit would otherwise each
+    // keep a store of their own
+    private Future<String> createStore(String store, String name) {
+        return vertx.sharedData().withLock(STORE_LOCK_PREFIX + name, STORE_LOCK_TIMEOUT_MILLIS, () -> findStore(name).compose(
+                found -> found != null
+                        ? Future.succeededFuture(found)
+                        : fga.createStore(new CreateStoreRequest().name(name))
+                             .map(CreateStoreResponse::getId)
+                             .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store))));
     }
 
     @Override
@@ -88,8 +100,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
 
     @Override
     public Future<Void> deleteStore(String store) {
-        // every store of the name goes, so a duplicate a creator failed to delete is not adopted by a store created
-        // again under the name
+        // every store the name lists goes, so a store created again under the name holds none of their tuples
         return findStores(storeNameOf(store), null, new ArrayList<>())
                 .compose(ids -> {
                     Future<Void> ret = Future.succeededFuture();
@@ -288,9 +299,11 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     private static boolean stale(CompletableFuture<ResolvedStore> stage) {
+        // a stage completes once and stays so, so isDone is read first: a stage failing between two reads would
+        // otherwise be joined
         return stage == null
-                || stage.isCompletedExceptionally()
-                || (stage.isDone() && stage.join().resolvedAt() + RETENTION_MILLIS < System.currentTimeMillis());
+                || (stage.isDone() && (stage.isCompletedExceptionally()
+                        || stage.join().resolvedAt() + RETENTION_MILLIS < System.currentTimeMillis()));
     }
 
     // A kept id the engine still has is kept; one it reports gone is forgotten, with the version read from it,
@@ -346,27 +359,6 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
         }).onSuccess(id -> log.info("Using authorization store {} for '{}'", id, store))
           .onFailure(e -> log.warn("The authorization store of '{}' could not be resolved from {}: {}",
                                    store, properties.getAuthz().getApiUrl(), e.getMessage()));
-    }
-
-    // Nodes creating a store together, as the provisioner and the reconciler do for a new application, each
-    // create one under the name; the oldest is the store of the name, so a creator whose store is not it deletes
-    // its own and answers with the oldest, which every lookup by name answers with as well
-    private Future<String> keepOldest(String store, String name, String created) {
-        return findStore(name).compose(oldest -> {
-            Future<String> ret;
-            if (oldest == null) {
-                // a delete of the name ran between the create and this listing
-                ret = Future.failedFuture(new IllegalStateException("The authorization store " + created + " of '" + store
-                                                                            + "' was deleted while it was created"));
-            } else if (oldest.equals(created)) {
-                ret = Future.succeededFuture(created);
-            } else {
-                ret = fga.deleteStore(created)
-                         .map(oldest)
-                         .onSuccess(v -> log.info("Deleted authorization store {} of '{}', created beside {}", created, store, oldest));
-            }
-            return ret;
-        });
     }
 
     /**

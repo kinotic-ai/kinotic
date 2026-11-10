@@ -1,5 +1,3 @@
-import type { RoleDefinition } from '@kinotic-ai/management-api'
-
 /** A permission of the model, split into the type it is about and its short name. */
 export interface PermissionName {
   /** The model name, such as project_can_edit. */
@@ -43,7 +41,7 @@ export function describePermission(name: string): string {
 }
 
 /** A role's permissions in one line, as a role picker describes it: the first three, and how many more. */
-export function summarizeRole(role: RoleDefinition): string {
+export function summarizeRole(role: { permissions: string[] }): string {
   const labels = role.permissions.map(describePermission)
   return labels.length <= 3 ? labels.join(', ') : `${labels.slice(0, 3).join(', ')} and ${labels.length - 3} more`
 }

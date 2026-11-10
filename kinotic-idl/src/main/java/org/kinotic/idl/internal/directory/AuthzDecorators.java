@@ -47,6 +47,8 @@ final class AuthzDecorators {
     private static final String CREATE_VERB = "create";
     private static final Set<String> SCOPED_PARENTS = Set.of(AuthzConstants.ORGANIZATION_TYPE, AuthzConstants.APPLICATION_TYPE,
                                                              AuthzConstants.TENANT_TYPE);
+    // the levels of the roles the model defines for every type, which a declared role would redefine
+    private static final Set<String> BUILT_IN_LEVELS = Set.of(AuthzConstants.VIEWER, AuthzConstants.EDITOR, AuthzConstants.ADMIN);
 
     private AuthzDecorators() {
     }
@@ -117,9 +119,10 @@ final class AuthzDecorators {
      * @param declarer the service, named in errors
      * @param declared what it declares
      * @throws IllegalStateException when the declared type, parent or permission is not an identifier, a
-     *                               declared role is not named after the type or bundles nothing, or a service
-     *                               of another type than {@code entity_definition} is declared acting across
-     *                               tenants
+     *                               declared role is not named after the type, takes the level of a built-in
+     *                               role, bundles nothing or bundles a permission whose name on the type is
+     *                               longer than a relation name may be, or a service of another type than
+     *                               {@code entity_definition} is declared acting across tenants
      */
     static AuthzResourceC3Decorator resourceOf(String declarer, AuthzResourceC3Decorator declared) {
         String where = "@AuthzResource on " + declarer;
@@ -183,21 +186,26 @@ final class AuthzDecorators {
         return value == null || value.isEmpty() ? null : value;
     }
 
-    // A declared role is named <type>.<level> as a built-in role is, and bundles at least one permission; whether
-    // the permissions exist on the type is known only once every service's checks are, so the generator decides it
+    // A declared role is named <type>.<level> as a built-in role is, at a level the model does not define for every
+    // type, and bundles at least one permission; whether the permissions exist on the type is known only once every
+    // service's checks are, so the generator decides it
     private static AuthzRoleDeclaration roleOf(String declarer, String type, AuthzRoleDeclaration role) {
         String where = "@AuthzRole '" + role.getId() + "' on " + declarer;
         String prefix = type + ".";
         if (role.getId() == null || !role.getId().startsWith(prefix) || !AuthzUtil.isIdentifier(role.getId().substring(prefix.length()))) {
             throw new IllegalStateException(where + " is not named '" + prefix + "<level>' with a lowercase identifier as the level");
         }
-        if (role.getPermissions().isEmpty()) {
+        if (BUILT_IN_LEVELS.contains(role.getId().substring(prefix.length()))) {
+            throw new IllegalStateException(where + " redefines a built-in role; the model defines the viewer, editor and admin of every type");
+        }
+        if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
             throw new IllegalStateException(where + " bundles no permission");
         }
         for (String permission : role.getPermissions()) {
             if (!AuthzUtil.isIdentifier(permission)) {
                 throw new IllegalStateException(where + " bundles '" + permission + "', which is not a lowercase identifier");
             }
+            requireRelationLength(where, type, permission);
         }
         return new AuthzRoleDeclaration().setId(role.getId()).setPermissions(List.copyOf(role.getPermissions()));
     }
@@ -244,9 +252,11 @@ final class AuthzDecorators {
      * @param conversionContext the context the parameters were converted in, which resolves their references
      * @param resolvers         the permission resolvers a check may name, by name
      * @throws IllegalStateException when the function derives no check and declares none, a declaration
-     *                               references a parameter the function does not have, or it names a permission
-     *                               resolver beside a permission, one not in {@code resolvers}, one requiring
-     *                               no permission, or one reading a parameter the function does not have
+     *                               references a parameter the function does not have, a permission it may
+     *                               require has a name on its type longer than a relation name may be, or it
+     *                               names a permission resolver beside a permission, one not in
+     *                               {@code resolvers}, one requiring no permission, or one reading a parameter
+     *                               the function does not have
      */
     static AuthzCheckC3Decorator checkOf(String declarer,
                                          AuthzResourceC3Decorator resource,
@@ -279,6 +289,13 @@ final class AuthzDecorators {
                     throw new IllegalStateException("The implied permission '" + implied + "' of " + where
                                                             + " is not a lowercase identifier");
                 }
+                requireRelationLength(where, checked.permissionResource(), implied);
+            }
+            if (permission != null) {
+                requireRelationLength(where, checked.permissionResource(), permission);
+            }
+            for (AuthzPermissionChoice choice : possiblePermissions) {
+                requireRelationLength(where, checked.permissionResource(), choice.getPermission());
             }
             ret = new AuthzCheckC3Decorator()
                     .setResource(checked.resource())
@@ -326,7 +343,7 @@ final class AuthzDecorators {
         if (declaredResource != null || declaredResourceId != null) {
             String checked = declaredResource != null ? declaredResource : type;
             String resourceId = declaredResourceId != null ? declaredResourceId
-                    : resourceIdOf(checked, type, parent, parameters, conversionContext);
+                    : resourceIdOf(checked, type, parameters, conversionContext);
             // a check made on the parent is about this type within it, as a derived create or listing is;
             // any other explicit resource is a permission of that resource itself
             ret = new CheckedResource(checked, resourceId, checked.equals(parent) ? type : checked);
@@ -335,7 +352,7 @@ final class AuthzDecorators {
             // member, a machine, is what it acts with, not a resource of the service's type
             ret = new CheckedResource(type, resource.getResourceId(), type);
         } else if (CREATE_VERB.equals(leadingWord(functionName))) {
-            ret = new CheckedResource(requireParent(parent, where, "a create"), parentId(parent, parameters, conversionContext), type);
+            ret = new CheckedResource(requireParent(parent, where, "a create"), typedId(parent, parameters, conversionContext), type);
         } else {
             String ownId = resourceId(type, parameters, conversionContext);
             if (ownId != null) {
@@ -343,7 +360,7 @@ final class AuthzDecorators {
             } else {
                 // no resource of this type is named, so the check is on the collection within the parent
                 ret = new CheckedResource(requireParent(parent, where, "a function naming no resource id"),
-                                          parentId(parent, parameters, conversionContext),
+                                          typedId(parent, parameters, conversionContext),
                                           type);
             }
         }
@@ -357,6 +374,15 @@ final class AuthzDecorators {
                                                     + " is not a lowercase identifier");
         }
         return ret;
+    }
+
+    // A permission becomes the relation <type>_<permission> of the model, whose name the engine caps
+    private static void requireRelationLength(String where, String type, String permission) {
+        String name = AuthzUtil.permissionName(type, permission);
+        if (name.length() > AuthzConstants.MAX_RELATION_NAME_LENGTH) {
+            throw new IllegalStateException("The permission '" + name + "' of " + where + " is longer than the "
+                                                    + AuthzConstants.MAX_RELATION_NAME_LENGTH + " characters a relation name may have");
+        }
     }
 
     // Every reference of the resource id names the caller's scope or a parameter the request carries
@@ -405,21 +431,21 @@ final class AuthzDecorators {
     }
 
     /**
-     * The derived id of the checked resource of type {@code resource}: the system's fixed id, the parent's id
-     * when the resource is the parent, else a resource of the service's own type among the parameters.
+     * The derived id of the checked resource of type {@code resource}: the system's fixed id, a resource of the
+     * service's own type among the parameters, else the id the parameters or the caller's scope carry for a
+     * resource of that type, found as a parent's is.
      */
     private static String resourceIdOf(String resource,
                                      String type,
-                                     String parent,
                                      List<ParameterDefinition> parameters,
                                      ConversionContext conversionContext) {
         String ret;
         if (AuthzConstants.SYSTEM_TYPE.equals(resource)) {
             ret = AuthzConstants.SYSTEM_OBJECT_ID;
-        } else if (resource.equals(parent)) {
-            ret = parentId(parent, parameters, conversionContext);
-        } else {
+        } else if (resource.equals(type)) {
             ret = resourceId(type, parameters, conversionContext);
+        } else {
+            ret = typedId(resource, parameters, conversionContext);
         }
         return ret;
     }
@@ -473,12 +499,12 @@ final class AuthzDecorators {
     }
 
     /**
-     * The template naming the parent resource: the id parameter named {@code <parent>Id}, else that property
-     * of the first object parameter that has it, else the caller's own scope for a parent the scope carries, else
-     * the system's fixed id for a parent that is the system.
+     * The template naming a resource of another type than the service's own, the parent or one a check declares:
+     * the id parameter named {@code <type>Id}, else that property of the first object parameter that has it, else
+     * the caller's own scope for a type the scope carries, else the system's fixed id for the system.
      */
-    private static String parentId(String parent, List<ParameterDefinition> parameters, ConversionContext conversionContext) {
-        String idName = camelCase(parent) + "Id";
+    private static String typedId(String resourceType, List<ParameterDefinition> parameters, ConversionContext conversionContext) {
+        String idName = camelCase(resourceType) + "Id";
         String ret = null;
         for (ParameterDefinition parameter : parameters) {
             if (isId(parameter) && parameter.getName().equals(idName)) {
@@ -489,10 +515,10 @@ final class AuthzDecorators {
         if (ret == null) {
             ret = propertyReference(parameters, idName, conversionContext);
         }
-        if (ret == null && SCOPED_PARENTS.contains(parent)) {
+        if (ret == null && SCOPED_PARENTS.contains(resourceType)) {
             ret = "{" + AuthzConstants.SCOPE_REFERENCE_PREFIX + idName + "}";
         }
-        if (ret == null && AuthzConstants.SYSTEM_TYPE.equals(parent)) {
+        if (ret == null && AuthzConstants.SYSTEM_TYPE.equals(resourceType)) {
             ret = AuthzConstants.SYSTEM_OBJECT_ID;
         }
         return ret;

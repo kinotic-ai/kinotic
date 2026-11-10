@@ -6,9 +6,7 @@ import org.kinotic.domain.api.model.security.OidcProviderType;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Covers {@link EnterpriseIdentityProviders}: the issuer an organization's Microsoft Entra or Okta account
@@ -16,7 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class EnterpriseIdentityProvidersTest {
 
-    private final EnterpriseIdentityProviders providers = new EnterpriseIdentityProviders();
+    // authority reads no license, so these cases need none
+    private final EnterpriseIdentityProviders providers = new EnterpriseIdentityProviders(null);
 
     @Test
     void anAccountFillsItsProvidersTemplate() {
@@ -44,10 +43,7 @@ class EnterpriseIdentityProvidersTest {
     }
 
     @Test
-    void onlyEntraAndOktaAreSupported() {
-        assertTrue(providers.supports(OidcProviderType.AZURE_AD));
-        assertTrue(providers.supports(OidcProviderType.OKTA));
-        assertFalse(providers.supports(OidcProviderType.GOOGLE));
+    void googleHasNoEnterpriseAuthority() {
         assertThrows(IllegalArgumentException.class, () -> providers.authority(OidcProviderType.GOOGLE, null));
     }
 }

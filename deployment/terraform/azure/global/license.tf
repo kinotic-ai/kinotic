@@ -43,22 +43,3 @@ output "license_signing_public_key_pem" {
   description = "Public key of the Kinotic Enterprise License signing key, which Kinotic's license verifier trusts"
   value       = azurerm_key_vault_key.license_signing.public_key_pem
 }
-
-# The Kinotic Enterprise License key the servers import as kinotic.ee.licenseKey, which turns on
-# the Enterprise Features they run, such as Azure Key Vault secret storage. Issued with the signing
-# key above and supplied via TF_VAR_ee_license_key on first apply; a renewed key is set out-of-band
-# via `az keyvault secret set ...` and lifecycle.ignore_changes keeps it.
-resource "azurerm_key_vault_secret" "ee_license_key" {
-  name         = "kinotic-ee-license-key"
-  key_vault_id = azurerm_key_vault.platform.id
-  content_type = "Kinotic Enterprise License key"
-  value        = var.ee_license_key
-
-  tags = local.common_tags
-
-  lifecycle {
-    ignore_changes = [value]
-  }
-
-  depends_on = [terraform_data.wait_for_kv_rbac]
-}

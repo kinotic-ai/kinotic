@@ -6,21 +6,26 @@ import lombok.experimental.Accessors;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.stereotype.Component;
 
 /**
  *
  * Created by Navíd Mitchell 🤪on 1/18/21
  */
-@Component
 @ConfigurationProperties(prefix = "kinotic")
 @Primary
 @Validated
 @Getter
 @Setter
 @Accessors(chain = true)
+@Component
 public class KinoticProperties {
+
+    /**
+     * The default of {@link #getMaxEventPayloadSize()}, 2 MB.
+     */
+    public static final int DEFAULT_MAX_EVENT_PAYLOAD_SIZE = 1024 * 1024 * 2;
 
     /**
      * CORS configuration of every Vert.x HTTP server that exposes browser-facing routes. Its allowed origins are also
@@ -68,13 +73,18 @@ public class KinoticProperties {
     private IgniteProperties ignite = new IgniteProperties();
 
     /**
+     * Mutual TLS between the platform's nodes, on the clustered event bus and on Ignite's discovery and communication.
+     */
+    private ClusterTlsProperties clusterTls = new ClusterTlsProperties();
+
+    /**
      * The largest event payload the platform accepts, in bytes. It bounds the STOMP body, the
      * WebSocket frame carrying it, and the JSON document the invoker will parse. A frame's payload is
      * allocated off heap in full as it arrives, so this also sets how much direct memory a single
      * connection can demand and must be raised together with {@code -XX:MaxDirectMemorySize}.
      * NOTE: {@code -XX:MaxDirectMemorySize} will need to be maxEventPayloadSize x (maxNumberOfConnections sending frames at this size)
      */
-    private int maxEventPayloadSize = 1024 * 1024 * 2; // 2MB
+    private int maxEventPayloadSize = DEFAULT_MAX_EVENT_PAYLOAD_SIZE;
 
     /**
      * The maximum number of CPU cores if not set or less than 1, this will default to the available number of cores.

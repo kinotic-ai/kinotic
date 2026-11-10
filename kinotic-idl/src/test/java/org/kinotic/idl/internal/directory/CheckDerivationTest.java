@@ -121,6 +121,24 @@ public class CheckDerivationTest {
     }
 
     @Test
+    public void aDeclaredResourceOfAnotherTypeIsNamedByItsOwnId() {
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_audit").setResource("organization");
+        ServiceDefinition service = schemaService.deriveChecks(reports(function("audit", check, "organizationId", "reportId")));
+
+        assertEquals("organization:{organizationId}", at(check(service, "audit")));
+        assertEquals("organization_can_audit", permission(check(service, "audit")));
+    }
+
+    @Test
+    public void aDeclaredResourceNoParameterOrScopeNamesIsRefused() {
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_audit").setResource("project");
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                                               () -> schemaService.deriveChecks(reports(function("audit", check, "reportId"))));
+
+        assertTrue(e.getMessage().contains("names no resource to check"), e.getMessage());
+    }
+
+    @Test
     public void aTemplateNamingAnUnknownParameterIsRefused() {
         AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission("can_generate").setResourceId("{missing}");
         IllegalStateException e = assertThrows(IllegalStateException.class,
@@ -149,12 +167,52 @@ public class CheckDerivationTest {
     }
 
     @Test
+    public void aDefinitionDeclaringTwoResourcesOrTwoChecksIsRefused() {
+        // the directory reads the first decorator of a type, so a second one would be stored unresolved
+        ServiceDefinition twoResources = reports(function("findById", null, "reportId"));
+        twoResources.setDecorators(List.of(twoResources.getDecorators().getFirst(),
+                                           new AuthzResourceC3Decorator().setResourceType("invoice").setParent("tenant")));
+        String message = assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(twoResources)).getMessage();
+        assertTrue(message.contains("more than one AuthzResourceC3Decorator"), message);
+
+        FunctionDefinition twoChecks = function("generate", new AuthzCheckC3Decorator().setPermission("can_generate"), "reportId");
+        twoChecks.setDecorators(List.of(twoChecks.getDecorators().getFirst(), new AuthzCheckC3Decorator().setUnchecked(true)));
+        message = assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(reports(twoChecks))).getMessage();
+        assertTrue(message.contains("generate on com.acme.reports.ReportService declares more than one AuthzCheckC3Decorator"), message);
+    }
+
+    @Test
     public void aRoleNotNamedAfterTheTypeIsRefused() {
         ServiceDefinition service = reports();
         service.findDecorator(AuthzResourceC3Decorator.class)
                .setRoles(List.of(new AuthzRoleDeclaration().setId("invoice.reader").setPermissions(List.of("can_read"))));
 
         assertTrue(assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(service)).getMessage().contains("report."));
+    }
+
+    @Test
+    public void aPermissionLongerThanARelationNameIsRefused() {
+        // report_ and the permission make the relation, which may have 50 characters
+        String tooLong = "can_" + "x".repeat(40);
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setPermission(tooLong);
+
+        String message = assertThrows(IllegalStateException.class,
+                                      () -> schemaService.deriveChecks(reports(function("generate", check, "reportId")))).getMessage();
+        assertTrue(message.contains("report_" + tooLong), message);
+
+        ServiceDefinition bundling = reports(function("findById", null, "reportId"));
+        bundling.findDecorator(AuthzResourceC3Decorator.class)
+                .setRoles(List.of(new AuthzRoleDeclaration().setId("report.generator").setPermissions(List.of(tooLong))));
+        assertTrue(assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(bundling)).getMessage().contains("50 characters"));
+    }
+
+    @Test
+    public void aRoleWithNoPermissionListIsRefused() {
+        ServiceDefinition service = reports(function("findById", null, "reportId"));
+        service.findDecorator(AuthzResourceC3Decorator.class)
+               .setRoles(List.of(new AuthzRoleDeclaration().setId("report.generator").setPermissions(null)));
+
+        assertTrue(assertThrows(IllegalStateException.class, () -> schemaService.deriveChecks(service)).getMessage().contains("bundles no permission"));
     }
 
     private static ServiceDefinition reports(FunctionDefinition... functions) {

@@ -5,7 +5,6 @@ package org.kinotic.core.internal.api.service.invoker;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -15,7 +14,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Created by Navid Mitchell on 2019-04-08.
  */
 @Component
-public class JacksonArgumentResolver extends AbstractJacksonSupport implements ArgumentResolver {
+public class JacksonArgumentResolver extends AbstractJacksonArgumentResolver {
 
     public JacksonArgumentResolver(JsonMapper jsonMapper,
                                    ReactiveAdapterRegistry reactiveAdapterRegistry,

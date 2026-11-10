@@ -27,6 +27,7 @@ import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -774,15 +775,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
         return findById(machineId)
                 .compose(identity -> {
-                    // one generic failure for every miss — no oracle for which check failed
+                    // one generic rejection for every miss — no oracle for which check failed; a failure of the
+                    // stores behind the checks is not a rejection and fails the future as itself
                     if (!(identity instanceof MachineParticipantIdentity machine) || !machine.isEnabled()) {
-                        throw new IllegalArgumentException("Invalid client credentials");
+                        throw new AuthenticationException("Invalid credentials");
                     }
                     return credentialRepository.findById(machine.getId())
                             .map(credential -> {
                                 if (credential == null
                                         || !DomainUtil.verifyPassword(clientSecret, credential.getSecretHash())) {
-                                    throw new IllegalArgumentException("Invalid client credentials");
+                                    throw new AuthenticationException("Invalid credentials");
                                 }
                                 return machine;
                             });

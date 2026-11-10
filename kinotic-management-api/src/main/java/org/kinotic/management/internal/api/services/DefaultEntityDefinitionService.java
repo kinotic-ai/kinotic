@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -26,7 +27,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
-import org.kinotic.core.api.event.ClusterEventPublisher;
+import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.cache.CacheEvictionException;
@@ -38,11 +39,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+@Slf4j
 @Component
 public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
         implements EntityDefinitionService {
 
-    private final ClusterEventPublisher clusterEventPublisher;
+    private final EventService eventService;
     private final CrudServiceTemplate crudServiceTemplate;
     private final EntityDefinitionConversionService entityDefinitionConversionService;
     private final EntityDefinitionRepository entityDefinitionRepository;
@@ -51,7 +53,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final RelationshipService relationships;
     private final DefaultPermissionService permissions;
 
-    public DefaultEntityDefinitionService(ClusterEventPublisher clusterEventPublisher,
+    public DefaultEntityDefinitionService(EventService eventService,
                                           CrudServiceTemplate crudServiceTemplate,
                                           EntityDefinitionConversionService entityDefinitionConversionService,
                                           EntityDefinitionRepository entityDefinitionRepository,
@@ -63,7 +65,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
         this.permissions = permissions;
-        this.clusterEventPublisher = clusterEventPublisher;
+        this.eventService = eventService;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -134,18 +136,23 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                        .compose(this::contained);
     }
 
-    // The definition's place in the graph, written once the record is, so a write that fails leaves a
-    // definition nobody can reach rather than one nobody stores: in the system's store, where the
+    // The definition's place in the graph, written once the record is: in the system's store, where the
     // organization's members hold it, and in the application's, where its rows are reached through it. What a
     // deleted definition of the same id left on itself, when the removal after its record's deletion failed, is
-    // removed first, so the definition starts with no grant made on it
+    // removed first, so the definition starts with no grant made on it. A record whose place could not be
+    // written is removed again, with whatever of its place was written, since nothing places it later and
+    // nobody could reach it, so the create can be made again
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
         String object = containment(entityDefinition).object();
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
                 .compose(v -> relationships.removeObject(storeOf(entityDefinition), object))
                 .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(entityDefinition))))
                 .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
-                .map(entityDefinition);
+                .map(entityDefinition)
+                .recover(err -> deleted(entityDefinition)
+                                     .onFailure(deleteErr -> log.warn("Could not remove entity definition {} after its graph placement failed: {}",
+                                                                      entityDefinition.getId(), deleteErr.getMessage()))
+                                     .transform(v -> Future.failedFuture(err)));
     }
 
     // The definition leaves both stores with every grant made on it and on its rows within each tenant placed in the
@@ -203,14 +210,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    // Sync delete, then evict: the deletion must be searchable before the
-                    // eviction fires, and the eviction must fire last — either way around,
-                    // a concurrent read could re-cache the old row with no eviction behind it.
-                    // The delete completes once every node holding the caches has evicted.
-                    return super.deleteByIdSync(entityDefinitionId)
-                                .compose(v -> evict(entityDefinition))
-                                .compose(v -> removed(entityDefinition));
+                    return deleted(entityDefinition);
                 });
+    }
+
+    // Sync delete, then evict: the deletion must be searchable before the eviction fires, and the eviction must
+    // fire last; either way around, a concurrent read could re-cache the old row with no eviction behind it. The
+    // delete completes once every node holding the caches has evicted, then the definition leaves the graph
+    private Future<Void> deleted(EntityDefinition entityDefinition) {
+        return super.deleteByIdSync(entityDefinition.getId())
+                    .compose(v -> evict(entityDefinition))
+                    .compose(v -> removed(entityDefinition));
     }
 
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
@@ -425,7 +435,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
      */
     private Future<Void> evict(EntityDefinition entityDefinition) {
         CacheEvictionEvent event = CacheEvictionEvent.entityDefinition(entityDefinition.applicationKey(), entityDefinition.getId());
-        return clusterEventPublisher.publish(event)
-                                    .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
+        return eventService.publish(event)
+                           .recover(error -> Future.failedFuture(new CacheEvictionException(event, error)));
     }
 }

@@ -136,9 +136,14 @@ const grantKinds = computed<SubjectKind[]>(() => [
   { label: 'Group', options: groups.value, placeholder: 'Choose a group', emptyMessage: 'No groups yet' }
 ])
 
+// the panel is kept when the header switches the resource in place, so a load may start while an earlier one is
+// in flight; only the latest load's answer, or failure, reaches the panel
+let latestLoad = 0
+
 watch(() => [props.resource.type, props.resource.id], load, { immediate: true })
 
 async function load(): Promise<void> {
+  const thisLoad = ++latestLoad
   loading.value = true
   error.value = null
   try {
@@ -148,13 +153,21 @@ async function load(): Promise<void> {
       Kinotic.permissions.findPermissions(),
       loadSubjects()
     ])
+    if (thisLoad !== latestLoad) {
+      return
+    }
     grants.value = loadedGrants
     roles.value = loadedRoles
     catalog.value = loadedCatalog
   } catch (err) {
+    if (thisLoad !== latestLoad) {
+      return
+    }
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
-    loading.value = false
+    if (thisLoad === latestLoad) {
+      loading.value = false
+    }
   }
 }
 

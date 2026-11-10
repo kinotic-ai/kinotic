@@ -76,7 +76,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
                 .send(incomingEvent)
                 .onComplete(ar -> {
                     if(ar.failed()){
-                        failConnection("send to " + frame.getDestination() + " failed", ar.cause());
+                        failConnection("send to " + frame.getDestination() + " failed", ar.cause(), frame);
                     }else{
                         stompServerConnection.sendReceiptIfNeeded(frame);
                         stompServerConnection.resume();
@@ -96,10 +96,14 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             CRI cri = CRI.create(frame.getDestination());
 
             StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, replyFlowControl, jsonMapper, traceLogFilter);
-            endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber);
+            // the receipt tells the client its subscription reaches it from every node, so a request it then
+            // makes cannot have its reply sent before the reply destination is known cluster-wide
+            endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber)
+                                     .onSuccess(v -> stompServerConnection.sendReceiptIfNeeded(frame))
+                                     .onFailure(cause -> failConnection("subscribe to " + frame.getDestination() + " failed", cause, frame));
 
         } catch (Exception e) {
-            failConnection("subscribe to " + frame.getDestination() + " failed", e);
+            failConnection("subscribe to " + frame.getDestination() + " failed", e, frame);
         }
     }
 
@@ -110,10 +114,13 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         try {
             String subscriptionId = frame.getHeader(Frame.ID);
 
-            endpointConnectionHandler.unsubscribe(subscriptionId);
+            // the receipt tells the client no node sends to the subscription any more
+            endpointConnectionHandler.unsubscribe(subscriptionId)
+                                     .onSuccess(v -> stompServerConnection.sendReceiptIfNeeded(frame))
+                                     .onFailure(cause -> failConnection("unsubscribe " + subscriptionId + " failed", cause, frame));
 
         } catch (Exception e) {
-            failConnection("unsubscribe " + frame.getHeader(Frame.ID) + " failed", e);
+            failConnection("unsubscribe " + frame.getHeader(Frame.ID) + " failed", e, frame);
         }
     }
 
@@ -127,12 +134,12 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     }
 
     /**
-     * Logs the failure, then sends an ERROR frame and closes the connection — the
+     * Logs the failure, then sends an ERROR frame naming the frame and closes the connection — the
      * STOMP-mandated response to any frame the server cannot process.
      */
-    private void failConnection(String detail, Throwable cause) {
+    private void failConnection(String detail, Throwable cause, Frame frame) {
         log.error("Terminating STOMP connection: {}", detail, cause);
-        stompServerConnection.sendErrorAndDisconnect(cause);
+        stompServerConnection.sendErrorAndDisconnect(cause, frame);
     }
 
     @Override

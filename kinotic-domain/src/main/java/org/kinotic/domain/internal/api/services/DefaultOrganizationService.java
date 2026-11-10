@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.services;
 
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 
+@Slf4j
 @Component
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
@@ -95,15 +97,20 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         return relationships.removeObject(AuthzStoreService.SYSTEM, AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, id));
     }
 
-    // The organization's place in the graph, written once the record is, so a write that fails leaves an
-    // organization nobody can reach rather than one nobody stores. What a deleted organization of the same id left
-    // behind is removed first, so the organization starts with no member and no grant
+    // The organization's place in the graph, written once the record is. What a deleted organization of the same id
+    // left behind is removed first, so the organization starts with no member and no grant. A record whose place
+    // could not be written is removed again, so an engine failure does not leave the name held by an organization
+    // nobody can reach; the record alone is removed, since the graph holds nothing of it yet
     private Future<Organization> contained(Organization organization) {
         return released(organization.getId())
                 .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM,
                                                    List.of(AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT,
                                                                                       AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organization.getId())))))
-                .map(organization);
+                .map(organization)
+                .recover(err -> super.deleteByIdSync(organization.getId())
+                                     .onFailure(deleteErr -> log.warn("Could not remove organization {} after its graph placement failed: {}",
+                                                                      organization.getId(), deleteErr.getMessage()))
+                                     .transform(v -> Future.failedFuture(err)));
     }
 
     @Override

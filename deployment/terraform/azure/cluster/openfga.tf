@@ -75,7 +75,7 @@ resource "kubernetes_secret" "openfga_db" {
   # The URI the engine and its migration connect with: the server's name, which the privatelink
   # zone resolves to the endpoint's address inside the VNet, over TLS
   data = {
-    uri = "postgres://openfga:${random_password.openfga_db.result}@${azurerm_postgresql_flexible_server.openfga.fqdn}:5432/openfga?sslmode=require"
+    uri = "postgres://openfga:${urlencode(random_password.openfga_db.result)}@${azurerm_postgresql_flexible_server.openfga.fqdn}:5432/openfga?sslmode=require"
   }
 }
 

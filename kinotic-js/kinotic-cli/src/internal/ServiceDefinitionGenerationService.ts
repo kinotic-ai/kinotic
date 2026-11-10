@@ -1,6 +1,7 @@
 import {
     AnyC3Type,
     AsyncC3Type,
+    C3Decorator,
     C3Type,
     FunctionDefinition,
     type MetadataType,
@@ -111,9 +112,10 @@ export class ServiceDefinitionGenerationService {
         const ret = new ServiceDefinition(name, namespace as string)
         const service = `${namespace ? namespace + '.' : ''}${name}`
 
-        const resource = declaration.getDecorator('AuthzResource')
+        // the runtime reads both through the classes the service extends, the nearest first
+        const resource = nearestClassDecorator(declaration, 'AuthzResource')
         // the mark on the class is carried by each function, so the definition reads as one marked per function
-        const uncheckedClass = declaration.getDecorator('AuthzUnchecked')
+        const uncheckedClass = nearestClassDecorator(declaration, 'AuthzUnchecked')
         if (uncheckedClass && resource) {
             throw new Error(`${service} is marked @AuthzUnchecked beside the @AuthzResource its functions are checked on; mark the functions instead`)
         }
@@ -123,7 +125,7 @@ export class ServiceDefinitionGenerationService {
             throw new Error(`${service} declares no @AuthzResource and is not marked @AuthzUnchecked; declare the resource its functions act on, or mark the class @AuthzUnchecked`)
         }
         if (resource) {
-            ret.addDecorator(tsDecoratorToC3Decorator(resource)!)
+            ret.addDecorator(authzDecorator(resource, service))
         }
 
         const state = new TypescriptConversionState(this.application)
@@ -163,7 +165,7 @@ export class ServiceDefinitionGenerationService {
         }
         const authz = check ?? unchecked ?? uncheckedClass
         if (authz) {
-            ret.addDecorator(tsDecoratorToC3Decorator(authz)!)
+            ret.addDecorator(authzDecorator(authz, where))
         }
         const parameters = method.getParameters()
         // the context a @Context method takes last is the platform's, not the caller's
@@ -235,6 +237,29 @@ export class ServiceDefinitionGenerationService {
 function takeWarnings(state: TypescriptConversionState): MetadataType | null {
     const warnings = state.warnings.splice(0)
     return warnings.length > 0 ? {[WARNINGS_METADATA_KEY]: warnings} : null
+}
+
+// The C3 decorator an authorization decorator declares, a declaration that cannot be read failing with the service
+// or function carrying it
+function authzDecorator(decorator: Decorator, where: string): C3Decorator {
+    let ret: C3Decorator
+    try {
+        ret = tsDecoratorToC3Decorator(decorator)!
+    } catch (e: any) {
+        throw new Error(`Could not read the @${decorator.getName()} of ${where}: ${e?.message ?? e}`)
+    }
+    return ret
+}
+
+// The decorator of the given name on the class, else on the nearest class it extends that carries one
+function nearestClassDecorator(declaration: ClassDeclaration, name: string): Decorator | undefined {
+    let ret: Decorator | undefined
+    let current: ClassDeclaration | undefined = declaration
+    while (current && !ret) {
+        ret = current.getDecorator(name)
+        current = current.getBaseClass()
+    }
+    return ret
 }
 
 function capitalize(value: string): string {

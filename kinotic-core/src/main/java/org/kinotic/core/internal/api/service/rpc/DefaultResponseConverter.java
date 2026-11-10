@@ -3,9 +3,9 @@
 package org.kinotic.core.internal.api.service.rpc;
 
 import org.springframework.context.annotation.Primary;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Default {@link RpcResponseConverter} that delegates to all {@link RpcResponseConverter}'s found in the {@link org.springframework.context.ApplicationContext}

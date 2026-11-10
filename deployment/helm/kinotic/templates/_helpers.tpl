@@ -51,8 +51,6 @@ Takes (dict "name" <server key> "server" <server values> "root" $).
   path: jwt-signing-keys
 - object: {{ $objects.secretStorageMasterKey }}
   path: kinotic.domain.secretStorage.masterKey
-- object: {{ $objects.eeLicenseKey }}
-  path: kinotic.ee.licenseKey
 {{- if .server.githubApp }}
 - object: {{ $objects.githubAppPrivateKey }}
   path: kinotic.managementApi.github.appPrivateKey

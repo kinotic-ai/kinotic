@@ -2,6 +2,7 @@ package org.kinotic.management.internal.api.services;
 
 import com.github.slugify.Slugify;
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
+@Slf4j
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
 
@@ -138,7 +140,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         return super.findById(project.getId())
                 .compose(existing -> {
                     if (existing != null) {
-                        return Future.succeededFuture(existing);
+                        return placed(existing);
                     }
                     // the create refuses an id already held, so of two callers at once only the first places the
                     // project in the graph, and grants made on it since are kept
@@ -179,6 +181,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     @Override
     public Future<Void> deleteByIdSync(String id) {
         return super.findById(id).compose(project -> super.deleteByIdSync(id).compose(v -> uncontained(project)));
+    }
+
+    // A create whose placement failed left the record without its place in the graph, which the record outlives
+    // since its repository exists by then; ensure is idempotent, so a project placed already keeps its grants, and
+    // the engine being unreachable leaves the project as it is rather than failing the caller
+    private Future<Project> placed(Project existing) {
+        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(existing)))
+                            .recover(err -> {
+                                log.warn("Could not place project {} in the graph: {}", existing.getId(), err.getMessage());
+                                return Future.succeededFuture();
+                            })
+                            .map(existing);
     }
 
     // The project's place in the graph, written once the record is, so a write that fails leaves a project
@@ -314,8 +328,9 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         return super.findById(project.getId())
                 .compose(existing -> {
                     if (existing != null) {
-                        return Future.failedFuture(new IllegalArgumentException(
-                                "Project for id " + project.getId() + " already exists"));
+                        // the create made again places the record before refusing the duplicate
+                        return placed(existing).compose(p -> Future.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists")));
                     }
                     return repoProvisioner.provision(project)
                                           .compose(provisioned -> write.apply(provisioned)

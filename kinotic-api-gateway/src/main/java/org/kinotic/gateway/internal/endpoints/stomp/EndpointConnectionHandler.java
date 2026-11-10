@@ -3,6 +3,7 @@
 
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
@@ -10,6 +11,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.HttpException;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -50,7 +52,7 @@ public class EndpointConnectionHandler {
     private static final String CLIENT_SECRET_HEADER = "clientSecret";
     private final SecurityService securityService;
     private final Services services;
-    private final Map<String, EventConsumer> subscriptions = new HashMap<>();
+    private final Map<String, ConnectionSubscription> subscriptions = new HashMap<>();
     private final IncomingInvocationTracker incomingInvocationTracker;
     private final OutgoingInvocationTracker outgoingInvocationTracker;
     // ends the connection with the cause given, when its authorization is revoked or its login's session ends
@@ -103,13 +105,17 @@ public class EndpointConnectionHandler {
 
         return securityService.authenticate(authenticationInfo, GATEWAY_CONTEXT)
                               .recover(throwable -> {
-                                  Throwable cause;
-                                  if(throwable instanceof AuthenticationException){
-                                      cause = throwable;
-                                  }else{
-                                      cause = new AuthenticationException("Could not authenticate with the given credentials", throwable);
+                                  // the upgrade is answered with the status of the HttpException: rejected credentials
+                                  // are the client's to change, a security service that could not answer is an outage
+                                  // the client should retry through
+                                  HttpException rejection;
+                                  if (throwable instanceof AuthenticationException) {
+                                      rejection = new HttpException(HttpResponseStatus.UNAUTHORIZED.code(), throwable);
+                                  } else {
+                                      log.warn("The security service could not authenticate a connection", throwable);
+                                      rejection = new HttpException(HttpResponseStatus.SERVICE_UNAVAILABLE.code(), throwable);
                                   }
-                                  return Future.failedFuture(cause);
+                                  return Future.failedFuture(rejection);
                               })
                               .map(participant -> {
                                   connectedInfo = new ConnectedInfo();
@@ -327,7 +333,7 @@ public class EndpointConnectionHandler {
             services.vertx.cancelTimer(sessionTimer);
             sessionTimer = -1;
         }
-        subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
+        subscriptions.forEach((s, subscription) -> subscription.consumer().unregister());
         subscriptions.clear();
         registrations.forEach(Runnable::run);
         registrations.clear();
@@ -340,9 +346,14 @@ public class EndpointConnectionHandler {
         stompAuthorizer = null;
     }
 
-    public void subscribe(CRI cri,
-                          String subscriptionIdentifier,
-                          StompSubscriptionHandler subscriptionHandler) {
+    /**
+     * Subscribes the connection to the destination.
+     * @return completes once the subscription is registered across the cluster, so an event sent to the
+     *         destination from any node reaches the connection
+     */
+    public Future<Void> subscribe(CRI cri,
+                                  String subscriptionIdentifier,
+                                  StompSubscriptionHandler subscriptionHandler) {
         Validate.notNull(cri, "CRI must not be null");
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
@@ -353,9 +364,10 @@ public class EndpointConnectionHandler {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
         }
 
+        EventConsumer eventConsumer;
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventBusService.listen(cri);
+            eventConsumer = services.eventBusService.listen(cri);
             eventConsumer.handler(event -> {
                         // An invocation with a correlation id awaits a reply until its terminal one, and its
                         // replies are allowed for that long. Any other event carrying a reply-to gets one
@@ -377,62 +389,61 @@ public class EndpointConnectionHandler {
                     })
                     .exceptionHandler(subscriptionHandler::handleError);
 
-            replaceSubscription(subscriptionIdentifier, eventConsumer);
-
-            log.debug("New Service Subscription cri: {} id: {} for login: {}",
-                      cri.raw(),
-                      subscriptionIdentifier,
-                      connectedInfo.getParticipant());
-
-
         } else if (cri.scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventStreamService.listen(cri);
+            eventConsumer = services.eventStreamService.listen(cri);
             eventConsumer.handler(subscriptionHandler::handleEvent)
                          .exceptionHandler(subscriptionHandler::handleError);
 
-            replaceSubscription(subscriptionIdentifier, eventConsumer);
-
-            log.debug("New Event Subscription cri: {} id: {} for login: {}",
-                      cri.raw(),
-                      subscriptionIdentifier,
-                      connectedInfo.getParticipant());
-
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            incomingInvocationTracker.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
-
-            log.debug("New Reply Subscription cri: {} id: {} for login: {}",
-                      cri.raw(),
-                      subscriptionIdentifier,
-                      connectedInfo.getParticipant());
+            eventConsumer = incomingInvocationTracker.listenForReplies(cri, subscriptionHandler);
 
         } else {
             throw new IllegalArgumentException("CRI scheme not supported");
         }
+        // a subscription id the client reuses ends the consumer it named before, whatever its scheme, and the
+        // receipt waits for that consumer to be gone as well as for the new one to be registered
+        ConnectionSubscription previous = subscriptions.get(subscriptionIdentifier);
+        Future<Void> ret;
+        if (previous != null) {
+            ret = Future.all(unregister(previous), eventConsumer.completion()).mapEmpty();
+        } else {
+            ret = eventConsumer.completion();
+        }
+        subscriptions.put(subscriptionIdentifier, new ConnectionSubscription(eventConsumer, ret));
+        log.debug("New subscription cri: {} id: {} for login: {}",
+                  cri.raw(),
+                  subscriptionIdentifier,
+                  connectedInfo.getParticipant());
+        return ret;
     }
 
-    public void unsubscribe(String subscriptionIdentifier) {
+    /**
+     * Unsubscribes the connection from the subscription of the identifier.
+     * @return completes once the subscription is unregistered across the cluster, so no node sends to it any
+     *         more; at once when the identifier names no subscription
+     */
+    public Future<Void> unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
         signalActivity();
 
-        if (!incomingInvocationTracker.unsubscribeReplies(subscriptionIdentifier)) {
-            EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
-            if (consumer != null) {
-                consumer.unregister();
-            } else {
-                log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
-            }
+        ConnectionSubscription subscription = subscriptions.remove(subscriptionIdentifier);
+        Future<Void> ret;
+        if (subscription != null) {
+            ret = unregister(subscription);
+        } else {
+            log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
+            ret = Future.succeededFuture();
         }
+        return ret;
     }
 
-    // a subscription id the client reuses ends the consumer it named before
-    private void replaceSubscription(String subscriptionIdentifier, EventConsumer eventConsumer) {
-        EventConsumer previous = subscriptions.put(subscriptionIdentifier, eventConsumer);
-        if (previous != null) {
-            previous.unregister();
-        }
+    // The consumer is unregistered once its own SUBSCRIBE has settled, so the unregistration also covers the
+    // consumers that subscription displaced, which its receipt waited to be gone
+    private static Future<Void> unregister(ConnectionSubscription subscription) {
+        return subscription.subscribed().transform(ar -> subscription.consumer().unregister());
     }
 
     private Map<String, String> toCaseInsensitiveMap(MultiMap headers) {

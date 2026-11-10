@@ -9,7 +9,6 @@ import io.vertx.core.eventbus.MessageConsumer;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConsumer;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Default implementation of {@link EventConsumer} that wraps a Vert.x {@link MessageConsumer}.
@@ -24,7 +23,8 @@ public class DefaultEventConsumer implements EventConsumer {
     private final MessageConsumer<Event<byte[]>> delegate;
     private final String nodeId;
     private final Runnable onUnregister;
-    private final AtomicBoolean unregistered = new AtomicBoolean(false);
+    // the one unregistration of this consumer, which every call to unregister() returns
+    private Future<Void> unregistration;
 
     /**
      * @param delegate the Vert.x consumer to wrap
@@ -74,12 +74,24 @@ public class DefaultEventConsumer implements EventConsumer {
         return this;
     }
 
+    // Synchronized so that two calls share one unregistration: the delegate replaces its completion promise
+    // once unregistered, and a second call reading the fresh promise would wait on it forever
     @Override
-    public Future<Void> unregister() {
-        if (onUnregister != null && unregistered.compareAndSet(false, true)) {
-            onUnregister.run();
+    public synchronized Future<Void> unregister() {
+        if (unregistration == null) {
+            if (onUnregister != null) {
+                onUnregister.run();
+            }
+            // Vert.x fails a registration still in progress when the consumer is unregistered under it, which a
+            // caller waiting on completion() would read as a failed registration, so the unregistration waits
+            // for a started registration to settle either way
+            if (delegate.isRegistered()) {
+                unregistration = delegate.completion().transform(ar -> delegate.unregister());
+            } else {
+                unregistration = delegate.unregister();
+            }
         }
-        return delegate.unregister();
+        return unregistration;
     }
 
     @Override

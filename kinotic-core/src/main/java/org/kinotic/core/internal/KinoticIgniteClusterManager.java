@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 /**
  * An {@link IgniteClusterManager} confined to this server's {@link ZonePartitioningService}: it advertises a consumer to the
@@ -35,7 +36,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * additionally provides a {@link Flux} of {@link ListenerStatus} for any event bus address, fed by the
  * registration updates it already receives for message routing, and a {@link Flux} of the cluster membership,
  * fed by the discovery events it already receives. Both fluxes, and {@link #getClusterRegistrations}, observe the
- * whole cluster whatever the partitioning.
+ * whole cluster whatever the partitioning. A lookup, an update and a monitor report only the registrations of
+ * current cluster members, and every address a departed node was registered on is announced when it leaves.
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
  * how often monitors come and go. All monitor signals are delivered on a vertx context, never on the
  * cluster threads that observe registration changes.
@@ -53,6 +55,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private static final String VERTX_SUBSCRIPTION_CACHE = "__vertx.subs";
 
     private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
+    // a scan of the subscription cache can fail while the cluster reshapes after a departure, so it is tried again
+    private static final int ANNOUNCE_ATTEMPTS = 3;
+    private static final long ANNOUNCE_RETRY_MILLIS = 1_000;
 
     private final Ignite ignite;
     private final ZonePartitioningService partitioning;
@@ -63,6 +68,8 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private final Sinks.Many<Set<String>> clusterNodesSink = Sinks.many().replay().latest();
     private boolean clusterNodesEmitted; // touched only on the delivery context
     private boolean nodeListenerInstalled;
+    // the listener handed to vertx-ignite, which announceDeparture feeds as well
+    private volatile RegistrationListener registrationUpdates;
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
@@ -85,7 +92,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     @Override
     public void getRegistrations(String address, Completable<List<RegistrationInfo>> promise) {
         if(partitioning.reaches(address)){
-            super.getRegistrations(address, promise);
+            super.getRegistrations(address, liveOnly(promise));
         }else{
             promise.succeed(List.of());
         }
@@ -98,7 +105,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
      * @param promise completed with the registrations
      */
     public void getClusterRegistrations(String address, Completable<List<RegistrationInfo>> promise) {
-        super.getRegistrations(address, promise);
+        super.getRegistrations(address, liveOnly(promise));
     }
 
     @Override
@@ -114,6 +121,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             @Override
             public void nodeLeft(String nodeId) {
                 emitClusterNodes(false);
+                announceDeparture(nodeId, ANNOUNCE_ATTEMPTS);
             }
         });
     }
@@ -149,7 +157,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     public void registrationListener(RegistrationListener registrationListener) {
         // Wrap the listener vertx core supplies, so registration updates reach both vertx's node
         // selector for message routing and any active monitors
-        super.registrationListener(new RegistrationListener() {
+        RegistrationListener wrapper = new RegistrationListener() {
             @Override
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
@@ -158,7 +166,11 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             }
 
             @Override
-            public void registrationsUpdated(RegistrationUpdateEvent event) {
+            public void registrationsUpdated(RegistrationUpdateEvent update) {
+                List<RegistrationInfo> live = liveRegistrations(update.registrations());
+                RegistrationUpdateEvent event = live.size() == update.registrations().size()
+                        ? update
+                        : new RegistrationUpdateEvent(update.address(), live);
                 // an update fired for a monitor is not forwarded unless the wrapped listener asked for the
                 // address, matching what the cluster manager would deliver without this wrapper. An unreachable
                 // zone is never forwarded: the node selector holds an entry for an address while its first
@@ -185,7 +197,79 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 // rebuild their baseline from a registeredServiceAddresses snapshot
                 emitServiceListenerEvent(new ServiceListenerContinuityLost());
             }
-        });
+        };
+        registrationUpdates = wrapper;
+        super.registrationListener(wrapper);
+    }
+
+    // vertx-ignite announces a registration change through a continuous query on the subscription cache and reads
+    // the address back from the local copy of the cache when the event arrives. The node that removes a failed
+    // node's registrations is usually another one, and while the cluster reshapes the event can be read before
+    // the removal reaches this node's copy, or be missed, leaving routing and the monitors with the failed node
+    // until the address changes again. So every address the departed node was registered on is announced here
+    // from the local copy, without the departed node, whether or not the removal has happened yet.
+    private void announceDeparture(String nodeId, int attempts) {
+        try {
+            IgniteCache<String, Set<IgniteRegistrationInfo>> cache = ignite.cache(VERTX_SUBSCRIPTION_CACHE);
+            if(cache != null){
+                for(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry : cache){
+                    List<RegistrationInfo> registrations = registrationsOf(entry);
+                    if(registrations.stream().anyMatch(info -> nodeId.equals(info.nodeId()))){
+                        List<RegistrationInfo> remaining = registrations.stream()
+                                                                        .filter(info -> !nodeId.equals(info.nodeId()))
+                                                                        .toList();
+                        announce(entry.getKey(), remaining);
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            if(attempts > 1){
+                log.debug("The addresses of departed node {} are announced again: {}", nodeId, e.getMessage());
+                vertx.setTimer(ANNOUNCE_RETRY_MILLIS, t -> vertx.executeBlocking(() -> {
+                    announceDeparture(nodeId, attempts - 1);
+                    return null;
+                }));
+            }else{
+                log.warn("Could not announce the addresses of departed node {}", nodeId, e);
+            }
+        }
+    }
+
+    // A listener failing on one address leaves the other addresses of the departure to be announced
+    private void announce(String address, List<RegistrationInfo> remaining) {
+        try {
+            registrationUpdates.registrationsUpdated(new RegistrationUpdateEvent(address, remaining));
+        } catch (RuntimeException e) {
+            log.warn("Could not announce the departure from address {}", address, e);
+        }
+    }
+
+    // Completes the promise with the registrations held by current cluster members
+    private Completable<List<RegistrationInfo>> liveOnly(Completable<List<RegistrationInfo>> promise) {
+        return (registrations, err) -> {
+            if(err == null){
+                promise.succeed(liveRegistrations(registrations));
+            }else{
+                promise.fail(err);
+            }
+        };
+    }
+
+    private List<RegistrationInfo> liveRegistrations(List<RegistrationInfo> registrations) {
+        return registrations.stream().filter(live()).toList();
+    }
+
+    // The subscription cache can list a node that has left until the node cleaning up after it has removed them,
+    // so membership decides which registrations count. A running cluster always lists this node, so an empty
+    // membership is getNodes() answering for a grid that is starting or stopping, and every registration passes
+    // rather than every one being dropped
+    private Predicate<RegistrationInfo> live() {
+        Set<String> members = Set.copyOf(getNodes());
+        return members.isEmpty() ? info -> true : info -> members.contains(info.nodeId());
+    }
+
+    private static List<RegistrationInfo> registrationsOf(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry) {
+        return entry.getValue().stream().map(IgniteRegistrationInfo::registrationInfo).toList();
     }
 
     /**
@@ -270,11 +354,10 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             throw new IllegalStateException("The vertx subscription cache is not available");
         }
         Set<String> addresses = new HashSet<>();
-        // an entry's existence implies at least one registration: SubsMapHelper's entry processors
-        // remove the key atomically when its registration set empties
+        Predicate<RegistrationInfo> live = live();
         for(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry : cache){
             String address = entry.getKey();
-            if(address.startsWith(SERVICE_ADDRESS_PREFIX)){
+            if(address.startsWith(SERVICE_ADDRESS_PREFIX) && registrationsOf(entry).stream().anyMatch(live)){
                 addresses.add(address);
             }
         }

@@ -1,7 +1,8 @@
-import {FunctionDefinition, ServiceDefinition} from '@kinotic-ai/idl'
+import {AuthzCheckDecorator, AuthzResourceDecorator, FunctionDefinition, ServiceDefinition} from '@kinotic-ai/idl'
 import {Observable, of, Subject} from 'rxjs'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+    AuthzCheck,
     AuthzResource,
     AuthzUnchecked,
     declareServiceDefinitions,
@@ -73,6 +74,38 @@ function definition(name: string, ...functions: string[]): ServiceDefinition {
     return ret
 }
 
+// the definition kinotic sync generates for a service of the type 'invoice' whose generate function needs can_generate
+function invoiceDefinition(name: string, generate: AuthzCheckDecorator): ServiceDefinition {
+    const ret = definition(name, 'findInvoices', 'generate')
+    ret.addDecorator(new AuthzResourceDecorator('invoice'))
+    ret.functions.find(f => f.name === 'generate')!.addDecorator(generate)
+    return ret
+}
+
+function permission(name: string): AuthzCheckDecorator {
+    const ret = new AuthzCheckDecorator()
+    ret.permission = name
+    return ret
+}
+
+function uncheckedMark(): AuthzCheckDecorator {
+    const ret = new AuthzCheckDecorator()
+    ret.unchecked = true
+    return ret
+}
+
+@AuthzResource('invoice')
+class InvoiceService {
+    findInvoices(): Promise<string[]> {
+        return Promise.resolve([])
+    }
+
+    @AuthzCheck({permission: 'can_generate'})
+    generate(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+
 function identifier(name: string, zone: string | undefined = ZONE): ServiceIdentifier {
     const ret = new ServiceIdentifier(NAMESPACE, name, zone)
     ret.version = '1.2.0'
@@ -133,6 +166,31 @@ describe('Kinotic JS', () => {
                 const {registry: services, bus} = registry(true)
 
                 expect(() => services.register(identifier('DriftedService'), new ReportService())).toThrowError(/kinotic sync/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('registers a resource service whose definition carries what it declares', () => {
+                // the definitions declared stay for the module, so each test names its own service
+                declareServiceDefinitions([invoiceDefinition('BillingService', permission('can_generate'))])
+                const {registry: services, bus} = registry(true)
+
+                services.register(identifier('BillingService'), new InvoiceService())
+
+                expect(bus.registrations()).toHaveLength(1)
+            })
+
+            it('refuses a service whose definition declares other authorization than it does', () => {
+                // generated before the service declared its resource
+                declareServiceDefinitions([definition('UnresourcedService', 'findInvoices', 'generate')])
+                // generated while generate was still marked unchecked
+                declareServiceDefinitions([invoiceDefinition('UncheckedService', uncheckedMark())])
+                // generated before generate's permission changed
+                declareServiceDefinitions([invoiceDefinition('RenamedService', permission('can_render'))])
+                const {registry: services, bus} = registry(true)
+
+                for (const name of ['UnresourcedService', 'UncheckedService', 'RenamedService']) {
+                    expect(() => services.register(identifier(name), new InvoiceService())).toThrowError(/other authorization than its definition/)
+                }
                 expect(bus.registrations()).toHaveLength(0)
             })
 

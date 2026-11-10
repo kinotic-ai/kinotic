@@ -257,13 +257,15 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
 
     /**
      * Authenticates a machine by its credentials: the machine with the given id must exist,
-     * be enabled, and hold a credential matching {@code clientSecret}. Every failure — unknown
-     * id, wrong kind of identity, disabled, or wrong secret — fails the same way, so callers
+     * be enabled, and hold a credential matching {@code clientSecret}. Every miss — unknown
+     * id, wrong kind of identity, disabled, or wrong secret — is rejected the same way, so callers
      * leak nothing about which check missed.
      *
      * @param machineId    the machine's id, presented as the {@code clientId} credential
      * @param clientSecret the secret issued at provisioning
-     * @return a future emitting the authenticated machine, failed for any invalid credential
+     * @return a future emitting the authenticated machine, failed with an
+     *         {@link org.kinotic.core.api.exceptions.AuthenticationException} for any invalid credential, and with
+     *         the failure itself when the stores behind the checks fail
      */
     Future<MachineParticipantIdentity> verifyMachineCredentials(String machineId, String clientSecret);
 

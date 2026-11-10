@@ -1,6 +1,7 @@
 package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -38,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
 
@@ -181,6 +183,10 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         return storeProvisioner.provision(application)
                                .recover(e -> scopedRepository.deleteByIdSync(application.getId(), application.getOrganizationId())
                                                              .compose(v -> released(application.getId()))
+                                                             // the caller sees the provisioning failure, so a record or store
+                                                             // the rollback left behind is reported here
+                                                             .onFailure(rollback -> log.warn("Could not roll back application {} after its store failed to provision",
+                                                                                             application.getId(), rollback))
                                                              .transform(deleted -> Future.<Application>failedFuture(e)));
     }
 

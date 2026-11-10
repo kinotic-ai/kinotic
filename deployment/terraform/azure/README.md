@@ -83,32 +83,23 @@ az ad group member add --group kinotic-terraform-operators \
 
 ### 4. Deploy global resources (once)
 
-The servers' license key is issued by the license signing key this same root creates, so a
-first apply creates the signing key on its own, issues the license key with it, and then applies
-the rest:
+This root also creates the license signing key, which issues Kinotic Enterprise License keys with the
+vault's ES256 sign operation (`az keyvault key sign --vault-name kv-kinotic-platform --name
+kinotic-license-signing ...`).
 
 ```bash
 cd global
 terraform init
-terraform apply -target=azurerm_key_vault_key.license_signing
-# Issue a key whose features include AZURE_KEY_VAULT (or "*") by signing it with the vault's ES256
-# sign operation (az keyvault key sign --vault-name kv-kinotic-platform --name kinotic-license-signing ...)
-```
-
-Then apply everything:
-
-```bash
 # cloudflare_account_id and cloudflare_api_token in local.auto.tfvars (gitignored)
 TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... TF_VAR_cloudflare_dns_api_token=... \
   TF_VAR_github_app_private_key="$(cat <the App's private-key .pem>)" TF_VAR_github_webhook_secret=... \
-  TF_VAR_ee_license_key=<a Kinotic Enterprise License key that turns on AZURE_KEY_VAULT> \
   terraform apply
 ```
 
 This creates the platform zone on Cloudflare with the email records, the Entra ID app
-registrations, and the platform Key Vault holding the secrets the servers mount. Later applies
-leave the license key secret as it is, so a renewed key is set with
-`az keyvault secret set --vault-name kv-kinotic-platform --name kinotic-ee-license-key --value <key>`.
+registrations, and the platform Key Vault holding the secrets the servers mount. Once the servers
+run, a system user installs the license key on the system console's License page (see the Enterprise License
+page of the docs); until then the servers store no new secret in Key Vault.
 
 Point the domain at Cloudflare's nameservers at your registrar:
 

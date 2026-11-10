@@ -15,6 +15,7 @@ import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
@@ -31,8 +32,6 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 public class ApiGatewayVertcleFactory {
-
-    private static final String STOMP_WEBSOCKET_PATH = "/api/v1";
 
     private final KinoticApiGatewayProperties properties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
@@ -86,7 +85,7 @@ public class ApiGatewayVertcleFactory {
         // The library's default heartbeat, 30 s offered and expected both ways, is what the TS client offers
         // too, so the negotiated interval is 30 s and a silent connection closes after two of them
         StompServerOptions stompServerOptions = new StompServerOptions()
-                .setWebsocketPath(STOMP_WEBSOCKET_PATH)
+                .setWebsocketPath(EventConstants.STOMP_WEBSOCKET_PATH)
                 .setDebugEnabled(properties.isDebug())
                 .setMaxBodyLength(properties.getMaxEventPayloadSize());
 
