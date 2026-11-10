@@ -17,6 +17,9 @@ interface Plan {
 // Annual billing takes this fraction off twelve months at the monthly price.
 const ANNUAL_DISCOUNT = 0.1
 
+// How many months a paid plan's trial lasts, with no payment details.
+const TRIAL_MONTHS = 3
+
 const plans: Plan[] = [
   {
     id: 'free',
@@ -36,7 +39,7 @@ const plans: Plan[] = [
     monthly: 5000,
     summary: 'For growing companies running Kinotic in production.',
     includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Email support'],
-    cta: { label: 'Buy Small', to: 'https://licenses.kinotic.ai/buy?plan=small' },
+    cta: { label: 'Try Small free', to: 'https://licenses.kinotic.ai/buy?plan=small' },
   },
   {
     id: 'medium',
@@ -46,7 +49,7 @@ const plans: Plan[] = [
     monthly: 10000,
     summary: 'For established companies building on Kinotic.',
     includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Priority support'],
-    cta: { label: 'Buy Medium', to: 'https://licenses.kinotic.ai/buy?plan=medium' },
+    cta: { label: 'Try Medium free', to: 'https://licenses.kinotic.ai/buy?plan=medium' },
   },
   {
     id: 'large',
@@ -56,7 +59,7 @@ const plans: Plan[] = [
     monthly: 20000,
     summary: 'For enterprises running critical systems on Kinotic.',
     includes: ['Every Enterprise feature, in your own cloud', 'Every new Enterprise feature, at the same price', 'Priority support and a named contact'],
-    cta: { label: 'Buy Large', to: 'https://licenses.kinotic.ai/buy?plan=large' },
+    cta: { label: 'Try Large free', to: 'https://licenses.kinotic.ai/buy?plan=large' },
   },
 ]
 
@@ -75,9 +78,9 @@ const billedNote = (plan: Plan) => {
   if (plan.monthly === 0) {
     ret = 'Free for as long as you qualify'
   } else if (billing.value === 'annual') {
-    ret = `Billed ${usd(plan.monthly * 12 * (1 - ANNUAL_DISCOUNT))} a year`
+    ret = `Free for ${TRIAL_MONTHS} months, then ${usd(plan.monthly * 12 * (1 - ANNUAL_DISCOUNT))} a year`
   } else {
-    ret = 'Billed monthly'
+    ret = `Free for ${TRIAL_MONTHS} months, then billed monthly`
   }
   return ret
 }
@@ -96,6 +99,7 @@ const ctaHref = (plan: Plan) => plan.monthly === 0 ? plan.cta.to : `${plan.cta.t
         <p class="plans__lede">
           <span class="plans__lede-line">Each plan licenses Kinotic's Enterprise features in your own cloud.</span>
           <span class="plans__lede-line">Your price is set by your company's annual revenue.</span>
+          <span class="plans__lede-line">Try any paid plan free for {{ TRIAL_MONTHS }} months, with no card needed.</span>
         </p>
 
         <div class="plans__toggle" role="group" aria-label="Billing period">

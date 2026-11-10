@@ -1,6 +1,3 @@
-
-
-
 package org.kinotic.core.api.event;
 
 import io.vertx.core.Future;
@@ -8,9 +5,8 @@ import io.vertx.core.Handler;
 
 /**
  * Provides a Vert.x-style consumer for {@link Event} objects.
- * This wraps the underlying messaging mechanism and provides {@link Event<byte[]>} to handlers
+ * This wraps the underlying messaging mechanism and provides Event<byte[]> to handlers
  * rather than raw transport-level messages.
- *
  * Created by Navid Mitchell on 2024-01-01.
  */
 public interface EventConsumer {
