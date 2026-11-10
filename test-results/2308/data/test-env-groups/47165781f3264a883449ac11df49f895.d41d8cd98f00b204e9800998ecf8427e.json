@@ -1,1 +1,0 @@
-{"id":"47165781f3264a883449ac11df49f895.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.client.KinoticConnectionTests.testProxyReleasedBeforeItsSubscriptionIsReceiptedKeepsTheConnection","name":"testProxyReleasedBeforeItsSubscriptionIsReceiptedKeepsTheConnection()","status":"passed","testResultsByEnv":{"default":"bb3d01a7503b7f5a21b7ce27feb97f23"}}
