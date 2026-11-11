@@ -9,6 +9,7 @@ import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,13 @@ public abstract class AbstractApplicationScopedRepository<T extends ApplicationS
      */
     public Future<Set<String>> findApplicationIdsOf(Collection<String> ids, String orgId) {
         return findAllByIds(ids, orgId).map(found -> found.stream().map(ApplicationScoped::getApplicationId).collect(Collectors.toSet()));
+    }
+
+    /**
+     * The application of each document with one of the given ids in {@code orgId}, by the document's id.
+     */
+    public Future<Map<String, String>> findApplicationIdsById(Collection<String> ids, String orgId) {
+        return findAllByIds(ids, orgId).map(found -> found.stream().collect(Collectors.toMap(ApplicationScoped::getId, ApplicationScoped::getApplicationId)));
     }
 
     protected Query applicationIdFilter(String applicationId) {

@@ -99,12 +99,13 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
     Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable);
 
     /**
-     * Creates a new project if it does not already exist. If a project with the same id
-     * is already present, returns the existing project without modification.
+     * Creates a new project if it does not already exist. If the project's application already holds a project
+     * with the same id, returns the existing project without modification.
      *
      * @param project the project to create; the id is auto-derived from the application id
      *                and slugified name if not set
-     * @return a {@link Future} emitting the created or existing project
+     * @return a {@link Future} emitting the created or existing project, or failing with an
+     *         {@link IllegalArgumentException} when another application's project holds the id
      */
     Future<Project> createProjectIfNotExist(Project project);
 

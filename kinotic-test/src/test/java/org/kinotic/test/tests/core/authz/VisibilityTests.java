@@ -42,19 +42,23 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies the listings show a member what it may see and nothing else: an application the member reads or one
  * containing a project or an entity definition it reads, and the projects it reads or those containing an
- * entity definition it reads. What is hidden is absent from a listing and answered as not found by id, and the
- * organization's administrator sees everything.
+ * entity definition it reads, where a project contains the definitions of its own application that name it. What
+ * is hidden is absent from a listing and answered as not found by id, a project another application holds is
+ * refused to a create naming its id, and the organization's administrator sees everything.
  */
 @SpringBootTest
 public class VisibilityTests extends KinoticTestBase {
@@ -146,6 +150,55 @@ public class VisibilityTests extends KinoticTestBase {
                    "the application never became visible");
         assertEquals(List.of(a.getId()), ids(await(runAs(caller, () -> projectService.findAllForApplication(x.getId(), FIRST_PAGE)))));
         assertFalse(ids(await(runAs(caller, () -> projectService.findAll(FIRST_PAGE)))).contains(b.getId()));
+    }
+
+    @Test
+    public void anEntityDefinitionNamingAnotherApplicationsProjectDoesNotReachIt() throws Exception {
+        Application x = application();
+        Project a = project(x);
+        Application y = application();
+        Project hidden = project(y);
+        EntityDefinition inside = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), a.getId()))));
+        // a definition of x whose author named a project of y as its project
+        EntityDefinition naming = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), hidden.getId()))));
+        OrganizationParticipantIdentity sally = member(TEST_ORG_ID, "visible");
+        for (EntityDefinition definition : List.of(inside, naming)) {
+            await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, sally.getId()), "entity_definition.viewer",
+                                                            new Resource(EntityDefinitionService.RESOURCE_TYPE, definition.getId()))));
+        }
+        OrganizationParticipant caller = participant(sally.getId());
+
+        assertTrue(awaitUntil(() -> ids(await(runAs(caller, () -> projectService.findAll(FIRST_PAGE)))).contains(a.getId())),
+                   "the definition's project never became visible");
+        assertEquals(List.of(a.getId()), ids(await(runAs(caller, () -> projectService.findAll(FIRST_PAGE)))));
+        assertEquals(1L, await(runAs(caller, projectService::count)));
+        assertNull(await(runAs(caller, () -> projectService.findById(hidden.getId()))));
+        assertTrue(ids(await(runAs(caller, () -> projectService.findAllForApplication(y.getId(), FIRST_PAGE)))).isEmpty());
+        assertNull(await(runAs(caller, () -> applicationService.findById(y.getId()))));
+    }
+
+    @Test
+    public void aProjectOfAnotherApplicationIsNotReturnedAsTheExistingOne() throws Exception {
+        Application x = application();
+        Application y = application();
+        Project held = project(y);
+        Project requested = new Project();
+        requested.setId(held.getId());
+        requested.setName(held.getName());
+        requested.setOrganizationId(TEST_ORG_ID);
+        requested.setApplicationId(x.getId());
+
+        ExecutionException refused = assertThrows(ExecutionException.class,
+                                                  () -> await(runAsOrganization(() -> projectService.createProjectIfNotExist(requested))));
+        assertInstanceOf(IllegalArgumentException.class, refused.getCause());
+
+        // the application holding the id is answered with its project
+        Project again = new Project();
+        again.setId(held.getId());
+        again.setName(held.getName());
+        again.setOrganizationId(TEST_ORG_ID);
+        again.setApplicationId(y.getId());
+        assertEquals(held.getId(), await(runAsOrganization(() -> projectService.createProjectIfNotExist(again))).getId());
     }
 
     @Test
