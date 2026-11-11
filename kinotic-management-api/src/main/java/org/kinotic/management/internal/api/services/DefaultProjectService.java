@@ -145,17 +145,20 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         validateAndDeriveId(project);
         return super.findById(project.getId())
                 .compose(existing -> {
+                    Future<Project> ret;
                     if (existing != null) {
-                        return placed(requireApplicationOf(project, existing));
+                        ret = placed(requireApplicationOf(project, existing));
+                    } else {
+                        // the create refuses an id already held, so of two callers at once only the first places
+                        // the project in the graph, and grants made on it since are kept
+                        ret = repoProvisioner.provision(project)
+                                             .compose(super::createSync)
+                                             .compose(this::contained)
+                                             .recover(ex -> AlreadyExistsException.isCause(ex)
+                                                     ? super.findById(project.getId()).map(found -> requireApplicationOf(project, found))
+                                                     : Future.failedFuture(ex));
                     }
-                    // the create refuses an id already held, so of two callers at once only the first places the
-                    // project in the graph, and grants made on it since are kept
-                    return repoProvisioner.provision(project)
-                                          .compose(super::createSync)
-                                          .compose(this::contained)
-                                          .recover(ex -> AlreadyExistsException.isCause(ex)
-                                                  ? super.findById(project.getId()).map(found -> requireApplicationOf(project, found))
-                                                  : Future.failedFuture(ex));
+                    return ret;
                 });
     }
 

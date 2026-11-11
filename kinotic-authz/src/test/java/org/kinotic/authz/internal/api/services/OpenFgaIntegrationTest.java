@@ -70,6 +70,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 @ActiveProfiles("test")
 class OpenFgaIntegrationTest {
 
+    // the store a deployment creates before a server starts, as compose.openfga.yml and the Helm chart name it
+    private static final String SYSTEM_STORE_NAME = "kinotic-system";
+
     private static GenericContainer<?> openfga;
     private static String apiUrl;
 
@@ -112,11 +115,11 @@ class OpenFgaIntegrationTest {
         KinoticAuthzProperties properties = new KinoticAuthzProperties();
         properties.getAuthz().setApiUrl(apiUrl);
         OpenFgaService fga = new OpenFgaService(properties);
-        boolean exists = await(fga.listStores(100, null, DefaultAuthzStoreService.SYSTEM_STORE_NAME))
+        boolean exists = await(fga.listStores(100, null, SYSTEM_STORE_NAME))
                 .getStores().stream()
-                .anyMatch(store -> DefaultAuthzStoreService.SYSTEM_STORE_NAME.equals(store.getName()));
+                .anyMatch(store -> SYSTEM_STORE_NAME.equals(store.getName()));
         if (!exists) {
-            await(fga.createStore(new CreateStoreRequest().name(DefaultAuthzStoreService.SYSTEM_STORE_NAME)));
+            await(fga.createStore(new CreateStoreRequest().name(SYSTEM_STORE_NAME)));
         }
     }
 
@@ -141,7 +144,7 @@ class OpenFgaIntegrationTest {
         assertEquals(modelId, await(storeService.ensureModel(SYSTEM, model)));
         // every node resolves the same store
         assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties, vertx).ensureModel(SYSTEM, model)));
-        String systemStoreId = await(fga.listStores(100, null, DefaultAuthzStoreService.SYSTEM_STORE_NAME))
+        String systemStoreId = await(fga.listStores(100, null, SYSTEM_STORE_NAME))
                 .getStores().getFirst().getId();
         assertEquals(modelId, await(fga.readAuthorizationModels(systemStoreId, 1, null))
                 .getAuthorizationModels().getFirst().getId());
@@ -270,7 +273,7 @@ class OpenFgaIntegrationTest {
         assertNotEquals(storeId, recreated);
         // the engine keeps answering for the deleted store, so the other node answers from it until the retention
         // has passed and it confirms the id it kept, finds the store gone and resolves the name again
-        long deadline = System.currentTimeMillis() + DefaultAuthzStoreService.RETENTION_MILLIS + 15_000;
+        long deadline = System.currentTimeMillis() + 45_000;
         while (await(relationshipsElsewhere.holds(store, bob)) && System.currentTimeMillis() < deadline) {
             Thread.sleep(500);
         }

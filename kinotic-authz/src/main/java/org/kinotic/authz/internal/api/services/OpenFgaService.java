@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class OpenFgaService {
 
     // the most tuples one Write request may carry
-    static final int WRITE_BATCH_SIZE = 100;
+    private static final int WRITE_BATCH_SIZE = 100;
     // the most tuples one Read request returns
     private static final int READ_PAGE_SIZE = 100;
 

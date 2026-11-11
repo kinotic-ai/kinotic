@@ -38,7 +38,7 @@ final class ModelHash {
      * returns a model in: a null, an empty string, an empty array and an empty object are dropped, except an
      * empty object under {@code this} or {@code wildcard}.
      */
-    static JsonNode canonical(JsonNode node) {
+    private static JsonNode canonical(JsonNode node) {
         JsonNode ret;
         if (node.isObject()) {
             ObjectNode object = JsonNodeFactory.instance.objectNode();

@@ -23,6 +23,7 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
@@ -373,7 +374,10 @@ public class DefaultRelationshipService implements RelationshipService {
                         .recover(refused -> {
                             Future<T> held;
                             if (isValidationError(refused)) {
-                                log.warn("The model of store {} cannot answer {}: {}", store, asked, refused.getMessage());
+                                // a relation or type a caller named reaches here as it was sent, and comes back
+                                // in the engine's refusal
+                                log.warn("The model of store {} cannot answer {}: {}", store,
+                                         KinoticUtil.singleLine(String.valueOf(asked)), KinoticUtil.singleLine(refused.getMessage()));
                                 held = Future.succeededFuture(heldByNone);
                             } else {
                                 held = Future.failedFuture(refused);
