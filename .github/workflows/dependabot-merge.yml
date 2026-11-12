@@ -37,7 +37,7 @@ jobs:
           while IFS=$'\t' read -r pr sha created; do
             runs=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --paginate \
               --jq '.check_runs[] | [.app.slug, (.conclusion // "pending")] | @tsv')
-            # Other apps' checks (Socket, CodeRabbit) gate on a failure but build nothing, and their
+            # Other apps' checks (CodeRabbit, code scanning) gate on a failure but build nothing, and their
             # cancelled or skipped runs say nothing about the change
             if grep -qP '\tfailure$|^github-actions\t(cancelled|timed_out|action_required|stale)$' <<<"$runs"; then
               echo "#$pr: a check failed, assigning $OWNER"
