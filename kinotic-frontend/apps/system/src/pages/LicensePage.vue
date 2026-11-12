@@ -35,11 +35,13 @@
       </DashboardSection>
 
       <DashboardSection :icon="Server" :tint="TINTS.ink" title="Cluster id"
-                        description="Add this cluster to your license at licenses.kinotic.ai with this id. The key issued for it works on this cluster alone, and the cluster renews it from there each day.">
+                        description="License this cluster at licenses.kinotic.ai, which takes one of your license's seats; from a computer that cannot reach it, copy the id there. The key issued for it works on this cluster alone, and the cluster renews it from there each day.">
         <div class="flex flex-wrap items-center gap-3 p-5">
           <template v-if="clusterId">
             <code class="break-all font-mono text-sm">{{ clusterId }}</code>
             <Button label="Copy" icon="pi pi-copy" severity="secondary" outlined size="small" @click="copyClusterId" />
+            <Button as="a" :href="`${LICENSE_ACCOUNT_URL}?clusterId=${encodeURIComponent(clusterId)}`" target="_blank" rel="noopener"
+                    label="License this cluster" icon="pi pi-external-link" size="small" />
           </template>
           <span v-else-if="clusterIdError" class="text-sm text-muted-color">{{ clusterIdError }}</span>
           <span v-else-if="!loading" class="text-sm text-muted-color">
@@ -75,6 +77,9 @@ import { BadgeCheck, CalendarClock, CalendarX, KeyRound, Server, Sparkles, User 
 import { Kinotic } from '@kinotic-ai/core'
 import { EnterpriseFeature, LicenseStatus, type License } from '@kinotic-ai/system-api'
 import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage, showErrorToast } from '@kinotic-ai/frontend-common'
+
+// the account page of Minds Ignited's license server, which adds the cluster its clusterId query parameter names
+const LICENSE_ACCOUNT_URL = 'https://licenses.kinotic.ai/account'
 
 const FEATURE_NAMES: Record<EnterpriseFeature, string> = {
   [EnterpriseFeature.AZURE_KEY_VAULT]: 'Azure Key Vault',
