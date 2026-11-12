@@ -41,13 +41,13 @@ jobs:
             if grep -qP '\tfailure$|^github-actions\t(cancelled|timed_out|action_required|stale)$' <<<"$runs"; then
               echo "#$pr: a check failed, assigning $OWNER"
               assign "$pr"
-            elif grep -qP '\tpending$' <<<"$runs"; then
-              echo "#$pr: checks still running"
             elif ! grep -q '^github-actions' <<<"$runs" && [[ "$created" < "$day_ago" ]]; then
               echo "#$pr: no workflow built it, assigning $OWNER"
               assign "$pr"
             elif ! grep -q '^github-actions' <<<"$runs"; then
               echo "#$pr: no workflow has run yet"
+            elif grep -qP '\tpending$' <<<"$runs"; then
+              echo "#$pr: checks still running"
             else
               echo "#$pr: all checks passed, merging"
               # sha makes the merge fail rather than take a commit pushed after the checks ran
