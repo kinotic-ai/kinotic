@@ -1,1 +1,0 @@
-{"id":"2c7dceadae9b896257815d6dcfd6859a.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testClosedConnectionFailsTheInvocationsItStillOwes","name":"testClosedConnectionFailsTheInvocationsItStillOwes()","status":"passed","testResultsByEnv":{"default":"2f1726306e0c2ebf5e130513ebb4bcdd"}}

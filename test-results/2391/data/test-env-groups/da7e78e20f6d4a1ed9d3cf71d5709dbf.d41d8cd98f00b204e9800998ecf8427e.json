@@ -1,0 +1,1 @@
+{"id":"da7e78e20f6d4a1ed9d3cf71d5709dbf.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/UpgradeRejection.test.ts#upgrade rejection ends the connect on a 401 to the upgrade without another attempt","name":"ends the connect on a 401 to the upgrade without another attempt","status":"passed","testResultsByEnv":{"default":"c2bd83be65e61ed9ad630e3ff59eca59"}}
