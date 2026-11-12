@@ -149,6 +149,7 @@ async function load(): Promise<void> {
   if (id.status === 'fulfilled') {
     clusterId.value = id.value
   } else {
+    clusterId.value = null
     clusterIdError.value = errorMessage(id.reason, 'Failed to load the cluster id')
   }
   loading.value = false
