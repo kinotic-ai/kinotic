@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Runs every node on the license key installed in the cluster, reading it at startup, whenever a
@@ -140,24 +141,7 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
 
     @Override
     public Future<License> install(String key) {
-        String trimmed = StringUtils.trimToEmpty(key);
-        License installing;
-        try {
-            installing = verifyInstallable(trimmed);
-        } catch (JwtException | IllegalArgumentException e) {
-            return Future.failedFuture(e);
-        }
-        return repository.install(trimmed)
-                         .map(v -> {
-                             // this node runs on the key it returns, whether or not its own notice is handled
-                             apply(trimmed, reads.incrementAndGet());
-                             // the caller is answered without waiting on the other nodes; a node the event misses, or
-                             // whose read of the key fails, reads it on its next reload
-                             eventService.publish(new LicenseChangedEvent())
-                                         .onFailure(error -> log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
-                                                                      TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error));
-                             return installing;
-                         });
+        return installWith(key, trimmed -> repository.install(trimmed).map(true));
     }
 
     @Override
@@ -185,8 +169,39 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
                                 .compose(connection -> connection.serviceProxy(RENEWAL_SERVICE, LicenseKeyRenewalService.class)
                                                                  .getService()
                                                                  .renew()
-                                                                 .compose(renewed -> renewed.equals(installedKey) ? Future.succeededFuture(find()) : install(renewed))
+                                                                 // a key installed while the renewal was in flight is kept
+                                                                 .compose(renewed -> renewed.equals(installedKey)
+                                                                         ? Future.succeededFuture(find())
+                                                                         : installWith(renewed, trimmed -> repository.replace(installedKey, trimmed)))
                                                                  .eventually(() -> connection.close()));
+    }
+
+    // verifies the key, stores it with write, and runs on it when write stored it; otherwise answers the license already run on
+    private Future<License> installWith(String key, Function<String, Future<Boolean>> write) {
+        String trimmed = StringUtils.trimToEmpty(key);
+        License installing;
+        try {
+            installing = verifyInstallable(trimmed);
+        } catch (JwtException | IllegalArgumentException e) {
+            return Future.failedFuture(e);
+        }
+        return write.apply(trimmed)
+                    .map(stored -> {
+                        License ret;
+                        if (stored) {
+                            // this node runs on the key it returns, whether or not its own notice is handled
+                            apply(trimmed, reads.incrementAndGet());
+                            // the caller is answered without waiting on the other nodes; a node the event misses, or
+                            // whose read of the key fails, reads it on its next reload
+                            eventService.publish(new LicenseChangedEvent())
+                                        .onFailure(error -> log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
+                                                                     TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error));
+                            ret = installing;
+                        } else {
+                            ret = find();
+                        }
+                        return ret;
+                    });
     }
 
     private License verifyInstallable(String key) {

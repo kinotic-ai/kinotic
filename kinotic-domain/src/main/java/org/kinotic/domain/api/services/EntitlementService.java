@@ -42,8 +42,8 @@ public interface EntitlementService {
 
     /**
      * Asks Minds Ignited's license server for the newest key of this cluster, signed in with the installed key, and
-     * installs it as {@link #install(String)} does when it differs from the installed key. A key bound to no cluster
-     * is not renewed.
+     * installs it as {@link #install(String)} does when it differs from the installed key. A key installed while the
+     * renewal is in flight is kept. A key bound to no cluster is not renewed.
      *
      * @return the license the cluster runs on afterwards, or {@code null} when no key bound to a cluster is installed;
      *         fails when the license server cannot be reached or refuses the installed key, or gives the reason no

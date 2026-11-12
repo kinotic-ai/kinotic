@@ -41,6 +41,7 @@
             <code class="break-all font-mono text-sm">{{ clusterId }}</code>
             <Button label="Copy" icon="pi pi-copy" severity="secondary" outlined size="small" @click="copyClusterId" />
           </template>
+          <span v-else-if="clusterIdError" class="text-sm text-muted-color">{{ clusterIdError }}</span>
           <span v-else-if="!loading" class="text-sm text-muted-color">
             This cluster has no id: it does not run in Kubernetes, or could not read its kube-system namespace. Only a key
             bound to no cluster works here.
@@ -101,6 +102,7 @@ const toast = useToast()
 
 const license = ref<License | null>(null)
 const clusterId = ref<string | null>(null)
+const clusterIdError = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const licenseKey = ref('')
@@ -136,20 +138,29 @@ function formatDate(date: string | null | undefined): string {
 async function load(): Promise<void> {
   loading.value = true
   error.value = null
-  try {
-    const [current, id] = await Promise.all([Kinotic.licenses.findCurrent(), Kinotic.licenses.findClusterId()])
-    license.value = current
-    clusterId.value = id
-  } catch (err) {
-    error.value = errorMessage(err, 'Failed to load the license')
-  } finally {
-    loading.value = false
+  clusterIdError.value = null
+  // the license and the cluster id load independently, so one failing still shows the other
+  const [current, id] = await Promise.allSettled([Kinotic.licenses.findCurrent(), Kinotic.licenses.findClusterId()])
+  if (current.status === 'fulfilled') {
+    license.value = current.value
+  } else {
+    error.value = errorMessage(current.reason, 'Failed to load the license')
   }
+  if (id.status === 'fulfilled') {
+    clusterId.value = id.value
+  } else {
+    clusterIdError.value = errorMessage(id.reason, 'Failed to load the cluster id')
+  }
+  loading.value = false
 }
 
 async function copyClusterId(): Promise<void> {
-  await navigator.clipboard.writeText(clusterId.value ?? '')
-  toast.add({ severity: 'success', summary: 'Cluster id copied', life: 2500 })
+  try {
+    await navigator.clipboard.writeText(clusterId.value ?? '')
+    toast.add({ severity: 'success', summary: 'Cluster id copied', life: 2500 })
+  } catch (err) {
+    showErrorToast(toast, 'Failed to copy the cluster id', err)
+  }
 }
 
 async function install(): Promise<void> {
