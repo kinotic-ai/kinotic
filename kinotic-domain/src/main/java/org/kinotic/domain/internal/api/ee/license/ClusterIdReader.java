@@ -27,6 +27,8 @@ public class ClusterIdReader {
     private static final String PORT_VARIABLE = "KUBERNETES_SERVICE_PORT";
     private static final String ACCOUNT_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/";
     private static final String NAMESPACE_URI = "/api/v1/namespaces/kube-system";
+    // bounds both getting a connection and waiting on the response, so an API server that never answers fails the read
+    private static final long READ_TIMEOUT_MS = 10_000;
 
     private final Vertx vertx;
 
@@ -49,6 +51,7 @@ public class ClusterIdReader {
                                                                          .setHost(host)
                                                                          .setPort(port != null ? Integer.parseInt(port) : 443)
                                                                          .setURI(NAMESPACE_URI)
+                                                                         .setTimeout(READ_TIMEOUT_MS)
                                                                          .putHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.toString().trim())))
                     .compose(request -> request.send())
                     .compose(response -> response.body().map(body -> {

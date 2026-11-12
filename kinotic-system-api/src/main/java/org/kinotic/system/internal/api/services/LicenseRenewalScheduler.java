@@ -1,5 +1,6 @@
 package org.kinotic.system.internal.api.services;
 
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
@@ -55,14 +56,16 @@ public class LicenseRenewalScheduler implements Service {
     }
 
     private void renew() {
-        entitlementService.renew()
-                          .onSuccess(license -> {
-                              if (license != null) {
-                                  log.info("Checked the license key with Minds Ignited's license server; the key the cluster runs on expires {}",
-                                           license.getExpiresAt().toInstant());
-                              }
-                          })
-                          .onFailure(error -> log.warn("The license key could not be renewed from Minds Ignited's license server;"
-                                                               + " it is tried again in a day", error));
+        // composed from a succeeded future so an exception thrown by renew is logged rather than failing the singleton's init
+        Future.succeededFuture()
+              .compose(v -> entitlementService.renew())
+              .onSuccess(license -> {
+                  if (license != null) {
+                      log.info("Checked the license key with Minds Ignited's license server; the key the cluster runs on expires {}",
+                               license.getExpiresAt().toInstant());
+                  }
+              })
+              .onFailure(error -> log.warn("The license key could not be renewed from Minds Ignited's license server;"
+                                                   + " it is tried again in a day", error));
     }
 }

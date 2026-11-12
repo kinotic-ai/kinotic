@@ -157,7 +157,11 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
             installedKey = key;
             current = license;
         }
-        // a key bound to no cluster is one Minds Ignited issued for its own clusters, which the license server does not renew
+        if (current == null && StringUtils.isNotEmpty(installedKey)) {
+            log.warn("The installed license key does not verify for this cluster, so it is renewed once it does");
+            return Future.succeededFuture();
+        }
+        // the license server renews keys bound to a cluster; a key bound to none is one Minds Ignited issued for its own clusters
         if (current == null || current.getClusterId() == null) {
             return Future.succeededFuture();
         }
@@ -165,15 +169,19 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
                                                      .setAuthHeaders(Map.of(LICENSE_KEY_HEADER, installedKey));
         // the caller renews again on its next run, so a renewal that cannot connect fails at once
         options.getReconnect().setMaxAttempts(1);
-        return connectionFactory.connect(options)
-                                .compose(connection -> connection.serviceProxy(RENEWAL_SERVICE, LicenseKeyRenewalService.class)
-                                                                 .getService()
-                                                                 .renew()
-                                                                 // a key installed while the renewal was in flight is kept
-                                                                 .compose(renewed -> renewed.equals(installedKey)
-                                                                         ? Future.succeededFuture(find())
-                                                                         : installWith(renewed, trimmed -> repository.replace(installedKey, trimmed)))
-                                                                 .eventually(() -> connection.close()));
+        // composed from a succeeded future so an exception thrown while connecting or building the proxy fails the
+        // renewal, and the connection is closed however the renewal ends
+        return Future.succeededFuture()
+                     .compose(v -> connectionFactory.connect(options))
+                     .compose(connection -> Future.succeededFuture()
+                                                  .compose(v -> connection.serviceProxy(RENEWAL_SERVICE, LicenseKeyRenewalService.class)
+                                                                          .getService()
+                                                                          .renew())
+                                                  // a key installed while the renewal was in flight is kept
+                                                  .compose(renewed -> renewed.equals(installedKey)
+                                                          ? Future.succeededFuture(find())
+                                                          : installWith(renewed, trimmed -> repository.replace(installedKey, trimmed)))
+                                                  .eventually(() -> connection.close()));
     }
 
     // verifies the key, stores it with write, and runs on it when write stored it; otherwise answers the license already run on
@@ -190,9 +198,11 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
                         Future<License> ret;
                         if (stored) {
                             // this node runs on the key stored now, whether or not its own notice is handled; the key is
-                            // read back rather than applied, so a key another call stored after this one is not replaced
+                            // read back rather than applied, so a key another call stored after this one is not replaced,
+                            // and applied as written only when the read back fails
                             ret = readInstalledKey().recover(error -> {
-                                log.warn("The license key was stored but could not be read back; this node reads it at its next reload", error);
+                                log.warn("The license key was stored but could not be read back; this node runs on the key it stored", error);
+                                apply(trimmed, reads.incrementAndGet());
                                 return Future.succeededFuture();
                             }).map(v -> {
                                 // the caller is answered without waiting on the other nodes; a node the event misses, or

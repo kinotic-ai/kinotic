@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.ee.license;
 
-import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.get.GetResult;
 import io.vertx.core.Future;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
@@ -45,8 +44,8 @@ public class InstalledLicenseKeyRepository extends AbstractRepository<InstalledL
                         ret = Future.succeededFuture(false);
                     } else {
                         // conditional on the document as read, so an install landing between the read and this write wins
-                        ret = crudServiceTemplate.save(indexName, INSTALLED_ID, installed(key),
-                                                       b -> b.ifSeqNo(read.seqNo()).ifPrimaryTerm(read.primaryTerm()).refresh(Refresh.WaitFor))
+                        ret = crudServiceTemplate.saveSync(indexName, INSTALLED_ID, installed(key),
+                                                           b -> b.ifSeqNo(read.seqNo()).ifPrimaryTerm(read.primaryTerm()))
                                                  .map(true)
                                                  .recover(error -> CrudServiceTemplate.isVersionConflict(error)
                                                          ? Future.succeededFuture(false)
