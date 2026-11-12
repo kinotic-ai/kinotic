@@ -9,6 +9,7 @@ import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,10 +37,12 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     /**
-     * The ids of the projects containing the documents with the given ids in {@code orgId}.
+     * The projects named by the documents with the given ids in {@code orgId}: each project's id with the ids of
+     * the applications the documents naming it belong to.
      */
-    public Future<Set<String>> findProjectIdsOf(Collection<String> ids, String orgId) {
-        return findAllByIds(ids, orgId).map(found -> found.stream().map(ProjectScoped::getProjectId).collect(Collectors.toSet()));
+    public Future<Map<String, Set<String>>> findProjectIdsOf(Collection<String> ids, String orgId) {
+        return findAllByIds(ids, orgId).map(found -> found.stream().collect(Collectors.groupingBy(ProjectScoped::getProjectId,
+                                                                                                  Collectors.mapping(ProjectScoped::getApplicationId, Collectors.toSet()))));
     }
 
     protected Query projectIdFilter(String projectId) {

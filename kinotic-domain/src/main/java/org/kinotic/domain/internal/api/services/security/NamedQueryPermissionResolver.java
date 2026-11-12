@@ -115,7 +115,8 @@ public class NamedQueryPermissionResolver implements RequestPermissionResolver {
         Map<String, AuthzPermissionChoice> ret = new HashMap<>();
         if (namedQueries != null && namedQueries.getNamedQueries() != null) {
             for (FunctionDefinition query : namedQueries.getNamedQueries()) {
-                ret.put(query.getName(), permissionOf(query));
+                // the first query of a name is the one DefaultQueryExecutorFactory runs, so it decides the permission
+                ret.putIfAbsent(query.getName(), permissionOf(query));
             }
         }
         return Map.copyOf(ret);

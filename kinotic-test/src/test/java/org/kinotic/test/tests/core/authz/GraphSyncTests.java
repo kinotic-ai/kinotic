@@ -37,11 +37,13 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.internal.api.services.ApplicationStoreProvisioner;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +59,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies the system store's graph follows the lifecycle writes: an organization, an application, a project,
  * an entity definition and a user each take their place in it as part of the write that creates them and leave
  * it with the write that deletes them; the built-in roles bundle what the system model has; and the user who
- * signs an organization up administers it, which a check through the model answers.
+ * signs an organization up administers it, which a check through the model answers. An application provisioned
+ * while it holds users is given them, as one a migration seeded is at the first start.
  */
 @SpringBootTest
 public class GraphSyncTests extends KinoticTestBase {
@@ -99,6 +102,9 @@ public class GraphSyncTests extends KinoticTestBase {
 
     @Autowired
     private TestDataService testDataService;
+
+    @Autowired
+    private ApplicationStoreProvisioner provisioner;
 
     @Test
     public void lifecycleWritesPlaceEachRecordInTheGraphAndDeletesRemoveIt() throws Exception {
@@ -150,6 +156,31 @@ public class GraphSyncTests extends KinoticTestBase {
                                                AuthzConstants.END_USER_RELATION,
                                                AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId())))),
                    "an application user is an end user of its application");
+    }
+
+    @Test
+    public void anApplicationWhoseUsersShareATenantIsProvisionedWithThem() throws Exception {
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Tenants " + suffix(), "graph sync", null)));
+        String store = AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId());
+        String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, "tenant-" + suffix());
+        List<String> users = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            ApplicationParticipantIdentity user = (ApplicationParticipantIdentity) user(TEST_ORG_ID, application.getId());
+            user.setTenantId(AuthzUtil.idOf(tenant));
+            users.add(AuthzGraphUtil.authzUser(await(identityService.createUser(user, "Graph-sync-1")).getId()));
+        }
+        // taken out of the store, the users are held by their records alone, as those a migration seeds are
+        for (String user : users) {
+            await(relationships.remove(store, List.of(new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, tenant))));
+        }
+
+        // both users place the one tenant under the application
+        await(provisioner.provision(application));
+
+        for (String user : users) {
+            assertTrue(await(relationships.holds(store, new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, tenant))),
+                       "a user the application holds is a member of its tenant");
+        }
     }
 
     @Test

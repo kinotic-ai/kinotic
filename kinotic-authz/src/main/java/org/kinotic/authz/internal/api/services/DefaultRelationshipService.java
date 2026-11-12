@@ -23,12 +23,14 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -48,12 +50,14 @@ public class DefaultRelationshipService implements RelationshipService {
 
     // Adds and removes relationships, in as many requests as the engine's limit per request takes
     private Future<Void> write(String store, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {
+        // the engine refuses a request that names a tuple twice, as tuples gathered from several records can, such
+        // as the tenant every user of it places under the application
         List<TupleKey> writeKeys = new ArrayList<>();
-        for (RelationshipTuple tuple : writes) {
+        for (RelationshipTuple tuple : new LinkedHashSet<>(writes)) {
             writeKeys.add(new TupleKey().user(tuple.user()).relation(tuple.relation())._object(tuple.object()));
         }
         List<TupleKeyWithoutCondition> deleteKeys = new ArrayList<>();
-        for (RelationshipTuple tuple : deletes) {
+        for (RelationshipTuple tuple : new LinkedHashSet<>(deletes)) {
             deleteKeys.add(new TupleKeyWithoutCondition().user(tuple.user()).relation(tuple.relation())._object(tuple.object()));
         }
         return writeKeys.isEmpty() && deleteKeys.isEmpty()
@@ -370,7 +374,10 @@ public class DefaultRelationshipService implements RelationshipService {
                         .recover(refused -> {
                             Future<T> held;
                             if (isValidationError(refused)) {
-                                log.warn("The model of store {} cannot answer {}: {}", store, asked, refused.getMessage());
+                                // a relation or type a caller named reaches here as it was sent, and comes back
+                                // in the engine's refusal
+                                log.warn("The model of store {} cannot answer {}: {}", store,
+                                         KinoticUtil.singleLine(String.valueOf(asked)), KinoticUtil.singleLine(refused.getMessage()));
                                 held = Future.succeededFuture(heldByNone);
                             } else {
                                 held = Future.failedFuture(refused);

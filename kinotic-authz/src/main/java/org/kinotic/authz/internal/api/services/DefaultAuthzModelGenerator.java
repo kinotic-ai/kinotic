@@ -30,16 +30,16 @@ import java.util.TreeSet;
 @Component
 public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
 
-    static final String USER = AuthzConstants.USER_TYPE;
-    static final String GROUP = AuthzConstants.GROUP_TYPE;
-    static final String ORGANIZATION = AuthzConstants.ORGANIZATION_TYPE;
-    static final String APPLICATION = AuthzConstants.APPLICATION_TYPE;
-    static final String TENANT = AuthzConstants.TENANT_TYPE;
-    static final String MEMBER = AuthzConstants.MEMBER_RELATION;
-    static final String END_USER = AuthzConstants.END_USER_RELATION;
-    static final String GRANT = AuthzConstants.GRANT_RELATION;
-    static final String ROLE = AuthzConstants.ROLE_RELATION;
-    static final String ROLE_BINDING = AuthzConstants.ROLE_BINDING_RELATION;
+    private static final String USER = AuthzConstants.USER_TYPE;
+    private static final String GROUP = AuthzConstants.GROUP_TYPE;
+    private static final String ORGANIZATION = AuthzConstants.ORGANIZATION_TYPE;
+    private static final String APPLICATION = AuthzConstants.APPLICATION_TYPE;
+    private static final String TENANT = AuthzConstants.TENANT_TYPE;
+    private static final String MEMBER = AuthzConstants.MEMBER_RELATION;
+    private static final String END_USER = AuthzConstants.END_USER_RELATION;
+    private static final String GRANT = AuthzConstants.GRANT_RELATION;
+    private static final String ROLE = AuthzConstants.ROLE_RELATION;
+    private static final String ROLE_BINDING = AuthzConstants.ROLE_BINDING_RELATION;
 
     private static final String SCHEMA_VERSION = "1.1";
     private static final String ENTITY_DEFINITION = AuthzConstants.ENTITY_DEFINITION_TYPE;

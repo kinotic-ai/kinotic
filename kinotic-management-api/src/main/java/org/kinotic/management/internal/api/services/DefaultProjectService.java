@@ -117,11 +117,17 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                 ? Future.succeededFuture(null)
                 : permissions.listAccessible(EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ)
                              .compose(ids -> entityDefinitionRepository.findProjectIdsOf(ids, organizationId))
-                             .map(containing -> {
+                             .compose(named -> projectRepository.findApplicationIdsById(named.keySet(), organizationId).map(stored -> {
                                  Set<String> ret = new HashSet<>(projects);
-                                 ret.addAll(containing);
+                                 // a definition names its project by an id its author chose, so the project
+                                 // contains the definition only when both are in the same application
+                                 stored.forEach((id, applicationId) -> {
+                                     if (named.get(id).contains(applicationId)) {
+                                         ret.add(id);
+                                     }
+                                 });
                                  return ret;
-                             }));
+                             })));
     }
 
     @Override
@@ -139,18 +145,30 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         validateAndDeriveId(project);
         return super.findById(project.getId())
                 .compose(existing -> {
+                    Future<Project> ret;
                     if (existing != null) {
-                        return placed(existing);
+                        ret = placed(requireApplicationOf(project, existing));
+                    } else {
+                        // the create refuses an id already held, so of two callers at once only the first places
+                        // the project in the graph, and grants made on it since are kept
+                        ret = repoProvisioner.provision(project)
+                                             .compose(super::createSync)
+                                             .compose(this::contained)
+                                             .recover(ex -> AlreadyExistsException.isCause(ex)
+                                                     ? super.findById(project.getId()).map(found -> requireApplicationOf(project, found))
+                                                     : Future.failedFuture(ex));
                     }
-                    // the create refuses an id already held, so of two callers at once only the first places the
-                    // project in the graph, and grants made on it since are kept
-                    return repoProvisioner.provision(project)
-                                          .compose(super::createSync)
-                                          .compose(this::contained)
-                                          .recover(ex -> AlreadyExistsException.isCause(ex)
-                                                  ? super.findById(project.getId())
-                                                  : Future.failedFuture(ex));
+                    return ret;
                 });
+    }
+
+    // The gateway checked the caller on the application the request names, and the id is the caller's to choose,
+    // so a project another application stores under that id is refused instead of returned
+    private static Project requireApplicationOf(Project requested, Project stored) {
+        if (stored != null && !stored.getApplicationId().equals(requested.getApplicationId())) {
+            throw new IllegalArgumentException("Project for id " + stored.getId() + " already exists in another application");
+        }
+        return stored;
     }
 
     @Override

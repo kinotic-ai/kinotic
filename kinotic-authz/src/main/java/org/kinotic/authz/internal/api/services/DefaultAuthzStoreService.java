@@ -37,17 +37,17 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class DefaultAuthzStoreService implements AuthzStoreService, InitializingBean {
 
-    static final String SYSTEM_STORE_NAME = "kinotic-system";
+    private static final String SYSTEM_STORE_NAME = "kinotic-system";
     private static final String APPLICATION_STORE_PREFIX = "kinotic-app-";
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     // how long a store's engine id and newest model version are kept before the engine is asked again
-    static final long RETENTION_MILLIS = 30_000;
+    private static final long RETENTION_MILLIS = 30_000;
     private static final int STORE_PAGE_SIZE = 100;
     // the address every node hears a store's deletion on, so none keeps answering with the id of a store the
     // engine has deleted while another node already resolved the one created again under its name
-    static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
+    private static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
     // the cluster lock a store's creators hold in turn, by the store's engine name
     private static final String STORE_LOCK_PREFIX = "kinotic.authz.store-creation.";
     // how long a creator waits for another creating the same store

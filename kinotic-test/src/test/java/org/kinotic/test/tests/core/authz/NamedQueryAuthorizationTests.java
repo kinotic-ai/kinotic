@@ -41,7 +41,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies that the request for a named query is checked for the permission its statement needs: a viewer of the
  * definition is admitted to a query that reads rows and refused one that updates them, with the reason, an editor
- * is admitted to the update, which then runs, and a query the definition does not hold is refused.
+ * is admitted to the update, which then runs, a query the definition does not hold is refused, and a name two
+ * queries share is checked for the first of them, the one that runs.
  */
 @SpringBootTest
 public class NamedQueryAuthorizationTests extends KinoticTestBase {
@@ -87,6 +88,24 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
         assertFalse(admitted(ENTITIES_SERVICE, "namedQuery", caller, List.of(person.getId(), "noSuchQuery", List.of())));
     }
 
+    @Test
+    public void aNameGivenToTwoQueriesIsCheckedForTheOneThatRuns() throws Exception {
+        EntityDefinition person = createPersonDefinition();
+        FunctionDefinition update = query(RENAME_QUERY, "UPDATE %s SET lastName = 'Renamed' WHERE lastName = 'Nobody'".formatted(person.getName()));
+        FunctionDefinition select = query(RENAME_QUERY, "SELECT * FROM %s WHERE lastName = 'Nobody'".formatted(person.getName()));
+        saveQueries(person, List.of(update, select));
+        String tenantId = "tenant-" + suffix();
+        ApplicationParticipantIdentity bob = endUser(tenantId);
+        ScopedParticipant caller = applicationParticipant(tenantId, bob.getId());
+        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));
+        await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()),
+                                                   AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
+
+        // the viewer's grant has reached the engine once it reads the definition's rows
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "count", caller, List.of(person.getId()))), "the viewer was never admitted to read");
+        assertRefused(ENTITIES_SERVICE, "namedQuery", caller, List.of(person.getId(), RENAME_QUERY, List.of()), "the query is an UPDATE");
+    }
+
     @SuppressWarnings("rawtypes")
     private Future<List<Map>> rename(EntityDefinition person, Participant caller) {
         ListParameterHolder parameters = new ListParameterHolder(List.of(new QueryParameter("oldName", "Nobody-" + suffix()),
@@ -105,13 +124,23 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
                                                             .addParameter("newName", new StringC3Type());
         rename.setDecorators(List.of(new QueryDecorator().setStatements("UPDATE %s SET lastName = :newName WHERE lastName = :oldName"
                                                                                 .formatted(definition.getName()))));
+        saveQueries(definition, List.of(find, rename));
+    }
+
+    private static FunctionDefinition query(String name, String statements) {
+        FunctionDefinition ret = new FunctionDefinition().setName(name);
+        ret.setDecorators(List.of(new QueryDecorator().setStatements(statements)));
+        return ret;
+    }
+
+    private void saveQueries(EntityDefinition definition, List<FunctionDefinition> queries) throws Exception {
         NamedQueriesDefinition namedQueries = new NamedQueriesDefinition();
         namedQueries.setId(definition.getId());
         namedQueries.setOrganizationId(definition.getOrganizationId());
         namedQueries.setApplicationId(definition.getApplicationId());
         namedQueries.setProjectId(definition.getProjectId());
         namedQueries.setEntityDefinitionName(definition.getName());
-        namedQueries.setNamedQueries(List.of(find, rename));
+        namedQueries.setNamedQueries(queries);
         await(runAsOrganization(() -> namedQueriesDefinitionService.saveSync(namedQueries)));
     }
 
