@@ -9,7 +9,7 @@ canonical_url: "https://kinotic.ai/platform/supply-chain-security"
 
 ## Overview
 
-Every Kinotic service image is inventoried and scanned for known vulnerabilities before it is published. An image with a Critical vulnerability that has a published fix is never promoted to Docker Hub. Every control on this page runs automatically in the `Build and Publish` workflow (`.github/workflows/gradle-build.yml`), and each one leaves evidence in GitHub.
+Every Kinotic service image is inventoried and scanned for known vulnerabilities before it is published. An image with a Critical vulnerability that has a published fix is never promoted to Docker Hub. The image controls on this page run automatically in the `Build and Publish` workflow (`.github/workflows/gradle-build.yml`), and every control leaves evidence in GitHub.
 
 ### Scope
 
@@ -395,6 +395,76 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
 </tbody>
 </table>
 
+### Dependency vulnerability alerts
+
+<table>
+<thead>
+  <tr>
+    <th>
+      
+    </th>
+    
+    <th>
+      
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <strong>
+        Control
+      </strong>
+    </td>
+    
+    <td>
+      GitHub's dependency graph reads the npm, pnpm and Bun lockfiles, and Dependabot raises an alert for each dependency with a known vulnerability. For each JavaScript project, Dependabot opens one security update pull request that batches its available fixes (<code>
+        .github/dependabot.yml
+      </code>
+      
+      ). The <code>
+        Dependabot Merge
+      </code>
+      
+       workflow (<code>
+        .github/workflows/dependabot-merge.yml
+      </code>
+      
+      ) merges each such pull request once every check on it has passed, which closes its alerts, and assigns any pull request it cannot merge to a maintainer. The Java libraries are covered by the image vulnerability scanning above.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Frequency
+      </strong>
+    </td>
+    
+    <td>
+      Alerts are raised as advisories are published. Security updates are checked weekly, and passing pull requests are merged daily.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Evidence
+      </strong>
+    </td>
+    
+    <td>
+      Dependabot alerts on the repository's Security tab, Dependabot's update runs under Insights > Dependency graph > Dependabot, and the runs of the <code>
+        Dependabot Merge
+      </code>
+      
+       workflow.
+    </td>
+  </tr>
+</tbody>
+</table>
+
 ### Source code analysis
 
 <table>
@@ -550,6 +620,24 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     
     <td>
       A.8.25, A.8.28
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Dependency vulnerability alerts
+    </td>
+    
+    <td>
+      3.11.2
+    </td>
+    
+    <td>
+      CC7.1
+    </td>
+    
+    <td>
+      A.8.8
     </td>
   </tr>
   
