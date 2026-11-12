@@ -34,6 +34,20 @@
         </div>
       </DashboardSection>
 
+      <DashboardSection :icon="Server" :tint="TINTS.ink" title="Cluster id"
+                        description="Add this cluster to your license at licenses.kinotic.ai with this id. The key issued for it works on this cluster alone, and the cluster renews it from there each day.">
+        <div class="flex flex-wrap items-center gap-3 p-5">
+          <template v-if="clusterId">
+            <code class="break-all font-mono text-sm">{{ clusterId }}</code>
+            <Button label="Copy" icon="pi pi-copy" severity="secondary" outlined size="small" @click="copyClusterId" />
+          </template>
+          <span v-else-if="!loading" class="text-sm text-muted-color">
+            This cluster has no id: it does not run in Kubernetes, or could not read its kube-system namespace. Only a key
+            bound to no cluster works here.
+          </span>
+        </div>
+      </DashboardSection>
+
       <DashboardSection :icon="KeyRound" :tint="TINTS.ink" title="Install a license key"
                         description="Paste a key issued by Kinotic. A key replaces the installed one, and the cluster runs on it straight away.">
         <div class="flex flex-col gap-3 p-5">
@@ -56,7 +70,7 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
-import { BadgeCheck, CalendarClock, CalendarX, KeyRound, Sparkles, User } from '@lucide/vue'
+import { BadgeCheck, CalendarClock, CalendarX, KeyRound, Server, Sparkles, User } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { EnterpriseFeature, LicenseStatus, type License } from '@kinotic-ai/system-api'
 import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage, showErrorToast } from '@kinotic-ai/frontend-common'
@@ -86,6 +100,7 @@ interface LicenseStat {
 const toast = useToast()
 
 const license = ref<License | null>(null)
+const clusterId = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const licenseKey = ref('')
@@ -95,7 +110,10 @@ const stats = computed<LicenseStat[]>(() => {
   const current = license.value
   const status = current ? STATUS_TAGS[current.status] : null
   return [
-    { label: 'Licensee', icon: User, tint: TINTS.ink, value: current?.licensee ?? '—' },
+    {
+      label: 'Licensee', icon: User, tint: TINTS.ink, value: current?.licensee ?? '—',
+      detail: current ? (current.clusterId ? 'For this cluster' : 'For any cluster') : undefined
+    },
     {
       label: 'Status', icon: BadgeCheck, tint: TINTS.ink,
       value: status?.label ?? 'Not installed', tag: status?.severity ?? 'danger'
@@ -119,12 +137,19 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    license.value = await Kinotic.licenses.findCurrent()
+    const [current, id] = await Promise.all([Kinotic.licenses.findCurrent(), Kinotic.licenses.findClusterId()])
+    license.value = current
+    clusterId.value = id
   } catch (err) {
     error.value = errorMessage(err, 'Failed to load the license')
   } finally {
     loading.value = false
   }
+}
+
+async function copyClusterId(): Promise<void> {
+  await navigator.clipboard.writeText(clusterId.value ?? '')
+  toast.add({ severity: 'success', summary: 'Cluster id copied', life: 2500 })
 }
 
 async function install(): Promise<void> {

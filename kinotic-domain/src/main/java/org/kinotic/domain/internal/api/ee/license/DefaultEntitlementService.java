@@ -9,9 +9,12 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.kinotic.client.api.ConnectOptions;
+import org.kinotic.client.api.KinoticConnectionFactory;
 import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.event.EventService;
+import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.SecretStorageBackendType;
 import org.kinotic.domain.api.model.license.EnterpriseFeature;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,7 +34,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Runs every node on the license key installed in the cluster, reading it at startup, whenever a
- * {@link LicenseChangedEvent} announces a new one, and every ten minutes.
+ * {@link LicenseChangedEvent} announces a new one, and every ten minutes, and verifies it for the cluster whose id
+ * {@link ClusterIdReader} reads.
  */
 @Slf4j
 @Component
@@ -40,12 +45,26 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     // re-reads the installed key, so a node that missed a LicenseChangedEvent catches up, and notices expiry
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long STORAGE_TIMEOUT_SECONDS = 30;
+    // Minds Ignited's license server and the renewal it publishes, which a cluster signs in to with its license key
+    private static final String LICENSE_SERVER_URL = "wss://licenses.kinotic.ai";
+    private static final String LICENSE_KEY_HEADER = "license-key";
+    private static final ServiceIdentifier RENEWAL_SERVICE = new ServiceIdentifier("licensee", "org.kinotic.license",
+                                                                                   "LicenseRenewalService", null, "1.0.0");
 
     private final InstalledLicenseKeyRepository repository;
+    private final ClusterIdReader clusterIdReader;
+    private final KinoticConnectionFactory connectionFactory;
     private final EventService eventService;
     private final Vertx vertx;
     private final KinoticDomainProperties properties;
-    private final LicenseVerifier verifier = LicenseVerifier.trusted();
+
+    // verifies keys for this cluster, replaced once the cluster's id is read
+    private volatile LicenseVerifier verifier = LicenseVerifier.trusted(null);
+    private volatile String clusterId;
+    // whether the cluster's id was read, or found to be absent outside Kubernetes
+    private volatile boolean clusterIdRead;
+    // the verifier the installed key was last verified with, guarded by this
+    private LicenseVerifier appliedVerifier;
 
     // the license as verified, never handed out or changed; find() hands out a copy holding its status at the time
     private volatile License license;
@@ -57,15 +76,22 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     private final AtomicLong reads = new AtomicLong();
     private long appliedRead;
 
-    // reads the key before the beans that check a feature initialize; a failed read leaves the node with no
-    // Enterprise Feature until a later read succeeds, so a server never fails to start over its license
+    // reads the cluster's id and the key before the beans that check a feature initialize; a failed read leaves the
+    // node with no Enterprise Feature from a key that needs it until a later read succeeds, so a server never fails
+    // to start over its license
     @PostConstruct
     void start() {
         try {
-            String installedKey = repository.findInstalledKey()
-                                            .toCompletionStage()
-                                            .toCompletableFuture()
-                                            .get(STORAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            await(readClusterId());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Interrupted while reading this cluster's id; a key bound to the cluster turns nothing on until it is read");
+        } catch (Exception e) {
+            log.error("This cluster's id could not be read, so a key bound to the cluster turns nothing on until it is read,"
+                              + " which is tried again every ten minutes", e);
+        }
+        try {
+            String installedKey = await(repository.findInstalledKey());
             apply(StringUtils.trimToEmpty(installedKey), reads.incrementAndGet());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -102,6 +128,7 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
         License ret = null;
         if (current != null) {
             ret = new License().setLicensee(current.getLicensee())
+                               .setClusterId(current.getClusterId())
                                .setIssuedAt(copyOf(current.getIssuedAt()))
                                .setExpiresAt(copyOf(current.getExpiresAt()))
                                .setGraceEndsAt(copyOf(current.getGraceEndsAt()))
@@ -133,6 +160,35 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
                          });
     }
 
+    @Override
+    public String findClusterId() {
+        return clusterId;
+    }
+
+    @Override
+    public Future<License> renew() {
+        String installedKey;
+        License current;
+        synchronized (this) {
+            installedKey = key;
+            current = license;
+        }
+        // a key bound to no cluster is one Minds Ignited issued for its own clusters, which the license server does not renew
+        if (current == null || current.getClusterId() == null) {
+            return Future.succeededFuture();
+        }
+        ConnectOptions options = new ConnectOptions().setServerUrl(LICENSE_SERVER_URL)
+                                                     .setAuthHeaders(Map.of(LICENSE_KEY_HEADER, installedKey));
+        // the caller renews again on its next run, so a renewal that cannot connect fails at once
+        options.getReconnect().setMaxAttempts(1);
+        return connectionFactory.connect(options)
+                                .compose(connection -> connection.serviceProxy(RENEWAL_SERVICE, LicenseKeyRenewalService.class)
+                                                                 .getService()
+                                                                 .renew()
+                                                                 .compose(renewed -> renewed.equals(installedKey) ? Future.succeededFuture(find()) : install(renewed))
+                                                                 .eventually(() -> connection.close()));
+    }
+
     private License verifyInstallable(String key) {
         License ret = verifier.verify(key);
         ret.setStatus(statusAt(ret, Instant.now()));
@@ -154,7 +210,32 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     }
 
     private void reload() {
-        readInstalledKey().onFailure(error -> log.warn("The installed license key could not be read; the node keeps its license", error));
+        Future<Void> idRead = clusterIdRead
+                ? Future.succeededFuture()
+                : readClusterId().recover(error -> {
+                    log.warn("This cluster's id could not be read, so a key bound to the cluster turns nothing on until it is", error);
+                    return Future.succeededFuture();
+                });
+        idRead.compose(v -> readInstalledKey())
+              .onFailure(error -> log.warn("The installed license key could not be read; the node keeps its license", error));
+    }
+
+    private Future<Void> readClusterId() {
+        return clusterIdReader.read().map(id -> {
+            useClusterId(id);
+            return null;
+        });
+    }
+
+    private synchronized void useClusterId(String id) {
+        clusterId = id;
+        verifier = LicenseVerifier.trusted(id);
+        clusterIdRead = true;
+        if (id != null) {
+            log.info("This cluster's id is {}", id);
+        } else {
+            log.info("This server does not run in Kubernetes, so its cluster has no id and runs only on a key bound to no cluster");
+        }
     }
 
     private Future<Void> readInstalledKey() {
@@ -173,9 +254,11 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     }
 
     private void applyKey(String installedKey) {
-        if (!Objects.equals(installedKey, key)) {
+        // the key is verified again once the cluster's id is read
+        if (!Objects.equals(installedKey, key) || appliedVerifier != verifier) {
             key = installedKey;
-            license = verifyOrNull(installedKey);
+            appliedVerifier = verifier;
+            license = verifyOrNull(installedKey, appliedVerifier);
             loggedStatus = null;
             // logStatusChange logs a key in its grace period or expired
             if (license != null && statusAt(license, Instant.now()) != LicenseStatus.EXPIRED) {
@@ -223,7 +306,11 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
         return ret;
     }
 
-    private License verifyOrNull(String key) {
+    private static <T> T await(Future<T> future) throws Exception {
+        return future.toCompletionStage().toCompletableFuture().get(STORAGE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private License verifyOrNull(String key, LicenseVerifier verifier) {
         License ret = null;
         if (!key.isEmpty()) {
             try {
