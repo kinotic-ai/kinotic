@@ -143,7 +143,7 @@ public class TokenBufferUpsertPreProcessorTest {
         assertEquals(json("{\"id\":\"car-1\",\"make\":\"Audi\",\"tenantId\":\"tenant1\"}"), json(injected.entity()),
                      "The participant's tenant is written into the document under the configured field name");
         assertEquals("tenant1", injected.tenantId());
-        assertEquals("tenant1-car-1", injected.getDocumentId(), "A shared document id is prefixed with the tenant");
+        assertEquals("tenant1:car-1", injected.getDocumentId(), "A shared document id is prefixed with the tenant");
         assertEquals(MultiTenancyType.SHARED, injected.multiTenancyType());
 
         EntityHolder<RawJson> matching = process(processor, "{\"id\":\"car-1\",\"tenantId\":\"tenant1\",\"make\":\"Audi\"}", context(TENANT1));
@@ -175,7 +175,7 @@ public class TokenBufferUpsertPreProcessorTest {
         EntityHolder<RawJson> filled = process(processor, "{\"id\":\"car-1\",\"tenantId\":\"\",\"make\":\"Audi\"}", context(TENANT1));
         assertEquals("tenant1", json(filled.entity()).get("tenantId").asString(), "A blank tenant id is filled with the participant's tenant");
         assertEquals("tenant1", filled.tenantId());
-        assertEquals("tenant1-car-1", filled.getDocumentId());
+        assertEquals("tenant1:car-1", filled.getDocumentId());
 
         EntityHolder<RawJson> own = process(processor, "{\"id\":\"car-1\",\"tenantId\":\"tenant1\",\"make\":\"Audi\"}", context(TENANT1));
         assertEquals("tenant1", own.tenantId());
@@ -201,7 +201,7 @@ public class TokenBufferUpsertPreProcessorTest {
         EntityContext context = context(ORGANIZATION);
         EntityHolder<RawJson> named = process(processor, "{\"id\":\"car-1\",\"tenantId\":\"tenant2\",\"make\":\"Audi\"}", context);
         assertEquals("tenant2", named.tenantId());
-        assertEquals("tenant2-car-1", named.getDocumentId());
+        assertEquals("tenant2:car-1", named.getDocumentId());
         assertEquals(List.of("tenant2"), context.getTenantSelection(), "The tenant the data names becomes the context's selection");
 
         assertInstanceOf(IllegalArgumentException.class,
@@ -215,7 +215,7 @@ public class TokenBufferUpsertPreProcessorTest {
         assertEquals(List.of("tenant2", "tenant1", "tenant2"),
                      stale.getTenantSelection(),
                      "A bulk write replaces the selection with one entry per entity, in data order");
-        assertEquals(List.of("tenant2-a", "tenant1-b", "tenant2-c"), holders.stream().map(EntityHolder::getDocumentId).toList());
+        assertEquals(List.of("tenant2:a", "tenant1:b", "tenant2:c"), holders.stream().map(EntityHolder::getDocumentId).toList());
     }
 
     @Test

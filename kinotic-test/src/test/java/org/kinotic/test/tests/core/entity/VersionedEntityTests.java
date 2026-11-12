@@ -192,7 +192,7 @@ public class VersionedEntityTests extends KinoticTestBase {
      */
     private void assertStoredVersion(EntityDefinition definition, String id, String version) throws Exception {
         GetResponse<Map> stored = esAsyncClient.get(g -> g.index(definition.getItemIndex())
-                                                          .id(TENANT + "-" + id)
+                                                          .id(TENANT + ":" + id)
                                                           .routing(TENANT),
                                                     Map.class)
                                                .get(30, TimeUnit.SECONDS);
