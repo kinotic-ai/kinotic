@@ -46,8 +46,8 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     // re-reads the installed key, so a node that missed a LicenseChangedEvent catches up, and notices expiry
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long STORAGE_TIMEOUT_SECONDS = 30;
-    // Minds Ignited's license server and the renewal it publishes, which a cluster signs in to with its license key
     private static final long RENEWAL_TIMEOUT_SECONDS = 30;
+    // Minds Ignited's license server and the renewal it publishes, which a cluster signs in to with its license key
     private static final String LICENSE_SERVER_URL = "wss://licenses.kinotic.ai";
     private static final String LICENSE_KEY_HEADER = "license-key";
     private static final ServiceIdentifier RENEWAL_SERVICE = new ServiceIdentifier("licensee", "org.kinotic.license",
