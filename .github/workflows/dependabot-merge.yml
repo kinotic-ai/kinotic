@@ -2,9 +2,9 @@ name: Dependabot Merge
 
 # Merges each open Dependabot pull request into develop once a GitHub Actions check has succeeded on
 # it and no check has failed or is still running, so a security fix lands, and its Dependabot alert
-# closes, without anyone acting on it. A pull request with a failed check, with no successful GitHub
-# Actions check a day after it was opened, or that GitHub refuses to merge, is assigned to OWNER: the
-# cases that need a person.
+# closes, without anyone acting on it. A pull request with a failed check, with no successful or
+# running GitHub Actions check a day after it was opened, or that GitHub refuses to merge, is assigned
+# to OWNER: the cases that need a person.
 on:
   schedule:
     - cron: '17 10 * * *'
