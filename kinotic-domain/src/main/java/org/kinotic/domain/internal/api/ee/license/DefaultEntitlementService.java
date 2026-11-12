@@ -47,6 +47,7 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long STORAGE_TIMEOUT_SECONDS = 30;
     // Minds Ignited's license server and the renewal it publishes, which a cluster signs in to with its license key
+    private static final long RENEWAL_TIMEOUT_SECONDS = 30;
     private static final String LICENSE_SERVER_URL = "wss://licenses.kinotic.ai";
     private static final String LICENSE_KEY_HEADER = "license-key";
     private static final ServiceIdentifier RENEWAL_SERVICE = new ServiceIdentifier("licensee", "org.kinotic.license",
@@ -176,7 +177,9 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
                      .compose(connection -> Future.succeededFuture()
                                                   .compose(v -> connection.serviceProxy(RENEWAL_SERVICE, LicenseKeyRenewalService.class)
                                                                           .getService()
-                                                                          .renew())
+                                                                          .renew()
+                                                                          // the client fails a pending request only when its connection ends
+                                                                          .timeout(RENEWAL_TIMEOUT_SECONDS, TimeUnit.SECONDS))
                                                   // a key installed while the renewal was in flight is kept
                                                   .compose(renewed -> renewed.equals(installedKey)
                                                           ? Future.succeededFuture(find())
