@@ -1,0 +1,54 @@
+name: JS Builds
+
+# Builds the pnpm projects that Build and Publish does not, so a change to one of them, a Dependabot
+# lockfile update included, gets a check that installs its lockfile and compiles it.
+on:
+  push:
+    branches:
+      - develop
+    paths: &js-paths
+      - 'kinotic-frontend/**'
+      - 'kinotic-js/kinotic-cli/**'
+      - '.github/workflows/js-builds.yml'
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths: *js-paths
+  workflow_dispatch:
+
+concurrency:
+  group: js-builds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [kinotic-frontend, kinotic-js/kinotic-cli]
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Corepack provides the pnpm version the project's packageManager field pins
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
