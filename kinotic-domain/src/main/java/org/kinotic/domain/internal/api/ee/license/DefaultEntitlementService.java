@@ -186,19 +186,24 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
             return Future.failedFuture(e);
         }
         return write.apply(trimmed)
-                    .map(stored -> {
-                        License ret;
+                    .compose(stored -> {
+                        Future<License> ret;
                         if (stored) {
-                            // this node runs on the key it returns, whether or not its own notice is handled
-                            apply(trimmed, reads.incrementAndGet());
-                            // the caller is answered without waiting on the other nodes; a node the event misses, or
-                            // whose read of the key fails, reads it on its next reload
-                            eventService.publish(new LicenseChangedEvent())
-                                        .onFailure(error -> log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
-                                                                     TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error));
-                            ret = installing;
+                            // this node runs on the key stored now, whether or not its own notice is handled; the key is
+                            // read back rather than applied, so a key another call stored after this one is not replaced
+                            ret = readInstalledKey().recover(error -> {
+                                log.warn("The license key was stored but could not be read back; this node reads it at its next reload", error);
+                                return Future.succeededFuture();
+                            }).map(v -> {
+                                // the caller is answered without waiting on the other nodes; a node the event misses, or
+                                // whose read of the key fails, reads it on its next reload
+                                eventService.publish(new LicenseChangedEvent())
+                                            .onFailure(error -> log.warn("Not every node confirmed the new license key; each reads it at its next reload, every {} minutes",
+                                                                         TimeUnit.MILLISECONDS.toMinutes(RELOAD_INTERVAL_MS), error));
+                                return installing;
+                            });
                         } else {
-                            ret = find();
+                            ret = Future.succeededFuture(find());
                         }
                         return ret;
                     });
