@@ -4,6 +4,8 @@ plugins {
 
 dependencies {
     implementation project(':kinotic-core')
+    // the license renewal calls Minds Ignited's license server through its gateway
+    implementation project(':kinotic-client')
     implementation project(':kinotic-idl')
     implementation project(':kinotic-sql')
 

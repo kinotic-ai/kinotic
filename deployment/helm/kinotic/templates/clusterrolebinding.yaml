@@ -1,0 +1,14 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "kinotic.fullname" . }}-{{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: {{ include "kinotic.name" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "kinotic.fullname" . }}-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kinotic.fullname" . }}
+    namespace: {{ .Release.Namespace }}
