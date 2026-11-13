@@ -136,16 +136,6 @@ with an image-level install, a `file:`/`link:` reference, a vendored tarball, or
 downgrade to an older published version that lacks what the change needs. The publish is
 part of the change, and asking for it is always cheaper than the workaround.
 
-## kinotic-server never touches files
-
-kinotic-server never reads, writes, lists, clones or deletes files, whether in storage or on
-disk. It issues credentials scoped to exactly what a workload may touch (an upload URL for one
-site's directory, a removal URL for the same) and orchestrates the workloads that do the
-work; every file operation runs in a workload-runner entrypoint inside a VM. A server-side
-storage client that lists or deletes blobs, a server-side clone, or a server-side read of a
-build's output is the smell, however convenient: move the operation into the runner and hand
-it a credential.
-
 ## Snapshot versions — nothing is in stone
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, no released artifact depends on this code, so there is nothing to stay backwards-compatible with: rename fields, break APIs, and reshape wire contracts freely. Deprecation shims and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
