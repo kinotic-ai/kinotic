@@ -29,8 +29,8 @@ public interface JobDefinition {
     String getName();
 
     /**
-     * The version of this job's definition, recorded with every execution so a persisted run
-     * can be matched to the code that produced it.
+     * The version of this job's tasks, recorded with every execution. A run recorded with a
+     * version is resumed only by a definition of that version.
      * @return the version or null if none was set
      */
     String getVersion();
@@ -56,7 +56,10 @@ public interface JobDefinition {
     JobDefinition name(String name);
 
     /**
-     * Sets the version of this job's definition.
+     * Sets the version of this job's tasks. Change it whenever the tasks, their order or what
+     * they store changes: {@link JobService#resume(String, JobDefinition)} refuses a run
+     * recorded with another version, since that run's task records would not line up with
+     * this definition's tasks.
      * @param version to use
      * @return this for fluent use
      */
