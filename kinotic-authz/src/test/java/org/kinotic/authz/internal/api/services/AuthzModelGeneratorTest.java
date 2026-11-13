@@ -577,6 +577,19 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aReadingPermissionImplyingMoreThanReadingFails() {
+        List<ServiceDefinition> services = List.of(service("ProjectService", "project", "application",
+                                                           function("findById", "project", "project", "can_read"),
+                                                           function("findMembers", "project", "project", "can_read_members", "can_manage_members"),
+                                                           function("addMember", "project", "project", "can_manage_members")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+        assertTrue(e.getMessage().contains("project_can_read_members"));
+        assertTrue(e.getMessage().contains("can_manage_members"));
+    }
+
+    @Test
     public void aPermissionNameLongerThanARelationAllowsFails() {
         List<ServiceDefinition> services = List.of(service("LongService", "a_very_long_resource_type_name_indeed", "application",
                                                            function("audit", "a_very_long_resource_type_name_indeed",

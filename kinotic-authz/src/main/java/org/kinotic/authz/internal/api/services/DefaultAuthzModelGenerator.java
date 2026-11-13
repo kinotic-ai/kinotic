@@ -428,6 +428,12 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                         throw new IllegalArgumentException("Permission '" + name + "' implies '" + implied
                                                                    + "', which '" + type.name + "' does not have");
                     }
+                    // the viewer and the reading roles bundle every reading permission, so one implying more than
+                    // reading would let them do it
+                    if (AuthzUtil.isReading(permission.getKey()) && !AuthzUtil.isReading(implied)) {
+                        throw new IllegalArgumentException("Permission '" + name + "' is a reading permission, but implies '"
+                                                                   + implied + "', which is not one");
+                    }
                 }
             }
             for (Map.Entry<String, Set<String>> role : type.declaredRoles.entrySet()) {
