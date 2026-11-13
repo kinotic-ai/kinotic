@@ -21,7 +21,7 @@ The reason to prefer this over a timeout is that a timeout encodes a guess about
 
 ## Registration is liveness
 
-A service is reachable exactly while its address has an entry in the cluster's replicated subscription cache. That cache is maintained by the Vert.x cluster manager on Ignite, and Ignite removes a dead node's entries as part of its own failure detection. The platform already turns those updates into a push signal: the [callee side](https://kinotic.ai/apps/services/streaming) of a streaming call watches the *caller's* reply destination and cancels the stream when the caller disappears; for a TypeScript service the gateway holding its connection does the watching and delivers the cancel over the socket. Liveness for callers is the same signal, in the other direction.
+A service is reachable exactly while its address has an entry in the cluster's replicated subscription cache. That cache is maintained by the Vert.x cluster manager on Ignite. A dead node's entries stop counting the moment Ignite's failure detection reports the node: the platform's cluster manager counts a registration only while its node is a member of the cluster, and announces every address the dead node was registered on, without it, as soon as the node leaves, whichever node then removes the entries from the cache. The platform already turns those updates into a push signal: the [callee side](https://kinotic.ai/apps/services/streaming) of a streaming call watches the *caller's* reply destination and cancels the stream when the caller disappears; for a TypeScript service the gateway holding its connection does the watching and delivers the cancel over the socket. Liveness for callers is the same signal, in the other direction.
 
 <rpc-liveness-diagram view="overview">
 
