@@ -3,6 +3,10 @@
 # compose.kinotic-servers.yml runs every server with this profile, and supplies the container addresses:
 # Elasticsearch, the Ignite cluster and the observability stack.
 kinotic:
+  authz:
+    # The migration seeds the system's staff and the demonstration fixtures, which the seed jobs place in the
+    # authorization graph when this server starts
+    seedGraph: true
   managementApi:
     # Projects' repositories are hosted on the Gitea compose.gitea.yml runs, so a project needs no GitHub
     repoHost: GITEA

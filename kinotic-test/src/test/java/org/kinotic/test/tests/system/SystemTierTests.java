@@ -134,7 +134,7 @@ public class SystemTierTests extends KinoticTestBase {
 
     @Test
     public void theSeededStaffAreBoundOnce() throws Exception {
-        // the system server sweeps the system once the store runs a model, shortly after the servers start
+        // SystemGraphSeedJob binds the seeded staff once the store runs a model, shortly after the servers start
         assertTrue(awaitUntil(() -> grantsOf(SEEDED_ADMIN_ID, AuthzConstants.SYSTEM_ADMIN_ROLE) == 1), "the seeded system user never administered the system");
         assertTrue(awaitUntil(() -> grantsOf(SEEDED_VM_MANAGER_ID, VmNodeOrchestrationService.REGISTRAR_ROLE) == 1), "the seeded vm-manager never registered nodes");
 

@@ -139,8 +139,8 @@ public abstract class KinoticTestBase {
             // the first context of a run publishes every contract in one write and the reconciler then takes the
             // model they imply; a check for a permission the store's model lacks fails rather than refuses
             assertTrue(awaitUntil(this::systemModelCurrent), "the system store never ran the model of the system's services");
-            // OrganizationGraphBootstrap places the seeded organization on the system, which the tests' checks reach it through
-            assertTrue(awaitUntil(this::placed), "the organization graph bootstrap never placed the test organization");
+            // OrganizationGraphSeedJob places the seeded organization on the system, which the tests' checks reach it through
+            assertTrue(awaitUntil(this::placed), "the organization graph seed job never placed the test organization");
             assertTrue(awaitUntil(this::bound), "the system store never accepted the test participant's administrator binding");
             testParticipantAdministers = true;
         }
