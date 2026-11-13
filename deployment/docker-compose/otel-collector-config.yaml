@@ -26,11 +26,6 @@ processors:
     # Batched per tenant, so a batch never mixes pushes headers_setter would route apart
     metadata_keys:
       - X-Scope-OrgID
-  resource:
-    attributes:
-      - key: service.name
-        value: kinotic-server
-        action: insert
 
 exporters:
   otlp/tempo:
@@ -60,13 +55,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [resource, batch]
+      processors: [batch]
       exporters: [otlp/tempo]
     logs:
       receivers: [otlp]
-      processors: [resource, batch]
+      processors: [batch]
       exporters: [otlphttp/loki]
     metrics:
       receivers: [otlp]
-      processors: [resource, batch]
+      processors: [batch]
       exporters: [otlphttp/mimir]
