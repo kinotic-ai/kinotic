@@ -4,10 +4,10 @@
       <div class="flex flex-col gap-5">
         <div>
           <span class="mb-2 block text-sm font-medium">Who</span>
-          <SelectButton v-model="categoryLabel" :options="categories.map(category => category.label)" :allow-empty="false" class="mb-3" />
-          <Select v-model="subjectId" :options="category.options" option-label="label" option-value="subject.id"
-                  filter :filter-fields="['label', 'detail']" :placeholder="category.placeholder"
-                  class="w-full" :empty-message="category.emptyMessage">
+          <SelectButton v-model="tabLabel" :options="tabs.map(tab => tab.label)" :allow-empty="false" class="mb-3" />
+          <Select v-model="subjectId" :options="tab.options" option-label="label" option-value="subject.id"
+                  filter :filter-fields="['label', 'detail']" :placeholder="tab.placeholder"
+                  class="w-full" :empty-message="tab.emptyMessage">
             <template #option="{ option }">
               <SubjectOptionItem :option="option" />
             </template>
@@ -51,18 +51,18 @@ import type { Grant, RoleDefinition, Subject } from '@kinotic-ai/management-api'
 import FormDrawer from '../FormDrawer.vue'
 import { showErrorToast } from '../../util/helpers'
 import { summarizeRole } from '../../util/access'
-import type { SubjectCategory } from './SubjectCategory'
+import type { SubjectPickerTab } from './SubjectPickerTab'
 import SubjectOptionItem from './SubjectOptionItem.vue'
 
 /**
- * Grants a role to a subject picked from one of the offered categories, through the given grant call. The default slot
+ * Grants a role to a subject picked from one of the picker's tabs, through the given grant call. The default slot
  * sits between the subject and the role, for a picker of where the grant is made.
  */
 const props = withDefaults(defineProps<{
   visible: boolean
   description: string
-  /** The categories of subject offered, the first picked when the drawer opens. */
-  categories: SubjectCategory[]
+  /** The tabs of the subject picker, the first shown when the drawer opens. */
+  tabs: SubjectPickerTab[]
   /** The roles offered. */
   roles: RoleDefinition[]
   /** What the picked role reaches, shown beneath the role picker. */
@@ -83,24 +83,24 @@ const emit = defineEmits<{
 const toast = useToast()
 const formId = useId()
 const roleInputId = useId()
-const categoryLabel = ref(props.categories[0]?.label ?? '')
+const tabLabel = ref(props.tabs[0]?.label ?? '')
 const subjectId = ref<string | null>(null)
 const roleId = ref<string | null>(null)
 const granting = ref(false)
 
-const category = computed(() => props.categories.find(candidate => candidate.label === categoryLabel.value) ?? props.categories[0])
-const picked = computed(() => category.value?.options.find(option => option.subject.id === subjectId.value) ?? null)
+const tab = computed(() => props.tabs.find(candidate => candidate.label === tabLabel.value) ?? props.tabs[0])
+const picked = computed(() => tab.value?.options.find(option => option.subject.id === subjectId.value) ?? null)
 
 watch(() => props.visible, visible => {
   if (visible) {
-    categoryLabel.value = props.categories[0]?.label ?? ''
+    tabLabel.value = props.tabs[0]?.label ?? ''
     subjectId.value = null
     roleId.value = null
   }
 })
 
-// a subject of one category is not one of another, so switching the category clears the pick
-watch(categoryLabel, () => { subjectId.value = null })
+// a subject of one tab is not one of another, so switching the tab clears the pick
+watch(tabLabel, () => { subjectId.value = null })
 
 async function submit(): Promise<void> {
   if (!picked.value || !roleId.value || !props.ready) {

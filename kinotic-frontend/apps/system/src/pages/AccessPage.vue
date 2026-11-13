@@ -50,7 +50,7 @@
 
       <GrantAccessDrawer v-model:visible="grantDrawerVisible"
                          description="Give a system user or a machine a role on the system, which reaches every organization and worker node on it."
-                         :categories="grantCategories" :roles="roles" role-hint="The role's permissions reach the system and everything on it."
+                         :tabs="grantTabs" :roles="roles" role-hint="The role's permissions reach the system and everything on it."
                          :grant="grant" @granted="onGranted" />
     </div>
   </div>
@@ -71,7 +71,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { type Grant, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS,
          errorMessage, isAuthorizationError, permissionLabel, showErrorToast, splitPermission } from '@kinotic-ai/frontend-common'
-import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectCategory } from '@kinotic-ai/frontend-common/management'
+import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectPickerTab } from '@kinotic-ai/frontend-common/management'
 import { useSubjects } from '@/components/access/useSubjects'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
@@ -119,7 +119,7 @@ const catalog = computed(() => {
 
 const permissionOptions = computed(() => catalog.value.map(name => ({ name, label: permissionLabel(splitPermission(name).permission) })))
 
-const grantCategories = computed<SubjectCategory[]>(() => [
+const grantTabs = computed<SubjectPickerTab[]>(() => [
   { label: 'System user', options: systemUsers.value, placeholder: 'Choose a system user', emptyMessage: 'No system users' },
   { label: 'Machine', options: machines.value, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
 ])
