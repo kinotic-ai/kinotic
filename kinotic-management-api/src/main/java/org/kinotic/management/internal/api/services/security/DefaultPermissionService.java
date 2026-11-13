@@ -230,9 +230,9 @@ public class DefaultPermissionService implements PermissionService {
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return requireInOrganization(resource, organizationId)
                 .compose(lineage -> ORGANIZATION.equals(resource.type())
-                        ? identities.requireAnotherAdministrator(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class)
-                        : Future.<Void>succeededFuture())
-                .compose(v -> relationships.revoke(SYSTEM, grantId, object));
+                        ? identities.removeAdministrators(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class,
+                                                          () -> relationships.revoke(SYSTEM, grantId, object))
+                        : relationships.revoke(SYSTEM, grantId, object));
     }
 
     @Override

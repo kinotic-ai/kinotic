@@ -394,10 +394,11 @@ public class DefaultRelationshipService implements RelationshipService {
         return ret;
     }
 
-    // A request the engine refused as invalid: the SDK's FgaApiValidationError, or the bare 400 or 422 a streamed
-    // request fails with
+    // A request the engine refused as invalid: the 400 it answers with for a version, type or relation the store
+    // lacks. The SDK's FgaApiValidationError also covers the 422 of a request the engine throttled until it timed
+    // out, which says nothing about the model
     private static boolean isValidationError(Throwable e) {
-        return e instanceof ApiException api && (api.getStatusCode() == 400 || api.getStatusCode() == 422);
+        return e instanceof ApiException api && api.getStatusCode() == 400;
     }
 
     private Future<Boolean> requestCheck(String store, String modelId, CheckRequestTupleKey key, List<TupleKey> contextual, Consistency consistency) {

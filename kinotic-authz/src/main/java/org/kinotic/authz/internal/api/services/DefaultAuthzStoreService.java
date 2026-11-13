@@ -116,10 +116,12 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     // Another node deleted the store: its id is forgotten where it is the one kept, so the next caller resolves
-    // the name again; a node that already resolved the store created again under the name keeps that one
+    // the name again; a node that already resolved the store created again under the name keeps that one. A
+    // lookup still under way may have been answered before the deletion, so it is forgotten too and answers
+    // only the callers already waiting on it
     private void forgetIfKept(String store, String storeId) {
         storeIds.computeIfPresent(store, (name, stage) -> stage.isDone() && !stage.isCompletedExceptionally()
-                && stage.join().id().equals(storeId) ? null : stage);
+                && !stage.join().id().equals(storeId) ? stage : null);
         modelVersions.remove(storeId);
     }
 

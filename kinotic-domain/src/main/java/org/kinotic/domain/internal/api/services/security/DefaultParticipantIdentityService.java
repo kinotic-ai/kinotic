@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.Grant;
 import org.apache.commons.lang3.Validate;
@@ -50,6 +51,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.Objects;
 import java.nio.charset.StandardCharsets;
@@ -61,6 +63,10 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     /** Bytes of entropy for a machine client secret — generated, never user-chosen. */
     private static final int MACHINE_SECRET_BYTES = 32;
+    // the cluster lock the removals of one resource's administrators hold in turn, by the resource
+    private static final String ADMINISTRATORS_LOCK_PREFIX = "kinotic.domain.administrators.";
+    // how long a removal waits for the ones before it
+    private static final long ADMINISTRATORS_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
@@ -71,6 +77,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final ApplicationRepository applicationRepository;
     private final RelationshipService relationships;
     private final ConnectionRevocationService connectionRevocationService;
+    private final Vertx vertx;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                              IdentityCredentialRepository credentialRepository,
@@ -80,7 +87,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                              RefreshTokenService refreshTokenService,
                                              ApplicationRepository applicationRepository,
                                              ConnectionRevocationService connectionRevocationService,
-                                             RelationshipService relationships) {
+                                             RelationshipService relationships,
+                                             Vertx vertx) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
@@ -91,6 +99,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         this.applicationRepository = applicationRepository;
         this.relationships = relationships;
         this.connectionRevocationService = connectionRevocationService;
+        this.vertx = vertx;
     }
 
     // A connection is authenticated once, when it is established, so an identity that is disabled or deleted keeps
@@ -439,10 +448,20 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType) {
+    public <T> Future<T> removeAdministrators(String object,
+                                              Predicate<Grant> leaving,
+                                              Class<? extends UserParticipantIdentity> holderType,
+                                              Supplier<Future<T>> removal) {
         Validate.notBlank(object, "object cannot be blank");
         Validate.notNull(leaving, "leaving cannot be null");
         Validate.notNull(holderType, "holderType cannot be null");
+        Validate.notNull(removal, "removal cannot be null");
+        // two removals counting at once would each count the administrator the other takes away, and leave none
+        return vertx.sharedData().withLock(ADMINISTRATORS_LOCK_PREFIX + object, ADMINISTRATORS_LOCK_TIMEOUT_MILLIS,
+                                           () -> requireAnotherAdministrator(object, leaving, holderType).compose(v -> removal.get()));
+    }
+
+    private Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType) {
         String administrator = AuthzUtil.roleId(AuthzUtil.typeOf(object), AuthzConstants.ADMIN);
         return relationships.findGrants(AuthzStoreService.SYSTEM, object).compose(grants -> {
             Map<Boolean, List<Grant>> split = grants.stream()

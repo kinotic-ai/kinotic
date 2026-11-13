@@ -217,8 +217,9 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
      */
     protected Future<List<T>> findAllByIds(Collection<String> ids, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        // a search returns at most max_result_window hits, so the ids are read a window at a time
-        List<String> remaining = List.copyOf(ids);
+        // a search returns at most max_result_window hits, so the ids are read a window at a time, each id once so
+        // none is found by two windows
+        List<String> remaining = ids.stream().distinct().toList();
         Future<List<T>> ret = Future.succeededFuture(new ArrayList<>());
         for (int from = 0; from < remaining.size(); from += ID_BATCH_SIZE) {
             List<String> batch = remaining.subList(from, Math.min(from + ID_BATCH_SIZE, remaining.size()));

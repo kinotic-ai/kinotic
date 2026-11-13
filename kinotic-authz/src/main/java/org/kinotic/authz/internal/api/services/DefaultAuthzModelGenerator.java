@@ -16,8 +16,12 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -190,12 +194,14 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                                                          Map<String, Set<String>> carried) {
         Map<String, Set<String>> ret = new TreeMap<>();
         for (ResourceType type : types.values()) {
-            Set<String> own = modelNames(type, type.permissions.keySet());
-            Set<String> editing = new TreeSet<>(own);
-            editing.remove(AuthzUtil.permissionName(type.name, AuthzConstants.CAN_DELETE));
             // deciding who may act is an administrator's: managing access would let an editor grant itself any role,
-            // and managing machines would let it sign in as one holding more than it does
-            editing.removeAll(modelNames(type, type.permissions.keySet().stream().filter(AuthzConstants.AUTHORITY_PERMISSIONS::contains).toList()));
+            // and managing machines would let it sign in as one holding more than it does. A permission implying
+            // one of them, or deleting, holds it too, so it is the administrator's as well
+            Set<String> administering = new HashSet<>(AuthzConstants.AUTHORITY_PERMISSIONS);
+            administering.add(AuthzConstants.CAN_DELETE);
+            Set<String> editing = modelNames(type, type.permissions.keySet().stream()
+                                                               .filter(permission -> !holdsAny(type, permission, administering))
+                                                               .toList());
             role(ret, AuthzUtil.roleId(type.name, AuthzConstants.VIEWER), reading(type));
             role(ret, AuthzUtil.roleId(type.name, AuthzConstants.EDITOR), editing);
             role(ret, AuthzUtil.roleId(type.name, AuthzConstants.ADMIN), inside(type, types, carried, true, false));
@@ -205,7 +211,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             // the maintainer runs the system but never decides who may act on it, which would let it make itself
             // an administrator
             Set<String> maintaining = modelNames(system, system.permissions.keySet().stream()
-                                                                   .filter(permission -> !AuthzConstants.AUTHORITY_PERMISSIONS.contains(permission))
+                                                                   .filter(permission -> !holdsAny(system, permission, AuthzConstants.AUTHORITY_PERMISSIONS))
                                                                    .toList());
             maintaining.addAll(inside(system, types, carried, false, true));
             role(ret, AuthzConstants.APPLICATION_DEVELOPER_ROLE, inside(types.get(APPLICATION), types, carried, false, false));
@@ -222,6 +228,20 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             }
         }
         return ret;
+    }
+
+    // Whether holding the permission holds one of the given ones: it is one of them, or implies one, directly or
+    // through the permissions it implies
+    private static boolean holdsAny(ResourceType type, String permission, Set<String> permissions) {
+        Set<String> held = new HashSet<>();
+        Deque<String> pending = new ArrayDeque<>(List.of(permission));
+        while (!pending.isEmpty()) {
+            String next = pending.pop();
+            if (held.add(next)) {
+                pending.addAll(type.permissions.getOrDefault(next, Set.of()));
+            }
+        }
+        return !Collections.disjoint(held, permissions);
     }
 
     // Every permission of the types inside the given one, with or without the type's own, and either all of
@@ -371,6 +391,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                                                            + "', which this model does not have");
             }
         }
+        Map<String, String> permissionTypes = new HashMap<>();
         for (ResourceType type : types.values()) {
             if (FIXED_TYPES.contains(type.name)) {
                 throw new IllegalArgumentException("Resource type '" + type.name + "' is one the model defines itself");
@@ -393,6 +414,14 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 if (name.length() > AuthzConstants.MAX_RELATION_NAME_LENGTH) {
                     throw new IllegalArgumentException("Permission '" + name + "' is longer than the "
                                                                + AuthzConstants.MAX_RELATION_NAME_LENGTH + " characters a relation name may have");
+                }
+                // a role and a resource carry the permissions of several types as relations named alike, so two
+                // types' permissions of one name would be one relation: a_b_c is both b_c of a and c of a_b
+                String other = permissionTypes.putIfAbsent(name, type.name);
+                if (other != null) {
+                    throw new IllegalArgumentException("Permission '" + permission.getKey() + "' of '" + type.name
+                                                               + "' and a permission of '" + other + "' are both named '"
+                                                               + name + "' in the model");
                 }
                 for (String implied : permission.getValue()) {
                     if (!type.permissions.containsKey(implied)) {

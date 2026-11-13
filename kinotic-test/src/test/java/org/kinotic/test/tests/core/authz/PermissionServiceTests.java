@@ -216,6 +216,29 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     @Test
+    public void administratorsRevokedTogetherLeaveOne() throws Exception {
+        Organization organization = await(organizationService.createSync(new Organization().setName("Permission " + suffix()).setDescription("administrators")));
+        Participant caller = new DefaultOrganizationParticipant("caller-" + suffix(), organization.getId(),
+                                                                Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                List.of());
+        Resource onOrganization = new Resource(AuthzConstants.ORGANIZATION_TYPE, organization.getId());
+        Subject firstAdmin = user(member(organization.getId(), "first-admin"));
+        Subject secondAdmin = user(member(organization.getId(), "second-admin"));
+        Grant first = await(runAs(caller, () -> permissions.grant(firstAdmin, AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+        Grant second = await(runAs(caller, () -> permissions.grant(secondAdmin, AuthzConstants.ORGANIZATION_ADMIN_ROLE, onOrganization)));
+
+        Future<Void> firstRevoked = runAs(caller, () -> permissions.revoke(onOrganization, first.id()));
+        Future<Void> secondRevoked = runAs(caller, () -> permissions.revoke(onOrganization, second.id()));
+
+        // each revocation counts the administrators the other left, so the later one finds its grant the last
+        assertRefusedAsLastAdministrator(() -> Future.join(firstRevoked, secondRevoked));
+        assertTrue(firstRevoked.succeeded() != secondRevoked.succeeded(), "one of the two revocations is refused");
+        List<Grant> left = await(runAs(caller, () -> permissions.findGrants(onOrganization)));
+        assertEquals(List.of(firstRevoked.succeeded() ? second : first), left);
+    }
+
+    @Test
     public void grantsReachDownTheTreeAndStopWhenRevoked() throws Exception {
         Application application = application();
         Project project = project(application);

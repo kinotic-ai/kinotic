@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * The {@link ServiceDirectory}: publishes the contract of every {@code @Publish}ed service, each of which declares
@@ -205,6 +206,9 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                 Instant observed = Instant.now();
                 strategy.upsertEntries(batch.values())
                         .onSuccess(this::announce)
+                        // a publish failing for one entry has written the others and names none of them, so every
+                        // entry is announced
+                        .onFailure(e -> announce(batch.values().stream().map(ServiceDirectoryEntry::getId).collect(Collectors.toSet())))
                         .compose(v -> eventBusService.activeServiceAddresses())
                         .compose(addresses -> {
                             Set<String> services = servicesOf(addresses);
