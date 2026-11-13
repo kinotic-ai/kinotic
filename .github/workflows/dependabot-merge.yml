@@ -1,9 +1,10 @@
 name: Dependabot Merge
 
-# Merges each open Dependabot pull request into develop once every check on it has passed, so a
-# security fix lands, and its Dependabot alert closes, without anyone acting on it. A pull request
-# with a failed check, with no checks a day after it was opened, or that GitHub refuses to merge, is
-# assigned to OWNER: the cases that need a person.
+# Merges each open Dependabot pull request into develop once a GitHub Actions check has succeeded on
+# it and no check has failed or is still running, so a security fix lands, and its Dependabot alert
+# closes, without anyone acting on it. A pull request with a failed check, with no successful or
+# running GitHub Actions check a day after it was opened, or that GitHub refuses to merge, is assigned
+# to OWNER: the cases that need a person.
 on:
   schedule:
     - cron: '17 10 * * *'
@@ -35,16 +36,20 @@ jobs:
             --jq '.[] | select(.user.login == "dependabot[bot]") | [.number, .head.sha, .created_at] | @tsv' |
           while IFS=$'\t' read -r pr sha created; do
             runs=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --paginate \
-              --jq '.check_runs[] | .conclusion // "pending"')
-            if [[ -z "$runs" && "$created" < "$day_ago" ]]; then
-              echo "#$pr: no checks ran on it, assigning $OWNER"
-              assign "$pr"
-            elif [[ -z "$runs" ]]; then
-              echo "#$pr: no checks yet"
-            elif grep -qE '^(failure|cancelled|timed_out|action_required|stale)' <<<"$runs"; then
+              --jq '.check_runs[] | [.app.slug, (.conclusion // "pending")] | @tsv')
+            # Other apps' checks (CodeRabbit, code scanning) gate on a failure but build nothing, and their
+            # cancelled or skipped runs say nothing about the change
+            if grep -qP '\tfailure$|^github-actions\t(cancelled|timed_out|action_required|stale)$' <<<"$runs"; then
               echo "#$pr: a check failed, assigning $OWNER"
               assign "$pr"
-            elif grep -q '^pending' <<<"$runs"; then
+            elif grep -qP '^github-actions\tpending$' <<<"$runs"; then
+              echo "#$pr: workflows still running"
+            elif ! grep -qP '^github-actions\tsuccess$' <<<"$runs" && [[ "$created" < "$day_ago" ]]; then
+              echo "#$pr: no workflow built it, assigning $OWNER"
+              assign "$pr"
+            elif ! grep -qP '^github-actions\tsuccess$' <<<"$runs"; then
+              echo "#$pr: no workflow has built it yet"
+            elif grep -qP '\tpending$' <<<"$runs"; then
               echo "#$pr: checks still running"
             else
               echo "#$pr: all checks passed, merging"
