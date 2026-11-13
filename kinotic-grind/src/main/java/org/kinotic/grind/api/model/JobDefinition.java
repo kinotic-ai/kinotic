@@ -49,6 +49,12 @@ public interface JobDefinition {
     boolean isParallel();
 
     /**
+     * True if one run of this job executes at a time across the cluster for an owner.
+     * @return true when exclusive
+     */
+    boolean isExclusive();
+
+    /**
      * Sets the stable name identifying this job across runs.
      * @param name to use
      * @return this for fluent use
@@ -64,6 +70,15 @@ public interface JobDefinition {
      * @return this for fluent use
      */
     JobDefinition version(String version);
+
+    /**
+     * Lets one run of this job execute at a time across the cluster for an owner. A run or
+     * resume of the job's name started for an owner while another executes for that owner is
+     * refused before anything of it is recorded: its events fail with an
+     * {@link IllegalStateException}.
+     * @return this for fluent use
+     */
+    JobDefinition exclusive();
 
     /**
      * Seeds the given values into the job scope before the first task runs, each stored as a
