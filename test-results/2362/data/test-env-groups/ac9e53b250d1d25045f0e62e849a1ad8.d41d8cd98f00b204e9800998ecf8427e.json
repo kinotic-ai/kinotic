@@ -1,1 +1,0 @@
-{"id":"ac9e53b250d1d25045f0e62e849a1ad8.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/ResolveConnectOptions.test.ts#resolveConnectOptions reads the environment before applying the loopback default","name":"reads the environment before applying the loopback default","status":"passed","testResultsByEnv":{"default":"500beb82d9602872d56b1c9baacb97fe"}}
