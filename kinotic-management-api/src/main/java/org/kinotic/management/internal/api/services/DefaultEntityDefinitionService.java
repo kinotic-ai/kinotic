@@ -21,10 +21,12 @@ import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.config.EntityDefinitionProperties;
 import org.kinotic.management.api.config.ManagementApiProperties;
+import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.core.api.event.EventService;
@@ -52,6 +54,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
     private final DefaultPermissionService permissions;
+    private final ProjectRepository projects;
 
     public DefaultEntityDefinitionService(EventService eventService,
                                           CrudServiceTemplate crudServiceTemplate,
@@ -61,10 +64,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
-                                          DefaultPermissionService permissions) {
+                                          DefaultPermissionService permissions,
+                                          ProjectRepository projects) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
         this.permissions = permissions;
+        this.projects = projects;
         this.eventService = eventService;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
@@ -128,12 +133,31 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
         // The base create uses the ES create op-type, so the uniqueness check is atomic at
         // the shard — a concurrent duplicate fails instead of overwriting.
-        return createOp.apply(entityDefinition)
-                       .recover(ex -> AlreadyExistsException.isCause(ex)
-                               ? Future.failedFuture(new IllegalArgumentException(
-                               "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                               : Future.failedFuture(ex))
-                       .compose(this::contained);
+        return requireProject(entityDefinition)
+                .compose(v -> createOp.apply(entityDefinition))
+                .recover(ex -> AlreadyExistsException.isCause(ex)
+                        ? Future.failedFuture(new IllegalArgumentException(
+                        "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                        : Future.failedFuture(ex))
+                .compose(this::contained);
+    }
+
+    // Whoever reads a definition reaches the project it names, so its author names a project of the definition's
+    // application that the author may edit. One refusal answers a missing project, another application's and one
+    // the author may not edit, so it tells the author nothing of a project they cannot reach
+    private Future<Void> requireProject(EntityDefinition entityDefinition) {
+        String projectId = entityDefinition.getProjectId();
+        return projects.findById(projectId, requireOrganizationId())
+                       .compose(project -> project != null && project.getApplicationId().equals(entityDefinition.getApplicationId())
+                               ? permissions.holds(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_EDIT, projectId)
+                               : Future.succeededFuture(false))
+                       .map(editable -> {
+                           if (!editable) {
+                               throw new IllegalArgumentException("No project of application " + entityDefinition.getApplicationId()
+                                                                          + " that the caller may edit has id " + projectId);
+                           }
+                           return null;
+                       });
     }
 
     // The definition's place in the graph, written once the record is: in the system's store, where the

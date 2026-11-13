@@ -17,7 +17,7 @@ import { initKinoticAppClient } from '../../utils/AuthHelpers'
 export class EcommerceTaskFactory {
     private readonly organizationId = 'test-org'
     private readonly applicationId = 'ecommerce'
-    private projectId = 'ecommerce_main_project'
+    private projectId = 'ecommerce-main-project'
     private readonly taskBuilder: CreateKinoticTaskBuilder
     private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
     private appKinotic?: KinoticSingleton

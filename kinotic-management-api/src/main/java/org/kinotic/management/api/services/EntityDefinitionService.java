@@ -38,6 +38,9 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
      * Creates a new {@link EntityDefinition}. Validates the definition, derives the logical
      * index name, and persists it. The definition is not usable for data operations until
      * {@link #publish(String)} is called.
+     * <p>
+     * The definition names a project of its application that the caller may edit; a definition naming any other
+     * project is refused with an {@link IllegalArgumentException}.
      *
      * @param entityDefinition the definition to create
      * @return a {@link Future} emitting the saved definition with system-managed

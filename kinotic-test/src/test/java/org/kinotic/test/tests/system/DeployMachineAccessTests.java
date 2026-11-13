@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.identity.MachineType;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -31,10 +32,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,6 +106,32 @@ public class DeployMachineAccessTests extends KinoticTestBase {
         Participant sync = machine(issued(deployIdentities.issueSyncCredentials(project)));
 
         assertSyncs(sync, project, person);
+    }
+
+    @Test
+    public void theSyncMachineCreatesDefinitionsInItsOwnProjectAlone() throws Exception {
+        Project project = deployedProject();
+        Project other = deployedProject();
+        Participant sync = machine(issued(deployIdentities.issueSyncCredentials(project)));
+        List<EntityDefinition> created = new ArrayList<>();
+
+        // the engine answers from its caches, which lag a binding by a moment, so the create is made until it is let through
+        assertTrue(awaitUntil(() -> {
+            boolean ret;
+            try {
+                created.add(await(runAs(sync, () -> entityDefinitionService.create(definition(project)))));
+                ret = true;
+            } catch (ExecutionException e) {
+                ret = false;
+            }
+            return ret;
+        }), "the sync machine cannot create a definition in its project");
+        assertEquals(project.getId(), created.getFirst().getProjectId());
+        await(runAsOrganization(() -> entityDefinitionService.deleteByIdSync(created.getFirst().getId())));
+
+        ExecutionException refused = assertThrows(ExecutionException.class,
+                                                  () -> await(runAs(sync, () -> entityDefinitionService.create(definition(other)))));
+        assertInstanceOf(IllegalArgumentException.class, refused.getCause());
     }
 
     @Test
@@ -173,6 +203,15 @@ public class DeployMachineAccessTests extends KinoticTestBase {
         await(projectDeployments.updateDesired(created.getId(), TEST_ORG_ID, new DeploymentState(DeploymentStatusType.RUNNING, null),
                                                upsert, "deploy access test"));
         return created;
+    }
+
+    private EntityDefinition definition(Project project) {
+        return new EntityDefinition().setName("SyncedPerson" + suffix())
+                                     .setOrganizationId(TEST_ORG_ID)
+                                     .setApplicationId(TEST_APP_ID)
+                                     .setProjectId(project.getId())
+                                     .setDescription("A person a project's sync defines")
+                                     .setSchema(testData.createPersonSchema(MultiTenancyType.SHARED));
     }
 
     private MicroserviceDeployment microservice(Project project) throws Exception {

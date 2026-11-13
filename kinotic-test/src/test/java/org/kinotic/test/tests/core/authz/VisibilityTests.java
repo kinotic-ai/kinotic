@@ -56,9 +56,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies the listings show a member what it may see and nothing else: an application the member reads or one
  * containing a project or an entity definition it reads, and the projects it reads or those containing an
- * entity definition it reads, where a project contains the definitions of its own application that name it. What
- * is hidden is absent from a listing and answered as not found by id, a project another application holds is
- * refused to a create naming its id, and the organization's administrator sees everything.
+ * entity definition it reads, where a project contains the definitions of its own application that name it, and a
+ * definition names a project of its application that its author may edit. What is hidden is absent from a listing
+ * and answered as not found by id, a project another application holds is refused to a create naming its id, and
+ * the organization's administrator sees everything.
  */
 @SpringBootTest
 public class VisibilityTests extends KinoticTestBase {
@@ -153,14 +154,58 @@ public class VisibilityTests extends KinoticTestBase {
     }
 
     @Test
-    public void anEntityDefinitionNamingAnotherApplicationsProjectDoesNotReachIt() throws Exception {
+    public void anEntityDefinitionNamesAProjectOfItsApplicationThatItsAuthorMayEdit() throws Exception {
         Application x = application();
         Project a = project(x);
         Application y = application();
-        Project hidden = project(y);
+        Project other = project(y);
+        String refusal = "No project of application " + x.getId() + " that the caller may edit has id ";
+
+        // a project nobody stores, and one another application holds
+        for (String projectId : List.of(a.getId() + "-missing", other.getId())) {
+            ExecutionException refused = assertThrows(ExecutionException.class,
+                                                      () -> await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), projectId)))));
+            assertInstanceOf(IllegalArgumentException.class, refused.getCause());
+            assertEquals(refusal + projectId, refused.getCause().getMessage());
+        }
+
+        // a project of the application the author holds nothing on is refused in the same words
+        OrganizationParticipantIdentity sally = member(TEST_ORG_ID, "visible");
+        OrganizationParticipant caller = participant(sally.getId());
+        ExecutionException refused = assertThrows(ExecutionException.class,
+                                                  () -> await(runAs(caller, () -> entityDefinitionService.create(definition(x.getId(), a.getId())))));
+        assertInstanceOf(IllegalArgumentException.class, refused.getCause());
+        assertEquals(refusal + a.getId(), refused.getCause().getMessage());
+        assertTrue(await(runAsOrganization(() -> entityDefinitionService.findAllForProject(a.getId(), FIRST_PAGE))).getContent().isEmpty());
+
+        // reading the project is not editing it
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, sally.getId()), "project.viewer",
+                                                        new Resource(ProjectService.RESOURCE_TYPE, a.getId()))));
+        assertTrue(awaitUntil(() -> await(runAs(caller, () -> projectService.findById(a.getId()))) != null), "the project never became readable");
+        assertThrows(ExecutionException.class,
+                     () -> await(runAs(caller, () -> entityDefinitionService.create(definition(x.getId(), a.getId())))));
+
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, sally.getId()), "project.editor",
+                                                        new Resource(ProjectService.RESOURCE_TYPE, a.getId()))));
+        assertTrue(awaitUntil(() -> created(caller, definition(x.getId(), a.getId()))), "the project's editor was never allowed to name it");
+    }
+
+    @Test
+    public void aProjectCreatedAgainInAnotherApplicationIsNotReachedThroughADefinitionNamingItsId() throws Exception {
+        Application x = application();
+        Project a = project(x);
+        Project replaced = project(x);
+        Application y = application();
         EntityDefinition inside = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), a.getId()))));
-        // a definition of x whose author named a project of y as its project
-        EntityDefinition naming = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), hidden.getId()))));
+        EntityDefinition naming = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), replaced.getId()))));
+        // the project the definition names is deleted, and its id taken by a project of y
+        await(runAsOrganization(() -> projectService.deleteByIdSync(replaced.getId())));
+        Project hidden = new Project();
+        hidden.setId(replaced.getId());
+        hidden.setName(replaced.getName());
+        hidden.setOrganizationId(TEST_ORG_ID);
+        hidden.setApplicationId(y.getId());
+        await(runAsOrganization(() -> projectService.createProjectIfNotExist(hidden)));
         OrganizationParticipantIdentity sally = member(TEST_ORG_ID, "visible");
         for (EntityDefinition definition : List.of(inside, naming)) {
             await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, sally.getId()), "entity_definition.viewer",
@@ -211,6 +256,16 @@ public class VisibilityTests extends KinoticTestBase {
         assertEquals(0L, await(runAs(caller, applicationService::count)));
         assertNull(await(runAs(caller, () -> applicationService.findById(x.getId()))));
         assertTrue(ids(await(runAs(caller, () -> projectService.findAll(FIRST_PAGE)))).isEmpty());
+    }
+
+    private boolean created(OrganizationParticipant caller, EntityDefinition definition) {
+        boolean ret;
+        try {
+            ret = await(runAs(caller, () -> entityDefinitionService.create(definition))) != null;
+        } catch (Exception e) {
+            ret = false;
+        }
+        return ret;
     }
 
     private static List<String> ids(Page<? extends Identifiable<String>> page) {
