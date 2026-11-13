@@ -19,6 +19,17 @@ public interface AuthzModelService {
     Future<AuthzModel> findSystemModel();
 
     /**
+     * The model of the system's store, once the store runs it with every one of {@code roleIds} in it. The
+     * services a server publishes reach the directory, and the model they imply reaches the store, shortly after
+     * the server starts. The future fails with an {@link IllegalStateException} when the store runs no such model
+     * within five minutes.
+     *
+     * @param roleIds the roles the model must have
+     * @return the model
+     */
+    Future<AuthzModel> awaitSystemModel(Collection<String> roleIds);
+
+    /**
      * The model of an application's store, from the system's services its users call and the services its
      * runtimes registered.
      *

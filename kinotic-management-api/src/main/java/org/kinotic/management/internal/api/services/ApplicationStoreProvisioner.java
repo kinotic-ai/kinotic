@@ -131,8 +131,8 @@ public class ApplicationStoreProvisioner {
                              // The record is created with the kernel model as its intent, so a service registered
                              // before the worker's first run stamps a record that exists, and the master reconciles
                              // the record to the model the services imply on its next look. It is created once the
-                             // holdings are placed: OrganizationGraphBootstrap provisions an application until it
-                             // has its record, so a placement that failed is made again by the next sweep
+                             // holdings are placed: OrganizationGraphSeedJob provisions an application that has
+                             // no record, so a placement that failed is made again by its next run
                              ret = relationships.ensureModelWithRoles(store, kernel)
                                                 .compose(version -> relationships.ensure(store, List.of(placement(store))))
                                                 .compose(v -> placeHoldings(application))
