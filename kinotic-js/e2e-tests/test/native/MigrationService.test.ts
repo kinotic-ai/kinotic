@@ -20,6 +20,7 @@ import {
     E2E_APP_TENANT as APP_TENANT,
     E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createPersonEntityDefinitionIfNotExist,
+    createVehicleEntityDefinitionIfNotExist,
     deleteEntityDefinition,
     generateRandomString,
     initKinoticAppClient,
@@ -180,6 +181,39 @@ describe('Kinotic JS', () => {
                 expect(result.errorMessage).toContain(`has no published entity named ${name}`)
             }
             await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
+        }
+    )
+
+    it<LocalTestContext>(
+        'rejects an entity that another project of the application publishes',
+        async ({projectId}) => {
+            const vehicle = await createVehicleEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5))
+            try {
+                expect(vehicle.projectId).not.toBe(projectId)
+                // As the entity a statement acts on, and as either end of a copy
+                for (const content of [
+                    `DELETE FROM Vehicle WHERE id = 'x' WITH REFRESH;`,
+                    `REINDEX PersonWithTenant INTO Vehicle;`,
+                    `REINDEX Vehicle INTO PersonWithTenant;`
+                ]) {
+                    const result = await Kinotic.migrations.executeMigrations({projectId, migrations: [migration(1, content)]})
+                    expect(result.success).toBe(false)
+                    expect(result.errorMessage).toContain(`Project ${projectId} has no published entity named Vehicle`)
+                }
+                await expect(Kinotic.migrations.getLastAppliedMigrationVersion(projectId)).resolves.toBeNull()
+
+                // The project that publishes it reaches it
+                const own = await Kinotic.migrations.executeMigrations({
+                    projectId: vehicle.projectId,
+                    migrations: [migration(1, `DELETE FROM Vehicle WHERE id = 'x' WITH REFRESH;`)]
+                })
+                expect(own.errorMessage).toBeFalsy()
+                expect(own.success).toBe(true)
+            } finally {
+                await deleteEntityDefinition(vehicle.id as string)
+                await Kinotic.entityDefinitions.syncIndex()
+                await Kinotic.projects.deleteById(vehicle.projectId)
+            }
         }
     )
 

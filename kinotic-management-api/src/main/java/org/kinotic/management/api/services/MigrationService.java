@@ -13,7 +13,8 @@ import org.kinotic.core.api.annotations.Publish;
 public interface MigrationService {
 
     /**
-     * Executes migrations for a specific project.
+     * Executes migrations for a specific project. A migration acts on the published entities of that project
+     * alone: one naming an entity of another project fails as one naming an unknown entity does, and nothing runs.
      *
      * @param migrationRequest the request containing migrations and project information
      * @return a future that completes with the migration result
