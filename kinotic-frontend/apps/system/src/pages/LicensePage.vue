@@ -40,7 +40,8 @@
           <template v-if="clusterId">
             <code class="break-all font-mono text-sm">{{ clusterId }}</code>
             <Button label="Copy" icon="pi pi-copy" severity="secondary" outlined size="small" @click="copyClusterId" />
-            <Button as="a" :href="licenseClusterUrl(clusterId)" label="License this cluster" icon="pi pi-external-link" size="small" />
+            <Button as="a" :href="licenseClusterUrl(clusterId)" label="License this cluster" icon="pi pi-external-link" size="small"
+                    @click="startHandoff" />
           </template>
           <span v-else-if="clusterIdError" class="text-sm text-muted-color">{{ clusterIdError }}</span>
           <span v-else-if="!loading" class="text-sm text-muted-color">
@@ -81,6 +82,8 @@ import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage, showErrorT
 // sends the browser back to its returnUrl with the cluster's key in the fragment, #key=<key>
 const LICENSE_ACCOUNT_URL = 'https://licenses.kinotic.ai/account'
 const KEY_FRAGMENT = '#key='
+// the session storage entry the License this cluster button sets, which lets the key that comes back install itself
+const HANDOFF_STORAGE_KEY = 'kinotic.license.handoff'
 
 const FEATURE_NAMES: Record<EnterpriseFeature, string> = {
   [EnterpriseFeature.AZURE_KEY_VAULT]: 'Azure Key Vault',
@@ -166,14 +169,41 @@ function licenseClusterUrl(id: string): string {
   return `${LICENSE_ACCOUNT_URL}?clusterId=${encodeURIComponent(id)}&returnUrl=${encodeURIComponent(returnUrl)}`
 }
 
-// Installs the key the license server handed back in the fragment, and drops the fragment so a reload installs nothing
-async function installHandedBackKey(): Promise<void> {
+function startHandoff(): void {
+  try {
+    window.sessionStorage.setItem(HANDOFF_STORAGE_KEY, 'started')
+  } catch {
+    // without session storage the handed-back key waits in the form for Install key
+  }
+}
+
+// Takes the key the license server handed back in the fragment and drops the fragment so a reload takes nothing. The
+// key installs itself only when this tab started the handoff; a key from any other link waits in the form for Install
+// key, so a crafted link cannot replace the installed key unseen.
+async function takeHandedBackKey(): Promise<void> {
   if (!window.location.hash.startsWith(KEY_FRAGMENT)) {
     return
   }
-  licenseKey.value = decodeURIComponent(window.location.hash.substring(KEY_FRAGMENT.length))
+  const encoded = window.location.hash.substring(KEY_FRAGMENT.length)
   window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
-  await install()
+  let started = false
+  try {
+    started = window.sessionStorage.getItem(HANDOFF_STORAGE_KEY) !== null
+    window.sessionStorage.removeItem(HANDOFF_STORAGE_KEY)
+  } catch {
+    started = false
+  }
+  try {
+    licenseKey.value = decodeURIComponent(encoded)
+  } catch {
+    toast.add({ severity: 'error', summary: 'The key handed back is malformed', detail: 'Copy it from your account at licenses.kinotic.ai.', life: 8000 })
+    return
+  }
+  if (started) {
+    await install()
+  } else {
+    toast.add({ severity: 'info', summary: 'Check the key below', detail: 'Select Install key to install it.', life: 8000 })
+  }
 }
 
 async function copyClusterId(): Promise<void> {
@@ -199,7 +229,7 @@ async function install(): Promise<void> {
 }
 
 onMounted(async () => {
-  await installHandedBackKey()
+  await takeHandedBackKey()
   await load()
 })
 </script>
