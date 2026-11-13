@@ -9615,7 +9615,8 @@ the cloud. Nothing calls `SecretStorageService` today, so the cost is nil this w
 feature that stores a peer's secret would turn it into silent data loss. With the `AZURE`
 backend, the peers' secrets are already in Azure on migration day. It is an Enterprise Feature, so
 a system user installs a license key that turns on `AZURE_KEY_VAULT` on the system console's License page once the
-servers first run. Until then, and once its grace period ends, the servers read the secrets already stored but
+servers first run. The development server does not run in Kubernetes, so it has no cluster id and its key is one
+bound to no cluster. Until then, and once its grace period ends, the servers read the secrets already stored but
 refuse to store new ones.
 
 ### Migrations become append-only from the first peer sign-up
@@ -12003,6 +12004,25 @@ then, reads it at its next reload, which it tries every ten minutes. A new
 cluster starts with no key installed, and a cluster that stores secrets in Azure Key Vault refuses a key that does
 not turn `AZURE_KEY_VAULT` on. The License page shows the licensee, status, expiry, grace period end and features
 of the installed key, which `LicenseService.findCurrent` returns.
+
+### Cluster-bound keys
+
+A key Minds Ignited issues from [licenses.kinotic.ai](https://licenses.kinotic.ai) is bound to one cluster: its
+`clusterId` claim is the UID of that cluster's `kube-system` namespace, and a cluster with another id refuses to
+install it and turns none of its features on. Each server reads its cluster's id at startup from the Kubernetes API
+with its service account, which the Helm chart's ClusterRole lets `get` the `kube-system` namespace and nothing
+else; a server that cannot read it tries again every ten minutes. The License page shows the cluster id, which
+`LicenseService.findClusterId` returns, and its License this cluster button opens the customer's account at
+licenses.kinotic.ai with the id filled in, to add the cluster to a license, where it takes one of the license's seats
+for good; from a computer that cannot reach licenses.kinotic.ai the customer copies the id there instead. The customer
+then pastes the key issued for it on the License page. A server
+outside Kubernetes has no cluster id and runs only on a key bound to no cluster, such as the evaluation key below.
+
+Once a day, and when it starts, one system server signs in to the license server at `wss://licenses.kinotic.ai`
+with the installed key and asks for the cluster's newest key, which it installs when it differs, so a cluster that
+can reach the license server picks up the key each payment issues by itself. A cluster that cannot reach it logs a
+warning and keeps its key; its customer copies each new key from the account and installs it on the License page.
+A key bound to no cluster is not renewed.
 
 Keys are verified offline, and each server logs the licensee, expiry and features a key turns on, or why the key is
 not valid.
