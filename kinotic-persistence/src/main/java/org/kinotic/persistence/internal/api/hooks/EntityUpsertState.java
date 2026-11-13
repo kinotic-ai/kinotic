@@ -1,6 +1,8 @@
 package org.kinotic.persistence.internal.api.hooks;
 
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessorState;
@@ -17,39 +19,35 @@ import java.util.List;
  * every root object of the input.
  */
 @Getter
-@Setter
+@RequiredArgsConstructor
 public class EntityUpsertState extends JsonStreamProcessorState {
 
     private final EntityContext context;
+    @Getter(AccessLevel.NONE)
     private final JsonMapper jsonMapper;
     private final ByteArrayBuilder buffer = new ByteArrayBuilder();
     private final List<String> tenantsSelected = new ArrayList<>();
 
     private String id;
+    @Setter
     private String tenantId;
+    @Setter
     private String version;
 
-    public EntityUpsertState(EntityContext context, JsonMapper jsonMapper) {
-        this.context = context;
-        this.jsonMapper = jsonMapper;
-    }
-
     /**
-     * Reads the value the parser is on as the given type.
+     * Reads the value of the field whose name the parser is on, leaving the parser on the value's last token.
      */
-    public <T> T readValue(JsonParser parser, Class<T> type) {
+    public <T> T readFieldValue(JsonParser parser, Class<T> type) {
+        parser.nextToken();
         return jsonMapper.readValue(parser, type);
     }
 
     /**
      * Records the id of the root object being written.
      *
-     * @throws IllegalArgumentException if the id is blank or the root object already named one
+     * @throws IllegalArgumentException if the root object already named an id
      */
     public void recordId(String id) {
-        if(id == null || id.isBlank()){
-            throw new IllegalArgumentException("Id field cannot be null or blank");
-        }
         // reached by a payload that repeats the id field, since a published definition holds a single id field
         if(this.id != null){
             throw new IllegalArgumentException("Found multiple id fields in entity");

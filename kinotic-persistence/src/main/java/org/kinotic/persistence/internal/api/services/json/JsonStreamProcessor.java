@@ -14,16 +14,16 @@ import java.util.List;
 public interface JsonStreamProcessor<T, C, E> {
 
     /**
-     * Processes an input holding a single root object.
+     * Processes an input that is a single json object.
      * @param input to process
      * @param context the data the caller provides for processing
-     * @return what the root object became
-     * @throws IllegalStateException if the input does not hold exactly one root object
+     * @return what the object became
+     * @throws IllegalStateException if the input yields no root object or more than one
      */
     E process(T input, C context);
 
     /**
-     * Processes an input holding a json array of root objects, or a single root object.
+     * Processes an input that is a json array of objects, each of which is a root object.
      * @param input to process
      * @param context the data the caller provides for processing
      * @return what each root object became, in input order

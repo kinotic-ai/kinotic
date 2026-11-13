@@ -24,10 +24,9 @@ public class TenantIdUpsertFieldTransformer implements UpsertFieldTransformer {
     @Override
     public void transform(JsonParser parser, JsonGenerator generator, EntityUpsertState state) {
         String fieldName = parser.currentName();
-        parser.nextToken();
-        String tenantId = resolveTenantId(state.readValue(parser, String.class), state.getContext().getTenantId());
+        String tenantId = resolveTenantId(state.readFieldValue(parser, String.class), state.getContext().getTenantId());
 
-        writeField(generator, fieldName, tenantId);
+        generator.writeStringProperty(fieldName, tenantId);
 
         if(state.isRootField()){
             // reached by a payload that repeats the tenant id field, since a published definition holds a single one

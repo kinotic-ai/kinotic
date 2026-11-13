@@ -337,8 +337,7 @@ public class DefaultEntityService implements EntityService {
                              }
 
                              return i;
-                         })).map(indexResponse -> postProcessSaveOrUpdate(entity,
-                                                                          entityHolder,
+                         })).map(indexResponse -> postProcessSaveOrUpdate(entityHolder,
                                                                           indexResponse.primaryTerm(),
                                                                           indexResponse.seqNo())));
     }
@@ -444,8 +443,7 @@ public class DefaultEntityService implements EntityService {
 
                              return KinoticUtil.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
                                                        .map(updateResponse ->
-                                                                    postProcessSaveOrUpdate(entity,
-                                                                                            entityHolder,
+                                                                    postProcessSaveOrUpdate(entityHolder,
                                                                                             updateResponse.primaryTerm(),
                                                                                             updateResponse.seqNo()));
                          });
@@ -646,33 +644,23 @@ public class DefaultEntityService implements EntityService {
         });
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> T postProcessSaveOrUpdate(T entity, EntityHolder<?> entityHolder, Long primaryTerm, Long seqNo) {
-        // All token buffers received will be converted to RawJson in the upsert preprocessor
-        // This is done since it uses less memory for bulk operations
-        // So we convert those cases back to a TokenBuffer before returning
+    private TokenBuffer postProcessSaveOrUpdate(EntityHolder<RawJson> entityHolder, Long primaryTerm, Long seqNo) {
+        // The upsert pre-processor holds each entity as RawJson, which uses less memory for bulk operations,
+        // so it is converted back to the TokenBuffer a save or update returns
+        TokenBuffer ret;
         if(entityDescriptor.isOptimisticLockingEnabled()){
-            return (T) updateVersionForEntity(entityHolder.entity(),
-                                              primaryTerm,
-                                              seqNo,
-                                              entity instanceof TokenBuffer
-                                                      && entityHolder.entity() instanceof RawJson
-            );
+            Object versioned = updateVersionForEntity((Object) entityHolder.entity(), primaryTerm, seqNo, true);
+            ret = (TokenBuffer) versioned;
         }else{
-            if(entity instanceof TokenBuffer
-                    && entityHolder.entity() instanceof RawJson json){
-                try {
-                    ObjectNode node = (ObjectNode) objectMapper.readTree(json.data());
-                    TokenBuffer buffer = new TokenBuffer(objectMapper._serializationContext(), false);
-                    objectMapper.writeValue(buffer, node);
-                    return (T) buffer;
-                } catch (JacksonException e) {
-                    throw new IllegalStateException(e);
-                }
-            }else {
-                return (T) entityHolder.entity();
+            try {
+                ObjectNode node = (ObjectNode) objectMapper.readTree(entityHolder.entity().data());
+                ret = new TokenBuffer(objectMapper._serializationContext(), false);
+                objectMapper.writeValue(ret, node);
+            } catch (JacksonException e) {
+                throw new IllegalStateException(e);
             }
         }
+        return ret;
     }
 
     private <T> T updateVersionForEntity(T entity, Long primaryTerm, Long seqNo){

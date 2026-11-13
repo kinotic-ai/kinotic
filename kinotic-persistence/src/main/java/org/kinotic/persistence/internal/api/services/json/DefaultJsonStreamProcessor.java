@@ -43,8 +43,9 @@ public class DefaultJsonStreamProcessor<T, C, S extends JsonStreamProcessorState
         int arrayDepth = 0;
         S state = strategy.createState(context);
 
-        try(JsonParser jsonParser = strategy.createParser(input)) {
-            JsonGenerator jsonGenerator = strategy.createGenerator(state);
+        // closing the generator returns its buffers to Jackson's recycler for the next call to reuse
+        try(JsonParser jsonParser = strategy.createParser(input);
+            JsonGenerator jsonGenerator = strategy.createGenerator(state)) {
 
             while (jsonParser.nextToken() != null) {
 
@@ -78,7 +79,7 @@ public class DefaultJsonStreamProcessor<T, C, S extends JsonStreamProcessorState
                         jsonGenerator.flush();
                         ret.add(strategy.emit(state));
                     }else{
-                        if(!shouldSkipToken(token, jsonParser.currentValue(), arrayDepth, processArray)){
+                        if(!(processArray && isEnclosingArrayToken(token, arrayDepth))){
                             jsonGenerator.copyCurrentEvent(jsonParser);
                         }
                     }
@@ -109,17 +110,8 @@ public class DefaultJsonStreamProcessor<T, C, S extends JsonStreamProcessorState
     }
 
     // In array mode the enclosing array is dropped so each root object is written on its own
-    private boolean shouldSkipToken(JsonToken token, Object currentValue, int arrayDepth, boolean processArray){
-        boolean ret = false;
-        if(processArray) {
-            if (token == JsonToken.START_ARRAY && arrayDepth == 0) {
-                ret = true;
-            } else if (token == JsonToken.END_ARRAY && arrayDepth == 1) {
-                ret = true;
-            } else if (arrayDepth == 1 && (  ",".equals(currentValue) || " ".equals(currentValue) )) {
-                ret = true;
-            }
-        }
-        return ret;
+    private boolean isEnclosingArrayToken(JsonToken token, int arrayDepth){
+        return (token == JsonToken.START_ARRAY && arrayDepth == 0)
+                || (token == JsonToken.END_ARRAY && arrayDepth == 1);
     }
 }

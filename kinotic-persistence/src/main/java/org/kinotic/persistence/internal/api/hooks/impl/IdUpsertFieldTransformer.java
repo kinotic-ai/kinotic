@@ -22,13 +22,12 @@ public class IdUpsertFieldTransformer implements UpsertFieldTransformer {
     @Override
     public void transform(JsonParser parser, JsonGenerator generator, EntityUpsertState state) {
         String fieldName = parser.currentName();
-        parser.nextToken();
-        String id = state.readValue(parser, String.class);
+        String id = state.readFieldValue(parser, String.class);
         if(id == null || id.isBlank()){
             throw new IllegalArgumentException("Id field cannot be null or blank");
         }
 
-        writeField(generator, fieldName, id);
+        generator.writeStringProperty(fieldName, id);
 
         if(state.isRootField()){
             state.recordId(id);

@@ -25,13 +25,12 @@ public class TimeReferenceUpsertFieldTransformer implements UpsertFieldTransform
     @Override
     public void transform(JsonParser parser, JsonGenerator generator, EntityUpsertState state) {
         String fieldName = parser.currentName();
-        parser.nextToken();
-        Date time = state.readValue(parser, Date.class);
+        Date time = state.readFieldValue(parser, Date.class);
 
-        writeField(generator, fieldName, time);
+        generator.writePOJOProperty(fieldName, time);
 
         if(state.isRootField()){
-            writeField(generator, "@timestamp", time);
+            generator.writePOJOProperty("@timestamp", time);
         }
     }
 }

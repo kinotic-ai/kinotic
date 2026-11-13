@@ -26,6 +26,8 @@ import java.util.Map;
  * is addressed and checked by. A root object without an id is rejected. On a {@link MultiTenancyType#SHARED}
  * entity the tenant is taken from the participant, or from the data when the entity has a tenant id field, and a
  * participant naming tenants through the data has its tenant selection replaced by the tenants the data names.
+ *
+ * Created by Navíd Mitchell 🤪 on 5/5/23.
  */
 public class EntityUpsertStrategy implements JsonStreamProcessorStrategy<TokenBuffer, EntityContext, EntityUpsertState, EntityHolder<RawJson>> {
 
@@ -119,8 +121,7 @@ public class EntityUpsertStrategy implements JsonStreamProcessorStrategy<TokenBu
     // The tenant field of a SHARED entity without a tenant id field may be given only as the participant's tenant
     private void transformTenantField(JsonParser parser, JsonGenerator generator, EntityUpsertState state) {
         String fieldName = parser.currentName();
-        parser.nextToken();
-        String tenantId = state.readValue(parser, String.class);
+        String tenantId = state.readFieldValue(parser, String.class);
         if(tenantId != null && !tenantId.equals(state.getContext().requireTenantId())){
             throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
         }

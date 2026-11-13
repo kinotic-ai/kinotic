@@ -22,8 +22,7 @@ public class VersionUpsertFieldTransformer implements UpsertFieldTransformer {
 
     @Override
     public void transform(JsonParser parser, JsonGenerator generator, EntityUpsertState state) {
-        parser.nextToken();
-        String version = state.readValue(parser, String.class);
+        String version = state.readFieldValue(parser, String.class);
 
         if(state.isRootField()){
             // reached by a payload that repeats the version field, since a published definition holds a single one
