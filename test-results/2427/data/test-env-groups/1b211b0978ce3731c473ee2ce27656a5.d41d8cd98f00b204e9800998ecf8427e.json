@@ -1,0 +1,1 @@
+{"id":"1b211b0978ce3731c473ee2ce27656a5.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.api.ConfirmedEventTests.anEventIsHandledByItsConfirmedConsumersBeforeThePublishCompletes","name":"anEventIsHandledByItsConfirmedConsumersBeforeThePublishCompletes()","status":"passed","testResultsByEnv":{"default":"6e9e663ce240c29703ce022f7a5d7246"}}
