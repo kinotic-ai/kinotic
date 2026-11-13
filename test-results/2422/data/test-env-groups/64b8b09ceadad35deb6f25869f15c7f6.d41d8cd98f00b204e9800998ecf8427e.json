@@ -1,0 +1,1 @@
+{"id":"64b8b09ceadad35deb6f25869f15c7f6.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.domain.internal.api.ee.license.LicenseVerifierTest.aKeyPastItsGracePeriodYieldsAnExpiredLicense","name":"aKeyPastItsGracePeriodYieldsAnExpiredLicense()","status":"passed","testResultsByEnv":{"default":"aeacc0305b7e9637e072d8d26aa35b63"}}

@@ -1,1 +1,0 @@
-{"id":"92c3fd89847b8163d735acfbbc3f7842.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.core.internal.EventServiceTests.publishSendsOnlyToBestEffortConsumersOverTheBus","name":"publishSendsOnlyToBestEffortConsumersOverTheBus()","status":"passed","testResultsByEnv":{"default":"c996bc8da8934ca0b8952f3a3d6aac17"}}

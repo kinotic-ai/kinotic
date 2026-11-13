@@ -1,1 +1,0 @@
-{"id":"28628da9ecc16f29a1f52c093c33f9fa.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/ResolveConnectOptions.test.ts#resolveConnectOptions connects to the cloud over TLS when nothing names a server","name":"connects to the cloud over TLS when nothing names a server","status":"passed","testResultsByEnv":{"default":"ef21b78144524eab62fcdff61bba9552"}}

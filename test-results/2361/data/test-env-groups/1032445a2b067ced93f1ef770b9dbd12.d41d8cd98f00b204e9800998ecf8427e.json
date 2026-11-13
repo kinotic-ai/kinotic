@@ -1,1 +1,0 @@
-{"id":"1032445a2b067ced93f1ef770b9dbd12.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/ResolveConnectOptions.test.ts#resolveConnectOptions keeps an explicit useSSL and derives the port from it","name":"keeps an explicit useSSL and derives the port from it","status":"passed","testResultsByEnv":{"default":"71473d43c8e080ceaa9efe65fcfcc264"}}

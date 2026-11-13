@@ -1,0 +1,1 @@
+{"id":"36d4e2646bf15be1e1bd3bcd7c87c119.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.domain.api.services.security.KinoticJwtIssuerTest.aTokenMintedForAnotherSurfaceIsRefused","name":"aTokenMintedForAnotherSurfaceIsRefused()","status":"passed","testResultsByEnv":{"default":"ec85e33618daef6efc6c001d5be91038"}}
