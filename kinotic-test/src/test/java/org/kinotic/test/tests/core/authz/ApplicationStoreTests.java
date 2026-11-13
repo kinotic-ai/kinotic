@@ -19,6 +19,7 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.Tenant;
+import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
@@ -134,7 +135,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
     public void anEndUserIsAdmittedToItsTenantsRowsByAGrantAndRefusedWithout() throws Exception {
         EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
         EntityDefinition car = await(runAsOrganization(() -> testData.createCarEntityDefinitionIfNotExists(null))).getLeft();
-        String tenantId = "tenant-" + suffix();
+        String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bob = endUser(TEST_APP_ID, tenantId);
         Participant caller = applicationParticipant(tenantId, bob.getId());
         Subject subject = new Subject(SubjectType.USER, bob.getId());
@@ -207,7 +208,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
     public void aGrantIsMadeOnWhatTheApplicationHoldsToOneOfItsOwnUsers() throws Exception {
         EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
         String editor = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.EDITOR);
-        ApplicationParticipantIdentity bob = endUser(TEST_APP_ID, "tenant-" + suffix());
+        ApplicationParticipantIdentity bob = endUser(TEST_APP_ID, createTenant(TEST_APP_ID));
         Subject subject = new Subject(SubjectType.USER, bob.getId());
         Resource tenant = new Resource(AuthzConstants.TENANT_TYPE, bob.getTenantId());
 
@@ -218,6 +219,14 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzConstants.ENTITY_DEFINITION_TYPE, theirs))));
         assertInstanceOf(IllegalArgumentException.class,
                          failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(theirs, bob.getTenantId())))));
+        // a grant on a tenant the application has none of, alone or with a definition
+        String noTenant = "tenant-" + suffix();
+        String tenantAdmin = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN);
+        assertEquals("No tenant of the application has id " + noTenant,
+                     failure(() -> access.grant(TEST_APP_ID, subject, tenantAdmin, new Resource(AuthzConstants.TENANT_TYPE, noTenant))).getMessage());
+        assertEquals("No tenant of the application has id " + noTenant,
+                     failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), noTenant)))).getMessage());
+        assertTrue(await(relationships.read(AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID), AuthzUtil.object(AuthzConstants.TENANT_TYPE, noTenant))).isEmpty());
         // a definition within a tenant named without the tenant
         assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, person.getId()))));
         // a grant to the organization's member, who is not one of the application's users
@@ -234,6 +243,20 @@ public class ApplicationStoreTests extends KinoticTestBase {
                                                     new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), bob.getTenantId())))));
         // a grant in an application of another organization, or of none
         assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant("no-such-application", subject, editor, tenant)));
+    }
+
+    @Test
+    public void aGrantIsMadeOnTheTenantTheSystemGaveAUser() throws Exception {
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("System tenants " + suffix(), "system tenants", TenantManagement.SYSTEM)));
+        // the system gives the user a tenant of its own, which has no record
+        ApplicationParticipantIdentity bob = endUser(application.getId(), null);
+        Resource tenant = new Resource(AuthzConstants.TENANT_TYPE, bob.getTenantId());
+
+        Grant grant = await(runAsOrganization(() -> access.grant(application.getId(), new Subject(SubjectType.USER, bob.getId()),
+                                                                 AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN), tenant)));
+
+        assertEquals(List.of(grant), await(runAsOrganization(() -> access.findGrants(application.getId(), tenant))));
+        await(runAsOrganization(() -> applicationService.deleteById(application.getId())));
     }
 
     @Test

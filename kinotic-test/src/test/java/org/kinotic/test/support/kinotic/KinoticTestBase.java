@@ -35,6 +35,7 @@ import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
+import org.kinotic.management.api.services.TenantService;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -123,6 +124,9 @@ public abstract class KinoticTestBase {
 
     @Autowired
     private ParticipantIdentityService participantIdentities;
+
+    @Autowired
+    private TenantService tenants;
 
     /**
      * Waits for the system store to run the model of every system service in the directory, and makes
@@ -232,6 +236,17 @@ public abstract class KinoticTestBase {
     /** The result of {@code future}, waited for as long as a test's call to a service may take. */
     protected static <T> T await(Future<T> future) throws Exception {
         return future.toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Creates a tenant of one of {@link #TEST_ORG_ID}'s applications, as the organization's administrator does, for a
+     * test that grants on it.
+     *
+     * @param applicationId the application, which exists
+     * @return the tenant's id
+     */
+    protected String createTenant(String applicationId) throws Exception {
+        return await(runAsOrganization(() -> tenants.createTenantIfNotExist(applicationId, "tenant-" + suffix(), "A customer"))).getId();
     }
 
     /** Eight random hex characters, which make a fixture's name or id a test's own. */
