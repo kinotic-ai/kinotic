@@ -27,6 +27,7 @@ import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
+import org.kinotic.management.api.services.TenantService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
 
     @Autowired
     private ApplicationAccessService access;
+
+    @Autowired
+    private TenantService tenantService;
 
 
     @Autowired
@@ -109,6 +113,7 @@ public class OrganizationIsolationTests extends KinoticTestBase {
                                               Consistency.HIGHER_CONSISTENCY)));
 
         // a tenant of the same id in each application, administered in ours
+        assertEquals(TENANT_ID, await(runAsOrganization(() -> tenantService.createTenantIfNotExist(applicationId, TENANT_ID, "A customer"))).getId());
         ApplicationParticipantIdentity ourAdmin = endUser(TEST_ORG_ID, applicationId);
         ApplicationParticipantIdentity theirUser = endUser(otherOrganizationId, applicationId);
         Resource tenant = new Resource(AuthzConstants.TENANT_TYPE, TENANT_ID);

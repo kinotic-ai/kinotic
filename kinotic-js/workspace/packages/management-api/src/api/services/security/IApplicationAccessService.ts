@@ -34,7 +34,8 @@ export interface IApplicationAccessService {
      * Grants a role to a user or a machine of the application: a grant on a definition within a tenant reaches
      * those rows alone, one on a tenant every definition's rows in that tenant, one on a definition its rows in
      * every tenant, and one on the application the rows of every definition in every tenant. A definition named
-     * must be one the application holds.
+     * must be one the application holds, and a tenant named one the application has where its administrators
+     * manage its tenants.
      * @param subject a user naming the identity id of one of the application's users or machines
      * @param roleId a built-in role's id, such as entity_definition.editor or tenant.admin
      */

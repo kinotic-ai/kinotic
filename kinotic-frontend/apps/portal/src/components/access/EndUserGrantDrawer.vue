@@ -1,7 +1,7 @@
 <template>
   <GrantAccessDrawer :visible="visible"
                      description="Give one of this application's users or machines a role on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant."
-                     :kinds="kinds" :roles="roles" :ready="resource !== null" :grant="grant"
+                     :categories="categories" :roles="roles" :ready="resource !== null" :grant="grant"
                      @update:visible="emit('update:visible', $event)" @granted="emit('granted', $event)">
     <div>
       <span class="mb-2 block text-sm font-medium">Where</span>
@@ -25,7 +25,7 @@ import Select from 'primevue/select'
 import SelectButton from 'primevue/selectbutton'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Grant, Resource, RoleDefinition, Subject } from '@kinotic-ai/management-api'
-import { GrantAccessDrawer, type SubjectKind, type SubjectOption } from '@kinotic-ai/frontend-common/management'
+import { GrantAccessDrawer, type SubjectCategory, type SubjectOption } from '@kinotic-ai/frontend-common/management'
 import { type DefinitionOption, definitionOf, resourceOf, tenantOf } from './applicationResources'
 
 /**
@@ -61,7 +61,7 @@ const rows = ref<'Every definition' | 'One definition'>('Every definition')
 const tenantId = ref<string | null>(null)
 const definitionId = ref<string | null>(null)
 
-const kinds = computed<SubjectKind[]>(() => [
+const categories = computed<SubjectCategory[]>(() => [
   { label: 'User', options: props.users, placeholder: 'Choose a user', emptyMessage: 'No users yet' },
   { label: 'Machine', options: props.machines, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
 ])

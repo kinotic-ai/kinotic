@@ -69,7 +69,7 @@
     </AccessCheckPanel>
 
     <GrantAccessDrawer v-model:visible="grantDrawerVisible" :description="`Give a member or a group a role on this ${resourceTypeLabel}.`"
-                       :kinds="grantKinds" :roles="fittingRoles"
+                       :categories="grantCategories" :roles="fittingRoles"
                        :role-hint="`The role's permissions reach this ${resourceTypeLabel} and everything inside it.`"
                        :grant="grant" @granted="onGranted" />
   </div>
@@ -88,7 +88,7 @@ import { ArrowUpFromLine, KeyRound, MapPin } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Grant, Resource, RoleDefinition, Subject } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, TableChip, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
-import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectKind } from '@kinotic-ai/frontend-common/management'
+import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectCategory } from '@kinotic-ai/frontend-common/management'
 import { useAccess } from '@/composables/useAccess'
 import { accessPath, grantsAbove, grantsOn } from '@/util/access'
 import { useSubjects } from './useSubjects'
@@ -131,7 +131,7 @@ const permissionOptions = computed(() => (catalog.value[props.resource.type] ?? 
   label: permissionLabel(splitPermission(name).permission)
 })))
 
-const grantKinds = computed<SubjectKind[]>(() => [
+const grantCategories = computed<SubjectCategory[]>(() => [
   { label: 'Member', options: members.value, placeholder: 'Choose a member', emptyMessage: 'No members' },
   { label: 'Group', options: groups.value, placeholder: 'Choose a group', emptyMessage: 'No groups yet' }
 ])

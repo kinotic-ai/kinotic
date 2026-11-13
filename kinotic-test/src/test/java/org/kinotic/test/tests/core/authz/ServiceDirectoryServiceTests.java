@@ -129,7 +129,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         assertEquals(Set.of(type + "_can_generate"), generator.permissions());
 
         // an end user is refused until granted, and the declared permission needs the declared role
-        String tenantId = "tenant-" + suffix();
+        String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bob = endUser(tenantId);
         Participant caller = applicationParticipant(tenantId, bob.getId());
         Subject subject = new Subject(SubjectType.USER, bob.getId());

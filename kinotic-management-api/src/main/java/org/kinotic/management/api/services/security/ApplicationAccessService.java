@@ -52,7 +52,8 @@ public interface ApplicationAccessService {
      * bundles on the resource and on everything inside it: a grant on a definition within a tenant reaches those
      * rows alone, one on a tenant every definition's rows in that tenant, one on a definition its rows in every
      * tenant, and one on the application the rows of every definition in every tenant. A definition named must be
-     * one the application holds.
+     * one the application holds, and a tenant named one the application has where its administrators manage its
+     * tenants.
      *
      * @param applicationId the application
      * @param subject       who holds the grant, a user naming the identity id of one of the application's users

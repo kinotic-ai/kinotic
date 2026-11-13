@@ -70,7 +70,7 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
     public void aNamedQueryIsCheckedForThePermissionItsStatementNeeds() throws Exception {
         EntityDefinition person = createPersonDefinition();
         createQueries(person);
-        String tenantId = "tenant-" + suffix();
+        String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bob = endUser(tenantId);
         ScopedParticipant caller = applicationParticipant(tenantId, bob.getId());
         Subject subject = new Subject(SubjectType.USER, bob.getId());
@@ -94,7 +94,7 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
         FunctionDefinition update = query(RENAME_QUERY, "UPDATE %s SET lastName = 'Renamed' WHERE lastName = 'Nobody'".formatted(person.getName()));
         FunctionDefinition select = query(RENAME_QUERY, "SELECT * FROM %s WHERE lastName = 'Nobody'".formatted(person.getName()));
         saveQueries(person, List.of(update, select));
-        String tenantId = "tenant-" + suffix();
+        String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bob = endUser(tenantId);
         ScopedParticipant caller = applicationParticipant(tenantId, bob.getId());
         Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));

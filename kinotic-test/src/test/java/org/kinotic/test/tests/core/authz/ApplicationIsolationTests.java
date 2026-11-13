@@ -59,7 +59,7 @@ public class ApplicationIsolationTests extends KinoticTestBase {
         // the other application's definition of the same name; whether it is published is immaterial to the check,
         // which reads no definition
         String theirs = DomainUtil.createEntityDefinitionId(new ApplicationKey(TEST_ORG_ID, other.getId()), person.getName());
-        String tenantId = "tenant-" + suffix();
+        String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bob = endUser(tenantId);
         Participant caller = applicationParticipant(tenantId, bob.getId());
         Subject subject = new Subject(SubjectType.USER, bob.getId());

@@ -14,12 +14,14 @@ import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
+import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -41,6 +43,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     private final ParticipantIdentityService identities;
     private final RelationshipService relationships;
     private final EntityDefinitionRepository entityDefinitions;
+    private final TenantRepository tenants;
     private final AuthzModelService models;
 
     @Override
@@ -119,7 +122,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         return ret;
     }
 
-    // A grant is made on a tenant placed under the application, on a definition the application holds, or on both
+    // A grant is made on a tenant of the application, which is placed under it, on a definition the application
+    // holds, or on both
     private Future<Void> contained(Application application, Resource resource) {
         Future<Void> ret;
         if (AuthzConstants.TENANT_TYPE.equals(resource.type())) {
@@ -138,9 +142,27 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     // A tenant is placed under its application when it is first granted on, so the grant and every one made on
     // the application reach it; the application itself is where the graph starts
     private Future<Void> placed(Application application, String tenantId) {
-        return relationships.ensure(storeOf(application),
-                                    List.of(AuthzGraphUtil.containment(AuthzGraphUtil.authzApplication(application.getOrganizationId(), application.getId()),
-                                                                       AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId))));
+        return requireTenant(application, tenantId)
+                .compose(v -> relationships.ensure(storeOf(application),
+                                                   List.of(AuthzGraphUtil.containment(AuthzGraphUtil.authzApplication(application.getOrganizationId(), application.getId()),
+                                                                                      AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId)))));
+    }
+
+    // A grant on a tenant is made on one the application has where its administrators manage its tenants; a tenant
+    // the system gave a user has no record to require
+    private Future<Void> requireTenant(Application application, String tenantId) {
+        Future<Void> ret;
+        if (application.getTenantManagement() == TenantManagement.TENANT_ADMINISTRATORS) {
+            ret = tenants.findById(application.getId(), tenantId, application.getOrganizationId()).map(tenant -> {
+                if (tenant == null) {
+                    throw new IllegalArgumentException("No tenant of the application has id " + tenantId);
+                }
+                return null;
+            });
+        } else {
+            ret = Future.succeededFuture();
+        }
+        return ret;
     }
 
     // A grant on a definition is made on one the application holds, which placed it in the store when it was created
