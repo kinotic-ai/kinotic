@@ -262,6 +262,8 @@ function parseExpressionToJs(expression: any): any {
             return true
         case SyntaxKind.FalseKeyword:
             return false
+        case SyntaxKind.NullKeyword:
+            return null
         case SyntaxKind.CallExpression:
             const callExpr = expression.asKindOrThrow(SyntaxKind.CallExpression)
             if(callExpr.getText().startsWith('$')){ // Check if it is a supported internal function
@@ -311,13 +313,16 @@ function convertCallExpressionToJs(expression: CallExpression): any {
 function convertToObjectLiteral(expression: ObjectLiteralExpression): any {
     const result: any = {}
     for(const prop of expression.getProperties()) {
-        if (prop.getKind() === SyntaxKind.PropertyAssignment) {
-            const assignment = prop.asKindOrThrow(SyntaxKind.PropertyAssignment)
-            const key = assignment.getName()
-            const initializer = assignment.getInitializer()
-            if (initializer) {
-                result[key] = parseExpressionToJs(initializer)
-            }
+        // a shorthand property, a spread or a method holds a value only the running program knows, so the
+        // declaration generated without it would differ from the one the runtime's decorator receives
+        if (prop.getKind() !== SyntaxKind.PropertyAssignment) {
+            throw new Error(`Unsupported object member: ${prop.getText()}; declare each property as name: value with a literal value`)
+        }
+        const assignment = prop.asKindOrThrow(SyntaxKind.PropertyAssignment)
+        const key = assignment.getName()
+        const initializer = assignment.getInitializer()
+        if (initializer) {
+            result[key] = parseExpressionToJs(initializer)
         }
     }
     return result

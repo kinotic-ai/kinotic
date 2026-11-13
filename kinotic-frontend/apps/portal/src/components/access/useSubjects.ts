@@ -16,7 +16,9 @@ const SUBJECT_PAGE_SIZE = 500
  * the system store's panels list them, or, for an application, its users and machines, as the pickers of the
  * application's own store list them; the grant rows name whichever were read. Each list is read on its own,
  * and one the caller may not read is left empty, so a caller who may read access but not the members still
- * sees the grants, with such a subject named by its id; any other failure to read a list fails the load.
+ * sees the grants, with such a subject named by its id; any other failure to read a list fails the load. Only
+ * the latest load's lists are kept, so a page that switches application while a load is in flight shows the
+ * subjects of the application it switched to.
  *
  * @param applicationId reads the application whose users and machines are the subjects, or null for the
  *                      organization's members and groups; read on every load, so a page that switches application
@@ -33,31 +35,38 @@ export function useSubjects(applicationId: () => string | null = () => null): {
   const groups = ref<SubjectOption[]>([])
   const machines = ref<SubjectOption[]>([])
 
+  let latestLoad = 0
+
   async function load(): Promise<void> {
+    const thisLoad = ++latestLoad
     const application = applicationId()
     if (application === null) {
       await Promise.all([
-        read('members', Kinotic.members.findMembers(Pageable.create(0, SUBJECT_PAGE_SIZE)), members, memberOption),
-        read('groups', Kinotic.permissions.findGroups(Pageable.create(0, SUBJECT_PAGE_SIZE)), groups, groupOption)
+        read(thisLoad, 'members', Kinotic.members.findMembers(Pageable.create(0, SUBJECT_PAGE_SIZE)), members, memberOption),
+        read(thisLoad, 'groups', Kinotic.permissions.findGroups(Pageable.create(0, SUBJECT_PAGE_SIZE)), groups, groupOption)
       ])
     } else {
       await Promise.all([
-        read('users', Kinotic.members.findApplicationUsers(application, Pageable.create(0, SUBJECT_PAGE_SIZE)), members, memberOption),
-        read('machines', Kinotic.machines.findMachines(application, Pageable.create(0, SUBJECT_PAGE_SIZE)), machines, machineOption)
+        read(thisLoad, 'users', Kinotic.members.findApplicationUsers(application, Pageable.create(0, SUBJECT_PAGE_SIZE)), members, memberOption),
+        read(thisLoad, 'machines', Kinotic.machines.findMachines(application, Pageable.create(0, SUBJECT_PAGE_SIZE)), machines, machineOption)
       ])
     }
   }
 
   // a list the caller may not read is left empty, and the panel shows the rest; any other failure is the caller's
-  async function read<T>(what: string, page: Promise<Page<T>>, into: Ref<SubjectOption[]>, option: (item: T) => SubjectOption): Promise<void> {
+  async function read<T>(thisLoad: number, what: string, page: Promise<Page<T>>, into: Ref<SubjectOption[]>,
+                         option: (item: T) => SubjectOption): Promise<void> {
+    let options: SubjectOption[] = []
     try {
-      into.value = ((await page).content ?? []).map(option)
+      options = ((await page).content ?? []).map(option)
     } catch (err) {
       if (!isAuthorizationError(err)) {
         throw err
       }
       debug('The caller may not read the %s a grant can be made to: %O', what, err)
-      into.value = []
+    }
+    if (thisLoad === latestLoad) {
+      into.value = options
     }
   }
 

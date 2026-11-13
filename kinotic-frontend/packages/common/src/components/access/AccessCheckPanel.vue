@@ -114,6 +114,8 @@ async function check(): Promise<void> {
     checked.value = await props.explain(picked.subject, permission.value)
     checkedLabel.value = picked.label
   } catch (err) {
+    // a check that fails shows no answer, instead of the one before it
+    checked.value = null
     showErrorToast(toast, 'Failed to check access', err, { life: 8000 })
   } finally {
     checking.value = false

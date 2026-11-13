@@ -386,6 +386,12 @@ function find() {
     .catch((error: unknown) => {
       debug('Error loading data: %O', error);
       refused.value = isAuthorizationError(error);
+      if (refused.value) {
+        // the refusal is shown in place of the rows, so the rows of an earlier load leave with it
+        items.value = [];
+        totalItems.value = 0;
+        emit("items-count", 0);
+      }
       loading.value = false;
       initialSearchCompleted.value = true;
     });

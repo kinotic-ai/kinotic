@@ -53,8 +53,13 @@ const name = ref('')
 const description = ref('')
 const saving = ref(false)
 
+// counts the times the drawer opened, so a save that completes after the drawer was closed and opened again
+// leaves the editor it did not start open
+let opening = 0
+
 watch(() => props.visible, visible => {
   if (visible) {
+    opening++
     name.value = props.group?.name ?? ''
     description.value = props.group?.description ?? ''
   }
@@ -64,13 +69,16 @@ async function submit(): Promise<void> {
   if (name.value.trim() === '') {
     return
   }
+  const thisOpening = opening
   saving.value = true
   try {
     const group = Object.assign(new Group(), props.group ?? {}, { name: name.value.trim(), description: description.value.trim() || null })
     const saved = await Kinotic.permissions.saveGroup(group)
     toast.add({ severity: 'success', summary: props.group?.id ? 'Group saved' : 'Group created', life: 4000 })
     emit('saved', saved)
-    emit('update:visible', false)
+    if (thisOpening === opening) {
+      emit('update:visible', false)
+    }
   } catch (err) {
     showErrorToast(toast, 'Failed to save group', err, { life: 8000 })
   } finally {

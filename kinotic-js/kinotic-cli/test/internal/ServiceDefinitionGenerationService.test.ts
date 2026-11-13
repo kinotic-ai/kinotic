@@ -464,6 +464,27 @@ export class GreetingService extends BaseGreetingService {
         }
     })
 
+    it('reads a part of a declaration given as null as one left out', async () => {
+        writeService(`import {AuthzCheck, AuthzResource, Publish} from '@kinotic-ai/core'
+
+@Publish('com.acme.greetings')
+@AuthzResource({value: 'greeting', parent: null})
+export class GreetingService {
+    @AuthzCheck({permission: 'can_greet', resourceId: null})
+    greet(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+`)
+
+        const greetings = (await generate()).find(d => d.name === 'GreetingService')!
+
+        expect((greetings.decorators![0] as AuthzResourceDecorator).parent).to.equal(null)
+        const check = fn(greetings, 'greet').decorators![0] as AuthzCheckDecorator
+        expect(check.permission).to.equal('can_greet')
+        expect(check.resourceId).to.equal(null)
+    })
+
     it('reads the resource a published service inherits from the class it extends', async () => {
         writeService(`import {AuthzResource, Publish} from '@kinotic-ai/core'
 
@@ -494,7 +515,9 @@ export class GreetingService extends BaseGreetingService {
         ['a function marked @AuthzUnchecked beside its @AuthzCheck', ["@AuthzResource('greeting')", "@AuthzUnchecked\n    @AuthzCheck({permission: 'can_greet'})"], 'an unchecked function has no check'],
         ['an @AuthzResource naming its type in an array', ["@AuthzResource(['greeting'] as any)", ''], 'takes the resource type or an object literal'],
         ['an @AuthzResource role declaring no id', ["@AuthzResource({value: 'greeting', roles: [{permissions: ['can_greet']}] as any})", ''], 'must declare its id'],
-        ['an @AuthzCheck declaring a string', ["@AuthzResource('greeting')", "@AuthzCheck('can_greet' as any)"], 'takes an object literal']
+        ['an @AuthzCheck declaring a string', ["@AuthzResource('greeting')", "@AuthzCheck('can_greet' as any)"], 'takes an object literal'],
+        ['an @AuthzCheck declaring a shorthand property', ["@AuthzResource('greeting')", '@AuthzCheck({permission})'], 'Unsupported object member: permission'],
+        ['an @AuthzResource spreading another declaration', ["@AuthzResource({...declared, value: 'greeting'})", ''], 'Unsupported object member: ...declared']
     ] as const) {
         it(`refuses ${refused}`, async () => {
             writeService(`import {AuthzCheck, AuthzResource, AuthzUnchecked, Publish} from '@kinotic-ai/core'

@@ -130,10 +130,14 @@ async function remove(member: OrganizationParticipantIdentity): Promise<void> {
   if (!props.group?.id || !member.id || removing.value.has(member.id)) {
     return
   }
+  const groupId = props.group.id
   removing.value = new Set(removing.value).add(member.id)
   try {
-    await Kinotic.permissions.removeGroupMember(props.group.id, member.id)
-    members.value = members.value.filter(listed => listed.id !== member.id)
+    await Kinotic.permissions.removeGroupMember(groupId, member.id)
+    // the drawer may show another group by now, whose list this member stays in
+    if (props.group?.id === groupId) {
+      members.value = members.value.filter(listed => listed.id !== member.id)
+    }
   } catch (err) {
     showErrorToast(toast, 'Failed to remove the member', err, { life: 8000 })
   } finally {

@@ -72,7 +72,7 @@ import Skeleton from 'primevue/skeleton'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { KeyRound, MapPin } from '@lucide/vue'
-import { Kinotic, Pageable } from '@kinotic-ai/core'
+import { Kinotic, type Page, Pageable } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS, TableChip,
          errorMessage, isAuthorizationError, showErrorToast } from '@kinotic-ai/frontend-common'
@@ -214,16 +214,16 @@ async function loadContext(): Promise<void> {
     const [defined, managed, published, created] = await Promise.all([
       Kinotic.applicationAccess.findRoles(props.applicationId),
       Kinotic.permissions.listAccessible('application', 'can_manage_access'),
-      Kinotic.entityDefinitions.findAllPublishedForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
-      Kinotic.tenants.findAllForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE)),
+      pickable(Kinotic.entityDefinitions.findAllPublishedForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE))),
+      pickable(Kinotic.tenants.findAllForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE))),
       loadSubjects()
     ])
     if (thisLoad !== latestContextLoad) {
       return
     }
     roles.value = defined
-    definitions.value = (published.content ?? []).flatMap(entity => entity.id ? [{ id: entity.id, name: entity.name }] : [])
-    tenantRecords.value = (created.content ?? []).flatMap(tenant => tenant.id ? [tenant.id] : [])
+    definitions.value = published.flatMap(entity => entity.id ? [{ id: entity.id, name: entity.name }] : [])
+    tenantRecords.value = created.flatMap(tenant => tenant.id ? [tenant.id] : [])
     canManageAccess.value = managed.includes(props.applicationId)
     contextLoaded.value = true
   } catch (err) {
@@ -231,6 +231,21 @@ async function loadContext(): Promise<void> {
       contextFailure.value = err
     }
   }
+}
+
+// A picker's list the caller may not read is left empty, as the subjects are: a caller who may read access but not
+// the definitions or the tenants still sees the grants, with a definition named by its id and a tenant's id typed;
+// any other failure fails the load
+async function pickable<T>(page: Promise<Page<T>>): Promise<T[]> {
+  let ret: T[] = []
+  try {
+    ret = (await page).content ?? []
+  } catch (err) {
+    if (!isAuthorizationError(err)) {
+      throw err
+    }
+  }
+  return ret
 }
 
 async function loadGrants(): Promise<void> {

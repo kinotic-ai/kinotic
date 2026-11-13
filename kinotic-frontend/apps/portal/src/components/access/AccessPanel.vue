@@ -137,7 +137,8 @@ const grantTabs = computed<SubjectPickerTab[]>(() => [
 ])
 
 // the panel is kept when the header switches the resource in place, so a load may start while an earlier one is
-// in flight; only the latest load's answer, or failure, reaches the panel
+// in flight; only the latest load's answer, or failure, reaches the panel, and the grants are emptied as a load
+// starts, so a load that fails shows none of another resource's
 let latestLoad = 0
 
 watch(() => [props.resource.type, props.resource.id], load, { immediate: true })
@@ -146,6 +147,7 @@ async function load(): Promise<void> {
   const thisLoad = ++latestLoad
   loading.value = true
   error.value = null
+  grants.value = []
   try {
     const [loadedGrants, loadedRoles, loadedCatalog] = await Promise.all([
       Kinotic.permissions.findGrants(props.resource),

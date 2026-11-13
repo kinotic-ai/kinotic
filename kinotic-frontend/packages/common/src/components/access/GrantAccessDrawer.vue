@@ -91,8 +91,13 @@ const granting = ref(false)
 const tab = computed(() => props.tabs.find(candidate => candidate.label === tabLabel.value) ?? props.tabs[0])
 const picked = computed(() => tab.value?.options.find(option => option.subject.id === subjectId.value) ?? null)
 
+// counts the times the drawer opened, so a grant that completes after the drawer was closed and opened again
+// leaves the picks it did not start open
+let opening = 0
+
 watch(() => props.visible, visible => {
   if (visible) {
+    opening++
     tabLabel.value = props.tabs[0]?.label ?? ''
     subjectId.value = null
     roleId.value = null
@@ -106,12 +111,15 @@ async function submit(): Promise<void> {
   if (!picked.value || !roleId.value || !props.ready) {
     return
   }
+  const thisOpening = opening
   granting.value = true
   try {
     const grant = await props.grant(picked.value.subject, roleId.value)
     toast.add({ severity: 'success', summary: 'Access granted', life: 4000 })
     emit('granted', grant)
-    emit('update:visible', false)
+    if (thisOpening === opening) {
+      emit('update:visible', false)
+    }
   } catch (err) {
     showErrorToast(toast, 'Failed to grant access', err, { life: 8000 })
   } finally {

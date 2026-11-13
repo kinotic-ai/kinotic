@@ -266,6 +266,7 @@ export function declaresAuthz(serviceInstance: object): boolean {
  * class it extends marked unchecked marking every function. A function declaring neither maps to null.
  * @param serviceInstance the service instance to inspect
  * @param functionNames the functions the instance serves
+ * @throws when a function carries both an {@link AuthzCheck} and {@link AuthzUnchecked}
  */
 export function authzDecoratorsOf(serviceInstance: object, functionNames: string[]): {
     resource: AuthzResourceDecorator | null
@@ -290,6 +291,13 @@ export function authzDecoratorsOf(serviceInstance: object, functionNames: string
     for (const name of functionNames) {
         const method = (serviceInstance as any)[name]
         const check = typeof method === 'function' ? authzCheckedFunctions.get(method) : undefined
+        const unchecked = typeof method === 'function' && authzUncheckedFunctions.has(method)
+        // kinotic sync refuses a function carrying both marks; one added since the definition was generated is
+        // refused here, since the function would otherwise keep the check with the mark having no effect
+        if (check && unchecked) {
+            throw new Error(`${name} of ${serviceInstance.constructor.name} is marked @AuthzUnchecked beside the @AuthzCheck it declares;`
+                            + ' an unchecked function has no check')
+        }
         let decorator: AuthzCheckDecorator | null = null
         if (check) {
             decorator = new AuthzCheckDecorator()
@@ -298,7 +306,7 @@ export function authzDecoratorsOf(serviceInstance: object, functionNames: string
             decorator.resourceId = check.resourceId ?? null
             decorator.implies = check.implies ?? []
             decorator.consistent = check.consistent === true
-        } else if (uncheckedClass || (typeof method === 'function' && authzUncheckedFunctions.has(method))) {
+        } else if (uncheckedClass || unchecked) {
             decorator = new AuthzCheckDecorator()
             decorator.unchecked = true
         }
