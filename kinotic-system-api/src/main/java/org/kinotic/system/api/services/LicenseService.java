@@ -42,5 +42,6 @@ public interface LicenseService {
      * @return the id, or {@code null} when the cluster does not run in Kubernetes, or has not been able to read the
      *         namespace yet
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_CLUSTER)
     Future<String> findClusterId();
 }

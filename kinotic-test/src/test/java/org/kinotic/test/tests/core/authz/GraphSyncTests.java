@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * an entity definition and a user each take their place in it as part of the write that creates them and leave
  * it with the write that deletes them; the built-in roles bundle what the system model has; and the user who
  * signs an organization up administers it, which a check through the model answers. An application provisioned
- * while it holds users is given them, as one a migration seeded is at the first start.
+ * while it holds users is given them, as one a migration seeded is by the seed job.
  */
 @SpringBootTest
 public class GraphSyncTests extends KinoticTestBase {
