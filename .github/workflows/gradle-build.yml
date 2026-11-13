@@ -10,6 +10,7 @@ on:
       - 'deployment/**'
       - 'docker-compose/**'
       - 'docs/**'
+      - 'kinotic-frontend/**'
       - 'kinotic-js/boxlite-test/**'
       - 'kinotic-js/firecracker-vmm-manager/**'
       - 'kinotic-js/kinotic-cli/**'

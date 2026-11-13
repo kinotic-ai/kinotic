@@ -15,11 +15,13 @@ import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Verifies installing a license key while the server runs: a key Minds Ignited signed becomes the license the
- * cluster runs on, and a key it did not sign is refused, leaving the installed license in place.
+ * cluster runs on, and a key it did not sign is refused, leaving the installed license in place; and that a cluster
+ * outside Kubernetes has no cluster id.
  */
 @SpringBootTest
 public class LicenseServiceTests extends KinoticTestBase {
@@ -45,5 +47,10 @@ public class LicenseServiceTests extends KinoticTestBase {
         ExecutionException refused = assertThrows(ExecutionException.class, () -> await(licenseService.install("not-a-license-key")));
         assertInstanceOf(JwtException.class, refused.getCause());
         assertEquals(before.getLicensee(), await(licenseService.findCurrent()).getLicensee());
+    }
+
+    @Test
+    public void aClusterOutsideKubernetesHasNoClusterId() throws Exception {
+        assertNull(await(licenseService.findClusterId()));
     }
 }

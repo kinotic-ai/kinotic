@@ -18,19 +18,22 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Covers {@link LicenseVerifier#verify(String)}: a key signed with the trusted key yields its licensee, issue time,
  * expiry, grace period end and the features this server knows, a key in or past its grace period still yields its
- * license,
- * and a key signed with another key, before its nbf, or naming no licensee is refused.
+ * license, a key bound to the verifier's cluster or to none is accepted, and a key signed with another key, before its
+ * nbf, naming no licensee, or bound to another cluster is refused.
  */
 class LicenseVerifierTest {
 
+    private static final String CLUSTER_ID = "6f1c2b9e-3d4a-4c5b-8e7f-0a1b2c3d4e5f";
+
     private final KeyPair trusted = p256();
-    private final LicenseVerifier verifier = new LicenseVerifier(trusted.getPublic());
+    private final LicenseVerifier verifier = new LicenseVerifier(trusted.getPublic(), CLUSTER_ID);
 
     @Test
     void aSignedKeyYieldsItsLicense() {
@@ -105,6 +108,30 @@ class LicenseVerifierTest {
                          .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
                          .compact();
         assertThrows(JwtException.class, () -> verifier.verify(key));
+    }
+
+    @Test
+    void aKeyBoundToTheClusterYieldsItsCluster() {
+        assertEquals(CLUSTER_ID, verifier.verify(keyBoundTo(CLUSTER_ID)).getClusterId());
+        assertNull(verifier.verify(keyExpiring(Instant.now().plus(1, ChronoUnit.DAYS))).getClusterId());
+    }
+
+    @Test
+    void aKeyBoundToAnotherClusterIsRefused() {
+        String key = keyBoundTo("0b9a8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d");
+        assertThrows(IllegalArgumentException.class, () -> verifier.verify(key));
+        // a cluster outside Kubernetes has no id, so it runs only on a key bound to no cluster
+        assertThrows(IllegalArgumentException.class, () -> new LicenseVerifier(trusted.getPublic(), null).verify(keyBoundTo(CLUSTER_ID)));
+    }
+
+    private String keyBoundTo(String clusterId) {
+        return Jwts.builder()
+                   .subject("Acme")
+                   .expiration(Date.from(Instant.now().plus(30, ChronoUnit.DAYS)))
+                   .claim("clusterId", clusterId)
+                   .claim("features", List.of(LicenseVerifier.ALL_FEATURES))
+                   .signWith(trusted.getPrivate(), Jwts.SIG.ES256)
+                   .compact();
     }
 
     private String keyExpiring(Instant expiresAt) {

@@ -170,6 +170,7 @@ public class DomainUtil {
     // no organization carries the platform's name: an id beginning with it would put that name on a customer's
     // hosts, <org>--<app> under the apps-api domain and *.<org> under the sites domain
     private static final String RESERVED_ID_PREFIX = "kinotic";
+    private static final String ENTITY_DOCUMENT_ID_SEPARATOR = ":";
     // the labels the platform itself holds under its domains, which an organization's subdomain must never shadow;
     // the path segments the organization login's own routes claim under /api/auth/org/login/, which an
     // organization's id would be mistaken for; and the system's own id
@@ -297,9 +298,19 @@ public class DomainUtil {
      * @param tenantId         the item's tenant, required for a {@link MultiTenancyType#SHARED} entity
      * @param id               the item's id
      * @return the document id
+     * @throws IllegalArgumentException if the entity is {@link MultiTenancyType#SHARED} and the tenant id holds the separator
      */
     public static String createEntityDocumentId(MultiTenancyType multiTenancyType, String tenantId, String id){
-        return multiTenancyType == MultiTenancyType.SHARED ? tenantId + ":" + id : id;
+        String ret;
+        if(multiTenancyType == MultiTenancyType.SHARED){
+            // the id after the first separator may hold the separator itself, so only the tenant id must be free of it
+            Validate.isTrue(!tenantId.contains(ENTITY_DOCUMENT_ID_SEPARATOR),
+                            "Tenant Id '%s' must not contain '%s'", tenantId, ENTITY_DOCUMENT_ID_SEPARATOR);
+            ret = tenantId + ENTITY_DOCUMENT_ID_SEPARATOR + id;
+        }else{
+            ret = id;
+        }
+        return ret;
     }
 
     /**

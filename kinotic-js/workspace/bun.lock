@@ -109,7 +109,7 @@
     },
     "packages/system-api": {
       "name": "@kinotic-ai/system-api",
-      "version": "5.0.0-beta.41",
+      "version": "5.0.0-beta.42",
       "devDependencies": {
         "@kinotic-ai/core": "workspace:*",
         "@kinotic-ai/management-api": "workspace:*",
@@ -123,7 +123,7 @@
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "5.0.0-beta.38",
+      "version": "5.0.0-beta.39",
       "bin": {
         "kinotic-vm-manager": "./bin/kinotic-vm-manager.js",
       },
