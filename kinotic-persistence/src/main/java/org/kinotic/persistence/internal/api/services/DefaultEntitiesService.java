@@ -17,6 +17,8 @@ import org.kinotic.domain.api.cache.EvictionSourceType;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.springframework.stereotype.Component;
 
+import tools.jackson.databind.util.TokenBuffer;
+
 import java.util.List;
 
 /**
@@ -46,8 +48,8 @@ public class DefaultEntitiesService implements EntitiesService {
 
     @WithSpan
     @Override
-    public <T> Future<Void> bulkSave(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
-                                     T entities,
+    public Future<Void> bulkSave(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
+                                TokenBuffer entities,
                                      EntityContext context) {
         return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.bulkSave(entities, context));
@@ -55,8 +57,8 @@ public class DefaultEntitiesService implements EntitiesService {
 
     @WithSpan
     @Override
-    public <T> Future<Void> bulkUpdate(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
-                                       T entities,
+    public Future<Void> bulkUpdate(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
+                                  TokenBuffer entities,
                                        EntityContext context) {
         return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.bulkUpdate(entities, context));
@@ -184,8 +186,8 @@ public class DefaultEntitiesService implements EntitiesService {
 
     @WithSpan
     @Override
-    public <T> Future<T> save(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
-                              T entity,
+    public Future<TokenBuffer> save(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
+                                    TokenBuffer entity,
                               EntityContext context) {
         return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.save(entity, context));
@@ -204,8 +206,8 @@ public class DefaultEntitiesService implements EntitiesService {
 
     @WithSpan
     @Override
-    public <T> Future<T> update(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
-                                T entity,
+    public Future<TokenBuffer> update(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
+                                      TokenBuffer entity,
                                 EntityContext context) {
         return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.update(entity, context));

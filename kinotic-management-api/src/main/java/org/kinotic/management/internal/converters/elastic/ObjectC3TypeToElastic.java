@@ -197,7 +197,7 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
         }
 
         // TODO: We can get away from this since the only decorators we actually care about are the ones that are above
-        //       Then we will also drop all of the UpsertFieldPreProcessor implementations since they only handle the above anyway
+        //       Then we will also drop all of the UpsertFieldTransformer implementations since they only handle the above anyway
         state.getDecoratedProperties().add(new DecoratedProperty(jsonPath, prop.getDecorators()));
     }
 

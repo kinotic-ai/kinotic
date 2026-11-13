@@ -12,12 +12,11 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
-import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
-import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
+import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
+import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
@@ -50,7 +49,7 @@ public class EntityServiceCache {
     private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
-    private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
+    private final Map<String, UpsertFieldTransformer> upsertFieldTransformers;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
     public EntityServiceCache(AuthorizationServiceFactory authServiceFactory,
@@ -63,7 +62,7 @@ public class EntityServiceCache {
                                     EntityDefinitionRepository entityDefinitionRepository,
                                     PersistenceProperties persistenceProperties,
                                     DomainPersistenceProperties domainPersistenceProperties,
-                                    List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors,
+                                    List<UpsertFieldTransformer> upsertFieldTransformers,
                                     DefaultCaffeineCacheFactory cacheFactory) {
         this.authServiceFactory = authServiceFactory;
         this.crudServiceTemplate = crudServiceTemplate;
@@ -75,8 +74,8 @@ public class EntityServiceCache {
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.domainPersistenceProperties = domainPersistenceProperties;
 
-        this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
-                                                                 p -> p.implementsDecorator().getName());
+        this.upsertFieldTransformers = PersistenceUtil.listToMap(upsertFieldTransformers,
+                                                                t -> t.implementsDecorator().getName());
 
         this.cache = cacheFactory.<CacheKey, EntityService>newBuilder()
                                  .name("entityServiceCache")
@@ -112,7 +111,6 @@ public class EntityServiceCache {
                 .toCompletableFuture();
     }
 
-    @SuppressWarnings("unchecked")
     public Future<EntityService> createEntityService(EntityDefinition entityDefinition) {
 
         if(entityDefinition == null){
@@ -121,17 +119,16 @@ public class EntityServiceCache {
             return Future.failedFuture(new IllegalArgumentException("EntityDefinition must be published"));
         }
 
-        // Map of jsonPath to DecoratorLogic
-        Map<String, DecoratorLogic> fieldPreProcessors = new LinkedHashMap<>();
+        // Map of jsonPath to the transformer of its decorator
+        Map<String, UpsertFieldTransformer> fieldTransformers = new LinkedHashMap<>();
 
         for(DecoratedProperty decoratedProperty : entityDefinition.getDecoratedProperties()){
 
             for(C3Decorator decorator : decoratedProperty.getDecorators()){
 
-                UpsertFieldPreProcessor<C3Decorator, Object, Object> processor =
-                        (UpsertFieldPreProcessor<C3Decorator, Object, Object>)upsertFieldPreProcessors.get(decorator.getClass().getName());
-                if(processor != null){
-                    fieldPreProcessors.put(decoratedProperty.getJsonPath(), new DecoratorLogic(decorator, processor));
+                UpsertFieldTransformer transformer = upsertFieldTransformers.get(decorator.getClass().getName());
+                if(transformer != null){
+                    fieldTransformers.put(decoratedProperty.getJsonPath(), transformer);
                 }
             }
         }
@@ -142,10 +139,10 @@ public class EntityServiceCache {
                                  .map(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
-                                         new DelegatingUpsertPreProcessor(domainPersistenceProperties,
-                                                                          jsonMapper,
-                                                                          entityDescriptor,
-                                                                          fieldPreProcessors),
+                                         new TokenBufferUpsertPreProcessor(domainPersistenceProperties,
+                                                                           jsonMapper,
+                                                                           entityDescriptor,
+                                                                           fieldTransformers),
                                          esAsyncClient,
                                          namedQueriesService,
                                          jsonMapper,
