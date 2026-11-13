@@ -9,7 +9,6 @@ import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
-import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -51,8 +50,6 @@ public class TenantSelectionTests extends KinoticTestBase {
 
     @Autowired
     private AdminJsonEntitiesRepository adminJsonEntitiesRepository;
-    @Autowired
-    private ApplicationService applicationService;
     @Autowired
     private EntityDefinitionService entityDefinitionService;
     @Autowired
@@ -262,7 +259,7 @@ public class TenantSelectionTests extends KinoticTestBase {
         definition.setProjectId(TestDataService.SAMPLE_PROJECT_ID);
         definition.setDescription("Defines a Person that names its tenant");
         definition.setSchema(schema);
-        return runAsOrganization(() -> applicationService.createApplicationIfNotExist(TestDataService.SAMPLE_APP_ID, "Sample application", null)
+        return runAsOrganization(() -> testDataService.createSampleProjectIfNotExist()
                                                          .compose(v -> entityDefinitionService.create(definition))
                                                          .compose(saved -> entityDefinitionService.publish(saved.getId()).map(saved)))
                 .await();

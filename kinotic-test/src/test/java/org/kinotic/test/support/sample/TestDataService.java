@@ -17,7 +17,9 @@ import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.*;
+import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.core.io.ResourceLoader;
@@ -56,6 +58,7 @@ public class TestDataService {
     private static final String PEOPLE_WITH_ID_KEY = "people-with-id";
 
     private final ApplicationService applicationService;
+    private final ProjectService projectService;
     private final EntityDefinitionService entityDefinitionService;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final Vertx vertx;
@@ -63,6 +66,7 @@ public class TestDataService {
     private final AsyncLoadingCache<String, List<Person>> peopleCache;
 
     public TestDataService(ApplicationService applicationService,
+                           ProjectService projectService,
                            EntityDefinitionService entityDefinitionService,
                            EntityDefinitionRepository entityDefinitionRepository,
                            ResourceLoader resourceLoader,
@@ -71,6 +75,7 @@ public class TestDataService {
                            Vertx vertx) {
 
         this.applicationService = applicationService;
+        this.projectService = projectService;
         this.entityDefinitionService = entityDefinitionService;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.vertx = vertx;
@@ -80,6 +85,20 @@ public class TestDataService {
                               .maximumSize(10)
                               .expireAfterAccess(Duration.ofMinutes(5))
                               .buildAsync(new PeopleCacheLoader(resourceLoader, objectMapper));
+    }
+
+    /**
+     * Creates the sample application and, in it, the project with id {@link #SAMPLE_PROJECT_ID} that the sample
+     * {@link EntityDefinition}s name, when they are not there yet.
+     * @return a {@link Future} that will return the sample {@link Project}
+     */
+    public Future<Project> createSampleProjectIfNotExist() {
+        Project project = new Project();
+        project.setName("default");
+        project.setOrganizationId(SAMPLE_ORG_ID);
+        project.setApplicationId(SAMPLE_APP_ID);
+        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application", null)
+                                 .compose(v -> projectService.createProjectIfNotExist(project));
     }
 
     public ObjectC3Type createCarSchema(MultiTenancyType multiTenancyType){
@@ -133,7 +152,7 @@ public class TestDataService {
 
         structure.setSchema(carType);
 
-        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application", null)
+        return createSampleProjectIfNotExist()
                                .compose(v -> entityDefinitionService.create(structure)
                                                                     .compose(saved -> entityDefinitionService.publish(saved.getId())
                                                                                                              .map(saved)));
@@ -226,7 +245,7 @@ public class TestDataService {
 
         structure.setSchema(personType);
 
-        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application", null)
+        return createSampleProjectIfNotExist()
                                .compose(v -> entityDefinitionService.create(structure)
                                                                     .compose(saved -> entityDefinitionService.publish(saved.getId())
                                                                                                              .map(saved)));

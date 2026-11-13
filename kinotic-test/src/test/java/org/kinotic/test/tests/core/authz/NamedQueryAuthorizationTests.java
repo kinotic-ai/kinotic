@@ -18,7 +18,6 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
-import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
@@ -53,8 +52,6 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
 
     @Autowired
     private ApplicationAccessService access;
-    @Autowired
-    private ApplicationService applicationService;
     @Autowired
     private EntitiesService entitiesService;
     @Autowired
@@ -152,7 +149,7 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
         definition.setProjectId(TestDataService.SAMPLE_PROJECT_ID);
         definition.setDescription("Defines a Person that a named query renames");
         definition.setSchema(testDataService.createPersonSchema(MultiTenancyType.SHARED));
-        return await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(TestDataService.SAMPLE_APP_ID, "Sample application", null)
+        return await(runAsOrganization(() -> testDataService.createSampleProjectIfNotExist()
                                                                  .compose(v -> entityDefinitionService.create(definition))
                                                                  .compose(saved -> entityDefinitionService.publish(saved.getId()).map(saved))));
     }
