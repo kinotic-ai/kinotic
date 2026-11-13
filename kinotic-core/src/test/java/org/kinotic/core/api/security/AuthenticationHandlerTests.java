@@ -2,6 +2,7 @@ package org.kinotic.core.api.security;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpMethod;
@@ -31,6 +32,9 @@ public class AuthenticationHandlerTests {
 
     private static Vertx vertx;
     private static HttpServer server;
+    // held for the whole run: Vert.x closes a client nothing references once it is collected, which fails a
+    // request still in flight on it
+    private static HttpClient client;
     private static SecurityService securityService;
     private static SecurityContext securityContext;
 
@@ -46,6 +50,7 @@ public class AuthenticationHandlerTests {
                       .requestHandler(router)
                       .listen(0, "127.0.0.1")
                       .toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
+        client = vertx.createHttpClient();
     }
 
     @AfterAll
@@ -74,10 +79,9 @@ public class AuthenticationHandlerTests {
     }
 
     private static int status() throws Exception {
-        return vertx.createHttpClient()
-                    .request(HttpMethod.GET, server.actualPort(), "127.0.0.1", "/")
-                    .compose(HttpClientRequest::send)
-                    .map(HttpClientResponse::statusCode)
-                    .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        return client.request(HttpMethod.GET, server.actualPort(), "127.0.0.1", "/")
+                     .compose(HttpClientRequest::send)
+                     .map(HttpClientResponse::statusCode)
+                     .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
     }
 }
