@@ -35,13 +35,13 @@
       </DashboardSection>
 
       <DashboardSection :icon="Server" :tint="TINTS.ink" title="Cluster id"
-                        description="License this cluster at licenses.kinotic.ai, which takes one of your license's seats; from a computer that cannot reach it, copy the id there. The key issued for it works on this cluster alone, and the cluster renews it from there each day.">
+                        description="License this cluster at licenses.kinotic.ai, which takes one of your license's seats and installs the key it issues here; from a computer that cannot reach it, copy the id there. The key works on this cluster alone, and the cluster renews it from there before it expires.">
         <div class="flex flex-wrap items-center gap-3 p-5">
           <template v-if="clusterId">
             <code class="break-all font-mono text-sm">{{ clusterId }}</code>
             <Button label="Copy" icon="pi pi-copy" severity="secondary" outlined size="small" @click="copyClusterId" />
-            <Button as="a" :href="`${LICENSE_ACCOUNT_URL}?clusterId=${encodeURIComponent(clusterId)}`" target="_blank" rel="noopener"
-                    label="License this cluster" icon="pi pi-external-link" size="small" />
+            <Button as="a" :href="licenseClusterUrl(clusterId)" label="License this cluster" icon="pi pi-external-link" size="small"
+                    @click="startHandoff" />
           </template>
           <span v-else-if="clusterIdError" class="text-sm text-muted-color">{{ clusterIdError }}</span>
           <span v-else-if="!loading" class="text-sm text-muted-color">
@@ -78,8 +78,14 @@ import { Kinotic } from '@kinotic-ai/core'
 import { EnterpriseFeature, LicenseStatus, type License } from '@kinotic-ai/system-api'
 import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage, showErrorToast } from '@kinotic-ai/frontend-common'
 
-// the account page of Minds Ignited's license server, which adds the cluster its clusterId query parameter names
+// the account page of Minds Ignited's license server, which adds the cluster its clusterId query parameter names and
+// sends the browser back to its returnUrl with the cluster's key in the fragment, #key=<key>
 const LICENSE_ACCOUNT_URL = 'https://licenses.kinotic.ai/account'
+const KEY_FRAGMENT = '#key='
+// the one-time value a handoff carries in its returnUrl's query parameter and in this tab's session storage; a key that
+// comes back with the stored value installs itself
+const HANDOFF_PARAM = 'handoff'
+const HANDOFF_STORAGE_KEY = 'kinotic.license.handoff'
 
 const FEATURE_NAMES: Record<EnterpriseFeature, string> = {
   [EnterpriseFeature.AZURE_KEY_VAULT]: 'Azure Key Vault',
@@ -111,6 +117,8 @@ const clusterIdError = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const licenseKey = ref('')
+// crypto.getRandomValues works on a console served over plain HTTP, where crypto.randomUUID is undefined
+const handoff = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
 const installing = ref(false)
 
 const stats = computed<LicenseStat[]>(() => {
@@ -160,6 +168,51 @@ async function load(): Promise<void> {
   loading.value = false
 }
 
+function licenseClusterUrl(id: string): string {
+  const returnUrl = `${window.location.origin}${window.location.pathname}?${HANDOFF_PARAM}=${handoff}`
+  return `${LICENSE_ACCOUNT_URL}?clusterId=${encodeURIComponent(id)}&returnUrl=${encodeURIComponent(returnUrl)}`
+}
+
+function startHandoff(): void {
+  try {
+    window.sessionStorage.setItem(HANDOFF_STORAGE_KEY, handoff)
+  } catch {
+    // without session storage the handed-back key waits in the form for Install key
+  }
+}
+
+// Takes the key the license server handed back in the fragment and drops the fragment and the handoff value so a
+// reload takes nothing. The key installs itself only when the return carries the handoff value this tab stored; a key
+// from any other link waits in the form for Install key, so a crafted link cannot replace the installed key unseen.
+async function takeHandedBackKey(): Promise<void> {
+  if (!window.location.hash.startsWith(KEY_FRAGMENT)) {
+    return
+  }
+  const encoded = window.location.hash.substring(KEY_FRAGMENT.length)
+  const page = new URL(window.location.href)
+  const returned = page.searchParams.get(HANDOFF_PARAM)
+  page.searchParams.delete(HANDOFF_PARAM)
+  window.history.replaceState(window.history.state, '', page.pathname + page.search)
+  let started = false
+  try {
+    started = returned !== null && returned === window.sessionStorage.getItem(HANDOFF_STORAGE_KEY)
+    window.sessionStorage.removeItem(HANDOFF_STORAGE_KEY)
+  } catch {
+    started = false
+  }
+  try {
+    licenseKey.value = decodeURIComponent(encoded)
+  } catch {
+    toast.add({ severity: 'error', summary: 'The key handed back is malformed', detail: 'Copy it from your account at licenses.kinotic.ai.', life: 8000 })
+    return
+  }
+  if (started) {
+    await install()
+  } else {
+    toast.add({ severity: 'info', summary: 'Check the key below', detail: 'Select Install key to install it.', life: 8000 })
+  }
+}
+
 async function copyClusterId(): Promise<void> {
   try {
     await navigator.clipboard.writeText(clusterId.value ?? '')
@@ -182,5 +235,8 @@ async function install(): Promise<void> {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await takeHandedBackKey()
+  await load()
+})
 </script>

@@ -24,6 +24,7 @@ import org.kinotic.domain.api.services.EntitlementService;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
@@ -47,6 +48,8 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
     private static final long RELOAD_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long STORAGE_TIMEOUT_SECONDS = 30;
     private static final long RENEWAL_TIMEOUT_SECONDS = 30;
+    // a key is renewed once it expires within this window, which opens before the paid-through date that a payment extends
+    private static final Duration RENEWAL_WINDOW = Duration.ofDays(10);
     // Minds Ignited's license server and the renewal it publishes, which a cluster signs in to with its license key
     private static final String LICENSE_SERVER_URL = "wss://licenses.kinotic.ai";
     private static final String LICENSE_KEY_HEADER = "license-key";
@@ -164,6 +167,9 @@ public class DefaultEntitlementService implements EntitlementService, SmartIniti
         }
         // the license server renews keys bound to a cluster; a key bound to none is one Minds Ignited issued for its own clusters
         if (current == null || current.getClusterId() == null) {
+            return Future.succeededFuture();
+        }
+        if (current.getExpiresAt().toInstant().isAfter(Instant.now().plus(RENEWAL_WINDOW))) {
             return Future.succeededFuture();
         }
         ConnectOptions options = new ConnectOptions().setServerUrl(LICENSE_SERVER_URL)
