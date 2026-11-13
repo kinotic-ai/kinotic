@@ -202,12 +202,14 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
         super.registrationListener(wrapper);
     }
 
-    // vertx-ignite announces a registration change through a continuous query on the subscription cache and reads
-    // the address back from the local copy of the cache when the event arrives. The node that removes a failed
-    // node's registrations is usually another one, and while the cluster reshapes the event can be read before
-    // the removal reaches this node's copy, or be missed, leaving routing and the monitors with the failed node
-    // until the address changes again. So every address the departed node was registered on is announced here
-    // from the local copy, without the departed node, whether or not the removal has happened yet.
+    // Called from nodeLeft. vertx-ignite tells this node a registration changed only through a continuous query
+    // event on the subscription cache, and only one surviving node removes a departed node's registrations. When
+    // this node misses that event, or reads its local copy of the cache before the removal arrives, Vert.x's node
+    // selector and the monitors keep a cached route to the departed node, since they change only on an update.
+    // This method pushes that update itself: it finds every address the departed node was registered on in the
+    // local copy and passes registrationUpdates the registrations without that node, so the cached routes drop
+    // it at once. live() covers the reads: lookups, update events and registeredServiceAddresses skip any
+    // registration whose node is no longer a cluster member, so a later stale event or lookup cannot put it back.
     private void announceDeparture(String nodeId, int attempts) {
         try {
             IgniteCache<String, Set<IgniteRegistrationInfo>> cache = ignite.cache(VERTX_SUBSCRIPTION_CACHE);
