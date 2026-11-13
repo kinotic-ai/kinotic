@@ -37,8 +37,7 @@ public class ServerSbomRepository extends AbstractRepository<ServerSbom> {
     public Future<Void> deleteAllById(Collection<String> ids) {
         Validate.notEmpty(ids, "ids cannot be empty");
         List<String> values = List.copyOf(ids);
-        return crudServiceTemplate.deleteByQuery(indexName, b -> b.query(q -> q.ids(i -> i.values(values))))
-                                  .mapEmpty();
+        return deleteByQuery(b -> b.query(q -> q.ids(i -> i.values(values))));
     }
 
 }

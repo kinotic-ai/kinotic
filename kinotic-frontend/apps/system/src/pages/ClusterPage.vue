@@ -29,12 +29,12 @@
         <div v-else-if="servers === null" class="py-6 text-center text-sm text-muted-color">Checking the servers' libraries…</div>
         <template v-else>
           <div class="flex flex-wrap gap-2 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
-            <span v-for="(server, index) in servers" :key="index" v-tooltip.top="buildProblem(server)"
+            <span v-for="({ server, check }, index) in buildChips" :key="index" v-tooltip.top="check.problem"
                   class="inline-flex items-center gap-1.5 rounded-md border border-surface-200 px-2 py-1 text-xs dark:border-surface-700">
-              <span :class="['size-2 rounded-full', BUILD_DOT[buildState(server)]]" />
+              <span :class="['size-2 rounded-full', check.dot]" />
               <span class="font-semibold text-surface-950 dark:text-surface-0">{{ server.serverName || UNKNOWN_VERSION }}</span>
               <span class="font-mono text-surface-700 dark:text-surface-200">{{ releaseOf(server.version) }}</span>
-              <span class="text-muted-color">· {{ server.nodeCount }} {{ server.nodeCount === 1 ? 'node' : 'nodes' }} · {{ buildSummary(server) }}</span>
+              <span class="text-muted-color">· {{ server.nodeCount }} {{ server.nodeCount === 1 ? 'node' : 'nodes' }} · {{ check.summary }}</span>
             </span>
           </div>
           <VulnerabilityFindingsTable :items="advisoryRows" data-key="finding.advisoryId"
@@ -43,7 +43,7 @@
               <Column header="Builds" style="width: 18%">
                 <template #body="{ data }">
                   <div class="flex flex-wrap gap-1">
-                    <span v-for="build in data.builds" :key="`${build.serverName}@${build.version}`"
+                    <span v-for="(build, index) in data.builds" :key="index"
                           class="rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200">{{ build.serverName || UNKNOWN_VERSION }} {{ releaseOf(build.version) }}</span>
                   </div>
                 </template>
@@ -218,7 +218,7 @@ import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Sh
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL } from '@kinotic-ai/frontend-common'
 import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
@@ -233,15 +233,14 @@ const cluster = ref<KinoticClusterInfo | null>(null)
 const servers = ref<ServerVulnerabilities[] | null>(null)
 const vulnerabilityError = ref<string | null>(null)
 
-/** How a build's libraries checked out, keying the colour of its dot. */
-enum BuildState { SEVERE, AFFECTED, CLEAN, UNCHECKED }
+/**
+ * How a build's chip shows the check of its libraries: the colour of its dot, what it reads after
+ * the node count, and, for a build that was not checked, why, shown on hovering the chip.
+ */
+interface BuildCheck { dot: string, summary: string, problem?: string }
 
-const BUILD_DOT: Record<BuildState, string> = {
-  [BuildState.SEVERE]: 'bg-red-500',
-  [BuildState.AFFECTED]: 'bg-orange-400',
-  [BuildState.CLEAN]: 'bg-green-500',
-  [BuildState.UNCHECKED]: 'bg-surface-400',
-}
+/** Each running server build with how its chip shows the check of its libraries. */
+const buildChips = computed(() => (servers.value ?? []).map(server => ({ server, check: buildCheck(server) })))
 
 /** One row per advisory, with every running build it affects and the affected versions of all of them, the most severe first. */
 const advisoryRows = computed(() => {
@@ -350,11 +349,11 @@ function releaseOf(version: string | null): string {
 
 /** What the advisory table shows with no row: a clean result only when every build was checked. */
 const advisoryEmpty = computed(() => {
-  const unchecked = (servers.value ?? []).filter(server => buildState(server) === BuildState.UNCHECKED).length
+  const unchecked = buildChips.value.filter(chip => chip.check.problem).length
   let ret: { title: string, hint: string }
   if (unchecked === 0) {
     ret = { title: 'No known vulnerabilities', hint: 'No advisory affects the libraries of the running server builds.' }
-  } else if (unchecked === servers.value?.length) {
+  } else if (unchecked === buildChips.value.length) {
     ret = { title: 'Not checked', hint: "No running build's libraries could be checked; hover a build above for why." }
   } else {
     ret = { title: 'No known vulnerabilities in the builds checked', hint: 'Some builds could not be checked; hover a grey build above for why.' }
@@ -367,42 +366,23 @@ function severityRank(finding: VulnerabilityFinding): number {
   return finding.type === AdvisoryType.MALICIOUS ? -1 : SEVERITY_ORDER.indexOf(finding.severity)
 }
 
-function buildState(server: ServerVulnerabilities): BuildState {
-  let ret: BuildState
-  if (server.error || !server.componentCount) {
-    ret = BuildState.UNCHECKED
-  } else if (countSevere(server.findings)) {
-    ret = BuildState.SEVERE
-  } else if (server.findings.length) {
-    ret = BuildState.AFFECTED
-  } else {
-    ret = BuildState.CLEAN
-  }
-  return ret
-}
-
-/** What a build's chip reads after its node count. */
-function buildSummary(server: ServerVulnerabilities): string {
-  let ret: string
+function buildCheck(server: ServerVulnerabilities): BuildCheck {
+  let ret: BuildCheck
   if (server.error) {
-    ret = 'not checked'
+    ret = { dot: SEVERITY_FILL.secondary, summary: 'not checked', problem: `This build's libraries could not be checked: ${server.error}` }
   } else if (!server.componentCount) {
-    ret = 'no library list'
+    ret = {
+      dot: SEVERITY_FILL.secondary,
+      summary: 'no library list',
+      problem: 'This build was started without the library list a server build packages, so there are no libraries to check.',
+    }
   } else if (server.findings.length) {
-    ret = `${server.findings.length} ${server.findings.length === 1 ? 'advisory' : 'advisories'}`
+    ret = {
+      dot: countSevere(server.findings) ? SEVERITY_FILL.danger : SEVERITY_FILL.warn,
+      summary: `${server.findings.length} ${server.findings.length === 1 ? 'advisory' : 'advisories'}`,
+    }
   } else {
-    ret = 'no advisories'
-  }
-  return ret
-}
-
-/** Why a build's libraries were not checked, shown on hovering its chip. */
-function buildProblem(server: ServerVulnerabilities): string | undefined {
-  let ret: string | undefined
-  if (server.error) {
-    ret = `This build's libraries could not be checked: ${server.error}`
-  } else if (!server.componentCount) {
-    ret = 'This build was started without the library list a server build packages, so there are no libraries to check.'
+    ret = { dot: SEVERITY_FILL.success, summary: 'no advisories' }
   }
   return ret
 }

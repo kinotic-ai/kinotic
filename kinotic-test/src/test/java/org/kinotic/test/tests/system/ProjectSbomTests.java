@@ -195,7 +195,7 @@ public class ProjectSbomTests extends KinoticTestBase {
         projectIds.add(projectId);
         await(projectDeployments.updateDesired(projectId, TEST_ORG_ID, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT),
                                                upsert, "push of " + COMMIT));
-        await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID, artifacts(COMMIT, "hash-1")));
+        await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID, artifacts(COMMIT, "hash-1"), false));
         return projectId;
     }
 

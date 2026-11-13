@@ -1,8 +1,8 @@
-package org.kinotic.management.api.repositories;
+package org.kinotic.system.internal.api.repositories;
 
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.management.api.model.vulnerability.OsvImportProgress;
+import org.kinotic.system.internal.api.services.vulnerability.OsvImportProgress;
 import org.springframework.stereotype.Component;
 
 /**

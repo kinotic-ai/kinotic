@@ -7,7 +7,6 @@ import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -26,25 +25,10 @@ public class ServerSbom implements Identifiable<String> {
     private String id;
 
     /**
-     * The server kind the node runs, such as {@code management}, {@code system} or {@code app}.
-     */
-    private String serverName;
-
-    /**
-     * The Kinotic version the node runs; null when it runs from classes rather than a packaged jar.
-     */
-    private String version;
-
-    /**
      * The package URL of every library the node's server was built with and of the OpenTelemetry agent
      * it runs with, e.g. {@code pkg:maven/io.vertx/vertx-core@5.1.6}; empty when the node runs from
      * classes rather than a packaged jar.
      */
     private List<String> packages = new ArrayList<>();
-
-    /**
-     * When the node recorded its SBOM.
-     */
-    private Date started;
 
 }

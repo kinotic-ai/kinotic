@@ -111,10 +111,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_dependencies (
 -- library, is read whole and never searched.
 CREATE TABLE IF NOT EXISTS kinotic_server_sbom (
     id KEYWORD,
-    serverName KEYWORD,
-    version KEYWORD,
-    packages KEYWORD NOT INDEXED,
-    started DATE
+    packages KEYWORD NOT INDEXED
 );
 
 -- Vulnerability advisories read from OSV, one row per advisory, shared by every organization.

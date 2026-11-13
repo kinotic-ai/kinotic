@@ -24,6 +24,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -53,7 +54,12 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         // the next SBOM replaces them, which keeps their acknowledgements
         return oneAtATime(projectId, participant.getOrganizationId(),
                           () -> loadOwned(projectId, participant)
-                                  .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts)));
+                                  .compose(deployment -> {
+                                      boolean sameDependencies = deployment.getArtifacts() != null
+                                              && Objects.equals(deployment.getArtifacts().dependencyHash(), artifacts.dependencyHash());
+                                      return projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts,
+                                                                                         sameDependencies && deployment.isSbomGenerated());
+                                  }));
     }
 
     @Override

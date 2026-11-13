@@ -5,8 +5,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.cluster.ClusterNode;
-import org.kinotic.core.api.KinoticNodeAttributes;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.ServerSbom;
 import org.kinotic.domain.api.repositories.ServerSbomRepository;
@@ -21,7 +19,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -50,8 +47,6 @@ public class ServerSbomRecorder {
 
     @EventListener(ApplicationReadyEvent.class)
     public void recordSbom() {
-        ClusterNode node = ignite.cluster().localNode();
-        Date started = new Date();
         List<String> packages;
         try {
             packages = readComponents();
@@ -59,12 +54,8 @@ public class ServerSbomRecorder {
             log.error("Could not read {}; the node records no SBOM", COMPONENTS_RESOURCE, e);
             return;
         }
-        ServerSbom sbom = new ServerSbom().setId(node.id().toString())
-                                          .setServerName(node.attribute(KinoticNodeAttributes.SERVER_NAME))
-                                          .setVersion(node.attribute(KinoticNodeAttributes.VERSION))
-                                          .setPackages(packages)
-                                          .setStarted(started);
-        repository.save(sbom)
+        repository.save(new ServerSbom().setId(ignite.cluster().localNode().id().toString())
+                                        .setPackages(packages))
                   .onFailure(error -> log.error("Could not record the node's SBOM", error));
         deleteSbomsOfNodesGone();
     }
