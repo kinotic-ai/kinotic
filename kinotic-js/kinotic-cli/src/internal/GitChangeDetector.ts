@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import simpleGit, { type SimpleGit } from 'simple-git'
+import { simpleGit, type SimpleGit } from 'simple-git'
 import { Logger } from './Logger'
 
 const LAST_GENERATION_FILE = '.kinotic/last-generation'
@@ -25,6 +25,12 @@ export class GitChangeDetector {
      * since the last generation, or null if a full scan is needed (no git, first run, etc.).
      */
     async getChangedEntityFiles(entitiesPaths: string[]): Promise<Set<string> | null> {
+        // simple-git 4 does not pass GIT_CONFIG_GLOBAL on to git, so git could apply different ignore rules than the user
+        if (process.env.GIT_CONFIG_GLOBAL) {
+            this.logger.log('GIT_CONFIG_GLOBAL is set, performing full scan')
+            return null
+        }
+
         if (!(await this.isGitRepo())) {
             this.logger.log('Not a git repository, performing full scan')
             return null
