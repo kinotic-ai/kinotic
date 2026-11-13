@@ -27,7 +27,6 @@ import reactor.core.publisher.FluxSink;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -209,11 +208,22 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     private static String exclusiveLockName(DefaultJobDefinition definition, JobOwner owner) {
-        // the name comes last: it is the only part free to contain the separator
-        return "grind.exclusive:" + Objects.toString(owner.getOrganizationId(), "")
-                + ":" + Objects.toString(owner.getApplicationId(), "")
-                + ":" + Objects.toString(owner.getProjectId(), "")
-                + ":" + definition.getName();
+        return "grind.exclusive:" + lockNamePart(owner.getOrganizationId())
+                + lockNamePart(owner.getApplicationId())
+                + lockNamePart(owner.getProjectId())
+                + definition.getName();
+    }
+
+    private static String lockNamePart(String ownerId) {
+        // length-prefixed, so an id containing the separator cannot shift a boundary and two
+        // owners never share a lock name; an absent id is "-", apart from an empty one's "0"
+        String ret;
+        if (ownerId == null) {
+            ret = "-:";
+        } else {
+            ret = ownerId.length() + ":" + ownerId + ":";
+        }
+        return ret;
     }
 
     private static JobOwner ownerOf(JobRun run) {
