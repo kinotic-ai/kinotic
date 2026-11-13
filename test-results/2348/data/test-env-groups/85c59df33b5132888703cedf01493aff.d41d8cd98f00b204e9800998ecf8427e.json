@@ -1,1 +1,0 @@
-{"id":"85c59df33b5132888703cedf01493aff.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.core.security.OAuthGrantTests.deletingTheIdentityRevokesItsRefreshTokens","name":"deletingTheIdentityRevokesItsRefreshTokens()","status":"passed","testResultsByEnv":{"default":"15a15cd5b023ed7c8f703cbb25abd19d"}}

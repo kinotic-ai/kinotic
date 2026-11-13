@@ -1,0 +1,1 @@
+{"id":"b538c4de780ecb527419dcef69f0a988.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/ResolveConnectOptions.test.ts#resolveConnectOptions reaches a loopback host in plaintext on the gateway port","name":"reaches a loopback host in plaintext on the gateway port","status":"passed","testResultsByEnv":{"default":"1cc82871f49cfcf12f0244a0e4594d19"}}
