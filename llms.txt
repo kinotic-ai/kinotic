@@ -22,7 +22,7 @@ Every page below is available as raw markdown.
 - [CRUD Operations](https://kinotic.ai/raw/apps/persistence/crud-operations.md): Using generated entity services for create, read, update, delete, search, and count operations in Kinotic.
 - [Defining Entities](https://kinotic.ai/raw/apps/persistence/defining-entities.md): How to define entities using TypeScript decorators for Kinotic's persistence layer.
 - [Entity Decorators](https://kinotic.ai/raw/apps/persistence/entity-decorators.md): All available entity decorators for configuring field behavior, indexing, relationships, and versioning in Kinotic persistence.
-- [Migrations](https://kinotic.ai/raw/apps/persistence/migrations.md): Versioned data migrations for an application's entities, run during kinotic sync.
+- [Migrations](https://kinotic.ai/raw/apps/persistence/migrations.md): Versioned data migrations for a project's entities, run during kinotic sync.
 - [Multi-Tenancy](https://kinotic.ai/raw/apps/persistence/multi-tenancy.md): Multi-tenant data isolation in Kinotic with automatic tenant filtering.
 - [Named Queries](https://kinotic.ai/raw/apps/persistence/named-queries.md): Defining and using custom named queries on entity services in Kinotic.
 - [Overview](https://kinotic.ai/raw/apps/persistence/overview.md): Kinotic's persistence layer provides declarative data management with automatic CRUD service generation from TypeScript entity definitions.

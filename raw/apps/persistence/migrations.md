@@ -1,13 +1,13 @@
 ---
 title: "Migrations"
-description: "Versioned data migrations for an application's entities, run during kinotic sync."
+description: "Versioned data migrations for a project's entities, run during kinotic sync."
 canonical_url: "https://kinotic.ai/apps/persistence/migrations"
 ---
 # Migrations
 
-> Versioned data migrations for an application's entities, run during kinotic sync.
+> Versioned data migrations for a project's entities, run during kinotic sync.
 
-Migrations change the data of an application's entities in a controlled, versioned way: seed rows, backfill a field, remove rows, or copy data from one entity to another. They are written in a SQL-like syntax and executed automatically during `kinotic sync`.
+Migrations change the data of a project's entities in a controlled, versioned way: seed rows, backfill a field, remove rows, or copy data from one entity to another. They are written in a SQL-like syntax and executed automatically during `kinotic sync`.
 
 An entity's schema is not what a migration changes. The entity class is the schema: `kinotic sync` publishes every entity before it runs the migrations, and publishing creates or updates the entity's backing store. A migration only moves data within that store.
 
@@ -35,7 +35,7 @@ The version number determines execution order. The double underscore (`__`) sepa
 4. Each migration is recorded after successful execution to prevent re-runs
 5. Migrations run during `kinotic sync`
 
-A migration names entities, never storage. `INSERT INTO Person` addresses the `Person` entity of the application being synchronized, and the platform resolves that name to the entity's backing store when the migration runs. A name that is not one of the application's published entities fails the run, as does a statement that is not one of the data statements below.
+A migration names entities, never storage. `INSERT INTO Person` addresses the `Person` entity of the project being synchronized, and the platform resolves that name to the entity's backing store when the migration runs. A name that is not one of the project's published entities fails the run, as does a statement that is not one of the data statements below. An entity that another project of the same application publishes is not one of them: a project's migrations reach that project's entities alone.
 
 A migration file containing a syntax error fails the entire migration run — nothing from that file is applied and the file is not recorded. The error names the file, line, and offending token. A migration run is resolved as a whole before anything executes, so an unknown entity in the last file stops the first file from running too.
 
@@ -49,7 +49,7 @@ INSERT INTO Role (id, tenantId, name) VALUES ('role-member', 'acme', 'Member') W
 
 ## Supported Statements
 
-A migration uses the four data statements. Each names an entity of the application. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](https://kinotic.ai/apps/reference/migration-sql-grammar#case).
+A migration uses the four data statements. Each names an entity of the project. Keywords match in any case, but entity and field names are case-sensitive and must be written the way the entity class spells them: `Person` and `firstName`, not `person` and `FIRSTNAME`. An entity name in the wrong case fails the run, naming the entity meant; a field name in the wrong case is not an error, so an `UPDATE` or `DELETE` that uses one changes no rows. See [Case](https://kinotic.ai/apps/reference/migration-sql-grammar#case).
 
 ### INSERT INTO
 
@@ -76,7 +76,7 @@ INSERT INTO Person (id, tenantId, firstName, address, tags) VALUES (
 ) WITH REFRESH;
 ```
 
-An application's migration leaves `ROUTING` and `DOCUMENT_ID` to the platform, which derives both from the row's id and tenant fields.
+A project's migration leaves `ROUTING` and `DOCUMENT_ID` to the platform, which derives both from the row's id and tenant fields.
 
 ### UPDATE ... SET ... WHERE
 
@@ -126,7 +126,7 @@ Copy rows from one entity to another, for example when a field changes type and 
 REINDEX LegacyOrder INTO Order WITH (SKIP_IF_NO_SOURCE = TRUE);
 ```
 
-Both names are entities of the application. The rows are copied as stored, so their ids and tenants travel with them.
+Both names are entities of the project. The rows are copied as stored, so their ids and tenants travel with them.
 
 A `SCRIPT` transforms each row as it is copied, in [Painless](https://www.elastic.co/docs/explore-analyze/scripting/modules-scripting-painless). The row is `ctx._source`, and `ctx.op` set to `'noop'` skips it or `'delete'` removes it from the destination:
 
