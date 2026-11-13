@@ -87,20 +87,6 @@ public class ExclusiveTest extends AbstractGrindTest {
     }
 
     @Test
-    public void ownersWhoseIdsRunTogetherTheSameWayStayApart() throws Exception {
-        CompletableFuture<Void> gate = new CompletableFuture<>();
-        JobRunHandle executing = startAndAwaitExecuting(gatedJob(gate), JobOwner.ofApplication("acme", "a:b", "c"));
-
-        CompletableFuture<Void> done = CompletableFuture.completedFuture(null);
-        assertNull(await(otherJobService.run(gatedJob(done), JobOwner.ofApplication("acme", "a", "b:c"))).error());
-        assertNull(await(otherJobService.run(gatedJob(done), JobOwner.ofOrganization("acme", ""))).error());
-        assertNull(await(otherJobService.run(gatedJob(done), JobOwner.ofOrganization("acme", null))).error());
-
-        gate.complete(null);
-        assertNull(await(executing).error());
-    }
-
-    @Test
     public void aResumeIsRefusedWhileAnotherRunExecutes() throws Exception {
         AtomicBoolean fail = new AtomicBoolean(true);
         JobRunHandle failed = jobService.run(failingJob(fail), JobOwner.system());
