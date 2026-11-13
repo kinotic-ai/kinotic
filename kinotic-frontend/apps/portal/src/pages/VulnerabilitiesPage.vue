@@ -40,15 +40,18 @@
         </template>
       </VulnerabilityFindingsTable>
 
+      <p v-if="total !== null && total > DEEPEST_PAGED" class="border-t border-surface-200 px-5 py-3 text-sm text-muted-color dark:border-surface-700">
+        The newest {{ DEEPEST_PAGED.toLocaleString() }} of {{ total.toLocaleString() }} alerts are listed.
+      </p>
       <TablePaginator v-if="total" class="border-t border-surface-200 px-5 py-3 dark:border-surface-700"
-                      :first="first" :rows="pageSize" :total-records="total"
+                      :first="first" :rows="pageSize" :total-records="paged"
                       :rows-per-page-options="PAGE_SIZES" @page="onPage" />
     </DashboardSection>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
@@ -67,6 +70,8 @@ import type { VulnerabilityAlert } from '@kinotic-ai/management-api'
  */
 
 const PAGE_SIZES = [25, 50, 100]
+// how deep into its results a search reads, which every page size above divides, so the last page ends on it
+const DEEPEST_PAGED = 10_000
 // one scan raises many alerts in the same millisecond, so the id orders them for the pages to stay apart
 const NEWEST_FIRST = new Sort()
 NEWEST_FIRST.orders = [new Order('created', Direction.DESC), new Order('id', Direction.ASC)]
@@ -74,6 +79,8 @@ NEWEST_FIRST.orders = [new Order('created', Direction.DESC), new Order('id', Dir
 const alerts = ref<VulnerabilityAlert[]>([])
 const total = ref<number | null>(null)
 const unacknowledged = ref<number | null>(null)
+// the alerts the paginator offers pages for
+const paged = computed(() => Math.min(total.value ?? 0, DEEPEST_PAGED))
 const first = ref(0)
 const pageSize = ref(25)
 const loading = ref(true)

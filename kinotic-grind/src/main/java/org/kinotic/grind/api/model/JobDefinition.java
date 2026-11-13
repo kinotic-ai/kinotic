@@ -91,7 +91,7 @@ public interface JobDefinition {
      * Lets one run of this job execute at a time across the cluster for an owner. A run or
      * resume of the job's name started for an owner while another executes for that owner is
      * refused before anything of it is recorded: its events fail with an
-     * {@link IllegalStateException}.
+     * {@link ExclusiveJobRunningException}.
      * @return this for fluent use
      */
     JobDefinition exclusive();
