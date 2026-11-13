@@ -15372,7 +15372,7 @@ JobDefinition job = JobDefinition.create("Deploy project")
         }));
 ```
 
-`name` and `version` identify the job across runs and are required to run it. `input(...)` stores values in the scope as beans, so the first task's dependencies resolve the same way as any other.
+`name` identifies the job across runs and is required to run it. `version` names the shape of its tasks and is recorded on every run: change it whenever the tasks, their order or what they store changes, since a run recorded with a version is [resumed](#resuming-a-run) only by a definition of that version. `input(...)` stores values in the scope as beans, so the first task's dependencies resolve the same way as any other.
 
 Definitions nest: `jobDefinition(...)` adds a whole `JobDefinition` as one task of another. A nested definition declares a `JobScope` — `CHILD` (the default) gives it a scope of its own that is destroyed when it finishes, while `PARENT` lets it store directly into its parent's scope. Passing `parallel = true` to `JobDefinition.create` makes the definition's tasks execute concurrently; the first failure cancels the in-flight siblings.
 
