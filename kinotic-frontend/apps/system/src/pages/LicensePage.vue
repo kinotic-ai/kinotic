@@ -82,7 +82,9 @@ import { DashboardSection, PageHeader, StatCard, TINTS, errorMessage, showErrorT
 // sends the browser back to its returnUrl with the cluster's key in the fragment, #key=<key>
 const LICENSE_ACCOUNT_URL = 'https://licenses.kinotic.ai/account'
 const KEY_FRAGMENT = '#key='
-// the session storage entry the License this cluster button sets, which lets the key that comes back install itself
+// the one-time value a handoff carries in its returnUrl's query parameter and in this tab's session storage; a key that
+// comes back with the stored value installs itself
+const HANDOFF_PARAM = 'handoff'
 const HANDOFF_STORAGE_KEY = 'kinotic.license.handoff'
 
 const FEATURE_NAMES: Record<EnterpriseFeature, string> = {
@@ -115,6 +117,8 @@ const clusterIdError = ref<string | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const licenseKey = ref('')
+// crypto.getRandomValues works on a console served over plain HTTP, where crypto.randomUUID is undefined
+const handoff = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
 const installing = ref(false)
 
 const stats = computed<LicenseStat[]>(() => {
@@ -165,30 +169,33 @@ async function load(): Promise<void> {
 }
 
 function licenseClusterUrl(id: string): string {
-  const returnUrl = window.location.origin + window.location.pathname
+  const returnUrl = `${window.location.origin}${window.location.pathname}?${HANDOFF_PARAM}=${handoff}`
   return `${LICENSE_ACCOUNT_URL}?clusterId=${encodeURIComponent(id)}&returnUrl=${encodeURIComponent(returnUrl)}`
 }
 
 function startHandoff(): void {
   try {
-    window.sessionStorage.setItem(HANDOFF_STORAGE_KEY, 'started')
+    window.sessionStorage.setItem(HANDOFF_STORAGE_KEY, handoff)
   } catch {
     // without session storage the handed-back key waits in the form for Install key
   }
 }
 
-// Takes the key the license server handed back in the fragment and drops the fragment so a reload takes nothing. The
-// key installs itself only when this tab started the handoff; a key from any other link waits in the form for Install
-// key, so a crafted link cannot replace the installed key unseen.
+// Takes the key the license server handed back in the fragment and drops the fragment and the handoff value so a
+// reload takes nothing. The key installs itself only when the return carries the handoff value this tab stored; a key
+// from any other link waits in the form for Install key, so a crafted link cannot replace the installed key unseen.
 async function takeHandedBackKey(): Promise<void> {
   if (!window.location.hash.startsWith(KEY_FRAGMENT)) {
     return
   }
   const encoded = window.location.hash.substring(KEY_FRAGMENT.length)
-  window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+  const page = new URL(window.location.href)
+  const returned = page.searchParams.get(HANDOFF_PARAM)
+  page.searchParams.delete(HANDOFF_PARAM)
+  window.history.replaceState(window.history.state, '', page.pathname + page.search)
   let started = false
   try {
-    started = window.sessionStorage.getItem(HANDOFF_STORAGE_KEY) !== null
+    started = returned !== null && returned === window.sessionStorage.getItem(HANDOFF_STORAGE_KEY)
     window.sessionStorage.removeItem(HANDOFF_STORAGE_KEY)
   } catch {
     started = false
