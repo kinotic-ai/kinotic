@@ -1,0 +1,1 @@
+{"id":"9a020dd828db895fcda20ea772df74c4.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenCreateTableWithNumericTypes_thenTableCreated","name":"whenCreateTableWithNumericTypes_thenTableCreated()","status":"passed","testResultsByEnv":{"default":"33c11dce2f8a4a345a18c149e4433a81"}}
