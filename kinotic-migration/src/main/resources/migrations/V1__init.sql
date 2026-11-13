@@ -91,12 +91,14 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
 -- while the project's kinotic_project_deployment row has sbomGenerated set. packages lists every
 -- installed package version as a package URL and is indexed, so the projects holding a package
 -- are one term query; direct, development and optional are positions in packages, and edges holds
--- [dependent, dependency] position pairs, read whole and never searched. One row per project; id
--- equals the projectId.
+-- [dependent, dependency] position pairs, read whole and never searched. dependencyHash is the
+-- artifacts.dependencyHash of the checkout the tree was read from. One row per project; id equals
+-- the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_dependencies (
     id KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    dependencyHash KEYWORD,
     packages KEYWORD,
     direct INTEGER NOT INDEXED,
     development INTEGER NOT INDEXED,

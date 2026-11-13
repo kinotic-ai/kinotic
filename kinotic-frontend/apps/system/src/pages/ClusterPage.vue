@@ -516,6 +516,9 @@ function openLogLevel(nodeId: string) {
   logLevelVisible.value = true
 }
 
+// The check of the libraries started last; Refresh can start another while one is still running
+let latestCheck = 0
+
 async function load() {
   loading.value = true
   error.value = null
@@ -523,11 +526,16 @@ async function load() {
   scanWorkloads({}, { systemOnly: true }).then(list => { systemWorkloads.value = list })
                                           .catch(() => { systemWorkloads.value = null })
   // the libraries are checked apart from the topology, which shows without waiting for them
+  const check = ++latestCheck
   Kinotic.clusterVulnerabilities.findAll().then(found => {
-    servers.value = found
-    vulnerabilityError.value = null
+    if (check === latestCheck) {
+      servers.value = found
+      vulnerabilityError.value = null
+    }
   }).catch(err => {
-    vulnerabilityError.value = errorMessage(err, "The servers' libraries could not be checked")
+    if (check === latestCheck) {
+      vulnerabilityError.value = errorMessage(err, "The servers' libraries could not be checked")
+    }
   })
   try {
     cluster.value = await Kinotic.clusterInfo.getClusterInfo()

@@ -10,7 +10,9 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
  * Records the artifacts a project's deployment workloads find on the project's
  * {@link ProjectDeployment}, and the SBOM they generate as its {@link ProjectDependencies}. Every
  * call is authorized by the caller's organization alone, so any participant of the project's
- * organization can report on the project's behalf.
+ * organization can report on the project's behalf. The reports of one project are recorded one
+ * after another, and a report fails when an earlier one of its project is still being recorded
+ * after 30 seconds.
  */
 @Publish
 public interface ProjectArtifactService {
@@ -33,8 +35,8 @@ public interface ProjectArtifactService {
      *
      * @param projectId      the project whose checkout the SBOM was generated from
      * @param dependencyHash the fingerprint of the dependencies the tree lists
-     * @param dependencies   the dependency tree, stored under the project's id, organization and
-     *                       application whatever ids it carries; every package must be a package
+     * @param dependencies   the dependency tree, stored under the project's id, organization,
+     *                       application and the dependency hash whatever it carries; every package must be a package
      *                       URL with its version, percent-encoded, no package may be listed twice,
      *                       and every position must name one of its packages
      * @return a future completing once the tree is stored, the deployment record says the

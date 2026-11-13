@@ -1,6 +1,7 @@
 package org.kinotic.management.internal.api.services.deployment;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -24,14 +25,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultProjectArtifactService implements ProjectArtifactService {
 
-    private static final String NOT_LAST_REPORTED = "Dependency hash %s is not the one the sync workload of project %s last reported";
+    // How long a report waits for another report of the same project to be recorded
+    private static final long REPORT_LOCK_TIMEOUT_MS = 30_000;
 
+    private final Vertx vertx;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final VulnerabilityScanner vulnerabilityScanner;
@@ -47,8 +51,9 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         // the SBOM lists the dependencies it was generated from, so a report of other dependencies
         // marks it outdated and the deployment generates it again; the tree and its alerts stay until
         // the next SBOM replaces them, which keeps their acknowledgements
-        return loadOwned(projectId, participant)
-                .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts));
+        return oneAtATime(projectId, participant.getOrganizationId(),
+                          () -> loadOwned(projectId, participant)
+                                  .compose(deployment -> projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts)));
     }
 
     @Override
@@ -59,25 +64,30 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
         validate(dependencies);
         OrganizationParticipant participant = securityContext.requireParticipant(OrganizationParticipant.class);
         String organizationId = participant.getOrganizationId();
-        return loadOwned(projectId, participant)
-                .compose(deployment -> {
-                    // the SBOM is recorded as the one of the dependencies the artifacts list, so it
-                    // must have been generated from those
-                    Validate.isTrue(deployment.getArtifacts() != null && dependencyHash.equals(deployment.getArtifacts().dependencyHash()),
-                                    NOT_LAST_REPORTED, dependencyHash, projectId);
-                    dependencies.setId(projectId)
-                                .setOrganizationId(organizationId)
-                                .setApplicationId(deployment.getApplicationId());
-                    // visible before the scan, so an advisory scan running alongside it finds the tree
-                    return projectDependenciesRepository.saveSync(dependencies, organizationId)
-                            // checked again once stored, since a recordArtifacts of other dependencies can land
-                            // after the check above; the tree then stays unmarked until the next SBOM replaces it
-                            .compose(saved -> projectDeploymentRepository.recordSbomGenerated(projectId, organizationId, dependencyHash))
-                            .compose(recorded -> {
-                                Validate.isTrue(recorded, NOT_LAST_REPORTED, dependencyHash, projectId);
-                                return scanProject(dependencies);
-                            });
-                });
+        return oneAtATime(projectId, organizationId,
+                          () -> loadOwned(projectId, participant)
+                                  .compose(deployment -> {
+                                      // the SBOM is recorded as the one of the dependencies the artifacts list, so it
+                                      // must have been generated from those
+                                      Validate.isTrue(deployment.getArtifacts() != null && dependencyHash.equals(deployment.getArtifacts().dependencyHash()),
+                                                      "Dependency hash %s is not the one the sync workload of project %s last reported", dependencyHash, projectId);
+                                      dependencies.setId(projectId)
+                                                  .setOrganizationId(organizationId)
+                                                  .setApplicationId(deployment.getApplicationId())
+                                                  .setDependencyHash(dependencyHash);
+                                      // visible before the scan, so an advisory scan running alongside it finds the tree
+                                      return projectDependenciesRepository.saveSync(dependencies, organizationId);
+                                  })
+                                  .compose(saved -> projectDeploymentRepository.recordSbomGenerated(projectId, organizationId)))
+                .compose(recorded -> scanProject(dependencies));
+    }
+
+    // Runs the recording of a report while this node holds the project's cluster lock, so the
+    // artifacts a sync reports and the SBOM of those artifacts are recorded one after another: an
+    // SBOM stored while other artifacts are being recorded would be marked as listing dependencies
+    // it does not
+    private <T> Future<T> oneAtATime(String projectId, String organizationId, Supplier<Future<T>> recording) {
+        return vertx.sharedData().withLock("project.artifacts:" + organizationId + ":" + projectId, REPORT_LOCK_TIMEOUT_MS, recording);
     }
 
     // The SBOM stands once stored; alerts a failed scan leaves behind are corrected by the next scan

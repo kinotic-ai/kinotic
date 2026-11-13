@@ -26,15 +26,18 @@ public class ProjectDependenciesRepository extends AbstractApplicationScopedRepo
     private static final String PACKAGES_FIELD = "packages";
 
     // The fields a scan of a tree reads
-    private static final List<String> SCANNED_FIELDS = List.of("id", "organizationId", "applicationId", PACKAGES_FIELD);
+    private static final List<String> SCANNED_FIELDS = List.of("id", "organizationId", "applicationId", "dependencyHash", PACKAGES_FIELD);
+
+    // The fields that tell which tree a project has stored
+    private static final List<String> HASH_FIELDS = List.of("id", "organizationId", "dependencyHash");
 
     public ProjectDependenciesRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_project_dependencies", ProjectDependencies.class, crudServiceTemplate);
     }
 
     /**
-     * Lists the trees of every organization, each carrying its id, organization, application and
-     * package URLs; its positions in the package list are empty.
+     * Lists the trees of every organization, each carrying its id, organization, application,
+     * dependency hash and package URLs; its positions in the package list are empty.
      *
      * @param pageable the page to return; sorted by {@code organizationId} then {@code id}, since an id
      *                 names one project only within its organization
@@ -45,12 +48,28 @@ public class ProjectDependenciesRepository extends AbstractApplicationScopedRepo
 
     /**
      * Finds the trees of the projects, of any organization, that have one, each carrying its id,
-     * organization, application and package URLs; its positions in the package list are empty.
+     * organization, application, dependency hash and package URLs; its positions in the package
+     * list are empty.
      *
      * @param projectIdsByOrganization the ids of the projects to look for, by organization id
      * @return a future emitting the trees found, in no particular order
      */
     public Future<List<ProjectDependencies>> findAllExisting(Map<String, ? extends Collection<String>> projectIdsByOrganization) {
+        return findAllExisting(projectIdsByOrganization, SCANNED_FIELDS);
+    }
+
+    /**
+     * Finds the trees of the projects, of any organization, that have one, each carrying only its
+     * id, organization and dependency hash. A tree stored a moment ago is found.
+     *
+     * @param projectIdsByOrganization the ids of the projects to look for, by organization id
+     * @return a future emitting the trees found, in no particular order
+     */
+    public Future<List<ProjectDependencies>> findAllDependencyHashes(Map<String, ? extends Collection<String>> projectIdsByOrganization) {
+        return findAllExisting(projectIdsByOrganization, HASH_FIELDS);
+    }
+
+    private Future<List<ProjectDependencies>> findAllExisting(Map<String, ? extends Collection<String>> projectIdsByOrganization, List<String> fields) {
         Validate.notNull(projectIdsByOrganization, "projectIdsByOrganization cannot be null");
         List<MultiGetOperation> operations = new ArrayList<>();
         projectIdsByOrganization.forEach((orgId, ids) -> ids.forEach(id -> operations.add(MultiGetOperation.of(op -> op.index(indexName)
@@ -60,15 +79,15 @@ public class ProjectDependenciesRepository extends AbstractApplicationScopedRepo
         if (operations.isEmpty()) {
             ret = Future.succeededFuture(List.of());
         } else {
-            ret = crudServiceTemplate.multiGet(operations, type, b -> b.sourceIncludes(SCANNED_FIELDS), null);
+            ret = crudServiceTemplate.multiGet(operations, type, b -> b.sourceIncludes(fields), null);
         }
         return ret;
     }
 
     /**
      * Lists the trees of every organization that list any version of any of the packages, each
-     * carrying its id, organization, application and package URLs; its positions in the package
-     * list are empty.
+     * carrying its id, organization, application, dependency hash and package URLs; its positions
+     * in the package list are empty.
      *
      * @param purls    package URLs without a version, e.g. {@code pkg:npm/%40vitest/mocker}
      * @param pageable the page to return; sorted by {@code organizationId} then {@code id}

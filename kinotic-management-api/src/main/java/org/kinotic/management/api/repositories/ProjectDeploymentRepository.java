@@ -42,16 +42,6 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
             deployment.updated = params.updated;
             """;
 
-    private static final String RECORD_SBOM_GENERATED_SCRIPT = """
-            def deployment = ctx._source;
-            if (deployment.artifacts == null || deployment.artifacts.dependencyHash != params.dependencyHash) {
-                ctx.op = 'noop';
-            } else {
-                deployment.sbomGenerated = true;
-                deployment.updated = params.updated;
-            }
-            """;
-
     private final WatchedStateRepository watchedStateRepository;
     private final WatchEventRepository watchEventRepository;
     private final ReconcileStateRepository reconcileStateRepository;
@@ -256,20 +246,12 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
 
     /**
      * Records that the project's {@link org.kinotic.management.api.model.deployment.ProjectDependencies}
-     * list the dependencies the artifacts list, leaving every other field as it is, when the artifacts
-     * still list the dependencies with the hash.
-     *
-     * @return a future emitting whether it was recorded, false when the artifacts list other dependencies
+     * list the dependencies the artifacts list, leaving every other field as it is.
      */
-    public Future<Boolean> recordSbomGenerated(String projectId, String orgId, String dependencyHash) {
-        Validate.notBlank(projectId, "projectId cannot be blank");
-        Validate.notBlank(orgId, "orgId cannot be blank");
-        Validate.notBlank(dependencyHash, "dependencyHash cannot be blank");
-        return crudServiceTemplate.scriptedUpdate(indexName,
-                                                  composeDocumentId(projectId, orgId),
-                                                  RECORD_SBOM_GENERATED_SCRIPT,
-                                                  Map.of("dependencyHash", dependencyHash, "updated", new Date()),
-                                                  u -> u.routing(orgId).refresh(Refresh.WaitFor));
+    public Future<Void> recordSbomGenerated(String projectId, String orgId) {
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("sbomGenerated", true);
+        return partial(projectId, orgId, fields);
     }
 
     /**
