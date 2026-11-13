@@ -38,6 +38,9 @@ public class DefaultJobDefinition implements JobDefinition {
     @Getter
     private String version;
 
+    @Getter
+    private boolean exclusive;
+
     private final List<JobNode> tasks = new ArrayList<>();
 
     private final List<Object> inputs = new ArrayList<>();
@@ -64,6 +67,12 @@ public class DefaultJobDefinition implements JobDefinition {
     public JobDefinition continueOnFailure() {
         Validate.validState(!parallel, "a parallel definition cancels its tasks on the first failure");
         this.continueOnFailure = true;
+        return this;
+    }
+
+    @Override
+    public JobDefinition exclusive() {
+        this.exclusive = true;
         return this;
     }
 

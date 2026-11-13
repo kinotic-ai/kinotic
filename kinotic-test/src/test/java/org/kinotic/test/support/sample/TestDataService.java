@@ -223,6 +223,27 @@ public class TestDataService {
     }
 
     /**
+     * Creates and publishes an {@link EntityDefinition} for {@code schema} under the sample application.
+     * The schema carries the {@link EntityDecorator} that decides the definition's tenancy and entity type.
+     *
+     * @param name   the definition's name, unique within the sample application
+     * @param schema the root type of the definition, decorated with an {@link EntityDecorator}
+     * @return a {@link Future} that will return the published {@link EntityDefinition}
+     */
+    public Future<EntityDefinition> createEntityDefinition(String name, ObjectC3Type schema) {
+        EntityDefinition definition = new EntityDefinition();
+        definition.setName(name);
+        definition.setOrganizationId(SAMPLE_ORG_ID);
+        definition.setApplicationId(SAMPLE_APP_ID);
+        definition.setProjectId(SAMPLE_PROJECT_ID);
+        definition.setDescription("Defines a " + name);
+        definition.setSchema(schema);
+        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application", null)
+                                 .compose(v -> entityDefinitionService.create(definition))
+                                 .compose(saved -> entityDefinitionService.publish(saved.getId()).map(saved));
+    }
+
+    /**
      * @return a {@link Future} that will return a random {@link Person} from the cache.
      */
     public Future<Person> createTestPerson() {
