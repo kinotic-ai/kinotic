@@ -431,7 +431,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
         .github/workflows/dependabot-merge.yml
       </code>
       
-      ) merges each such pull request once every check on it has passed, which closes its alerts, and assigns any pull request it cannot merge to a maintainer. The Java libraries are covered by the image vulnerability scanning above.
+      ) merges each such pull request once at least one of the repository's GitHub Actions checks has succeeded on it, none of its checks has failed and none is still running, which closes its alerts. A failure from any check blocks the merge, as does a GitHub Actions run that was cancelled, timed out, went stale or needs action; another app's cancelled or skipped check does not. A pull request with a blocking check, with no successful or running GitHub Actions check a day after it was opened, or that GitHub refuses to merge is assigned to a maintainer. The Java libraries are covered by the image vulnerability scanning above.
     </td>
   </tr>
   
