@@ -15558,6 +15558,21 @@ JobRunHandle resumed = jobService.resume(originalRunId, buildJob());
 
 The resumed run is a new run — with its own id and records, linked to the original through `resumedFrom` and owned by whoever owned the original. Tasks the original run completed are handled by their `StoreType` as described above: skipped, re-run or reloaded, or replayed. A replayed `STATE` task builds its declared views from the scope and the replayed value; a skipped task, or a replayed one that declares no view, keeps the view the original run's record left it showing. A task that produced dynamic tasks re-executes so the dynamic structure is regenerated; the regenerated tasks then consult the original run's records at their own paths.
 
+## Exclusive jobs
+
+A job whose runs must never overlap declares itself exclusive:
+
+```java
+JobDefinition job = JobDefinition.create("Roll up usage")
+                                 .name("usage-rollup").version("1")
+                                 .exclusive()
+                                 .task(...);
+```
+
+One run of an exclusive job executes at a time across the cluster for an owner. The job's `name` and the run's `JobOwner` — organization, application and project together — identify what is exclusive, so the same job still runs side by side for two organizations, or for two projects of one. A `run` or `resume` started while another run of that name executes for that owner, on any node, is refused: its event stream fails with an `IllegalStateException` and nothing of it is recorded, so the refused run never appears among the job's runs. The job can run again as soon as the executing run ends, whether it completed, failed, was cancelled, or its node left the cluster.
+
+`exclusive()` applies to the definition handed to `run` or `resume`; on a definition nested in another it has no effect.
+
 ## Run records
 
 Every run persists a `JobRun` — name, version, owner, status, timestamps, error, `resumedFrom`, and the `nodeId` of the executing node — and one `TaskRecord` per task: its `taskPath`, description, icon, status, timestamps, `storeType` and `storedName` (recorded from discovery when the definition names the store, so a watcher can tell the tasks apart before they complete), the serialized `STATE` value in `stateValue`, the wired value in `wireValue`, the latest view in `view`, and the failure message when it failed. The records are the run's durable history: what a dashboard renders after the event stream is gone, and what a resume replays from.
