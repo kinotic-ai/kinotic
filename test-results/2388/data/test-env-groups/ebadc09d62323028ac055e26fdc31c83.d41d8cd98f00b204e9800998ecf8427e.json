@@ -1,1 +1,0 @@
-{"id":"ebadc09d62323028ac055e26fdc31c83.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationServiceTest.rejectsAnInstallationOfAnotherUsersAccount","name":"rejectsAnInstallationOfAnotherUsersAccount()","status":"passed","testResultsByEnv":{"default":"4970135385d0a2da5f46126c0aa54b25"}}
