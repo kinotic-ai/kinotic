@@ -569,8 +569,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     // A user whose credential or place in the graph could not be written is removed again, so the creation can be
     // made again under its email. What the graph holds of it stays: a user created again under the email has the
-    // same id and is placed the same way, and the application store's tuples are written in one request, so none
-    // of them name a tenant the next creation does not
+    // same id and is placed the same way. The application store's tuples are written in one request, so they stay
+    // only when that write was committed and its answer lost, and the tenant membership among them is read by no
+    // check: a user is checked on the tenant its identity carries, and a grant is made to a user or a group
     private <T extends UserParticipantIdentity> Future<T> completed(T user, String password) {
         Future<T> credential = password != null
                 ? saveCredential(user.getId(), password).map(user)
