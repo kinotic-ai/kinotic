@@ -41,13 +41,13 @@ public interface EntitlementService {
     String findClusterId();
 
     /**
-     * Renews an installed key bound to this cluster: asks Minds Ignited's license server for the cluster's newest key,
-     * signed in with the installed key, and installs it as {@link #install(String)} does when it differs from the
-     * installed key. A key installed while the renewal is in flight is kept.
+     * Renews an installed key bound to this cluster once it expires within ten days: asks Minds Ignited's license server
+     * for the cluster's newest key, signed in with the installed key, and installs it as {@link #install(String)} does
+     * when it differs from the installed key. A key installed while the renewal is in flight is kept.
      *
-     * @return the license the cluster runs on afterwards, or {@code null} when no key bound to a cluster is installed;
-     *         fails when the license server cannot be reached or refuses the installed key, or gives the reason no
-     *         newer key comes, such as a past-due license
+     * @return the license the cluster runs on afterwards, or {@code null} when no renewal is due: no key bound to a
+     *         cluster is installed, or it expires more than ten days from now; fails when the license server cannot be
+     *         reached or refuses the installed key, or gives the reason no newer key comes, such as a past-due license
      */
     Future<License> renew();
 }

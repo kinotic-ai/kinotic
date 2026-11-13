@@ -12,7 +12,8 @@ import org.kinotic.domain.api.utils.DomainUtil;
 
 /**
  * Renews the cluster's license key with {@link EntitlementService#renew()} as one HA cluster singleton on the Ignite
- * service grid, once when it starts and daily after.
+ * service grid: checks once when it starts and daily after, and the renewal asks the license server only once the key
+ * nears its expiry.
  */
 @Slf4j
 public class LicenseRenewalScheduler implements Service {
