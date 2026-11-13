@@ -71,6 +71,11 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
+    public Future<List<RelationshipTuple>> read(String store, String object, String relation) {
+        return read(store, new ReadRequestTupleKey()._object(object).relation(relation));
+    }
+
+    @Override
     public Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType) {
         // the engine reads by user within one object type, named by the type alone
         return read(store, new ReadRequestTupleKey().user(user)._object(objectType + ":"));
@@ -254,12 +259,11 @@ public class DefaultRelationshipService implements RelationshipService {
     @Override
     public Future<List<Grant>> findGrants(String store, String object) {
         Resource resource = new Resource(AuthzUtil.typeOf(object), AuthzUtil.idOf(object));
-        return read(store, object).compose(held -> {
+        // the attachments alone: an organization, an application and a tenant each hold a tuple per member beside them
+        return read(store, object, AuthzConstants.ROLE_BINDING_RELATION).compose(attachments -> {
             List<Future<Grant>> bindings = new ArrayList<>();
-            for (RelationshipTuple tuple : held) {
-                if (AuthzConstants.ROLE_BINDING_RELATION.equals(tuple.relation())) {
-                    bindings.add(grantOf(store, tuple.user(), resource));
-                }
+            for (RelationshipTuple attachment : attachments) {
+                bindings.add(grantOf(store, attachment.user(), resource));
             }
             return Future.all(bindings).map(all -> all.<Grant>list().stream().filter(grant -> grant != null).toList());
         });

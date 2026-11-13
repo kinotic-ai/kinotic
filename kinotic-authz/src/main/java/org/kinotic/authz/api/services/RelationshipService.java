@@ -30,6 +30,16 @@ public interface RelationshipService {
     Future<List<RelationshipTuple>> read(String store, String object);
 
     /**
+     * The relationships of one relation held on an object.
+     *
+     * @param store    the store, named as its record is
+     * @param object   the object, in {@code type:id} form
+     * @param relation the relation, as the store's model names it
+     * @return the relationships, empty for an object holding none of the relation
+     */
+    Future<List<RelationshipTuple>> read(String store, String object, String relation);
+
+    /**
      * Every relationship a user holds on objects of a type, as written.
      *
      * @param store      the store, named as its record is

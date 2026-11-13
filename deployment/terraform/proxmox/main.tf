@@ -434,8 +434,9 @@ locals {
       mounts        = []
       entrypoint    = local.images.openfga.entrypoint
       image_env     = local.images.openfga.env
-      # The caches compose.openfga.yml runs with: a check answers from cached subproblems,
-      # invalidated by the cache controller on every write
+      # The caches compose.openfga.yml runs with: a check answers from cached subproblems, which the
+      # cache controller invalidates once it reads a write from the store's changelog, so a cached
+      # answer can predate a write by the controller's interval, ten seconds by default
       env = merge(local.openfga_datastore_env, {
         OPENFGA_PLAYGROUND_ENABLED           = "false"
         OPENFGA_CHECK_QUERY_CACHE_ENABLED    = "true"

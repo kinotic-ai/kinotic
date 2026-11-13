@@ -2,8 +2,9 @@
 # authorization engine every server checks against, on the Postgres whose connection URI the
 # environment's terraform places in the `openfga-db` Secret. The engine migrates the schema in an
 # init container of its own pods, so the release is ready when its pods are, which `helm --wait`
-# sees. The check caches match compose.openfga.yml: a check answers from cached subproblems,
-# invalidated by the cache controller on every write.
+# sees. The check caches match compose.openfga.yml: a check answers from cached subproblems, which
+# the cache controller invalidates once it reads a write from the store's changelog, so a cached
+# answer can predate a write by the controller's interval, ten seconds by default.
 
 image:
   tag: v1.21.0

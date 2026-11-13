@@ -25,9 +25,16 @@ import java.util.TreeSet;
  *                    id starts with its home type, {@code project.editor}
  * @param bindable    for each resource type, the home types of the roles a binding on a resource of it may grant:
  *                    the type and the types inside it within its trust boundary, which the engine enforces
+ * @param parents     for each resource type contained in another, the type containing it, which is also the
+ *                    relation a resource of the type holds its parent under; a root type has no entry
  * Created by Navíd Mitchell 🤪on 10/4/26
  */
-public record AuthzModel(ObjectNode definition, String hash, Map<String, Set<String>> permissions, Map<String, Set<String>> roles, Map<String, Set<String>> bindable) {
+public record AuthzModel(ObjectNode definition,
+                         String hash,
+                         Map<String, Set<String>> permissions,
+                         Map<String, Set<String>> roles,
+                         Map<String, Set<String>> bindable,
+                         Map<String, String> parents) {
 
     /**
      * The resource types of the tier rooted at a type: the root and the types inside it within its trust boundary,
