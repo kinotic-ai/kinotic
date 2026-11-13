@@ -43,7 +43,7 @@ public interface SystemAccessService {
      * @param roleId  the role granted, a built-in role's id
      * @return the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Grant> grant(Subject subject, String roleId);
 
     /**
@@ -52,7 +52,7 @@ public interface SystemAccessService {
      *
      * @param grantId the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> revoke(String grantId);
 
     /**

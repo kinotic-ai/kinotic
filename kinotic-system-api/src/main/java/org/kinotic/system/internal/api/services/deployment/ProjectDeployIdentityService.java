@@ -96,35 +96,40 @@ public class ProjectDeployIdentityService {
                                                  Function<String, Future<Void>> recordIdentity) {
         Future<MachineProvisionResult> ret;
         if (identityId == null) {
-            ret = createAndRecord(unsaved, recordIdentity);
+            ret = createAndRecord(unsaved, project, recordIdentity);
         } else {
             ret = identityService.findById(identityId)
                     .compose(identity -> {
                         Future<MachineProvisionResult> issued;
                         if (identity instanceof MachineParticipantIdentity machine) {
-                            issued = identityService.rotateMachineSecret(identityId)
-                                                    .map(secret -> new MachineProvisionResult(machine, secret));
+                            // a machine reused from an earlier deployment holds the grants as a new one does. It is
+                            // bound before its secret is rotated, so a binding that fails leaves the secret its
+                            // running workload reconnects with
+                            issued = bind(identityId, unsaved.getMachineType(), project)
+                                    .compose(v -> identityService.rotateMachineSecret(identityId))
+                                    .map(secret -> new MachineProvisionResult(machine, secret));
                         } else {
                             // an org member may remove a project's machine from the console; the
                             // recorded id then points at nothing and the deployment provisions
                             // a replacement rather than failing
-                            issued = createAndRecord(unsaved, recordIdentity);
+                            issued = createAndRecord(unsaved, project, recordIdentity);
                         }
                         return issued;
                     });
         }
-        // bound on every issue, so a machine reused from an earlier deployment holds the grants as a new one does
-        return ret.compose(result -> bind(result.machine().getId(), unsaved.getMachineType(), project).map(result));
+        return ret;
     }
 
     /**
-     * Records the new machine's id before returning it, so a run that fails after this point
+     * Records the new machine's id before binding and returning it, so a run that fails after this point
      * leaves an identity the next deployment reuses instead of orphaning it.
      */
     private Future<MachineProvisionResult> createAndRecord(MachineParticipantIdentity unsaved,
+                                                           Project project,
                                                            Function<String, Future<Void>> recordIdentity) {
         return identityService.createMachine(unsaved)
                 .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId())
+                                                      .compose(v -> bind(provisioned.machine().getId(), unsaved.getMachineType(), project))
                                                       .map(provisioned));
     }
 

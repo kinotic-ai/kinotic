@@ -409,6 +409,27 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
+    public void testCancelOfARefusedRequestIsDropped() throws Exception {
+        Promise<Void> authorization = Promise.promise();
+        when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(authorization.future());
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Future<Void> requested = handler.send(request(replyTo, "inv-11"));
+
+        Metadata metadata = Metadata.create(Map.of(EventConstants.REPLY_TO_HEADER, replyTo,
+                                                   EventConstants.CORRELATION_ID_HEADER, "inv-11",
+                                                   EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL));
+        Future<Void> cancelled = handler.send(Event.create(CRI.create(SERVICE_DESTINATION), metadata, null));
+
+        authorization.fail(new AuthorizationException("Not authorized"));
+        requested.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        cancelled.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // the services never received the request, so they are sent no cancel of it
+        verify(eventBusService, never()).sendWithAck(any());
+        verify(eventBusService, never()).publish(any());
+    }
+
+    @Test
     public void testARequestAuthorizedAfterItsConnectionClosedIsNotSent() throws Exception {
         Promise<Void> authorization = Promise.promise();
         when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(authorization.future());

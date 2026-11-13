@@ -22,6 +22,7 @@ import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -73,6 +74,9 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     @Autowired
     private ApplicationAccessService access;
+
+    @Autowired
+    private ApplicationRepository applicationRepository;
 
     @Autowired
     private ParticipantIdentityService identityService;
@@ -303,6 +307,28 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertNull(await(stores.findById(store)));
         assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));
         assertThrows(ExecutionException.class, () -> await(relationships.read(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store))));
+    }
+
+    @Test
+    public void anApplicationFoundWithoutItsStoreIsProvisioned() throws Exception {
+        String name = "Store " + suffix();
+        // the record alone, as a caller finds it while the one that created it is still provisioning its store
+        Application stored = new Application(name, "lifecycle");
+        stored.setId(DomainUtil.slugifyId(name));
+        stored.setOrganizationId(TEST_ORG_ID);
+        stored.setTenantManagement(TenantManagement.TENANT_ADMINISTRATORS);
+        await(applicationRepository.createSync(stored, TEST_ORG_ID));
+        String store = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, stored.getId());
+        assertNull(await(stores.findById(store)));
+
+        Application found = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(name, "lifecycle", null)));
+        try {
+            assertEquals(stored.getId(), found.getId());
+            assertNotNull(await(stores.findById(store)));
+            assertNotNull(await(storeService.modelId(store)));
+        } finally {
+            await(runAsOrganization(() -> applicationService.deleteById(found.getId())));
+        }
     }
 
     @Test

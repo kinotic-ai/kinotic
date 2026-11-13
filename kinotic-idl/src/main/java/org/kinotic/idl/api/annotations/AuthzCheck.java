@@ -66,7 +66,8 @@ public @interface AuthzCheck {
 
     /**
      * True for a function whose check must not be answered from the engine's caches, because a stale allow
-     * would be a security event: removing or disabling a member, rotating a machine's secret.
+     * would be a security event: removing or disabling a member, rotating a machine's secret, granting or
+     * revoking a role.
      */
     boolean consistent() default false;
 

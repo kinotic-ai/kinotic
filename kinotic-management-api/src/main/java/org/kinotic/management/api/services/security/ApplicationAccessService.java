@@ -63,7 +63,7 @@ public interface ApplicationAccessService {
      *                      definitions or a definition within a tenant
      * @return the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Grant> grant(String applicationId, Subject subject, String roleId, Resource resource);
 
     /**
@@ -73,7 +73,7 @@ public interface ApplicationAccessService {
      * @param resource      where the grant was made
      * @param grantId       the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> revoke(String applicationId, Resource resource, String grantId);
 
     /**

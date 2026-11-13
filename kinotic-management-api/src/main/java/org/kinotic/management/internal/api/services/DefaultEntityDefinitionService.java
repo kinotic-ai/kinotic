@@ -240,11 +240,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
     // Sync delete, then evict: the deletion must be searchable before the eviction fires, and the eviction must
     // fire last; either way around, a concurrent read could re-cache the old row with no eviction behind it. The
-    // delete completes once every node holding the caches has evicted, then the definition leaves the graph
+    // delete completes once every node holding the caches has evicted, then the definition leaves the graph. It
+    // leaves the graph when the eviction failed too: the record is deleted by then, so no later delete finds the
+    // definition to remove it
     private Future<Void> deleted(EntityDefinition entityDefinition) {
         return super.deleteByIdSync(entityDefinition.getId())
-                    .compose(v -> evict(entityDefinition))
-                    .compose(v -> removed(entityDefinition));
+                    .compose(v -> evict(entityDefinition).transform(evicted -> removed(entityDefinition).compose(w -> evicted.succeeded()
+                            ? Future.<Void>succeededFuture()
+                            : Future.failedFuture(evicted.cause()))));
     }
 
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the

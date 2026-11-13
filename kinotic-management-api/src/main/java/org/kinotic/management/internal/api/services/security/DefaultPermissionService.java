@@ -48,7 +48,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 @RequiredArgsConstructor
 public class DefaultPermissionService implements PermissionService {
 
-    // an organization's roles fit one page: the console reads them whole
+    // the console reads an organization's roles whole, so they are read a page at a time until a page is not full
     private static final int ROLE_PAGE_SIZE = 1000;
     // the root of the tier an organization's members manage: the organization and everything inside it but tenants
     private static final String ORGANIZATION = AuthzConstants.ORGANIZATION_TYPE;
@@ -71,13 +71,23 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         return model().compose(model -> {
             List<RoleDefinition> ret = new ArrayList<>(model.builtInRoles(ORGANIZATION));
-            return roles.findAll(organizationId, Pageable.create(0, ROLE_PAGE_SIZE, Sort.by("name")))
-                        .compose(page -> Future.all(page.getContent().stream().map(row -> defined(row, model)).toList()))
-                        .map(defined -> {
-                            ret.addAll(defined.list());
-                            return ret;
-                        });
+            return customRoles(organizationId, 0, new ArrayList<>())
+                    .compose(rows -> Future.all(rows.stream().map(row -> defined(row, model)).toList()))
+                    .map(defined -> {
+                        ret.addAll(defined.list());
+                        return ret;
+                    });
         });
+    }
+
+    private Future<List<Role>> customRoles(String organizationId, int pageNumber, List<Role> found) {
+        return roles.findAll(organizationId, Pageable.create(pageNumber, ROLE_PAGE_SIZE, Sort.by("name")))
+                    .compose(page -> {
+                        found.addAll(page.getContent());
+                        return page.getContent().size() < ROLE_PAGE_SIZE
+                                ? Future.succeededFuture(found)
+                                : customRoles(organizationId, pageNumber + 1, found);
+                    });
     }
 
     @Override

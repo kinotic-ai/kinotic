@@ -54,7 +54,7 @@ public interface PermissionService {
      * @param role the role, with a null id for a new one
      * @return the role as saved
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<RoleDefinition> saveRole(RoleDefinition role);
 
     /**
@@ -63,7 +63,7 @@ public interface PermissionService {
      *
      * @param roleId the role
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> deleteRole(String roleId);
 
     /**
@@ -80,7 +80,7 @@ public interface PermissionService {
      * @param group the group, with a null id for a new one
      * @return the group as saved
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Group> saveGroup(Group group);
 
     /**
@@ -89,7 +89,7 @@ public interface PermissionService {
      *
      * @param groupId the group
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> deleteGroup(String groupId);
 
     /**
@@ -106,7 +106,7 @@ public interface PermissionService {
      * @param groupId the group
      * @param userId  the member's identity id
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> addGroupMember(String groupId, String userId);
 
     /**
@@ -115,7 +115,7 @@ public interface PermissionService {
      * @param groupId the group
      * @param userId  the user's identity id
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> removeGroupMember(String groupId, String userId);
 
     /**
@@ -129,7 +129,7 @@ public interface PermissionService {
      * @param resource where the grant is made
      * @return the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Grant> grant(Subject subject, String roleId, Resource resource);
 
     /**
@@ -139,7 +139,7 @@ public interface PermissionService {
      * @param resource where the grant was made
      * @param grantId  the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> revoke(Resource resource, String grantId);
 
     /**
