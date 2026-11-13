@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.EntityStatementResolver;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -31,8 +30,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Runs an organization's migrations against the entities of one of its applications. A migration names entities,
- * and every statement is addressed at the index of the entity it names before any of them runs.
+ * Runs a project's migrations against the project's own entities. A migration names entities, and every statement
+ * is addressed at the index of the entity it names before any of them runs.
  */
 @Slf4j
 @Component
@@ -88,24 +87,23 @@ public class DefaultMigrationService implements MigrationService {
 
     /**
      * Parses every migration and addresses each of its statements at the index of the entity it names, so a
-     * syntax error, a statement that is not a data statement, or a name that is not one of the application's
+     * syntax error, a statement that is not a data statement, or a name that is not one of the project's
      * published entities fails the request before anything runs.
      */
     private Future<List<Migration>> resolve(List<MigrationDefinition> definitions, Project project) {
-        ApplicationKey applicationKey = project.applicationKey();
-        List<Future<Migration>> migrations = definitions.stream().map(definition -> resolve(definition, applicationKey)).toList();
+        List<Future<Migration>> migrations = definitions.stream().map(definition -> resolve(definition, project)).toList();
         return Future.all(migrations).map(CompositeFuture::list);
     }
 
-    private Future<Migration> resolve(MigrationDefinition definition, ApplicationKey applicationKey) {
+    private Future<Migration> resolve(MigrationDefinition definition, Project project) {
         List<Statement> statements = migrationParser.parse(definition.content(), definition.name()).statements();
         for (Statement statement : statements) {
             Validate.isTrue(statement instanceof InsertStatement || statement instanceof UpdateStatement
                                     || statement instanceof DeleteStatement || statement instanceof ReindexStatement,
-                            "Migration %s: a project migration acts on the application's entities with INSERT, UPDATE, DELETE and REINDEX, so %s is not allowed",
+                            "Migration %s: a project migration acts on the project's entities with INSERT, UPDATE, DELETE and REINDEX, so %s is not allowed",
                             definition.name(), statement.getClass().getSimpleName().replace("Statement", ""));
         }
-        return entityStatementResolver.resolve(statements, applicationKey)
+        return entityStatementResolver.resolve(statements, project.applicationKey(), project.getId())
                                       .map(resolved -> new ResolvedMigration(definition.version(), definition.name(), new MigrationContent(resolved)));
     }
 }

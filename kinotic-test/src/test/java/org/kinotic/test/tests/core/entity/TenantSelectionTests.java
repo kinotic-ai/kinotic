@@ -111,6 +111,22 @@ public class TenantSelectionTests extends KinoticTestBase {
     }
 
     @Test
+    public void organizationParticipantCannotNameATenantHoldingTheDocumentIdSeparator() {
+        EntityDefinition definition = createTenantPersonDefinition("_separator");
+        EntityContext organization = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT);
+
+        StepVerifier.create(Mono.fromCompletionStage(savePerson(definition, organization, "tenant1:x", "Colon").toCompletionStage()))
+                    .as("A tenant id holding ':' could share a document id with another tenant's item")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        StepVerifier.create(Mono.fromCompletionStage(savePerson(definition, organization, "tenant1", "Plain").toCompletionStage()))
+                    .expectNextMatches(saved -> "tenant1".equals(saved.get(TENANT_ID_FIELD).asString()))
+                    .as("A tenant id without the separator is saved")
+                    .verifyComplete();
+    }
+
+    @Test
     public void organizationParticipantReadsAndWritesAcrossTenants() {
         EntityDefinition definition = createTenantPersonDefinition("_acrossTenants");
         EntityContext organization = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT);

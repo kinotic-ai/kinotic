@@ -48,12 +48,12 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
     private final DomainPersistenceProperties domainPersistenceProperties;
 
     @Override
-    public Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey) {
+    public Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey, String projectId) {
         // one lookup per distinct name, shared by every statement that names the entity
         Map<String, Future<EntityDescriptor>> lookups = new LinkedHashMap<>();
         for (Statement statement : statements) {
             for (String name : names(statement)) {
-                lookups.computeIfAbsent(name, key -> requireEntity(name, applicationKey));
+                lookups.computeIfAbsent(name, key -> requireEntity(name, applicationKey, projectId));
             }
         }
         return Future.all(new ArrayList<>(lookups.values()))
@@ -98,19 +98,21 @@ public class DefaultEntityStatementResolver implements EntityStatementResolver {
         };
     }
 
-    private Future<EntityDescriptor> requireEntity(String name, ApplicationKey applicationKey) {
+    private Future<EntityDescriptor> requireEntity(String name, ApplicationKey applicationKey, String projectId) {
         String organizationId = applicationKey.organizationId();
+        // an entity's name is unique within its application, so the application's entity of that name is found and
+        // answers only when it is the project's; an entity of another project fails as an unknown name does
         return entityDefinitionRepository.findById(DomainUtil.createEntityDefinitionId(applicationKey, name), organizationId)
                                          .map(definition -> {
-                                             Validate.isTrue(definition != null && definition.isPublished(),
-                                                             "Application %s has no published entity named %s",
-                                                             applicationKey.applicationId(), name);
+                                             Validate.isTrue(definition != null && definition.isPublished()
+                                                                     && projectId.equals(definition.getProjectId()),
+                                                             "Project %s has no published entity named %s", projectId, name);
                                              // the definition id ignores case, so a name in the wrong case finds the
                                              // entity it was meant for, which the error can then suggest
                                              EntityDescriptor ret = definition.toDescriptor();
                                              Validate.isTrue(ret.name().equals(name),
-                                                             "Application %s has no published entity named %s; did you mean %s?",
-                                                             applicationKey.applicationId(), name, ret.name());
+                                                             "Project %s has no published entity named %s; did you mean %s?",
+                                                             projectId, name, ret.name());
                                              return ret;
                                          });
     }

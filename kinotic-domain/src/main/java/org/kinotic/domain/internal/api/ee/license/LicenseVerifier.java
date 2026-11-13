@@ -19,10 +19,11 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Verifies Kinotic Enterprise License keys. A key is a JWT signed with ES256 by Minds Ignited's EC P-256 license
- * signing key: its {@code sub} names the licensee, its {@code iat} is when it was issued, its {@code exp} is when the
- * license expires, and its {@code features} claim lists the {@link EnterpriseFeature} names it turns on, or
- * {@value #ALL_FEATURES} for every feature the server knows.
+ * Verifies Kinotic Enterprise License keys for one cluster. A key is a JWT signed with ES256 by Minds Ignited's EC
+ * P-256 license signing key: its {@code sub} names the licensee, its {@code clusterId}, when present, is the id of the
+ * one cluster it works on, its {@code iat} is when it was issued, its {@code exp} is when the license expires, and its
+ * {@code features} claim lists the {@link EnterpriseFeature} names it turns on, or {@value #ALL_FEATURES} for every
+ * feature the server knows.
  */
 public class LicenseVerifier {
 
@@ -31,6 +32,7 @@ public class LicenseVerifier {
     private static final String TRUSTED_PUBLIC_KEY = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE/z6wLmdRF5jILGpPRiy97WHd5XsuLxhZHyKz0t5GTMUPtSNSYiIuPBVFrr4U8BQz86QtihaP+BU+JlPkKaX5g==";
 
     private static final String FEATURES_CLAIM = "features";
+    private static final String CLUSTER_ID_CLAIM = "clusterId";
 
     /** The {@code features} entry that turns on every Enterprise Feature. */
     public static final String ALL_FEATURES = "*";
@@ -39,16 +41,26 @@ public class LicenseVerifier {
     public static final Duration GRACE_PERIOD = Duration.ofDays(14);
 
     private final PublicKey publicKey;
+    private final String clusterId;
 
-    public LicenseVerifier(PublicKey publicKey) {
+    /**
+     * @param publicKey the key license keys are signed with
+     * @param clusterId the id of the cluster the keys are verified for, or {@code null} when the cluster has none
+     */
+    public LicenseVerifier(PublicKey publicKey, String clusterId) {
         this.publicKey = publicKey;
+        this.clusterId = clusterId;
     }
 
-    /** A verifier that trusts Minds Ignited's license signing key. */
-    public static LicenseVerifier trusted() {
+    /**
+     * A verifier that trusts Minds Ignited's license signing key, for the cluster with the id.
+     *
+     * @param clusterId the cluster's id, or {@code null} when the cluster has none
+     */
+    public static LicenseVerifier trusted(String clusterId) {
         try {
             X509EncodedKeySpec spec = new X509EncodedKeySpec(Base64.getDecoder().decode(TRUSTED_PUBLIC_KEY));
-            return new LicenseVerifier(KeyFactory.getInstance("EC").generatePublic(spec));
+            return new LicenseVerifier(KeyFactory.getInstance("EC").generatePublic(spec), clusterId);
         } catch (Exception e) {
             throw new IllegalStateException("The trusted license signing key cannot be read", e);
         }
@@ -60,7 +72,8 @@ public class LicenseVerifier {
      *
      * @throws JwtException             when the key is not signed with the trusted key, is malformed, or is not valid
      *                                  yet by its {@code nbf}
-     * @throws IllegalArgumentException when the key names no licensee or no expiry
+     * @throws IllegalArgumentException when the key names no licensee or no expiry, or is bound to a cluster other
+     *                                  than this verifier's
      */
     public License verify(String key) {
         Claims claims;
@@ -77,8 +90,16 @@ public class LicenseVerifier {
         if (StringUtils.isBlank(claims.getSubject()) || claims.getExpiration() == null) {
             throw new IllegalArgumentException("A license key names its licensee in sub and its expiry in exp");
         }
+        String boundTo = claims.get(CLUSTER_ID_CLAIM, String.class);
+        if (boundTo != null && !boundTo.equals(clusterId)) {
+            throw new IllegalArgumentException(clusterId != null
+                    ? "The license key is for the cluster " + boundTo + ", and this cluster's id is " + clusterId
+                    : "The license key is for the cluster " + boundTo + ", and this cluster has no cluster id: it is not running on Kubernetes,"
+                            + " or it could not read its kube-system namespace");
+        }
         Date expiresAt = claims.getExpiration();
         return new License().setLicensee(claims.getSubject())
+                            .setClusterId(boundTo)
                             .setIssuedAt(claims.getIssuedAt())
                             .setExpiresAt(expiresAt)
                             .setGraceEndsAt(Date.from(expiresAt.toInstant().plus(GRACE_PERIOD)))
