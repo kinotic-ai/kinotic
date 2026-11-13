@@ -1,6 +1,7 @@
 package org.kinotic.test.tests.core.entity;
 
 import io.vertx.core.Future;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -18,7 +19,6 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
 import org.kinotic.domain.api.model.persistence.idl.decorators.TenantIdDecorator;
 import org.kinotic.persistence.api.services.AdminJsonEntitiesRepository;
-import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
@@ -50,8 +50,6 @@ public class TenantSelectionTests extends KinoticTestBase {
 
     @Autowired
     private AdminJsonEntitiesRepository adminJsonEntitiesRepository;
-    @Autowired
-    private EntityDefinitionService entityDefinitionService;
     @Autowired
     private EntitiesService entitiesService;
     @Autowired
@@ -114,6 +112,22 @@ public class TenantSelectionTests extends KinoticTestBase {
     }
 
     @Test
+    public void organizationParticipantCannotNameATenantHoldingTheDocumentIdSeparator() {
+        EntityDefinition definition = createTenantPersonDefinition("_separator");
+        EntityContext organization = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT);
+
+        StepVerifier.create(Mono.fromCompletionStage(savePerson(definition, organization, "tenant1:x", "Colon").toCompletionStage()))
+                    .as("A tenant id holding ':' could share a document id with another tenant's item")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        StepVerifier.create(Mono.fromCompletionStage(savePerson(definition, organization, "tenant1", "Plain").toCompletionStage()))
+                    .expectNextMatches(saved -> "tenant1".equals(saved.get(TENANT_ID_FIELD).asString()))
+                    .as("A tenant id without the separator is saved")
+                    .verifyComplete();
+    }
+
+    @Test
     public void organizationParticipantReadsAndWritesAcrossTenants() {
         EntityDefinition definition = createTenantPersonDefinition("_acrossTenants");
         EntityContext organization = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT);
@@ -156,6 +170,29 @@ public class TenantSelectionTests extends KinoticTestBase {
                     .expectNextMatches(page -> page.getTotalElements() == 5 && page.getContent().size() == 5)
                     .as("The wildcard returns every tenant's rows")
                     .verifyComplete();
+    }
+
+    @Test
+    public void saveRecordsTheTenantsNamedInTheDataOnItsContext() {
+        EntityDefinition definition = createTenantPersonDefinition("_recordsSelection");
+        EntityContext organization = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT).setTenantSelection(List.of("stale"));
+
+        savePerson(definition, organization, "tenant1", "One").await();
+
+        Assertions.assertEquals(List.of("tenant1"),
+                                organization.getTenantSelection(),
+                                "A save replaces the context's selection with the tenant the data names");
+
+        EntityContext bulk = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT);
+        List<Map<String, Object>> people = List.of(person("tenant2", "Two"), person("tenant1", "One2"), person("tenant2", "Two2"));
+        try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
+            tokenBuffer.writePOJO(people);
+            runAsOrganization(() -> entitiesService.bulkSave(definition.getId(), tokenBuffer, bulk)).await();
+        }
+
+        Assertions.assertEquals(List.of("tenant2", "tenant1", "tenant2"),
+                                bulk.getTenantSelection(),
+                                "A bulk save records one entry per entity in data order");
     }
 
     @Test
@@ -252,20 +289,18 @@ public class TenantSelectionTests extends KinoticTestBase {
     private EntityDefinition createTenantPersonDefinition(String suffix) {
         ObjectC3Type schema = testDataService.createPersonSchema(MultiTenancyType.SHARED)
                                              .addProperty(TENANT_ID_FIELD, new StringC3Type(), List.of(new TenantIdDecorator()));
-        EntityDefinition definition = new EntityDefinition();
-        definition.setName("TenantPerson" + suffix);
-        definition.setOrganizationId(TestDataService.SAMPLE_ORG_ID);
-        definition.setApplicationId(TestDataService.SAMPLE_APP_ID);
-        definition.setProjectId(TestDataService.SAMPLE_PROJECT_ID);
-        definition.setDescription("Defines a Person that names its tenant");
-        definition.setSchema(schema);
-        return runAsOrganization(() -> testDataService.createSampleProjectIfNotExist()
-                                                         .compose(v -> entityDefinitionService.create(definition))
-                                                         .compose(saved -> entityDefinitionService.publish(saved.getId()).map(saved)))
-                .await();
+        return runAsOrganization(() -> testDataService.createEntityDefinition("TenantPerson" + suffix, schema)).await();
     }
 
     private Future<JsonNode> savePerson(EntityDefinition definition, EntityContext context, String tenantId, String lastName) {
+        try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
+            tokenBuffer.writePOJO(person(tenantId, lastName));
+            return runAsOrganization(() -> entitiesService.save(definition.getId(), tokenBuffer, context))
+                    .map(saved -> objectMapper.readTree(saved.asParser()));
+        }
+    }
+
+    private Map<String, Object> person(String tenantId, String lastName) {
         // the id field must be present for the generated id to be assigned
         Map<String, Object> person = new HashMap<>();
         person.put("id", null);
@@ -273,10 +308,6 @@ public class TenantSelectionTests extends KinoticTestBase {
         person.put("lastName", lastName);
         person.put(TENANT_ID_FIELD, tenantId);
         person.put("addresses", List.of());
-        try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
-            tokenBuffer.writePOJO(person);
-            return runAsOrganization(() -> entitiesService.save(definition.getId(), tokenBuffer, context))
-                    .map(saved -> objectMapper.readTree(saved.asParser()));
-        }
+        return person;
     }
 }

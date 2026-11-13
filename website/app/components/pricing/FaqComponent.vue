@@ -8,6 +8,12 @@ const questions = [
       + 'and funding when you buy, and again once a year at renewal.',
   },
   {
+    q: 'Can I try a paid plan before I buy it?',
+    a: 'Yes. Your company can try the plan its revenue sets free for three months, with every Enterprise feature and '
+      + 'no card needed. Buy the plan before the trial ends to keep your license, on the price list and terms you '
+      + 'started your trial on. Each company gets one trial.',
+  },
+  {
     q: 'What happens when my company grows?',
     a: 'At your annual renewal, if your revenue has moved you into a different plan, you move to that plan at the '
       + 'price on your locked price list. If your revenue falls, you move down the same way.',

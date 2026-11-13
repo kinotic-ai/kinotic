@@ -8,8 +8,8 @@ import java.util.Date;
 import java.util.Set;
 
 /**
- * A verified Kinotic Enterprise License: who it is issued to, when it was issued and expires, and the Enterprise
- * Features it turns on until its grace period ends.
+ * A verified Kinotic Enterprise License: who it is issued to, the cluster it is bound to, when it was issued and
+ * expires, and the Enterprise Features it turns on until its grace period ends.
  */
 @Data
 @Accessors(chain = true)
@@ -18,6 +18,12 @@ public class License {
 
     /** The party the license is issued to. */
     private String licensee;
+
+    /**
+     * The id of the one cluster the license works on, the UID of that cluster's {@code kube-system} namespace, or
+     * {@code null} when it works on any cluster.
+     */
+    private String clusterId;
 
     /** When the license was issued, or {@code null} when its key does not say. */
     private Date issuedAt;

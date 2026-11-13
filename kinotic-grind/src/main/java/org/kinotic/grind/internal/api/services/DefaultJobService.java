@@ -27,12 +27,14 @@ import reactor.core.publisher.FluxSink;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.shareddata.Lock;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -45,6 +47,10 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 public class DefaultJobService implements JobService, ApplicationContextAware {
+
+    // A run's lock is released just after its event stream terminates, so a run started on the
+    // completion of the previous one waits this long for the lock before it is refused
+    private static final long EXCLUSIVE_LOCK_TIMEOUT_MS = 1_000;
 
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
@@ -81,8 +87,11 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                kinotic.serverInfo().getNodeId(), repository, vertx);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
-                startRunThread(sink, runId, () -> interpreter(runId, definition, recorder,
-                                                              new RunEventEmitter(sink), Map.of()).run()));
+                startRunThread(sink, runId, () -> {
+                    RunEventEmitter emitter = new RunEventEmitter(sink);
+                    execute(definition, owner, emitter,
+                            () -> interpreter(runId, definition, recorder, emitter, Map.of()).run());
+                }));
         return registeredHandle(runId, upstream);
     }
 
@@ -101,8 +110,12 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                 startRunThread(sink, runId, () -> {
                     RunEventEmitter emitter = new RunEventEmitter(sink);
                     try {
-                        Map<String, ReplayEntry> replay = loadReplay(jobRunId, definition, recorder);
-                        interpreter(runId, definition, recorder, emitter, replay).run();
+                        JobRun original = loadResumable(jobRunId, definition);
+                        // the resumed run belongs to whoever owned the original
+                        recorder.ownerResolved(original.getOrganizationId(), original.getApplicationId(),
+                                               original.getProjectId(), original.getState().getParent());
+                        execute(definition, ownerOf(original), emitter,
+                                () -> interpreter(runId, definition, recorder, emitter, loadReplay(jobRunId)).run());
                     } catch (RunCancelledException e) {
                         recorder.runCancelled();
                         emitter.runCancelled();
@@ -163,11 +176,62 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     /**
-     * Loads the original run, validates it can be resumed by this definition, and builds the
-     * replay entries for its COMPLETED tasks.
+     * Executes the body of a run of the definition for the owner on the calling run thread. The
+     * body of an exclusive definition executes while this node holds the cluster lock of the
+     * job's name and owner. While another run holds that lock the run is refused before the
+     * body executes: its events fail with an {@link IllegalStateException}.
      */
-    private Map<String, ReplayEntry> loadReplay(String jobRunId, DefaultJobDefinition definition,
-                                                RunRecorder recorder) {
+    private void execute(DefaultJobDefinition definition, JobOwner owner, RunEventEmitter emitter, Runnable body) {
+        if (definition.isExclusive()) {
+            Future<Lock> acquiring = vertx.sharedData().getLockWithTimeout(exclusiveLockName(definition, owner),
+                                                                           EXCLUSIVE_LOCK_TIMEOUT_MS);
+            Lock lock = null;
+            try {
+                lock = RunThread.await(acquiring);
+            } catch (RunCancelledException e) {
+                // the lock can still be granted after the cancelled wait gave up on it
+                acquiring.onSuccess(Lock::release);
+                emitter.runCancelled();
+            } catch (Throwable t) {
+                emitter.runFailed(new IllegalStateException("Exclusive job " + definition.getName()
+                        + " is already running for its owner", t));
+            }
+            if (lock != null) {
+                try {
+                    body.run();
+                } finally {
+                    lock.release();
+                }
+            }
+        } else {
+            body.run();
+        }
+    }
+
+    private static String exclusiveLockName(DefaultJobDefinition definition, JobOwner owner) {
+        // the name comes last: it is the only part free to contain the separator
+        return "grind.exclusive:" + Objects.toString(owner.getOrganizationId(), "")
+                + ":" + Objects.toString(owner.getApplicationId(), "")
+                + ":" + Objects.toString(owner.getProjectId(), "")
+                + ":" + definition.getName();
+    }
+
+    private static JobOwner ownerOf(JobRun run) {
+        JobOwner ret;
+        if (run.getOrganizationId() == null) {
+            ret = JobOwner.system();
+        } else if (run.getApplicationId() == null) {
+            ret = JobOwner.ofOrganization(run.getOrganizationId(), run.getProjectId());
+        } else {
+            ret = JobOwner.ofApplication(run.getOrganizationId(), run.getApplicationId(), run.getProjectId());
+        }
+        return ret;
+    }
+
+    /**
+     * Loads the original run and validates it can be resumed by this definition.
+     */
+    private JobRun loadResumable(String jobRunId, DefaultJobDefinition definition) {
         JobRun original = await(repository.findRun(jobRunId));
         if (original == null) {
             throw new IllegalArgumentException("No JobRun found with id " + jobRunId);
@@ -184,10 +248,13 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
             throw new IllegalStateException("Run " + jobRunId + " is " + original.getStatus()
                     + ", only FAILED or CANCELLED runs can be resumed");
         }
-        // the resumed run belongs to whoever owned the original
-        recorder.ownerResolved(original.getOrganizationId(), original.getApplicationId(), original.getProjectId(),
-                               original.getState().getParent());
+        return original;
+    }
 
+    /**
+     * Builds the replay entries for the COMPLETED tasks of the run being resumed.
+     */
+    private Map<String, ReplayEntry> loadReplay(String jobRunId) {
         Map<String, ReplayEntry> ret = new HashMap<>();
         for (TaskRecord record : await(repository.findTasks(jobRunId))) {
             if (record.getStatus() == ExecutionStatus.COMPLETED) {

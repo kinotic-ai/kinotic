@@ -35,6 +35,9 @@ public class DefaultJobDefinition implements JobDefinition {
     @Getter
     private String version;
 
+    @Getter
+    private boolean exclusive;
+
     private final List<JobNode> tasks = new ArrayList<>();
 
     private final List<Object> inputs = new ArrayList<>();
@@ -54,6 +57,12 @@ public class DefaultJobDefinition implements JobDefinition {
     @Override
     public JobDefinition version(String version) {
         this.version = version;
+        return this;
+    }
+
+    @Override
+    public JobDefinition exclusive() {
+        this.exclusive = true;
         return this;
     }
 

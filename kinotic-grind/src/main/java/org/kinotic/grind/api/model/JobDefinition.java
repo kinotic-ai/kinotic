@@ -29,8 +29,8 @@ public interface JobDefinition {
     String getName();
 
     /**
-     * The version of this job's definition, recorded with every execution so a persisted run
-     * can be matched to the code that produced it.
+     * The version of this job's tasks, recorded with every execution. A run recorded with a
+     * version is resumed only by a definition of that version.
      * @return the version or null if none was set
      */
     String getVersion();
@@ -49,6 +49,12 @@ public interface JobDefinition {
     boolean isParallel();
 
     /**
+     * True if one run of this job executes at a time across the cluster for an owner.
+     * @return true when exclusive
+     */
+    boolean isExclusive();
+
+    /**
      * Sets the stable name identifying this job across runs.
      * @param name to use
      * @return this for fluent use
@@ -56,11 +62,23 @@ public interface JobDefinition {
     JobDefinition name(String name);
 
     /**
-     * Sets the version of this job's definition.
+     * Sets the version of this job's tasks. Change it whenever the tasks, their order or what
+     * they store changes: {@link JobService#resume(String, JobDefinition)} refuses a run
+     * recorded with another version, since that run's task records would not line up with
+     * this definition's tasks.
      * @param version to use
      * @return this for fluent use
      */
     JobDefinition version(String version);
+
+    /**
+     * Lets one run of this job execute at a time across the cluster for an owner. A run or
+     * resume of the job's name started for an owner while another executes for that owner is
+     * refused before anything of it is recorded: its events fail with an
+     * {@link IllegalStateException}.
+     * @return this for fluent use
+     */
+    JobDefinition exclusive();
 
     /**
      * Seeds the given values into the job scope before the first task runs, each stored as a

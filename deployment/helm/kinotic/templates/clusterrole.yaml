@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # a ClusterRole is cluster-wide, so its name carries the release's namespace to stay unique
+  name: {{ include "kinotic.fullname" . }}-{{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: {{ include "kinotic.name" . }}
+rules:
+  # The cluster's id, which a license key bound to the cluster names, is the UID of its kube-system namespace
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: ["kube-system"]
+    verbs: ["get"]

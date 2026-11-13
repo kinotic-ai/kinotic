@@ -10,28 +10,29 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Resolves the entity names that kinotic-sql statements carry to the entities' indices, so a migration or a named
- * query addresses an application's entities and nothing else, and gives a row the identity the entity service
- * gives one it saves.
+ * Resolves the entity names that kinotic-sql statements carry to the entities' indices, so a migration addresses
+ * its project's entities and a named query its own entity, and nothing else, and gives a row the identity the
+ * entity service gives one it saves.
  * Created by Navíd Mitchell 🤝 Claude on 10/1/26.
  */
 public interface EntityStatementResolver {
 
     /**
-     * Resolves a migration's statements against the published entities of an application. Every name a statement
-     * carries must be the name of one of the application's published entities, written in its case, and is replaced
+     * Resolves a migration's statements against the published entities of a project. Every name a statement
+     * carries must be the name of one of the project's published entities, written in its case, and is replaced
      * by the entity's index. An INSERT is also given the document id and routing the entity service gives a row it
      * saves, from the row's id field and, on a {@link MultiTenancyType#SHARED} entity, its tenant field, so the row is
      * reachable through the entity's repository afterwards.
      *
-     * @param statements  the statements to resolve
-     * @param applicationKey the application whose entities the statements name
-     * @return the resolved statements, in the order given; fails when a name is not one of the application's
+     * @param statements     the statements to resolve
+     * @param applicationKey the application the project belongs to
+     * @param projectId      the project whose entities the statements name
+     * @return the resolved statements, in the order given; fails when a name is not one of the project's
      *         published entities, a statement does not act on an entity, an INSERT row lacks its id or tenant, or
      *         a REINDEX SCRIPT reaches ctx other than as {@code ctx._source} or {@code ctx.op}, or calls
      *         {@code metadata()}
      */
-    Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey);
+    Future<List<Statement>> resolve(List<Statement> statements, ApplicationKey applicationKey, String projectId);
 
     /**
      * Resolves a named query's statements against the entity the query belongs to. Every name a statement carries
