@@ -1,1 +1,0 @@
-{"id":"e70917cbba737e50cba4a15fc7ae6e94.d41d8cd98f00b204e9800998ecf8427e","fullName":"@kinotic-ai/core:test/UpgradeRejection.test.ts#upgrade rejection retries a 503 to the upgrade within the attempt budget","name":"retries a 503 to the upgrade within the attempt budget","status":"passed","testResultsByEnv":{"default":"af76efab3fcdba8791abeea2d1fdde28"}}
