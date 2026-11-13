@@ -334,9 +334,9 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
         modelVersions.remove(storeId);
     }
 
-    // The engine's name of a store: the system's fixed one, or an application's prefixed by what it is
-    // The engine caps a store's name at 64 characters, which an application's id need not fit, so an application's
-    // store is named by the id's 128-bit digest
+    // The engine's name of a store: the system's fixed one, or an application's prefixed by what it is. The engine
+    // caps a store's name at 64 characters, which an application's id need not fit, so an application's store is
+    // named by the id's 128-bit digest
     private static String storeNameOf(String store) {
         String ret;
         if (SYSTEM.equals(store)) {

@@ -488,6 +488,29 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
+    void aReadByRelationAndTheGrantsOfAnObjectLeaveOutItsOtherRelationships() throws Exception {
+        AuthzModel model = generator.systemModel(List.of(projectService()));
+        await(storeService.ensureModel(SYSTEM, model));
+        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
+        RelationshipTuple contained = new RelationshipTuple("organization:acme-relation", "organization", "application:crm-relation");
+        List<RelationshipTuple> endUsers = new ArrayList<>();
+        // more end users than one page of a read holds
+        for (int i = 0; i < 150; i++) {
+            endUsers.add(new RelationshipTuple("user:end-user-relation" + i, "end_user", "application:crm-relation"));
+        }
+        await(relationshipService.ensure(SYSTEM, List.of(contained)));
+        await(relationshipService.ensure(SYSTEM, endUsers));
+        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-relation", "application:crm-relation"));
+
+        assertEquals(List.of(contained), await(relationshipService.read(SYSTEM, "application:crm-relation", "organization")));
+        assertEquals(150, await(relationshipService.read(SYSTEM, "application:crm-relation", "end_user")).size());
+        assertEquals(List.of(new Grant(bindingId, "project.editor", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
+                     await(relationshipService.findGrants(SYSTEM, "application:crm-relation")));
+
+        await(relationshipService.removeObject(SYSTEM, "application:crm-relation"));
+    }
+
+    @Test
     void aRemovedObjectAndARemovedSubjectLeaveNothingOfThemselves() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(storeService.ensureModel(SYSTEM, model));

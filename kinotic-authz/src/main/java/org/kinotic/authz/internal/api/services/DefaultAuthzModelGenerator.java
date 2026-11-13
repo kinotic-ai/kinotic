@@ -113,12 +113,16 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         }
 
         Map<String, Set<String>> catalog = new TreeMap<>();
+        Map<String, String> parents = new TreeMap<>();
         for (ResourceType type : types.values()) {
             if (!type.permissions.isEmpty()) {
                 catalog.put(type.name, new TreeSet<>(type.permissions.keySet()));
             }
+            if (type.parent != null) {
+                parents.put(type.name, type.parent);
+            }
         }
-        return new AuthzModel(definition, ModelHash.of(definition), catalog, builtInRoles(storeType, types, carried), bindable);
+        return new AuthzModel(definition, ModelHash.of(definition), catalog, builtInRoles(storeType, types, carried), bindable, parents);
     }
 
     /**

@@ -336,30 +336,31 @@ public class DefaultPermissionService implements PermissionService {
      */
     private Future<List<String>> requireInOrganization(Resource resource, String organizationId) {
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId);
-        return lineage(AuthzGraphUtil.authzObject(organizationId, resource), new ArrayList<>()).map(lineage -> {
-            int within = lineage.indexOf(organization);
-            if (within < 0) {
-                throw new IllegalArgumentException(AuthzUtil.object(resource.type(), resource.id()) + " is not in organization " + organizationId);
-            }
-            return lineage.subList(0, within + 1);
-        });
+        return model().compose(model -> lineage(AuthzGraphUtil.authzObject(organizationId, resource), organization, model.parents(), new ArrayList<>()))
+                      .map(lineage -> {
+                          if (!organization.equals(lineage.getLast())) {
+                              throw new IllegalArgumentException(AuthzUtil.object(resource.type(), resource.id()) + " is not in organization " + organizationId);
+                          }
+                          return lineage;
+                      });
     }
 
-    // The containment tuple of an object names its parent's type as the relation and the parent as the user; a
-    // binding's attachment names the binding's type the same way and is not one
-    private Future<List<String>> lineage(String object, List<String> collected) {
+    // The object and each ancestor above it, up to the given one or the root of the object's tree. An object holds
+    // its parent under the relation named after the parent's type, and that relation alone is read: an application
+    // and an organization each hold a tuple per member beside it
+    private Future<List<String>> lineage(String object, String upTo, Map<String, String> parents, List<String> collected) {
         collected.add(object);
-        return relationships.read(SYSTEM, object).compose(held -> {
-            String parent = null;
-            for (RelationshipTuple tuple : held) {
-                if (!AuthzConstants.ROLE_BINDING_RELATION.equals(tuple.relation())
-                        && tuple.relation().equals(AuthzUtil.typeOf(tuple.user()))) {
-                    parent = tuple.user();
-                    break;
-                }
-            }
-            return parent == null ? Future.succeededFuture(collected) : lineage(parent, collected);
-        });
+        String parentType = parents.get(AuthzUtil.typeOf(object));
+        Future<List<String>> ret;
+        if (object.equals(upTo) || parentType == null) {
+            ret = Future.succeededFuture(collected);
+        } else {
+            ret = relationships.read(SYSTEM, object, parentType)
+                               .compose(held -> held.isEmpty()
+                                       ? Future.succeededFuture(collected)
+                                       : lineage(held.getFirst().user(), upTo, parents, collected));
+        }
+        return ret;
     }
 
     // A role of the organization's tier, built in or its own, homed at the resource's type or inside it

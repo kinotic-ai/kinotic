@@ -301,6 +301,17 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void parentsNameTheTypeContainingEachType() {
+        AuthzModel model = generator.systemModel(systemServices());
+
+        assertEquals("application", model.parents().get("project"));
+        assertEquals("organization", model.parents().get("application"));
+        assertEquals("system", model.parents().get("organization"));
+        assertEquals("system", model.parents().get("vm_node"));
+        assertFalse(model.parents().containsKey("system"));
+    }
+
+    @Test
     public void builtInRolesFollowTheTypesAndTheTree() {
         AuthzModel model = generator.systemModel(systemServices());
 
