@@ -25,19 +25,6 @@ public class EntityVersionWriter {
     }
 
     /**
-     * Returns the document that was read, carrying the given version as its last field.
-     *
-     * @param document    a document read without a value under the version field
-     * @param primaryTerm the primary term of the document's last write
-     * @param seqNo       the sequence number of the document's last write
-     * @return the document with its version, or the document itself for an entity without a version field
-     */
-    public EntityDocument write(EntityDocument document, Long primaryTerm, Long seqNo) {
-        return memberStart != null ? new EntityDocument(write(document.json(), primaryTerm, seqNo), document.tenantId())
-                                   : document;
-    }
-
-    /**
      * Returns the document with the given version as its last field.
      *
      * @param document    a json object that holds no value under the version field

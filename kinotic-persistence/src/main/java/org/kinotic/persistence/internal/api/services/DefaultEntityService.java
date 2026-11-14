@@ -9,7 +9,6 @@ import co.elastic.clients.elasticsearch.core.UpdateRequest;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
-import co.elastic.clients.json.JsonpDeserializer;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +27,8 @@ import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.*;
@@ -44,9 +45,9 @@ public class DefaultEntityService implements EntityService {
     private final TokenBufferUpsertPreProcessor upsertPreProcessor;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
+    private final ObjectMapper objectMapper;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
-    private final JsonpDeserializer<EntityDocument> documentDeserializer;
     private final EntityVersionWriter versionWriter;
     private final EntityDescriptor entityDescriptor;
 
@@ -192,11 +193,10 @@ public class DefaultEntityService implements EntityService {
                 .compose(un -> crudServiceTemplate
                         .search(entityDescriptor.itemIndex(),
                                 pageable,
-                                sourceDeserializer(type),
+                                sourceType(type),
                                 builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
-                                hit -> withVersion(hit.source(), hit.primaryTerm(), hit.seqNo())))
-                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"))
-                .map(page -> page.map(source -> toResult(source, type)));
+                                hit -> toResult(hit.source(), hit.primaryTerm(), hit.seqNo(), type)))
+                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"));
     }
 
     @WithSpan
@@ -312,11 +312,10 @@ public class DefaultEntityService implements EntityService {
                 .compose(un -> crudServiceTemplate
                         .search(entityDescriptor.itemIndex(),
                                 pageable,
-                                sourceDeserializer(type),
+                                sourceType(type),
                                 builder -> readPreProcessor.beforeSearch(entityDescriptor, searchText, builder, context),
-                                hit -> withVersion(hit.source(), hit.primaryTerm(), hit.seqNo())))
-                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"))
-                .map(page -> page.map(source -> toResult(source, type)));
+                                hit -> toResult(hit.source(), hit.primaryTerm(), hit.seqNo(), type)))
+                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"));
     }
 
     @WithSpan
@@ -401,9 +400,9 @@ public class DefaultEntityService implements EntityService {
         return crudServiceTemplate
                 .findById(entityDescriptor.itemIndex(),
                           id,
-                          sourceDeserializer(type),
+                          sourceType(type),
                           builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
-                          result -> toResult(withVersion(result.source(), result.primaryTerm(), result.seqNo()), type));
+                          result -> toResult(result.source(), result.primaryTerm(), result.seqNo(), type));
     }
 
     private <T> Future<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
@@ -411,37 +410,48 @@ public class DefaultEntityService implements EntityService {
                                             EntityContext context) {
         return crudServiceTemplate
                 .multiGet(composedIds,
-                          sourceDeserializer(type),
+                          sourceType(type),
                           builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
-                          result -> toResult(withVersion(result.source(), result.primaryTerm(), result.seqNo()), type));
+                          result -> toResult(result.source(), result.primaryTerm(), result.seqNo(), type));
     }
 
-    // A FastestType is read as the document's json, which goes back out to the caller without being converted
-    private JsonpDeserializer<?> sourceDeserializer(Class<?> type) {
-        return FastestType.class.isAssignableFrom(type) || RawJson.class.isAssignableFrom(type)
-                ? documentDeserializer
-                : crudServiceTemplate.sourceDeserializer(type);
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private Object withVersion(Object source, Long primaryTerm, Long seqNo) {
-        Object ret;
-        if(source instanceof EntityDocument document){
-            ret = versionWriter.write(document, primaryTerm, seqNo);
-        }else if(!entityDescriptor.isOptimisticLockingEnabled()){
-            ret = source;
-        }else if(source instanceof Map map){
-            map.put(entityDescriptor.versionFieldName(), primaryTerm + ":" + seqNo);
-            ret = map;
+    // A FastestType is read as whichever type goes back out to the caller with the least work: RawJson, which is
+    // written out as it is, or for an entity with a version field a Map, which takes the version with a put
+    private Class<?> sourceType(Class<?> type) {
+        Class<?> ret;
+        if(!FastestType.class.isAssignableFrom(type)){
+            ret = type;
+        }else if(entityDescriptor.isOptimisticLockingEnabled()){
+            ret = Map.class;
         }else{
-            throw new IllegalArgumentException("Pojo Not Supported for Version");
+            ret = RawJson.class;
         }
         return ret;
     }
 
-    private <T> T toResult(Object source, Class<T> type) {
-        Object entity = source instanceof EntityDocument document ? document.json() : source;
+    private <T> T toResult(Object source, Long primaryTerm, Long seqNo, Class<T> type) {
+        Object entity = entityDescriptor.isOptimisticLockingEnabled() ? withVersion(source, primaryTerm, seqNo) : source;
         return type.cast(FastestType.class.isAssignableFrom(type) ? new FastestType(entity) : entity);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Object withVersion(Object source, Long primaryTerm, Long seqNo) {
+        String version = primaryTerm + ":" + seqNo;
+        Object ret;
+        switch (source) {
+            case Map map -> {
+                map.put(entityDescriptor.versionFieldName(), version);
+                ret = map;
+            }
+            case RawJson rawJson -> {
+                // bound to a tree so that a value stored under the version field is replaced
+                ObjectNode node = (ObjectNode) objectMapper.readTree(rawJson.data());
+                node.put(entityDescriptor.versionFieldName(), version);
+                ret = new RawJson(objectMapper.writeValueAsBytes(node));
+            }
+            case null, default -> throw new IllegalArgumentException("Pojo Not Supported for Version");
+        }
+        return ret;
     }
 
     private Future<RawJson> doPersist(TokenBuffer entity,

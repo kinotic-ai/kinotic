@@ -48,21 +48,11 @@ public class EntityVersionWriterTest {
     }
 
     @Test
-    public void aDocumentReadFromElasticsearchKeepsItsTenant() {
-        EntityDocument written = writer.write(new EntityDocument(raw("{\"id\":\"a\"}"), "tenant1"), 3L, 17L);
-
-        assertEquals("{\"id\":\"a\",\"version\":\"3:17\"}", text(written.json()));
-        assertEquals("tenant1", written.tenantId());
-    }
-
-    @Test
     public void anEntityWithoutAVersionFieldGetsItsDocumentBack() {
         EntityVersionWriter unversioned = new EntityVersionWriter(jsonMapper, null);
         RawJson json = raw("{\"id\":\"a\"}");
-        EntityDocument document = new EntityDocument(json, "tenant1");
 
         assertSame(json, unversioned.write(json, 3L, 17L));
-        assertSame(document, unversioned.write(document, 3L, 17L));
     }
 
     @Test

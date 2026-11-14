@@ -507,25 +507,6 @@ public class CrudServiceTemplate {
                                      Class<T> type,
                                      Consumer<GetRequest.Builder> builderConsumer,
                                      Function<GetResult<T>, R> resultMapper) {
-        return findById(indexName, id, sourceDeserializer(type), builderConsumer, resultMapper);
-    }
-
-    /**
-     * Finds a document by id, reading its source with the given deserializer. Also allows for customization of the
-     * {@link GetRequest}.
-     *
-     * @param indexName          name of the index to search
-     * @param id                 of the document to return
-     * @param sourceDeserializer reads the document's source
-     * @param builderConsumer    to customize the {@link GetRequest}, or null if no customization is needed
-     * @param resultMapper       to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link Future} that will complete with the document
-     */
-    public <T, R> Future<R> findById(String indexName,
-                                     String id,
-                                     JsonpDeserializer<T> sourceDeserializer,
-                                     Consumer<GetRequest.Builder> builderConsumer,
-                                     Function<GetResult<T>, R> resultMapper) {
 
         @SuppressWarnings("unchecked")
         JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse> endpoint =
@@ -533,7 +514,7 @@ public class CrudServiceTemplate {
 
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint,
                                                         "co.elastic.clients:Deserializer:_global.get.Response.TDocument",
-                                                        sourceDeserializer);
+                                                        getDeserializer(type));
 
         GetRequest.Builder builder = new GetRequest.Builder();
 
@@ -585,29 +566,13 @@ public class CrudServiceTemplate {
                                            Class<T> type,
                                            Consumer<MgetRequest.Builder> builderConsumer,
                                            Function<GetResult<T>, R> resultMapper){
-        return multiGet(getOperations, sourceDeserializer(type), builderConsumer, resultMapper);
-    }
-
-    /**
-     * Gets multiple documents for their {@link MultiGetOperation} objects, reading each source with the given
-     * deserializer. Also allows for customization of the {@link MgetRequest}.
-     * @param getOperations list of {@link MultiGetOperation} to get
-     * @param sourceDeserializer reads each document's source
-     * @param builderConsumer to customize the {@link MgetRequest}, or null if no customization is needed
-     * @param resultMapper to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link Future} that will complete with the documents requested
-     */
-    public <T, R> Future<List<R>> multiGet(List<MultiGetOperation> getOperations,
-                                           JsonpDeserializer<T> sourceDeserializer,
-                                           Consumer<MgetRequest.Builder> builderConsumer,
-                                           Function<GetResult<T>, R> resultMapper){
         @SuppressWarnings("unchecked")
         JsonEndpoint<MgetRequest, MgetResponse<T>, ErrorResponse> endpoint =
                 (JsonEndpoint<MgetRequest, MgetResponse<T>, ErrorResponse>) MgetRequest._ENDPOINT;
 
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint,
                                                         "co.elastic.clients:Deserializer:_global.mget.Response.TDocument",
-                                                        sourceDeserializer);
+                                                        getDeserializer(type));
 
         MgetRequest.Builder builder = new MgetRequest.Builder();
         builder.docs(getOperations);
@@ -974,27 +939,8 @@ public class CrudServiceTemplate {
                                         Class<T> type,
                                         Consumer<SearchRequest.Builder> builderConsumer,
                                         Function<Hit<T>, R> hitMapper) {
-        return search(indexName, pageable, sourceDeserializer(type), builderConsumer, hitMapper);
-    }
 
-    /**
-     * Gets a {@link Page} of documents from elasticsearch, reading each source with the given deserializer. Supports
-     * the same customizations of the {@link SearchRequest} as the search taking the type of the documents.
-     *
-     * @param indexName          name of the index to search
-     * @param pageable           to use for the search
-     * @param sourceDeserializer reads each document's source
-     * @param builderConsumer    to customize the {@link SearchRequest}, or null if no customization is needed
-     * @param hitMapper          to map the {@link Hit} to the desired type or null if the source should be returned directly
-     * @return a {@link Future} that will complete with a {@link Page} of documents
-     */
-    public <T,R> Future<Page<R>> search(String indexName,
-                                        Pageable pageable,
-                                        JsonpDeserializer<T> sourceDeserializer,
-                                        Consumer<SearchRequest.Builder> builderConsumer,
-                                        Function<Hit<T>, R> hitMapper) {
-
-        return KinoticUtil.toFuture(searchFullResponse(indexName, pageable, sourceDeserializer, builderConsumer)
+        return KinoticUtil.toFuture(searchFullResponse(indexName, pageable, type, builderConsumer)
                                             .thenApply(response -> {
 
                                                 HitsMetadata<T> hitsMetadata = response.hits();
@@ -1171,11 +1117,7 @@ public class CrudServiceTemplate {
         }
     }
 
-    /**
-     * @param type of the documents to read
-     * @return the deserializer that reads a document's source as the given type
-     */
-    public <T> JsonpDeserializer<T> sourceDeserializer(Class<T> type) {
+    private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {
         if (RawJson.class.isAssignableFrom(type)) {
             @SuppressWarnings("unchecked")
             JsonpDeserializer<T> deserializer = (JsonpDeserializer<T>) rawJsonJsonpDeserializer;
@@ -1196,13 +1138,13 @@ public class CrudServiceTemplate {
      *
      * @param indexName       name of the index to search
      * @param pageable        to use for the search
-     * @param sourceDeserializer reads each document's source
+     * @param type            of the documents to return
      * @param builderConsumer to customize the {@link SearchRequest}, or null if no customization is needed
      * @return a {@link Future} that will complete with a {@link SearchResponse} of documents
      */
     private <T> CompletableFuture<SearchResponse<T>> searchFullResponse(String indexName,
                                                                         Pageable pageable,
-                                                                        JsonpDeserializer<T> sourceDeserializer,
+                                                                        Class<T> type,
                                                                         Consumer<SearchRequest.Builder> builderConsumer) {
 
         Validate.notNull(indexName, "indexName cannot be null");
@@ -1213,7 +1155,7 @@ public class CrudServiceTemplate {
                 (JsonEndpoint<SearchRequest, SearchResponse<T>, ErrorResponse>) SearchRequest._ENDPOINT;
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint,
                                                         "co.elastic.clients:Deserializer:_global.search.Response.TDocument",
-                                                        sourceDeserializer);
+                                                        getDeserializer(type));
 
         SearchRequest.Builder builder = new SearchRequest.Builder();
 

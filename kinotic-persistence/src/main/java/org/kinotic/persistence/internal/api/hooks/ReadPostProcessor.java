@@ -11,7 +11,6 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.FastestType;
-import org.kinotic.persistence.internal.api.services.EntityDocument;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonParser;
@@ -107,10 +106,7 @@ public class ReadPostProcessor {
 
     private String extractTenant(Object object, String tenantIdFieldName){
         Object data = (object instanceof FastestType ? ((FastestType) object).data() : object);
-        if(data instanceof EntityDocument document){
-            return document.tenantId();
-
-        } else if(data instanceof RawJson rawJson){
+        if(data instanceof RawJson rawJson){
             return readTenant(rawJson, tenantIdFieldName);
 
         } else if (data instanceof Map<?,?> map) {
@@ -150,8 +146,6 @@ public class ReadPostProcessor {
         try {
             if(data instanceof Map<?,?> map){
                 return jsonMapper.convertValue(map, ObjectNode.class).toPrettyString();
-            }else if(data instanceof EntityDocument document){
-                return jsonMapper.readValue(document.json().data(), ObjectNode.class).toPrettyString();
             }else if(data instanceof RawJson rawJson){
                 return jsonMapper.readValue(rawJson.data(), ObjectNode.class).toPrettyString();
             }else{

@@ -10,7 +10,6 @@ import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
-import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
@@ -21,7 +20,6 @@ import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.internal.serializer.EntityDocumentDeserializer;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
@@ -148,12 +146,8 @@ public class EntityServiceCache {
 
         EntityDescriptor entityDescriptor = entityDefinition.toDescriptor();
 
-        String versionFieldName = entityDescriptor.versionFieldName();
-        String tenantFieldName = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
-                ? entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName())
-                : null;
-        EntityDocumentDeserializer documentDeserializer = new EntityDocumentDeserializer(jsonMapper, versionFieldName, tenantFieldName);
         // an entity without a version field has no version to write, so every such entity shares one writer
+        String versionFieldName = entityDescriptor.versionFieldName();
         EntityVersionWriter versionWriter = versionFieldName != null ? new EntityVersionWriter(jsonMapper, versionFieldName)
                                                                      : unversionedVersionWriter;
 
@@ -167,9 +161,9 @@ public class EntityServiceCache {
                                                                            fieldTransformers),
                                          esAsyncClient,
                                          namedQueriesService,
+                                         jsonMapper,
                                          readPreProcessor,
                                          readPostProcessor,
-                                         documentDeserializer,
                                          versionWriter,
                                          entityDescriptor));
     }

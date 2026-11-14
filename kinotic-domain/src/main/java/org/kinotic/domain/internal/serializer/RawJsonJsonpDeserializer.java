@@ -23,29 +23,24 @@ public class RawJsonJsonpDeserializer extends JsonpDeserializerBase<RawJson> {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * @param parser the parser Elasticsearch's client hands a deserializer for a document's source
-     * @return the Jackson parser behind it, on the first token of the source
-     */
-    public static tools.jackson.core.JsonParser sourceParser(JsonParser parser) {
+    @Override
+    public RawJson deserialize(JsonParser parser, JsonpMapper mapper) {
         Jackson3JsonpParser jacksonJsonpParser;
         if (parser instanceof Jackson3JsonpParser) {
             jacksonJsonpParser = (Jackson3JsonpParser) parser;
         } else {
             throw new IllegalStateException("Expected Jackson3JsonpParser but got " + parser.getClass().getName());
         }
-        tools.jackson.core.JsonParser jacksonParser = jacksonJsonpParser.jacksonParser();
-        if (jacksonParser.currentToken() == JsonToken.PROPERTY_NAME
-                && jacksonParser.currentName().equals("_source")) { // What other cases are there?
-            jacksonParser.nextToken();
-        }
-        return jacksonParser;
-    }
-
-    @Override
-    public RawJson deserialize(JsonParser parser, JsonpMapper mapper) {
         try {
-            return RawJson.from(sourceParser(parser), objectMapper);
+
+            tools.jackson.core.JsonParser jacksonParser = jacksonJsonpParser.jacksonParser();
+            if (jacksonParser.currentToken() == JsonToken.PROPERTY_NAME
+                    && jacksonParser.currentName().equals("_source")) { // What other cases are there?
+                jacksonParser.nextToken();
+            }
+
+            return RawJson.from(jacksonParser, objectMapper);
+
         } catch (JacksonException e) {
             throw new IllegalStateException(e);
         }
