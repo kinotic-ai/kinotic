@@ -4,7 +4,6 @@ import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
 import dev.openfga.sdk.api.model.CreateStoreResponse;
 import dev.openfga.sdk.api.model.Store;
-import dev.openfga.sdk.api.model.TypeDefinition;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelRequest;
 import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import dev.openfga.sdk.errors.FgaError;
@@ -27,8 +26,10 @@ import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -45,6 +46,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     // how long a store's engine id and newest model version are kept before the engine is asked again
     private static final long RETENTION_MILLIS = 30_000;
     private static final int STORE_PAGE_SIZE = 100;
+    // the most versions the engine returns in one page
+    private static final int MODEL_PAGE_SIZE = 50;
     // the address every node hears a store's deletion on, so none keeps answering with the id of a store the
     // engine has deleted while another node already resolved the one created again under its name
     private static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
@@ -263,17 +266,30 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     /**
-     * The types of the store's newest model version, empty for a store with none or a store that does not exist.
+     * The types of every model version the store has run, empty for a store with none or a store that does not
+     * exist. A relationship outlives the type it was written under, so the types of earlier versions name the
+     * relationships the store may still hold.
      *
      * @param store the store, named as its record is
-     * @return the type names
+     * @return the type names, each once
      */
-    Future<List<String>> typesOf(String store) {
+    Future<Set<String>> typesOf(String store) {
         return findStore(storeNameOf(store))
-                .compose(found -> found == null ? Future.succeededFuture() : storeIdOf(store).compose(this::latestModel))
-                .map(latest -> latest == null
-                        ? List.<String>of()
-                        : latest.getTypeDefinitions().stream().map(TypeDefinition::getType).toList());
+                .compose(found -> found == null
+                        ? Future.succeededFuture(Set.<String>of())
+                        : storeIdOf(store).compose(storeId -> typesOf(storeId, null, new LinkedHashSet<>())));
+    }
+
+    private Future<Set<String>> typesOf(String storeId, String continuationToken, Set<String> collected) {
+        return fga.readAuthorizationModels(storeId, MODEL_PAGE_SIZE, continuationToken).compose(response -> {
+            for (AuthorizationModel model : response.getAuthorizationModels()) {
+                model.getTypeDefinitions().forEach(type -> collected.add(type.getType()));
+            }
+            String next = response.getContinuationToken();
+            return next == null || next.isEmpty()
+                    ? Future.succeededFuture(collected)
+                    : typesOf(storeId, next, collected);
+        });
     }
 
     /**

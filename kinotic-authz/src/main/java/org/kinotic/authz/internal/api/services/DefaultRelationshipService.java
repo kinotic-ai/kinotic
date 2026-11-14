@@ -206,7 +206,9 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Void> removeSubject(String store, String user) {
-        // the engine reads by user within one object type, so every type of the store's model is read
+        // the engine reads by user within one object type, so every type a version of the store's model has had is
+        // read: a relationship written under a type the newest version dropped is still held, and holds again
+        // once the type is declared again
         return stores.typesOf(store)
                      .compose(types -> Future.all(types.stream().map(type -> readByUser(store, user, type)).toList()))
                      .compose(reads -> {

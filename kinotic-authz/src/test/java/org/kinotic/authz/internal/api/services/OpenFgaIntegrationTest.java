@@ -542,6 +542,27 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
+    void aRemovedSubjectLeavesTheGrantsOfATypeTheModelDropped() throws Exception {
+        String store = "dropped-type-" + System.nanoTime();
+        AuthzModel withReports = generator.applicationModel(List.of(), List.of(reportService()));
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, withReports));
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("tenant:t1", "tenant", "report:q3"))));
+        await(relationshipService.bind(store, "report.viewer", "user:sally", "report:q3"));
+        await(relationshipService.bind(store, "report.viewer", "user:marcus", "report:q3"));
+
+        // the contract is published again without the report, and sally is removed while the model has no such type
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(), List.of())));
+        await(relationshipService.removeSubject(store, "user:sally"));
+        await(relationshipService.ensureModelWithRoles(store, withReports));
+
+        assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:sally", "report_can_read", "report:q3"), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.readByUser(store, "user:sally", "report_role_binding")).isEmpty());
+        assertTrue(await(relationshipService.check(store, new RelationshipTuple("user:marcus", "report_can_read", "report:q3"), Consistency.HIGHER_CONSISTENCY)));
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
     void theStoreResolvedOnOneContextKeepsLaterCallersOnTheirOwn() throws Exception {
         // the store is resolved once and kept, so every caller after the first composes on a kept result
         DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties, vertx);
