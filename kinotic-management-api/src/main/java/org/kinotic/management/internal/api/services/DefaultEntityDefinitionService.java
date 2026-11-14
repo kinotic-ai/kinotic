@@ -139,21 +139,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        // One caller at a time creates or deletes the definition of an id. Whatever a deleted definition of the id
-        // left in the stores, when the removal after its record's deletion failed, is removed before the record is
-        // written, so the new definition is never reached through a grant made on the old one, and a deletion's
-        // removal never takes the place a creation just wrote
         return requireProject(entityDefinition)
-                .compose(v -> relationships.exclusively(containment(entityDefinition).object(), () -> super.findById(entityDefinition.getId())
-                        .compose(existing -> existing == null
-                                ? removed(entityDefinition)
-                                : Future.failedFuture(new AlreadyExistsException(entityDefinition.getId())))
-                        .compose(w -> createOp.apply(entityDefinition))
-                        .recover(ex -> AlreadyExistsException.isCause(ex)
-                                ? Future.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                                : Future.failedFuture(ex))
-                        .compose(this::contained)));
+                .compose(v -> relationships.createExclusively(containment(entityDefinition).object(),
+                                                              () -> super.findById(entityDefinition.getId()),
+                                                              () -> removed(entityDefinition),
+                                                              () -> createOp.apply(entityDefinition).compose(this::contained)))
+                .recover(ex -> AlreadyExistsException.isCause(ex)
+                        ? Future.failedFuture(new IllegalArgumentException(
+                        "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                        : Future.failedFuture(ex));
     }
 
     // Whoever reads a definition reaches the project it names, so its author names a project of the definition's

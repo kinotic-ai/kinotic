@@ -206,20 +206,20 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                        .map(stored)));
     }
 
-    // Writes the project and its place in the graph while no other caller creates or deletes a project of its id,
-    // which a caller chooses and the graph knows by organization, whichever application it is in. What a deleted
-    // project of the id left behind, when the removal after its record's deletion failed, is removed before the
-    // record is written, so the new project is never reached through a grant made on the old one, and a removal
-    // that cannot be made fails the create. A placement that fails leaves a project nobody can reach rather than
-    // one nobody stores, since its repository exists by then
+    // Writes the project and its place in the graph under the lock of its id, which a caller chooses and the graph
+    // knows by organization, whichever application it is in. A removal of what a deleted project of the id left
+    // behind that cannot be made fails the create. A placement that fails leaves a project nobody can reach rather
+    // than one nobody stores, since its repository exists by then
     private Future<Project> written(Project project, Function<Project, Future<Project>> write) {
         RelationshipTuple containment = containment(project);
-        return relationships.exclusively(containment.object(), () -> super.findById(project.getId())
-                .compose(existing -> existing == null
-                        ? relationships.removeObject(AuthzStoreService.SYSTEM, containment.object())
-                        : Future.failedFuture(new AlreadyExistsException("Project for id " + project.getId() + " already exists")))
-                .compose(v -> write.apply(project))
-                .compose(stored -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)).map(stored)));
+        return relationships.createExclusively(containment.object(),
+                                               () -> super.findById(project.getId()),
+                                               () -> relationships.removeObject(AuthzStoreService.SYSTEM, containment.object()),
+                                               () -> write.apply(project)
+                                                          .compose(stored -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)).map(stored)))
+                            .recover(ex -> AlreadyExistsException.isCause(ex)
+                                    ? Future.failedFuture(new AlreadyExistsException("Project for id " + project.getId() + " already exists"))
+                                    : Future.failedFuture(ex));
     }
 
     static RelationshipTuple containment(Project project) {

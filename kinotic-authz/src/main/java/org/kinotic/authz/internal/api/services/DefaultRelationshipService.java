@@ -25,6 +25,7 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
@@ -260,6 +261,17 @@ public class DefaultRelationshipService implements RelationshipService {
         Validate.notBlank(object, "object cannot be blank");
         Validate.notNull(changes, "changes cannot be null");
         return vertx.sharedData().withLock(OBJECT_LOCK_PREFIX + object, OBJECT_LOCK_TIMEOUT_MILLIS, changes);
+    }
+
+    @Override
+    public <T> Future<T> createExclusively(String object, Supplier<Future<T>> stored, Supplier<Future<Void>> clear, Supplier<Future<T>> create) {
+        // the removal runs only when no record is stored, so it never takes the place of a record in use, and
+        // under the lock a deletion takes, so a deletion's removal never takes the place this create writes
+        return exclusively(object, () -> stored.get()
+                .compose(existing -> existing == null
+                        ? clear.get()
+                        : Future.failedFuture(new AlreadyExistsException(object + " already exists")))
+                .compose(v -> create.get()));
     }
 
     @Override
