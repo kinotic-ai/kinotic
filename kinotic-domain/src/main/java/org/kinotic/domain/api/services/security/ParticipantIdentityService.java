@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.authz.api.model.Grant;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -20,6 +21,8 @@ import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 import java.util.List;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public interface ParticipantIdentityService extends IdentifiableCrudService<ParticipantIdentity, String> {
 
@@ -214,6 +217,24 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * included — the owner's view of which clients hold or held access there.
      */
     Future<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(Participant owner, Pageable pageable);
+
+    /**
+     * Takes away the administrator grants on a resource that {@code leaving} selects, by running {@code removal},
+     * and refuses when one of them is held by a user of {@code holderType} who can sign in, enabled and claimed, and
+     * none of the remaining ones is, so the resource keeps an administrator. The removals on one resource run one
+     * after another across the cluster, so each counts the administrators the one before it left.
+     *
+     * @param object     the resource, as the system's store names it, such as {@code organization:<id>}
+     * @param leaving    selects the grants being taken away
+     * @param holderType the kind of user that must keep administering the resource
+     * @param removal    takes the grants away, or the user holding them out of the resource
+     * @return a future emitting what the removal emits, failed with an {@link IllegalStateException} when the grants
+     * may not go
+     */
+    <T> Future<T> removeAdministrators(String object,
+                                       Predicate<Grant> leaving,
+                                       Class<? extends UserParticipantIdentity> holderType,
+                                       Supplier<Future<T>> removal);
 
     /**
      * Provisions a machine identity, assigning id and dates, enabling it, and generating the

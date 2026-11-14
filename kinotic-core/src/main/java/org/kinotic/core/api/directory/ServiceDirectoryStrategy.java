@@ -31,6 +31,20 @@ public interface ServiceDirectoryStrategy {
                                                             Pageable pageable);
 
     /**
+     * Returns the entries of the system's own services, the ones no organization owns.
+     * @param pageable the page settings to use
+     * @return a page of the system-scoped entries
+     */
+    Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable);
+
+    /**
+     * The entry with the given id, or null when there is none.
+     * @param entryId the entry's id, {@code <zone>~<namespace>.<Name>}
+     * @return the entry or null
+     */
+    Future<ServiceDirectoryEntry> findEntry(String entryId);
+
+    /**
      * Resolves the online MCP tool with the given name callable by the given scope.
      * @param toolName the MCP tool name to resolve
      * @param organizationId the calling scope's organization, or null for a system scope
@@ -97,15 +111,17 @@ public interface ServiceDirectoryStrategy {
      * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange},
      * {@code livenessVerifiedAt}) untouched.
      * @param entry the entry to upsert
-     * @return a {@link Future} completing when the entry is stored
+     * @return a {@link Future} completing when the entry is stored, with the entry's id when its contract was
+     *         written and empty when the stored contract was equal
      */
-    Future<Void> upsertEntry(ServiceDirectoryEntry entry);
+    Future<Set<String>> upsertEntry(ServiceDirectoryEntry entry);
 
     /**
      * Upserts the given entries as {@link #upsertEntry(ServiceDirectoryEntry)} does each.
      * @param entries the entries to upsert
-     * @return a {@link Future} completing when every entry is stored
+     * @return a {@link Future} completing when every entry is stored, with the ids of the entries whose contract
+     *         was written, leaving out those whose stored contract was equal
      */
-    Future<Void> upsertEntries(Collection<ServiceDirectoryEntry> entries);
+    Future<Set<String>> upsertEntries(Collection<ServiceDirectoryEntry> entries);
 
 }

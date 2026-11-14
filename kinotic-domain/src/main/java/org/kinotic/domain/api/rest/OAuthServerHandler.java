@@ -79,8 +79,8 @@ public abstract class OAuthServerHandler implements SuppliesGatewayRoutes {
                 .put("authorization_response_iss_parameter_supported", true)
                 .put("authorization_endpoint", issuer + "/api/auth/oauth/authorize")
                 .put("token_endpoint", issuer + "/api/auth/oauth/token")
-                // draft-ietf-oauth-client-id-metadata-document Section 5 — lets a host check for
-                // support before sending the user somewhere that would reject its client_id
+                // lets a host check for support before sending the user somewhere that would reject
+                // its client_id
                 .put("client_id_metadata_document_supported", true)
                 .put("response_types_supported", new JsonArray().add("code"))
                 .put("grant_types_supported", grantTypes)

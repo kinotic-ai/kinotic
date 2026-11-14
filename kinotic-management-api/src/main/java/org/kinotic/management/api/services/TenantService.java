@@ -5,7 +5,10 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.Tenant;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 /**
  * Manages the {@link Tenant}s of the caller's organization's applications. A tenant's id is derived from its
@@ -17,6 +20,7 @@ import org.kinotic.idl.api.annotations.McpTool;
  */
 @Publish
 @McpTool
+@AuthzResource(value = AuthzConstants.APPLICATION_TYPE, parent = AuthzConstants.ORGANIZATION_TYPE)
 public interface TenantService {
 
     /**
@@ -29,6 +33,7 @@ public interface TenantService {
      * @return {@link Future} emitting the created tenant, or the application's existing tenant whose id matches the
      *         slugified name
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT, resourceId = "{applicationId}")
     Future<Tenant> createTenantIfNotExist(String applicationId, String name, String description);
 
     /**
@@ -76,6 +81,7 @@ public interface TenantService {
      * @param tenantId      the tenant's id
      * @return {@link Future} completing once the tenant is deleted
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT)
     Future<Void> deleteById(String applicationId, String tenantId);
 
 }

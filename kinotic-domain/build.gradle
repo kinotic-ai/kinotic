@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    api project(':kinotic-authz')
     implementation project(':kinotic-core')
     // the license renewal calls Minds Ignited's license server through its gateway
     implementation project(':kinotic-client')

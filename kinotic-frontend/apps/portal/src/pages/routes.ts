@@ -1,6 +1,6 @@
 import type { Component } from 'vue'
 import { type RouteLocationNormalized, type RouteMeta, type RouteRecordRaw } from 'vue-router'
-import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, Server, Settings, ShieldAlert, Table, User, Users, Zap } from '@lucide/vue'
+import { ChartLine, CloudUpload, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, ListTree, LockKeyhole, Server, Settings, ShieldAlert, Table, User, Users, Zap } from '@lucide/vue'
 import { apiUrl, ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
@@ -202,10 +202,23 @@ const pageRoutes: RouteRecordRaw[] = [
         props: true
       },
       {
+        name: 'application-users-access',
+        path: 'users/access',
+        component: () => import('@/pages/ApplicationUsersAccessPage.vue'),
+        props: true
+      },
+      {
         name: 'application-machines',
         path: 'machines',
         meta: { sidebar: applicationItem('Machines', Server, 60, 'Access') } as RouteMeta,
         component: () => import('@/pages/MachinesPage.vue'),
+        props: true
+      },
+      {
+        name: 'application-access',
+        path: 'access',
+        meta: { sidebar: applicationItem('Access', LockKeyhole, 65, 'Access') } as RouteMeta,
+        component: () => import('@/pages/ApplicationAccessPage.vue'),
         props: true
       },
       {
@@ -255,6 +268,13 @@ const pageRoutes: RouteRecordRaw[] = [
         path: 'sbom',
         meta: { sidebar: projectItem('SBOM', ListTree, 40) } as RouteMeta,
         component: () => import('@/pages/ProjectSbomPage.vue'),
+        props: true
+      },
+      {
+        name: 'project-access',
+        path: 'access',
+        meta: { sidebar: projectItem('Access', LockKeyhole, 50) } as RouteMeta,
+        component: () => import('@/pages/ProjectAccessPage.vue'),
         props: true
       }
     ]

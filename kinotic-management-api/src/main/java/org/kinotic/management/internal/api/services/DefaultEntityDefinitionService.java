@@ -5,32 +5,44 @@ import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.config.EntityDefinitionProperties;
 import org.kinotic.management.api.config.ManagementApiProperties;
+import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
+import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.cache.CacheEvictionException;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-
+@Slf4j
 @Component
 public class DefaultEntityDefinitionService extends AbstractProjectScopedService<EntityDefinition>
         implements EntityDefinitionService {
@@ -41,6 +53,9 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
+    private final RelationshipService relationships;
+    private final DefaultPermissionService permissions;
+    private final ProjectRepository projects;
 
     public DefaultEntityDefinitionService(EventService eventService,
                                           CrudServiceTemplate crudServiceTemplate,
@@ -48,8 +63,14 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           EntityDefinitionRepository entityDefinitionRepository,
                                           ManagementApiProperties managementApiProperties,
                                           DomainPersistenceProperties domainPersistenceProperties,
-                                          SecurityContext securityContext) {
+                                          SecurityContext securityContext,
+                                          RelationshipService relationships,
+                                          DefaultPermissionService permissions,
+                                          ProjectRepository projects) {
         super(entityDefinitionRepository, securityContext);
+        this.relationships = relationships;
+        this.permissions = permissions;
+        this.projects = projects;
         this.eventService = eventService;
         this.crudServiceTemplate = crudServiceTemplate;
         this.entityDefinitionConversionService = entityDefinitionConversionService;
@@ -76,6 +97,13 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         try {
             // will throw an exception if invalid
             DomainUtil.validateEntityDefinition(entityDefinition);
+            // checked before the lock and the removal below, which name the organization the definition carries
+            // and which the write's own organization check comes too late for
+            String organizationId = requireOrganizationId();
+            if (!organizationId.equals(entityDefinition.getOrganizationId())) {
+                throw new AuthorizationException("Cannot create an entity definition of organization '" + entityDefinition.getOrganizationId()
+                                                 + "' while authenticated as organization '" + organizationId + "'");
+            }
 
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
@@ -111,13 +139,82 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        // The base create uses the ES create op-type, so the uniqueness check is atomic at
-        // the shard — a concurrent duplicate fails instead of overwriting.
-        return createOp.apply(entityDefinition)
-                       .recover(ex -> AlreadyExistsException.isCause(ex)
-                               ? Future.failedFuture(new IllegalArgumentException(
-                               "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                               : Future.failedFuture(ex));
+        // One caller at a time creates or deletes the definition of an id. Whatever a deleted definition of the id
+        // left in the stores, when the removal after its record's deletion failed, is removed before the record is
+        // written, so the new definition is never reached through a grant made on the old one, and a deletion's
+        // removal never takes the place a creation just wrote
+        return requireProject(entityDefinition)
+                .compose(v -> relationships.exclusively(containment(entityDefinition).object(), () -> super.findById(entityDefinition.getId())
+                        .compose(existing -> existing == null
+                                ? removed(entityDefinition)
+                                : Future.failedFuture(new AlreadyExistsException(entityDefinition.getId())))
+                        .compose(w -> createOp.apply(entityDefinition))
+                        .recover(ex -> AlreadyExistsException.isCause(ex)
+                                ? Future.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                                : Future.failedFuture(ex))
+                        .compose(this::contained)));
+    }
+
+    // Whoever reads a definition reaches the project it names, so its author names a project of the definition's
+    // application that the author may edit. One refusal answers a missing project, another application's and one
+    // the author may not edit, so it tells the author nothing of a project they cannot reach
+    private Future<Void> requireProject(EntityDefinition entityDefinition) {
+        String projectId = entityDefinition.getProjectId();
+        return projects.findById(projectId, requireOrganizationId())
+                       .compose(project -> project != null && project.getApplicationId().equals(entityDefinition.getApplicationId())
+                               ? permissions.holds(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_EDIT, projectId)
+                               : Future.succeededFuture(false))
+                       .map(editable -> {
+                           if (!editable) {
+                               throw new IllegalArgumentException("No project of application " + entityDefinition.getApplicationId()
+                                                                          + " that the caller may edit has id " + projectId);
+                           }
+                           return null;
+                       });
+    }
+
+    // The definition's place in the graph, written once the record is: in the system's store, where the
+    // organization's members hold it, and in the application's, where its rows are reached through it. A record
+    // whose place could not be written is removed again, with whatever of its place was written, since nothing
+    // places it later and nobody could reach it, so the create can be made again
+    private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
+        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(entityDefinition)))
+                .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
+                .map(entityDefinition)
+                .recover(err -> deleted(entityDefinition)
+                                     .onFailure(deleteErr -> log.warn("Could not remove entity definition {} after its graph placement failed: {}",
+                                                                      entityDefinition.getId(), deleteErr.getMessage()))
+                                     .transform(v -> Future.failedFuture(err)));
+    }
+
+    // The definition leaves both stores with every grant made on it and on its rows within each tenant placed in the
+    // application's store, so one created again under its id starts with none
+    private Future<Void> removed(EntityDefinition entityDefinition) {
+        String object = containment(entityDefinition).object();
+        String store = storeOf(entityDefinition);
+        return relationships.removeObject(AuthzStoreService.SYSTEM, object)
+                            .compose(v -> relationships.removeObject(store, object))
+                            // the rows within a tenant are reached by tenant, so each tenant placed in the store is read
+                            .compose(v -> relationships.readByUser(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
+                            .compose(placed -> {
+                                Future<Void> ret = Future.succeededFuture();
+                                for (RelationshipTuple tenant : placed) {
+                                    String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
+                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant.object())));
+                                    ret = ret.compose(w -> relationships.removeObject(store, within));
+                                }
+                                return ret;
+                            });
+    }
+
+    private static String storeOf(EntityDefinition entityDefinition) {
+        return AuthzGraphUtil.authzApplicationId(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId());
+    }
+
+    static RelationshipTuple containment(EntityDefinition entityDefinition) {
+        return AuthzGraphUtil.containment(AuthzGraphUtil.authzApplication(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId()),
+                                          AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
     }
 
     @WithSpan
@@ -132,9 +229,11 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         return deleteAndEvict(entityDefinitionId);
     }
 
+    // The definition is read once the lock is held, so the one deleted is the one stored then: a definition
+    // created under the id after another caller's delete is deleted only if it too is unpublished
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return findById(entityDefinitionId)
-                .compose(entityDefinition -> {
+        return relationships.exclusively(AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
+                                         () -> super.findById(entityDefinitionId).compose(entityDefinition -> {
 
                     if (entityDefinition == null) {
                         return Future.failedFuture(new IllegalArgumentException(
@@ -146,13 +245,72 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    // Sync delete, then evict: the deletion must be searchable before the
-                    // eviction fires, and the eviction must fire last — either way around,
-                    // a concurrent read could re-cache the old row with no eviction behind it.
-                    // The delete completes once every node holding the caches has evicted.
-                    return super.deleteByIdSync(entityDefinitionId)
-                                .compose(v -> evict(entityDefinition));
-                });
+                    return deleted(entityDefinition);
+                }));
+    }
+
+    // Sync delete, then evict: the deletion must be searchable before the eviction fires, and the eviction must
+    // fire last; either way around, a concurrent read could re-cache the old row with no eviction behind it. The
+    // delete completes once every node holding the caches has evicted, then the definition leaves the graph. It
+    // leaves the graph when the eviction failed too: the record is deleted by then, so no later delete finds the
+    // definition to remove it
+    private Future<Void> deleted(EntityDefinition entityDefinition) {
+        return super.deleteByIdSync(entityDefinition.getId())
+                    .compose(v -> evict(entityDefinition).transform(evicted -> removed(entityDefinition).compose(w -> evicted.succeeded()
+                            ? Future.<Void>succeededFuture()
+                            : Future.failedFuture(evicted.cause()))));
+    }
+
+    // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
+    // record's creation to outlive; the functions the gateway checked on the definition read it with
+    // super.findById
+    @Override
+    public Future<EntityDefinition> findById(String id) {
+        return super.findById(id).compose(entityDefinition -> entityDefinition == null
+                ? Future.succeededFuture(null)
+                : permissions.holds(EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ, id)
+                             .map(held -> held ? entityDefinition : null));
+    }
+
+    @Override
+    public Future<Long> count() {
+        return readableIds().compose(ids -> entityDefinitionRepository.count(requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> findAll(Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.findAll(requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> search(String searchText, Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.search(searchText, requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Long> countForApplication(String applicationId) {
+        return readableIds().compose(ids -> entityDefinitionRepository.countForApplication(applicationId, requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Long> countForProject(String projectId) {
+        return readableIds().compose(ids -> entityDefinitionRepository.countForProject(projectId, requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.findAllForProject(projectId, requireOrganizationId(), ids, pageable));
+    }
+
+    // The definitions the caller may read through any grant that reaches them, null for every definition of the
+    // organization
+    private Future<List<String>> readableIds() {
+        return permissions.findAccessibleIds(EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ);
     }
 
     @WithSpan
@@ -165,7 +323,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public Future<Void> publish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
                     if (entityDefinition == null) {
                         return Future.failedFuture(
@@ -232,7 +390,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        return findById(entityDefinition.getId())
+        return super.findById(entityDefinition.getId())
                 .compose(existingEntityDefinition -> {
                     if (existingEntityDefinition == null) {
                         return Future.failedFuture(
@@ -284,7 +442,6 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         //        (diff the fields and make sure only fields are added and no types are changed)
                         //        Then this could be moved to save the EntityDefinition first with optimistic locking, and if that succeeds then update the mapping
 
-
                         Future<Void> updateFuture;
                         if (descriptor.isStream()) {
                             String templateName = entityDefinition.getItemIndex() + "_tpl";
@@ -313,7 +470,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     @WithSpan
     @Override
     public Future<Void> unPublish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
-        return findById(entityDefinitionId)
+        return super.findById(entityDefinitionId)
                 .compose(entityDefinition -> {
                     if (entityDefinition == null) {
                         return Future.failedFuture(

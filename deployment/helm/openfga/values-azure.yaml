@@ -1,0 +1,12 @@
+# Azure AKS: two engine replicas on the Azure Database for PostgreSQL flexible server the cluster
+# root creates (deployment/terraform/azure/cluster/openfga.tf).
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 2
+    memory: 1Gi

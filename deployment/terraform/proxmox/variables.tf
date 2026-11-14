@@ -158,6 +158,24 @@ variable "mimir_version" {
   default = "2.14.3"
 }
 
+variable "openfga_version" {
+  description = "OpenFGA, the authorization engine; the tag compose.openfga.yml runs"
+  type        = string
+  default     = "v1.21.0"
+}
+
+variable "postgres_version" {
+  description = "OpenFGA's Postgres; the tag compose.openfga.yml runs"
+  type        = string
+  default     = "18-alpine"
+}
+
+variable "curl_version" {
+  description = "The curl image the one-shot store creation runs; the tag compose.openfga.yml runs"
+  type        = string
+  default     = "8.17.0"
+}
+
 variable "haproxy_version" {
   description = "The edge's HAProxy, from the 3.2 LTS line"
   type        = string

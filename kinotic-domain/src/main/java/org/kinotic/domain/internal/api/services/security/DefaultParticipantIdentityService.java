@@ -1,7 +1,13 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import lombok.extern.slf4j.Slf4j;
+import org.kinotic.authz.api.model.Grant;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
@@ -35,20 +41,32 @@ import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepos
 import org.kinotic.domain.internal.api.repositories.OidcBindingRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.Objects;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
+@Slf4j
 @Component
 public class DefaultParticipantIdentityService extends AbstractCrudService<ParticipantIdentity> implements ParticipantIdentityService {
 
     /** Bytes of entropy for a machine client secret — generated, never user-chosen. */
     private static final int MACHINE_SECRET_BYTES = 32;
+    // the cluster lock the removals of one resource's administrators hold in turn, by the resource
+    private static final String ADMINISTRATORS_LOCK_PREFIX = "kinotic.domain.administrators.";
+    // how long a removal waits for the ones before it
+    private static final long ADMINISTRATORS_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
@@ -57,7 +75,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final OAuthAuthorizationGrantRepository oauthAuthorizationGrantRepository;
     private final RefreshTokenService refreshTokenService;
     private final ApplicationRepository applicationRepository;
+    private final RelationshipService relationships;
     private final ConnectionRevocationService connectionRevocationService;
+    private final Vertx vertx;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                              IdentityCredentialRepository credentialRepository,
@@ -66,7 +86,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                              OAuthAuthorizationGrantRepository oauthAuthorizationGrantRepository,
                                              RefreshTokenService refreshTokenService,
                                              ApplicationRepository applicationRepository,
-                                             ConnectionRevocationService connectionRevocationService) {
+                                             ConnectionRevocationService connectionRevocationService,
+                                             RelationshipService relationships,
+                                             Vertx vertx) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
@@ -75,7 +97,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         this.oauthAuthorizationGrantRepository = oauthAuthorizationGrantRepository;
         this.refreshTokenService = refreshTokenService;
         this.applicationRepository = applicationRepository;
+        this.relationships = relationships;
         this.connectionRevocationService = connectionRevocationService;
+        this.vertx = vertx;
     }
 
     // A connection is authenticated once, when it is established, so an identity that is disabled or deleted keeps
@@ -424,6 +448,48 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public <T> Future<T> removeAdministrators(String object,
+                                              Predicate<Grant> leaving,
+                                              Class<? extends UserParticipantIdentity> holderType,
+                                              Supplier<Future<T>> removal) {
+        Validate.notBlank(object, "object cannot be blank");
+        Validate.notNull(leaving, "leaving cannot be null");
+        Validate.notNull(holderType, "holderType cannot be null");
+        Validate.notNull(removal, "removal cannot be null");
+        // two removals counting at once would each count the administrator the other takes away, and leave none
+        return vertx.sharedData().withLock(ADMINISTRATORS_LOCK_PREFIX + object, ADMINISTRATORS_LOCK_TIMEOUT_MILLIS,
+                                           () -> requireAnotherAdministrator(object, leaving, holderType).compose(v -> removal.get()));
+    }
+
+    private Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType) {
+        String administrator = AuthzUtil.roleId(AuthzUtil.typeOf(object), AuthzConstants.ADMIN);
+        return relationships.findGrants(AuthzStoreService.SYSTEM, object).compose(grants -> {
+            Map<Boolean, List<Grant>> split = grants.stream()
+                                                    .filter(grant -> administrator.equals(grant.roleId()))
+                                                    .collect(Collectors.partitioningBy(leaving));
+            return administering(split.get(true), holderType).compose(leavingCount -> administering(split.get(false), holderType).map(remainingCount -> {
+                if (leavingCount > 0 && remainingCount == 0) {
+                    throw new IllegalStateException("No other user who can sign in holds " + administrator + " on " + object
+                                                            + "; grant the role to another user first");
+                }
+                return null;
+            }));
+        });
+    }
+
+    // How many of the grants are held by a user of the type who can sign in; a group's grant is held by no user, and
+    // a pending user's invitation may lapse unclaimed
+    private Future<Long> administering(List<Grant> grants, Class<? extends UserParticipantIdentity> holderType) {
+        List<Future<Boolean>> lookups = grants.stream()
+                                              .map(grant -> identityRepository.findById(grant.subject().id())
+                                                                              .map(identity -> holderType.isInstance(identity)
+                                                                                      && identity.isEnabled()
+                                                                                      && !((UserParticipantIdentity) identity).isPending()))
+                                              .toList();
+        return Future.all(lookups).map(held -> held.list().stream().filter(Boolean.TRUE::equals).count());
+    }
+
+    @Override
     public Future<Boolean> hasPassword(String identityId) {
         Validate.notBlank(identityId, "identityId cannot be blank");
         return credentialRepository.findById(identityId).map(Objects::nonNull);
@@ -498,9 +564,44 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 // create refuses an id already held, which the index guarantees whatever its shards, so of two creations
                 // under one email at once exactly one succeeds
                 .recover(err -> err instanceof AlreadyExistsException ? Future.failedFuture(emailTaken(user)) : Future.failedFuture(err))
-                .compose(saved -> password != null
-                        ? saveCredential(user.getId(), password).map(user)
-                        : Future.succeededFuture(user));
+                .compose(saved -> completed(user, password));
+    }
+
+    // A user whose credential or place in the graph could not be written is removed again, so the creation can be
+    // made again under its email. What the graph holds of it stays: a user created again under the email has the
+    // same id and is placed the same way. The application store's tuples are written in one request, so they stay
+    // only when that write was committed and its answer lost, and the tenant membership among them is read by no
+    // check: a user is checked on the tenant its identity carries, and a grant is made to a user or a group
+    private <T extends UserParticipantIdentity> Future<T> completed(T user, String password) {
+        Future<T> credential = password != null
+                ? saveCredential(user.getId(), password).map(user)
+                : Future.succeededFuture(user);
+        return credential.compose(this::placed)
+                         .recover(err -> credentialRepository.deleteById(user.getId())
+                                                             .compose(v -> identityRepository.deleteByIdSync(user.getId()))
+                                                             .onFailure(cleanupErr -> log.warn("Could not remove the user {} whose creation failed: {}",
+                                                                                               user.getId(), cleanupErr.getMessage()))
+                                                             .transform(v -> Future.<T>failedFuture(err)));
+    }
+
+    // An organization's user is a member of its organization, which a grant to the organization's members reaches.
+    // An application's user is an end user of its application, in the system's store and in the application's own,
+    // where its tenant is also placed under the application with the user as a member
+    private <T extends UserParticipantIdentity> Future<T> placed(T user) {
+        Future<Void> written;
+        if (user instanceof OrganizationParticipantIdentity organizationUser) {
+            written = relationships.ensure(AuthzStoreService.SYSTEM,
+                                           List.of(AuthzGraphUtil.organizationMember(organizationUser.getId(), organizationUser.getOrganizationId())));
+        } else if (user instanceof ApplicationParticipantIdentity applicationUser) {
+            List<RelationshipTuple> inApplication = AuthzGraphUtil.applicationUserTuples(applicationUser);
+            written = relationships.ensure(AuthzStoreService.SYSTEM, List.of(inApplication.getFirst()))
+                                   .compose(v -> relationships.ensure(AuthzGraphUtil.authzApplicationId(applicationUser.getOrganizationId(),
+                                                                                                        applicationUser.getApplicationId()),
+                                                                      inApplication));
+        } else {
+            written = Future.succeededFuture();
+        }
+        return written.map(user);
     }
 
     @Override
@@ -710,6 +811,21 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 });
     }
 
+    // An identity acting as itself leaves the stores it is held in, with its organization, every group and every
+    // grant, so one created again under its id starts with none; a delegate holds nothing of its own
+    private Future<Void> withdrawn(ParticipantIdentity identity) {
+        Future<Void> ret = Future.succeededFuture();
+        if (identity != null && !(identity instanceof DelegatingParticipantIdentity)) {
+            String user = AuthzUtil.object(AuthzConstants.USER_TYPE, identity.getId());
+            ParticipantScope scope = DomainUtil.scopeOf(identity);
+            if (scope.applicationId() != null) {
+                ret = relationships.removeSubject(AuthzGraphUtil.authzApplicationId(scope.organizationId(), scope.applicationId()), user);
+            }
+            ret = ret.compose(v -> relationships.removeSubject(AuthzStoreService.SYSTEM, user));
+        }
+        return ret;
+    }
+
     @Override
     protected Future<Void> beforeDelete(String id) {
         // Everything that signs the identity in or that it authorized goes with it: its credential, read by id
@@ -717,7 +833,10 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         // grants it approved, which would otherwise redeem to a deleted identity until they expire; and its
         // refresh tokens, revoked so a rotation of one fails. Delegates it owns go with it as well — a delegate
         // must not outlive the authority it wields (resolveParticipant would reject it anyway; this is hygiene).
-        return credentialRepository.deleteById(id)
+        // It also leaves the authorization stores it is held in, so one created again under its id starts with no grants.
+        return identityRepository.findById(id)
+                .compose(this::withdrawn)
+                .compose(v -> credentialRepository.deleteById(id))
                 .compose(v -> bindingRepository.deleteByIdentity(id))
                 .compose(v -> deviceCodeGrantRepository.deleteByIdentity(id))
                 .compose(v -> oauthAuthorizationGrantRepository.deleteByIdentity(id))

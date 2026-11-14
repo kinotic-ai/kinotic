@@ -1,0 +1,36 @@
+import { ref, type Ref } from 'vue'
+import { Kinotic } from '@kinotic-ai/core'
+import { KinoticStates } from '@/states'
+import { createDebug } from '@kinotic-ai/frontend-common'
+
+const debug = createDebug('access')
+
+const canManageAccess = ref(false)
+// the member the answer was read for; another member signing in on the same page reads their own
+let loadedFor: string | null = null
+
+/**
+ * Whether the signed-in member may manage the organization's access: roles, groups and grants. Read once per
+ * member and shared, so every Access panel and settings tab shows the same controls; a member who may not
+ * sees the lists and the check panel and no write control. A read that fails leaves the controls hidden, and
+ * the next panel to ask reads again.
+ */
+export function useAccess(): { canManageAccess: Ref<boolean> } {
+  const userState = KinoticStates.getUserState()
+  const memberId = userState.connectedInfo?.participant?.id ?? null
+  if (memberId !== null && memberId !== loadedFor) {
+    loadedFor = memberId
+    canManageAccess.value = false
+    const organizationId = userState.getOrganizationId()
+    // a member who signed in while this read was in flight gets their own answer, not this one
+    Kinotic.permissions.listAccessible('organization', 'can_manage_access')
+           .then(ids => { if (loadedFor === memberId) canManageAccess.value = ids.includes(organizationId) })
+           .catch(err => {
+             debug('Failed to read whether the member manages access: %O', err)
+             if (loadedFor === memberId) {
+               loadedFor = null
+             }
+           })
+  }
+  return { canManageAccess }
+}

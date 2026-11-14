@@ -3,6 +3,9 @@ package org.kinotic.system.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.grind.api.model.JobRun;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.system.api.model.SystemJobDescriptor;
 
 import java.util.List;
@@ -13,6 +16,7 @@ import java.util.List;
  * and is listed, watched and read through {@code JobMonitoringService} like any other job run.
  */
 @Publish
+@AuthzResource(value = AuthzConstants.SYSTEM_TYPE, resourceId = AuthzConstants.SYSTEM_OBJECT_ID, permission = AuthzConstants.CAN_MANAGE_CLUSTER)
 public interface SystemJobService {
 
     /**
@@ -20,6 +24,7 @@ public interface SystemJobService {
      *
      * @return the jobs, ordered by name
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_JOBS)
     Future<List<SystemJobDescriptor>> findSystemJobs();
 
     /**

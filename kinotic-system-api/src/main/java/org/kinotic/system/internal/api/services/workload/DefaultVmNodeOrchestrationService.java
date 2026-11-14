@@ -5,10 +5,15 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.Grant;
+import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.model.Requeue;
@@ -16,8 +21,13 @@ import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.WorkloadRepository;
@@ -27,13 +37,13 @@ import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.workload.VmManagerProxy;
+import org.kinotic.system.api.services.workload.VmNodeService;
 import org.kinotic.system.api.model.workload.VmNodeRegistration;
 import org.kinotic.system.api.model.workload.WorkloadStatusReport;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -64,6 +74,8 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private final VmNodeRepository vmNodeRepository;
     private final WorkloadRepository workloadRepository;
     private final EventBusService eventBusService;
+    private final RelationshipService relationships;
+    private final SecurityContext securityContext;
     private final Vertx vertx;
 
     @Override
@@ -71,15 +83,59 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(registration, "Registration cannot be null");
         Validate.notNull(registration.getId(), "Node id cannot be null");
         String nodeId = registration.getId();
+        Participant registrar = securityContext.currentParticipant();
         log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
 
-        return recordInventory(registration, 1)
+        // two machines registering one id together would each find the node without an agent
+        return relationships.exclusively(AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> requireAgentOrNone(nodeId, registrar)
+                .compose(v -> recordInventory(registration, 1))
                 // a registered node should be taking workloads; a node registering again holds that intent already
                 .compose(v -> vmNodeRepository.updateDesired(nodeId, ONLINE, null, "registration"))
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
                 .compose(node -> vmNodeRepository.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
                 .compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
-                .compose(v -> vmNodeRepository.findById(nodeId));
+                .compose(v -> contained(nodeId, registrar))
+                .compose(v -> vmNodeRepository.findById(nodeId)));
+    }
+
+    // The registrar role is held on the system, by every node's machine, so it alone would let one node's machine
+    // register another node's id, write that node's inventory and report as it. A node that has an agent is
+    // registered again by one of its agents only; a registration made from inside the server carries no participant
+    private Future<Void> requireAgentOrNone(String nodeId, Participant registrar) {
+        Future<Void> ret;
+        if (registrar == null) {
+            ret = Future.succeededFuture();
+        } else {
+            // the user the agent is bound as, which for a delegate is its owner
+            String machine = AuthzGraphUtil.authzUser(registrar);
+            ret = relationships.findGrants(AuthzStoreService.SYSTEM, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId)).map(grants -> {
+                List<Grant> agents = grants.stream().filter(grant -> AGENT_ROLE.equals(grant.roleId())).toList();
+                if (!agents.isEmpty() && agents.stream().noneMatch(agent -> machine.equals(AuthzGraphUtil.authzSubject(agent.subject())))) {
+                    throw new AuthorizationException("Node " + nodeId + " is registered by another machine; deregister the node to register it from this one");
+                }
+                return null;
+            });
+        }
+        return ret;
+    }
+
+    /**
+     * The node's place in the graph, written once its record is: the node is on the system, so a grant made
+     * there reaches it, and the machine that registered it is its agent, which is what its heartbeats and
+     * reports are checked for. A registration made from inside the server carries no participant and binds
+     * no agent.
+     */
+    private Future<Void> contained(String nodeId, Participant registrar) {
+        String node = AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId);
+        RelationshipTuple onSystem = AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, node);
+        Future<Void> ret = relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem));
+        if (registrar != null) {
+            // one binding per node and agent, so a node registering again, or on another server, binds nothing twice
+            String agent = AuthzGraphUtil.authzUser(registrar);
+            String bindingId = nodeId + "-agent-" + AuthzUtil.idOf(agent);
+            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, bindingId, AGENT_ROLE, agent, node));
+        }
+        return ret;
     }
 
     /**
@@ -356,18 +412,29 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     /**
      * Records every run still open on the node FAILED, which routes each to the deployment it belongs
-     * to, and deletes the node. The runs' room goes with the node's record, so none is returned.
+     * to, takes the node out of the graph with every grant made on it, and deletes the node. The runs'
+     * room goes with the node's record, so none is returned.
      */
     private Future<Requeue> finalizeDeregistration(VmNode node) {
         String nodeId = node.getId();
         log.info("Deregistering VmNode {}: its open runs are recorded FAILED", nodeId);
-        return forEachOpenRun(nodeId, workload -> {
+        // under the lock registerNode holds, so a registration of the id never has its graph placement removed
+        // or its record deleted beneath it
+        return relationships.exclusively(AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> forEachOpenRun(nodeId, workload -> {
                     log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                              workload.getId(), nodeId, workload.getStatus());
                     return workloadRepository.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();
                 })
+                // the graph before the record: a removal that fails leaves the record for the master to try again
+                .compose(v -> released(nodeId))
                 .compose(v -> vmNodeRepository.deleteByIdSync(nodeId))
-                .map(Requeue.NONE);
+                .map(Requeue.NONE));
+    }
+
+    // Every grant made on the node is revoked and the node leaves the system, so a node registered again under the
+    // same id starts with no agent
+    private Future<Void> released(String nodeId) {
+        return relationships.removeObject(AuthzStoreService.SYSTEM, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId));
     }
 
     // Applies the change to every open run on the node, one at a time

@@ -1,8 +1,8 @@
 # The development server on Proxmox
 
 One Proxmox host runs the platform's services: a container per service — the org, system and
-app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, Loki,
-Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
+app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, OpenFGA
+with its Postgres, Loki, Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
 HAProxy container that passes each TLS connection on the router's forwarded 443 to the server
 its SNI names. The portal and the system console are served by the sites Worker from the Azure
 root's sites account (`deployment/terraform/azure/deploy-ui.sh dev-server dev-server` uploads
@@ -200,9 +200,10 @@ terraform init
 
 The apply creates the private network, pulls the images, creates every container stopped,
 uploads the manifests, and runs the applier over them in startup order: the three
-Elasticsearch nodes, then Loki, Tempo and Mimir, then the migration, which waits for
-the cluster to be healthy, runs to completion, and is verified against the
-`migration_history` index, then the three servers, which form one Ignite cluster over their
+Elasticsearch nodes, then OpenFGA's Postgres, its one-shot schema migration, the engine and
+the one-shot creation of the system store, `openfga-init`, verified by listing the store, then
+Loki, Tempo and Mimir, then the migration, which waits for the cluster to be healthy,
+runs to completion, and is verified against the `migration_history` index, then the three servers, which form one Ignite cluster over their
 private addresses, then the edge.
 
 The servers are on `https://dev-api.kinotic.ai` (org), `https://dev-system-api.kinotic.ai`
@@ -238,13 +239,22 @@ uploaded them.
    `bootstrap-identities.sh` creates the first system user and a SYSTEM machine for each node.
    Each machine's credentials go straight into its node's `vm-manager.secrets.env`, which starts
    its vm-manager; the system user's password goes to a temporary file whose path it prints.
-   It refuses a cluster that already has that system user:
+   It refuses a cluster that already has that system user. The script writes the identities
+   straight to Elasticsearch, the machines before the system user and the system user's identity
+   last, so a run that fails before then can be made again as it was: what it wrote is written
+   over. When that last write reports a failure the script reads the system user back, and
+   carries on if it is there; otherwise it stops, keeps the password file and says what the
+   next run decides. It then restarts the system
+   server, whose seed job places them in the authorization graph as it starts
+   (`kinotic.authz.seedGraph`, set in its `dev-server` profile): the system user as
+   `system.admin` and each machine as `vm_node.registrar`. The system user signs in, and each
+   node registers, once the server is back and the job has run.
 
    ```bash
    ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2
    ```
 
-   Further operators and machines come from the system console's **Members** pages.
+   Further system users and machines come from the system console's **Members** pages.
 
    The node appears `ONLINE` in the console with no health message. A first deployment lands
    on the first `ONLINE` node with room for it.
@@ -317,11 +327,20 @@ uploaded them.
   A container replaced this way keeps its vmid, so run the applier yourself afterwards:
   `ssh root@<host> python3 /var/lib/vz/snippets/kinotic-apply-container.py /var/lib/vz/snippets/kinotic-*.manifest.json`.
   To re-run the migration on the same image, `rm /var/lib/kinotic/state/120.ran` first.
+  `openfga-migrate` runs again on its own whenever the engine is not healthy when the applier
+  reaches it, and so does `openfga-init`, which waits for the engine first. A schema migration
+  that failed leaves the engine unhealthy, so the apply fails waiting for it at `openfga-init`,
+  and the next apply runs the applier and the migration again.
 - **New secrets** are another `./sync-secrets.sh`, which re-applies the servers.
 - **Starting over** with an empty cluster, for a migration that edits `V1__init.sql`: remove the
   servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
   stop them, empty `/es1/data`, `/es2/data` and `/es3/data`, and remove
-  `/var/lib/kinotic/state/120.ran` and `images.deployed`. `redeploy.sh`, under the wrapper, then replaces the
+  `/var/lib/kinotic/state/120.ran` and `images.deployed`. The authorization relationships go
+  with the cluster: remove `openfga-db`'s and `openfga`'s markers (114, 116), stop them, empty
+  `/var/lib/kinotic/data/openfga-db`, remove `/var/lib/kinotic/state/115.ran` and `117.ran`, and
+  bring them back in startup order, which the applier takes from the order of its arguments:
+  `ssh root@<host> 'cd /var/lib/vz/snippets && python3 kinotic-apply-container.py kinotic-openfga-db.manifest.json kinotic-openfga-migrate.manifest.json kinotic-openfga.manifest.json kinotic-openfga-init.manifest.json'`.
+  `redeploy.sh`, under the wrapper, then replaces the
   servers and runs the migration against the empty cluster; then `bootstrap-identities.sh`
   (to keep the system user's password, read its `kinotic_identity_credential` `secretHash`
   before emptying the cluster and pass it as `ADMIN_SECRET_HASH`),

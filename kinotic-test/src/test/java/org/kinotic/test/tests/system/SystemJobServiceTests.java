@@ -76,10 +76,8 @@ public class SystemJobServiceTests extends KinoticTestBase {
         JobRun finished = awaitFinished(run.getId());
         assertEquals(ExecutionStatus.COMPLETED, finished.getStatus());
 
-        TaskRecord sweep = await(jobRuns.findTasks(run.getId())).stream()
-                                                                .filter(record -> record.getTaskPath().equals("0/1"))
-                                                                .findFirst()
-                                                                .orElseThrow();
+        // a get by id, since the recorder saves the task record without a refresh a search would wait for
+        TaskRecord sweep = await(taskRecords.findById(run.getId() + ":0/1"));
         assertEquals(ExecutionStatus.COMPLETED, sweep.getStatus());
     }
 

@@ -1,6 +1,7 @@
--- The test-org organization, which the integration and e2e tests act in and the sample data (fixtures) fills.
+-- The test-org organization, which the integration and e2e tests act in and the sample data (fixtures) fills, created
+-- by its member below, whom the servers bind as its administrator.
 
-INSERT INTO kinotic_organization (id, name, description) VALUES ('test-org', 'test-org', 'Organization used by kinotic end-to-end and core package tests') WITH REFRESH;
+INSERT INTO kinotic_organization (id, name, description, createdBy) VALUES ('test-org', 'test-org', 'Organization used by kinotic end-to-end and core package tests', '00000000-0000-0000-0000-000000000002') WITH REFRESH;
 
 -- Seed the test-org organization's member (password: kinotic): a user of the organization
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, organizationId, enabled, created) VALUES ('00000000-0000-0000-0000-000000000002', 'ORGANIZATION_USER', 'kinotic@kinotic.local', 'Kinotic Test', 'test-org', true, '2026-01-01') WITH REFRESH;

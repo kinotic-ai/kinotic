@@ -106,7 +106,7 @@ export class KinoticSingleton implements IKinotic {
     async connect(options?: ConnectOptions): Promise<ConnectedInfo> {
         const ret = await this._eventBus.connect(Util.resolveConnectOptions(options))
         // the application services registered before the connection register in the directory now, so the
-        // platform lists them from the first; a service the platform refuses fails the connection
+        // system lists and checks them from the first; a service the system refuses fails the connection
         await this.serviceRegistry.registerEntries()
         return ret
     }

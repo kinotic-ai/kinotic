@@ -83,26 +83,32 @@ public class TenantSelectionTests extends KinoticTestBase {
     }
 
     @Test
-    public void tenantedParticipantIsConfinedToItsTenant() {
-        EntityDefinition definition = createTenantPersonDefinition("_confined");
+    public void aTenantedParticipantReadsTheTenantsItSelects() {
+        EntityDefinition definition = createTenantPersonDefinition("_selects");
+        EntityContext organization = new DefaultEntityContext(TEST_ORGANIZATION_PARTICIPANT);
+        savePerson(definition, organization, "tenant1", "One").await();
+        savePerson(definition, organization, "tenant2", "Two").await();
+        runAsOrganization(() -> entitiesService.syncIndex(definition.getId(), organization)).await();
         EntityContext own = new DefaultEntityContext(applicationParticipant("tenant1", "user1")).setTenantSelection(List.of("tenant1"));
         EntityContext other = new DefaultEntityContext(applicationParticipant("tenant1", "user1")).setTenantSelection(List.of("tenant2"));
         EntityContext all = new DefaultEntityContext(applicationParticipant("tenant1", "user1")).setTenantSelection(List.of(EntityContext.ALL_TENANTS));
 
+        // which tenants a participant may select is the gateway's check of the admin repository, made on the
+        // definition itself, so the service reads whatever selection reaches it
         StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(definition.getId(), own)).toCompletionStage()))
-                    .expectNext(0L)
-                    .as("Selecting its own tenant is allowed")
+                    .expectNext(1L)
+                    .as("Selecting its own tenant counts that tenant")
                     .verifyComplete();
 
         StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(definition.getId(), other)).toCompletionStage()))
-                    .as("Selecting another tenant is refused")
-                    .expectError(AuthorizationException.class)
-                    .verify();
+                    .expectNext(1L)
+                    .as("Selecting another tenant counts that tenant")
+                    .verifyComplete();
 
         StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(definition.getId(), all)).toCompletionStage()))
-                    .as("Selecting every tenant is refused")
-                    .expectError(AuthorizationException.class)
-                    .verify();
+                    .expectNext(2L)
+                    .as("Selecting every tenant counts them all")
+                    .verifyComplete();
     }
 
     @Test
@@ -212,13 +218,28 @@ public class TenantSelectionTests extends KinoticTestBase {
                     .as("A tenanted participant may select its own tenant")
                     .verifyComplete();
 
+        // the admin repository's selection is the gateway's to allow, by its check on the definition itself
         StepVerifier.create(Mono.fromCompletionStage(countWithAdminQuery(definition, applicationParticipant("tenant1", "user1"), "tenant1", "tenant2").toCompletionStage()))
-                    .as("A tenanted participant selecting another tenant is refused")
-                    .expectError(AuthorizationException.class)
-                    .verify();
+                    .expectNext(5L)
+                    .as("A tenanted participant counts the tenants the admin repository selects")
+                    .verifyComplete();
+
+        // the tenant-scoped repository is checked within the caller's tenant, so a parameter of the query cannot widen it
+        StepVerifier.create(Mono.fromCompletionStage(countWithQueryParameter(definition, applicationParticipant("tenant1", "user1"), "tenant1").toCompletionStage()))
+                    .expectNext(2L)
+                    .as("A tenanted participant may name its own tenant through the query's parameter")
+                    .verifyComplete();
 
         StepVerifier.create(Mono.fromCompletionStage(countWithQueryParameter(definition, applicationParticipant("tenant1", "user1"), "tenant1", "tenant2").toCompletionStage()))
                     .as("A tenanted participant selecting another tenant through the query's parameter is refused")
+                    .expectError(AuthorizationException.class)
+                    .verify();
+
+        // the check holds for every parameter of the request, so a selection of the caller's own tenant ahead of a wider one widens nothing
+        ListParameterHolder twice = new ListParameterHolder(List.of(new QueryParameter("tenantSelection", List.of("tenant1")),
+                                                                    new QueryParameter("tenantSelection", List.of("tenant1", "tenant2"))));
+        StepVerifier.create(Mono.fromCompletionStage(countWith(definition, applicationParticipant("tenant1", "user1"), twice).toCompletionStage()))
+                    .as("A tenanted participant naming the selection twice is refused the wider one")
                     .expectError(AuthorizationException.class)
                     .verify();
     }
@@ -247,9 +268,12 @@ public class TenantSelectionTests extends KinoticTestBase {
                 .map(rows -> objectMapper.readTree(rows.getFirst().data()).get("count").asLong());
     }
 
-    @SuppressWarnings("rawtypes")
     private Future<Long> countWithQueryParameter(EntityDefinition definition, ScopedParticipant participant, String... tenants) {
-        ListParameterHolder parameters = new ListParameterHolder(List.of(new QueryParameter("tenantSelection", List.of(tenants))));
+        return countWith(definition, participant, new ListParameterHolder(List.of(new QueryParameter("tenantSelection", List.of(tenants)))));
+    }
+
+    @SuppressWarnings("rawtypes")
+    private Future<Long> countWith(EntityDefinition definition, ScopedParticipant participant, ListParameterHolder parameters) {
         return runAsOrganization(() -> entitiesService.namedQuery(definition.getId(),
                                                                   COUNT_QUERY,
                                                                   parameters,

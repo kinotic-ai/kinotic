@@ -18,7 +18,7 @@ import path from 'path'
 export class HealthTaskFactory {
     private readonly organizationId = 'test-org'
     private readonly applicationId = 'healthcare'
-    private projectId = 'healthcare_main_project'
+    private projectId = 'healthcare-main-project'
     private readonly taskBuilder: CreateKinoticTaskBuilder
     private readonly connectionInfoSupplier: () => Promise<ConnectionInfo>
     private appKinotic?: KinoticSingleton

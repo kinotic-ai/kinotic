@@ -2,6 +2,7 @@ package org.kinotic.management.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -10,6 +11,7 @@ import org.kinotic.domain.api.repositories.NamedQueriesDefinitionRepository;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
 import org.kinotic.domain.api.cache.CacheEvictionException;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,6 +36,27 @@ public class DefaultNamedQueriesDefinitionService extends AbstractProjectScopedS
     @Override
     public Future<NamedQueriesDefinition> findByApplicationAndEntityDefinition(String applicationId, String entityDefinitionName) {
         return namedQueriesRepository.findByApplicationAndEntityDefinition(applicationId, entityDefinitionName, requireOrganizationId());
+    }
+
+    // The gateway checks a write on the entity definition its id names, so the id must be the one of the definition
+    // the queries are written for
+    @Override
+    protected Future<Void> beforeSave(NamedQueriesDefinition definition) {
+        Future<Void> ret;
+        try {
+            Validate.notBlank(definition.getApplicationId(), "NamedQueriesDefinition applicationId cannot be blank");
+            Validate.notBlank(definition.getEntityDefinitionName(), "NamedQueriesDefinition entityDefinitionName cannot be blank");
+            String id = DomainUtil.createEntityDefinitionId(definition.applicationKey(), definition.getEntityDefinitionName());
+            if (definition.getId() == null) {
+                definition.setId(id);
+            }
+            Validate.isTrue(id.equals(definition.getId()),
+                            "NamedQueriesDefinition id '%s' must be the id of its entity definition, '%s'", definition.getId(), id);
+            ret = Future.succeededFuture();
+        } catch (IllegalArgumentException | NullPointerException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
     }
 
     // Every mutation below uses the Refresh.WaitFor write/delete variant and evicts after

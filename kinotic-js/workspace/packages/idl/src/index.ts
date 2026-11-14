@@ -1,3 +1,6 @@
+export * from './api/decorators/AuthzCheckDecorator'
+export * from './api/decorators/AuthzResourceDecorator'
+export * from './api/decorators/AuthzRoleDeclaration'
 export * from './api/decorators/C3Decorator'
 export * from './api/decorators/NotNullDecorator'
 

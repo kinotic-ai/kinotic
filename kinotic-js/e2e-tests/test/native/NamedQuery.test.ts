@@ -50,7 +50,7 @@ describe('Kinotic JS', () => {
         context.projectIdUsed = generateRandomString(5)
         context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, context.applicationIdUsed, context.projectIdUsed)
         expect(context.entityDefinition).toBeDefined()
-        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT, context.entityDefinition.name)
         context.entityService = new EntityRepository(
             context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,

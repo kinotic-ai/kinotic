@@ -33,6 +33,9 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | Cloudflare zone for the UI sites (`kinotic.io`) | Cloudflare Pro + Advanced Certificate Manager + Workers Paid | **~$40/mo** fixed ($25 + $10 + $5); the Pro plan includes 100 custom hostnames, then $0.10 each; no egress charge; Workers $0.30 per million requests past the ten million included; Azure egress on edge cache misses only |
 | Organization storage resource group + private-endpoints subnet | Resource Manager, VNet | Free |
 | Private DNS zone (`privatelink.blob.core.windows.net`) + VNet link | Azure Private DNS | **~$0.50/mo** |
+| OpenFGA database | Azure Database for PostgreSQL flexible server (B1ms burstable, 32 GB, 7-day backups in beta) | **~$17/mo** |
+| OpenFGA database private endpoint | Private Endpoint (postgresqlServer) | **~$7.30/mo** + ~$0.01/GB |
+| Private DNS zone (`privatelink.postgres.database.azure.com`) + VNet link | Azure Private DNS | **~$0.50/mo** |
 | Per organization: storage account | Blob Storage (StorageV2, LRS, hot) | **~$0.02/GB/mo**; a published UI is a few MB, so cents |
 | Per organization: private endpoint | Private Link | **~$7.30/mo** each, plus ~$0.01/GB processed |
 | Per organization: one proxied wildcard record and its certificate | Cloudflare | Included |
@@ -44,6 +47,7 @@ Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tf
 | AKS Standard Tier | Uptime SLA (99.95%) | **$73/mo** |
 | ES Node Pool (3x VMs) | Virtual Machines (memory-optimized) | **Paid** |
 | ES OS Disks | Managed Disks | **Paid** |
+| OpenFGA database | Azure Database for PostgreSQL flexible server (D2ds_v5 general purpose with a zone-redundant standby, 35-day backups), replacing the beta B1ms | **~$270/mo** |
 
 ### Optional
 
@@ -85,9 +89,12 @@ Includes observability stack (Loki + Tempo + Mimir + Alloy).
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
 | Cloudflare (UI sites) | Pro, certificates, Workers | 1 | $40 | $40 |
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
+| OpenFGA database | PostgreSQL flexible server, B1ms burstable, 32 GB | 1 | $17 | $17 |
+| OpenFGA database private endpoint | Private Endpoint (postgresqlServer) | 1 | $7.30 | $7 |
+| Private DNS Zone (postgres) | privatelink.postgres.database.azure.com | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
-### Beta Total: ~$623/mo, plus ~$7.50 per organization
+### Beta Total: ~$648/mo, plus ~$7.50 per organization
 
 ### Beta Resource Utilization (48 GB across 3 nodes)
 
@@ -104,10 +111,11 @@ Memory reservations (requests) determine scheduling, not actual usage.
 | Loki | 512 MB | 1 | 0.5 GB |
 | Tempo | 512 MB | 1 | 0.5 GB |
 | Mimir | 512 MB | 1 | 0.5 GB |
+| OpenFGA | 512 MB | 2 | 1 GB |
 | Alloy (per node) | 256 MB | 3 | 0.75 GB |
 | System (kube, ECK, cert-mgr, Reloader, Cilium) | — | — | ~5 GB |
-| **Reserved** | | | **~37.25 GB** |
-| **Available for rolling updates** | | | **~4.5 GB** |
+| **Reserved** | | | **~38.25 GB** |
+| **Available for rolling updates** | | | **~3.75 GB** |
 
 **Beta sizing notes:**
 - ES data reduced from 8 GB to 6 GB (actual usage ~4.6 GB per pod)
@@ -142,9 +150,12 @@ AKS Standard tier with uptime SLA.
 | State Storage | Blob (LRS) | 1 | $1 | $1 |
 | Cloudflare (UI sites) | Pro, certificates, Workers | 1 | $40 | $40 |
 | Private DNS Zone (blob) | privatelink.blob.core.windows.net | 1 | $0.50 | $1 |
+| OpenFGA database | PostgreSQL flexible server, D2ds_v5 general purpose, zone-redundant standby, 32 GB | 1 | $270 | $270 |
+| OpenFGA database private endpoint | Private Endpoint (postgresqlServer) | 1 | $7.30 | $7 |
+| Private DNS Zone (postgres) | privatelink.postgres.database.azure.com | 1 | $0.50 | $1 |
 | Organization storage | Storage account + private endpoint | per org | ~$7.50 | +$7.50 per org |
 
-### Production Total: ~$2,075/mo, plus ~$7.50 per organization
+### Production Total: ~$2,353/mo, plus ~$7.50 per organization
 
 The per-organization line is the private endpoint; the account itself is cents. At a
 thousand organizations that is ~$7,300/mo, which is where service endpoints or a shared

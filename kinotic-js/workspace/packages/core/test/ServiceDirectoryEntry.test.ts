@@ -1,7 +1,10 @@
-import {FunctionDefinition, ServiceDefinition} from '@kinotic-ai/idl'
+import {AuthzCheckDecorator, AuthzResourceDecorator, FunctionDefinition, ServiceDefinition} from '@kinotic-ai/idl'
 import {Observable, of, Subject} from 'rxjs'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
+    AuthzCheck,
+    AuthzResource,
+    AuthzUnchecked,
     declareServiceDefinitions,
     Event,
     EventConstants,
@@ -71,6 +74,38 @@ function definition(name: string, ...functions: string[]): ServiceDefinition {
     return ret
 }
 
+// the definition kinotic sync generates for a service of the type 'invoice' whose generate function needs can_generate
+function invoiceDefinition(name: string, generate: AuthzCheckDecorator): ServiceDefinition {
+    const ret = definition(name, 'findInvoices', 'generate')
+    ret.addDecorator(new AuthzResourceDecorator('invoice'))
+    ret.functions.find(f => f.name === 'generate')!.addDecorator(generate)
+    return ret
+}
+
+function permission(name: string): AuthzCheckDecorator {
+    const ret = new AuthzCheckDecorator()
+    ret.permission = name
+    return ret
+}
+
+function uncheckedMark(): AuthzCheckDecorator {
+    const ret = new AuthzCheckDecorator()
+    ret.unchecked = true
+    return ret
+}
+
+@AuthzResource('invoice')
+class InvoiceService {
+    findInvoices(): Promise<string[]> {
+        return Promise.resolve([])
+    }
+
+    @AuthzCheck({permission: 'can_generate'})
+    generate(name: string): Promise<string> {
+        return Promise.resolve(name)
+    }
+}
+
 function identifier(name: string, zone: string | undefined = ZONE): ServiceIdentifier {
     const ret = new ServiceIdentifier(NAMESPACE, name, zone)
     ret.version = '1.2.0'
@@ -87,7 +122,7 @@ function registry(connected: boolean): {registry: ServiceRegistry, bus: Recordin
  * Pins what a runtime registers in the platform's directory: an application service with the definition the
  * project declared for it, as it registers on a connected client or as the client connects; nothing for a
  * service outside an application's zone or one with no definition; and a refusal for a definition naming other
- * functions than the service serves.
+ * functions than the service serves, or for a service declaring a resource or marked unchecked with no definition.
  */
 describe('Kinotic JS', () => {
     describe('packages/core', () => {
@@ -131,6 +166,79 @@ describe('Kinotic JS', () => {
                 const {registry: services, bus} = registry(true)
 
                 expect(() => services.register(identifier('DriftedService'), new ReportService())).toThrowError(/kinotic sync/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('registers a resource service whose definition carries what it declares', () => {
+                // the definitions declared stay for the module, so each test names its own service
+                declareServiceDefinitions([invoiceDefinition('BillingService', permission('can_generate'))])
+                const {registry: services, bus} = registry(true)
+
+                services.register(identifier('BillingService'), new InvoiceService())
+
+                expect(bus.registrations()).toHaveLength(1)
+            })
+
+            it('refuses a service whose definition declares other authorization than it does', () => {
+                // generated before the service declared its resource
+                declareServiceDefinitions([definition('UnresourcedService', 'findInvoices', 'generate')])
+                // generated while generate was still marked unchecked
+                declareServiceDefinitions([invoiceDefinition('UncheckedService', uncheckedMark())])
+                // generated before generate's permission changed
+                declareServiceDefinitions([invoiceDefinition('RenamedService', permission('can_render'))])
+                const {registry: services, bus} = registry(true)
+
+                for (const name of ['UnresourcedService', 'UncheckedService', 'RenamedService']) {
+                    expect(() => services.register(identifier(name), new InvoiceService())).toThrowError(/other authorization than its definition/)
+                }
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('refuses a function marked unchecked beside its check, whatever its definition declares', () => {
+                // generated while generate carried the check alone
+                declareServiceDefinitions([invoiceDefinition('ContradictingService', permission('can_generate'))])
+                @AuthzResource('invoice')
+                class ContradictingService {
+                    findInvoices(): Promise<string[]> {
+                        return Promise.resolve([])
+                    }
+
+                    @AuthzUnchecked
+                    @AuthzCheck({permission: 'can_generate'})
+                    generate(name: string): Promise<string> {
+                        return Promise.resolve(name)
+                    }
+                }
+                const {registry: services, bus} = registry(true)
+
+                expect(() => services.register(identifier('ContradictingService'), new ContradictingService()))
+                    .toThrowError(/generate of ContradictingService is marked @AuthzUnchecked beside the @AuthzCheck/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('refuses a resource service the project declared no definition for', () => {
+                @AuthzResource('invoice')
+                class InvoiceService {
+                    findInvoices(): Promise<string[]> {
+                        return Promise.resolve([])
+                    }
+                }
+                const {registry: services, bus} = registry(true)
+
+                expect(() => services.register(identifier('InvoiceService'), new InvoiceService())).toThrowError(/declares a resource/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
+            it('refuses a service marked unchecked as a whole that the project declared no definition for', () => {
+                @AuthzUnchecked
+                class GreetingService {
+                    greet(): Promise<string> {
+                        return Promise.resolve('hello')
+                    }
+                }
+                const {registry: services, bus} = registry(true)
+
+                expect(() => services.register(identifier('GreetingService'), new GreetingService())).toThrowError(/marked unchecked/)
                 expect(bus.registrations()).toHaveLength(0)
             })
 

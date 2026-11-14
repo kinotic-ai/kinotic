@@ -14,7 +14,10 @@ import {
     EntityDefinition,
     KinoticProjectConfig,
     NamedQueriesDefinition,
-    Project
+    Project,
+    type Resource,
+    type Subject,
+    SubjectType
 } from '@kinotic-ai/management-api'
 import {
     IEntityRepository,
@@ -144,15 +147,30 @@ export async function shutdownKinoticClient(): Promise<void> {
 /**
  * Creates a fresh {@link KinoticSingleton} connected to the app server as the APPLICATION-scoped user
  * seeded for the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
- * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
- * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
- * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the
- * SHARED entity data of its own tenant. The application must exist; its login is made to take a password first.
+ * convention app-<applicationId>-<tenantId>@test.local, password kinotic), granted the tenant admin role
+ * on its tenant first, so it reads and writes every definition's rows there, and connected once the
+ * application's store answers for each entity named within the tenant. The caller is responsible for
+ * disconnecting it when done. The instance has {@code ManagementApiPlugin} and {@code PersistencePlugin}
+ * installed so it can back an {@code EntityRepository} that acts on the SHARED entity data of its own tenant.
+ *
+ * @param entityNames the names of the entity definitions the client will act on, each published already
  */
-export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
+export async function initKinoticAppClient(applicationId: string, tenantId: string, ...entityNames: string[]): Promise<KinoticSingleton> {
+    await grantTenantAdmin(applicationId, tenantId, entityNames)
+    return connectAppClient(applicationId, tenantId)
+}
+
+/**
+ * Connects a fresh {@link KinoticSingleton} to the app server as the fixture user of the (applicationId, tenantId)
+ * pair, holding whatever the application has granted it so far. The application must exist; its login is made to
+ * take a password first.
+ *
+ * @param kinotic a client connected to the management server as an administrator of the e2e organization
+ */
+export async function connectAppClient(applicationId: string, tenantId: string, kinotic: KinoticSingleton = Kinotic): Promise<KinoticSingleton> {
     // the fixtures seed the application's email and password, but deleting the application, as the suites do between
     // tests, deletes it too, so an application created again takes no password until it is saved again
-    await Kinotic.ownedPasswordConfigurations.save({id: null, organizationId: null, applicationId, tenantId: null, enabled: true,
+    await kinotic.ownedPasswordConfigurations.save({id: null, organizationId: null, applicationId, tenantId: null, enabled: true,
                                                    createUserOnSignIn: false, created: null, updated: null})
     const appKinotic = new KinoticSingleton()
     appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
@@ -162,6 +180,117 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
                                      E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId),
         appServer()))
     return appKinotic
+}
+
+/**
+ * The fixture user of the (applicationId, tenantId) pair as a grant's subject, found among the application's users
+ * by its email.
+ *
+ * @param kinotic a client connected as an administrator of the e2e organization
+ */
+export async function appFixtureSubject(applicationId: string, tenantId: string, kinotic: KinoticSingleton = Kinotic): Promise<Subject> {
+    const email = appFixtureEmail(applicationId, tenantId)
+    const users = await kinotic.members.findApplicationUsers(applicationId, Pageable.create(0, 100))
+    const user = users.content?.find(member => member.email === email)
+    if (!user?.id) {
+        throw new Error(`No user ${email} is seeded for application ${applicationId}`)
+    }
+    return {type: SubjectType.USER, id: user.id}
+}
+
+/**
+ * Grants the fixture user of the (applicationId, tenantId) pair the tenant admin role on its tenant, which reaches
+ * the rows of every definition of the application in that tenant; then waits until the store answers for each
+ * entity named within the tenant, which the definition's creation placed in the store. A user already holding the
+ * role is granted nothing again.
+ */
+export async function grantTenantAdmin(applicationId: string, tenantId: string, entityNames: string[]): Promise<void> {
+    const subject = await appFixtureSubject(applicationId, tenantId)
+    const tenant: Resource = {type: 'tenant', id: tenantId}
+    await until(async () => {
+        const grants = await Kinotic.applicationAccess.findGrants(applicationId, tenant)
+        if (!grants.some(grant => grant.roleId === 'tenant.admin' && grant.subject.id === subject.id)) {
+            await Kinotic.applicationAccess.grant(applicationId, subject, 'tenant.admin', tenant)
+        }
+        return true
+    })
+    for (const entityName of entityNames) {
+        const definitionId = `${E2E_ORGANIZATION_ID}.${applicationId}.${entityName}`.toLowerCase()
+        const rows: Resource = {type: 'tenant_definition', id: `${definitionId}@${tenantId}`}
+        await until(async () => (await Kinotic.applicationAccess.explain(applicationId, subject, 'entity_definition_can_read', rows)).allowed)
+    }
+}
+
+/**
+ * Grants the machine the runtime role on one of the e2e organization's applications, as deploying a project of
+ * the application grants its runtime machine, and waits until the machine may register the application's
+ * services.
+ *
+ * @param kinotic a client connected as an administrator of the e2e organization
+ * @return the grant's id, which revokes it
+ */
+export async function grantRuntime(kinotic: KinoticSingleton, machineId: string, applicationId: string): Promise<string> {
+    const subject: Subject = {type: SubjectType.USER, id: machineId}
+    const application: Resource = {type: 'application', id: applicationId}
+    const grant = await kinotic.permissions.grant(subject, 'application.runtime', application)
+    // the permission is in the system store's model once the reconciler writes the services an app server
+    // registers as it starts, a moment after the server is up
+    await until(async () => (await kinotic.permissions.explain(subject, 'can_register_services', application)).allowed)
+    return grant.id
+}
+
+/**
+ * Polls the call until it is admitted, for up to the timeout, and returns what it answers: the gateway answers
+ * from the engine's caches, which lag a grant by a moment.
+ */
+export async function untilAdmitted<T>(call: () => Promise<T>, timeoutMs: number = 30000): Promise<T> {
+    let ret!: T
+    await until(async () => {
+        ret = await call()
+        return true
+    }, timeoutMs)
+    return ret
+}
+
+/**
+ * Polls the call until it is refused with a message matching the pattern, for up to the timeout: the gateway
+ * answers from the engine's caches, which lag a revocation by a moment. A refusal for any other reason fails
+ * the wait.
+ */
+export async function untilRefused(call: () => Promise<unknown>, pattern: RegExp, timeoutMs: number = 30000): Promise<void> {
+    await until(async () => {
+        let ret = false
+        try {
+            await call()
+        } catch (e) {
+            const message = e instanceof Error ? e.message : String(e)
+            if (!pattern.test(message)) {
+                throw e
+            }
+            ret = true
+        }
+        return ret
+    }, timeoutMs)
+}
+
+/**
+ * Polls the condition every quarter second until it holds, for up to the timeout; a condition that throws is
+ * polled again.
+ */
+export async function until(condition: () => Promise<boolean>, timeoutMs: number = 30000): Promise<void> {
+    const deadline = Date.now() + timeoutMs
+    let last: unknown
+    while (Date.now() < deadline) {
+        try {
+            if (await condition()) {
+                return
+            }
+        } catch (e) {
+            last = e
+        }
+        await new Promise(resolve => setTimeout(resolve, 250))
+    }
+    throw new Error(`Timed out after ${timeoutMs}ms waiting for ${condition}` + (last ? `; last failure: ${last}` : ''))
 }
 
 export async function createPersonSchema(organizationId: string, applicationId: string, projectId: string, withTenant: boolean = false): Promise<SchemaCreationResult> {

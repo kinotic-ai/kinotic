@@ -1,0 +1,58 @@
+import {C3Decorator} from '@/api/decorators/C3Decorator'
+
+/**
+ * The authorization check a function requires. A service's definition declares what the derivation cannot
+ * read from the function's name and parameters: a permission of its own, another resource than the derived
+ * one, the permissions it implies, a consistent answer, or that the function is served with no check. The
+ * system derives the rest when the service registers, naming the resource checked and the type the permission
+ * is named for.
+ */
+export class AuthzCheckDecorator extends C3Decorator {
+
+    /**
+     * The type of the resource the check is made on, when it is not the derived one.
+     */
+    public resource: string | null = null
+
+    /**
+     * The id of the resource the check is made on, as a template over the function's parameters and the
+     * caller's scope, such as `{reportId}` or `{@tenantId}`.
+     */
+    public resourceId: string | null = null
+
+    /**
+     * The type the permission is named for, which the system derives.
+     */
+    public permissionResource: string | null = null
+
+    /**
+     * The short permission name, such as `can_generate`.
+     */
+    public permission: string | null = null
+
+    /**
+     * Short names of permissions on the permission's type that this one implies.
+     */
+    public implies: string[] = []
+
+    /**
+     * True for a function declared served with no check, which any caller the zone admits may call.
+     */
+    public unchecked: boolean = false
+
+    /**
+     * Whether the check must answer from the stored relationships rather than the engine's caches.
+     */
+    public consistent: boolean = false
+
+    /**
+     * True for a check on an `entity_definition` made on the definition itself for every caller, where a tenant's
+     * user is otherwise checked on the definition within its tenant: the function acts on the rows of every tenant.
+     */
+    public acrossTenants: boolean = false
+
+    constructor() {
+        super()
+        this.type = 'AuthzCheck'
+    }
+}

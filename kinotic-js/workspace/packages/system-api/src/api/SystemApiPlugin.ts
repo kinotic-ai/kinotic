@@ -8,6 +8,7 @@ import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/ap
 import { ClusterVulnerabilityService, type IClusterVulnerabilityService } from '@/api/services/IClusterVulnerabilityService'
 import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 import { SystemMemberService, type ISystemMemberService } from '@/api/services/ISystemMemberService'
+import { SystemAccessService, type ISystemAccessService } from '@/api/services/ISystemAccessService'
 import { WatchEventService, type IWatchEventService } from '@/api/services/IWatchEventService'
 import { LlmConfigurationService, type ILlmConfigurationService } from '@/api/services/ILlmConfigurationService'
 import { SystemJobService, type ISystemJobService } from '@/api/services/ISystemJobService'
@@ -22,6 +23,7 @@ export interface ISystemApiExtension {
     clusterVulnerabilities: IClusterVulnerabilityService
     systemOrganizations: ISystemOrganizationService
     systemMembers: ISystemMemberService
+    systemAccess: ISystemAccessService
     watchEvents: IWatchEventService
     llmConfigurations: ILlmConfigurationService
     systemJobs: ISystemJobService
@@ -39,6 +41,7 @@ export const SystemApiPlugin: KinoticPlugin<ISystemApiExtension> = {
             clusterVulnerabilities: new ClusterVulnerabilityService(kinotic),
             systemOrganizations: new SystemOrganizationService(kinotic),
             systemMembers: new SystemMemberService(kinotic),
+            systemAccess: new SystemAccessService(kinotic),
             watchEvents: new WatchEventService(kinotic),
             llmConfigurations: new LlmConfigurationService(kinotic),
             systemJobs: new SystemJobService(kinotic),

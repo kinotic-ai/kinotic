@@ -1,15 +1,21 @@
 package org.kinotic.persistence.api.services;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.RawJson;
+import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.persistence.api.model.FastestType;
+import org.kinotic.persistence.api.model.QueryParameter;
+import org.kinotic.persistence.api.model.TenantSpecificId;
 
 import java.util.List;
 
@@ -17,9 +23,17 @@ import java.util.List;
  * Provides Admin access to entities for a given {@link EntityDefinition}.
  * Admin access allows you to read and write data for tenants other than the one that is logged into by the participant.
  * Created by Nic Padilla 🤪on 6/18/23.
+ *
+ * Every function is checked on the entity definition named, for the permission of its rows the function needs,
+ * the one {@link JsonEntitiesRepository} checks for the same function: reading, listing, counting, querying
+ * and searching need {@code can_read}, and deleting {@code can_delete}. Deleting implies updating, and
+ * updating reading. The check is made on the definition itself for every caller, since a function here acts on
+ * the rows of the tenants it names: a tenant's user holding the permission within its tenant alone is refused,
+ * and one granted it on the definition or on the application selects any tenant.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)
+@AuthzResource(value = AuthzConstants.ENTITY_DEFINITION_TYPE, parent = AuthzConstants.APPLICATION_TYPE, acrossTenants = true)
 public interface AdminJsonEntitiesRepository {
 
     /**
@@ -30,6 +44,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Long> count(String entityDefinitionId, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
@@ -41,6 +56,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Long> countByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
@@ -51,6 +67,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_DELETE, resourceId = "{entityDefinitionId}")
     Future<Void> deleteById(String entityDefinitionId, TenantSpecificId id, ScopedParticipant participant);
 
     /**
@@ -62,6 +79,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_DELETE, resourceId = "{entityDefinitionId}")
     Future<Void> deleteByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
@@ -73,6 +91,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Page<FastestType>> findAll(String entityDefinitionId, List<String> tenantSelection, Pageable pageable, ScopedParticipant participant);
 
     /**
@@ -83,6 +102,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<FastestType> findById(String entityDefinitionId, TenantSpecificId id, ScopedParticipant participant);
 
     /**
@@ -93,10 +113,13 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<List<FastestType>> findByIds(String entityDefinitionId, List<TenantSpecificId> ids, ScopedParticipant participant);
 
     /**
      * Executes a named query.
+     * The caller needs {@code can_read} on the definition for a query that reads rows, {@code can_edit} for one
+     * that inserts or updates them, and {@code can_delete} for one that deletes them.
      *
      * @param entityDefinitionId     the id of the {@link EntityDefinition} that this named query is defined for
      * @param queryName       the name of {@link FunctionDefinition} that defines the query
@@ -105,6 +128,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(permissionResolver = AuthzConstants.NAMED_QUERY_PERMISSION_RESOLVER, resourceId = "{entityDefinitionId}")
     Future<List<RawJson>> namedQuery(String entityDefinitionId,
                                      String queryName,
                                      List<QueryParameter> queryParameters,
@@ -113,6 +137,8 @@ public interface AdminJsonEntitiesRepository {
 
     /**
      * Executes a named query and returns a {@link Page} of results.
+     * The caller needs {@code can_read} on the definition for a query that reads rows, {@code can_edit} for one
+     * that inserts or updates them, and {@code can_delete} for one that deletes them.
      *
      * @param entityDefinitionId     the id of the {@link EntityDefinition} that this named query is defined for
      * @param queryName       the name of {@link FunctionDefinition} that defines the query
@@ -122,6 +148,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return {@link Future} with the result of the query
      */
+    @AuthzCheck(permissionResolver = AuthzConstants.NAMED_QUERY_PERMISSION_RESOLVER, resourceId = "{entityDefinitionId}")
     Future<Page<RawJson>> namedQueryPage(String entityDefinitionId,
                                          String queryName,
                                          List<QueryParameter> queryParameters,
@@ -141,6 +168,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link Future} of a page of entities
      */
+    @AuthzCheck(resourceId = "{entityDefinitionId}")
     Future<Page<FastestType>> search(String entityDefinitionId, String searchText, List<String> tenantSelection, Pageable pageable, ScopedParticipant participant);
 
 }

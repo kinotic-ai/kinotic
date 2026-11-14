@@ -9,5 +9,6 @@ public enum WatchedType {
     MICROSERVICE_DEPLOYMENT,
     UI_DEPLOYMENT,
     VM_NODE,
-    JOB_RUN
+    JOB_RUN,
+    AUTHZ_STORE
 }

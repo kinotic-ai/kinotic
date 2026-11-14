@@ -49,8 +49,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -143,14 +145,14 @@ public class CrudServiceTemplate {
      * operations that failed give; deleting or updating a document that does not exist is not a failure
      */
     public Future<Void> bulk(List<BulkOperation> operations) {
-        return bulk(operations, null);
+        return applied(operations, null).mapEmpty();
     }
 
     /**
      * As {@link #bulk(List)}, and waits for the operations to be visible in search results.
      */
     public Future<Void> bulkSync(List<BulkOperation> operations) {
-        return bulk(operations, Refresh.WaitFor);
+        return applied(operations, Refresh.WaitFor).mapEmpty();
     }
 
     /**
@@ -752,11 +754,11 @@ public class CrudServiceTemplate {
      * @param paramsById     the values the script reads as {@code params.<name>}, by the id of the document
      * @param actionConsumer to customize each {@link UpdateAction}, such as a scripted upsert, or null if no
      *                       customization is needed
-     * @return a {@link Future} that will complete when every document is updated, or fail with the reasons the
-     * updates that failed give
+     * @return a {@link Future} that will complete with the ids of the documents the script changed once every
+     * document is updated, or fail with the reasons the updates that failed give
      */
     @SuppressWarnings("rawtypes")
-    public Future<Void> bulkScriptedUpdateSync(String indexName,
+    public Future<Set<String>> bulkScriptedUpdateSync(String indexName,
                                                String source,
                                                Map<String, Map<String, Object>> paramsById,
                                                Consumer<UpdateAction.Builder<Map, Map<String, Object>>> actionConsumer) {
@@ -775,13 +777,23 @@ public class CrudServiceTemplate {
                 })))));
         // one request with refresh=wait_for holds one refresh listener per shard, where a request per document
         // holds one each and, past index.max_refresh_listeners, forces a refresh
-        return bulk(operations, Refresh.WaitFor);
+        return applied(operations, Refresh.WaitFor).map(items -> {
+            Set<String> changed = new HashSet<>();
+            for (BulkResponseItem item : items) {
+                if (item.error() == null && !"noop".equals(item.result())) {
+                    changed.add(item.id());
+                }
+            }
+            return changed;
+        });
     }
 
-    private Future<Void> bulk(List<BulkOperation> operations, Refresh refresh) {
+    // The response's item of each operation, in the order they were sent, once none of them failed; deleting or
+    // updating a document that does not exist is not a failure
+    private Future<List<BulkResponseItem>> applied(List<BulkOperation> operations, Refresh refresh) {
         if (operations.isEmpty()) {
             // Elasticsearch rejects a bulk request with no operations
-            return Future.succeededFuture();
+            return Future.succeededFuture(List.of());
         }
         return KinoticUtil.toFuture(esAsyncClient.bulk(br -> br.operations(operations).refresh(refresh)))
                           .compose(response -> {
@@ -796,8 +808,8 @@ public class CrudServiceTemplate {
                                   }
                               }
                               return failures.isEmpty()
-                                      ? Future.<Void>succeededFuture()
-                                      : Future.<Void>failedFuture(new IllegalStateException("Bulk request failed for " + failures));
+                                      ? Future.succeededFuture(response.items())
+                                      : Future.<List<BulkResponseItem>>failedFuture(new IllegalStateException("Bulk request failed for " + failures));
                           });
     }
 

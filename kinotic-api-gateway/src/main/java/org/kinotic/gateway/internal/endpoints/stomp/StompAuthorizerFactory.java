@@ -1,5 +1,6 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.ZonePartitioningService;
@@ -19,12 +20,13 @@ public class StompAuthorizerFactory {
     private final ZonePartitioningService zonePartitioningService;
     private final ZoneRulesResolver zoneRulesResolver;
 
-    public StompAuthorizer create(ConnectedInfo connectedInfo) {
+    public Future<StompAuthorizer> create(ConnectedInfo connectedInfo) {
         Validate.notNull(connectedInfo, "connectedInfo must not be null");
         Validate.notNull(connectedInfo.getParticipant(), "participant must not be null");
         Validate.notEmpty(connectedInfo.getReplyToId(), "replyToId must not be empty");
-        return new StompAuthorizer(zoneRulesResolver.resolve(connectedInfo.getParticipant()).restrictedTo(zonePartitioningService),
-                                   connectedInfo.getReplyToId());
+        return zoneRulesResolver.resolve(connectedInfo.getParticipant())
+                                .map(zoneRules -> new StompAuthorizer(zoneRules.restrictedTo(zonePartitioningService),
+                                                                      connectedInfo.getReplyToId()));
     }
 
 }

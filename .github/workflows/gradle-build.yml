@@ -23,6 +23,7 @@ on:
     branches:
       - develop
       - main
+      - 'integration/**'
     paths-ignore: *ignored-paths
   # Nightly full run. This is what refreshes the 5.0.0-SNAPSHOT jars on Sonatype: the publish job
   # below is deliberately off the per-push path because its ~3.5 min of uploads gates nothing else.
@@ -506,6 +507,31 @@ jobs:
           sudo chmod 0666 /dev/kvm
           test -r /dev/kvm -a -w /dev/kvm
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # Branch-only: the e2e suite links the first-party packages and the CLI from their sources,
+      # so both are built here first. Never merge into develop.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      # pnpm 11 needs Node 22.13 or later.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11
+
+      - name: Build first-party packages and the CLI
+        run: |
+          cd kinotic-js/workspace
+          bun install --frozen-lockfile
+          bunx bunup
+          cd ../kinotic-cli
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Run E2E tests
         run: |

@@ -96,7 +96,16 @@ public final class ZonePartitioningService {
      * @return true when the address has no zone or its zone is hosted here
      */
     public boolean hosts(String address) {
-        String zone = ZoneUtil.zoneOf(address);
+        return hostsZone(ZoneUtil.zoneOf(address));
+    }
+
+    /**
+     * Whether this server hosts consumers in the zone.
+     *
+     * @param zone a zone, or {@code null} for an address without one
+     * @return true when the zone is {@code null} or hosted here
+     */
+    public boolean hostsZone(String zone) {
         return zone == null || hostedZones == null || ZoneUtil.zoneMatches(zone, hostedZones);
     }
 
