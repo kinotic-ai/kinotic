@@ -13,6 +13,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.test.support.sample.Car;
@@ -29,6 +30,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -616,6 +618,79 @@ public class EntityCrudTests extends KinoticTestBase {
         Assertions.assertNotNull(updatedCar.getModel(), "Expected model to be null after partial update");
         Assertions.assertNotNull(updatedCar.getYear(), "Expected year to be null after partial update");
         Assertions.assertNotNull(updatedCar.getOwner(), "Expected owner to be set after partial update");
+    }
+
+    @Test
+    public void writesRejectInputOfTheWrongShape() {
+        EntityContext entityContext = new DefaultEntityContext(applicationParticipant());
+        EntityDefinition entityDefinition = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_wrongShape")).await().getLeft();
+
+        Car car = new Car();
+        car.setId(UUID.randomUUID().toString());
+        car.setMake("Honda");
+        car.setModel("Civic");
+        car.setYear(2019);
+
+        TokenBuffer singleCar = new TokenBuffer(objectMapper._serializationContext(), false);
+        singleCar.writePOJO(car);
+        TokenBuffer arrayOfOneCar = new TokenBuffer(objectMapper._serializationContext(), false);
+        arrayOfOneCar.writePOJO(List.of(car));
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.bulkSave(entityDefinition.getId(), singleCar, entityContext)).toCompletionStage()))
+                    .as("A bulk save takes an array of entities")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.bulkUpdate(entityDefinition.getId(), singleCar, entityContext)).toCompletionStage()))
+                    .as("A bulk update takes an array of entities")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), arrayOfOneCar, entityContext)).toCompletionStage()))
+                    .as("A save takes a single entity")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.update(entityDefinition.getId(), arrayOfOneCar, entityContext)).toCompletionStage()))
+                    .as("An update takes a single entity")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).await();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(entityDefinition.getId(), entityContext)).toCompletionStage()))
+                    .expectNext(0L)
+                    .as("A rejected write stores nothing")
+                    .verifyComplete();
+    }
+
+    @Test
+    public void saveFillsANullTenantFieldWithTheParticipantsTenant() {
+        EntityContext entityContext = new DefaultEntityContext(applicationParticipant("tenant1", "user1"));
+        EntityDefinition entityDefinition = runAsOrganization(() -> testDataService.createEntityDefinition("NullTenantPerson_" + suffix(),
+                                                                                                           testDataService.createPersonSchema(MultiTenancyType.SHARED))).await();
+
+        // the id field must be present for the generated id to be assigned
+        HashMap<String, Object> person = new HashMap<>();
+        person.put("id", null);
+        person.put("firstName", "Ann");
+        person.put("lastName", "Smith");
+        person.put("addresses", List.of());
+        person.put("tenantId", null);
+        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
+        tokenBuffer.writePOJO(person);
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext)).toCompletionStage()))
+                    .expectNextMatches(saved -> "tenant1".equals(objectMapper.readTree(saved.data()).get("tenantId").asString()))
+                    .as("A null tenant field is saved as the participant's tenant")
+                    .verifyComplete();
+
+        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).await();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(entityDefinition.getId(), entityContext)).toCompletionStage()))
+                    .expectNext(1L)
+                    .as("The entity is stored for the participant's tenant")
+                    .verifyComplete();
     }
 
 }

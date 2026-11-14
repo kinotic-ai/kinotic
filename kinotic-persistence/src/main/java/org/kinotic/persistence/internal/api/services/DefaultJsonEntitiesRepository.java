@@ -104,7 +104,7 @@ public class DefaultJsonEntitiesRepository implements JsonEntitiesRepository {
     }
 
     @Override
-    public Future<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant) {
+    public Future<RawJson> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant) {
         return entitiesService.save(entityDefinitionId, entity, new DefaultEntityContext(participant));
     }
 
@@ -117,7 +117,7 @@ public class DefaultJsonEntitiesRepository implements JsonEntitiesRepository {
     }
 
     @Override
-    public Future<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant) {
+    public Future<RawJson> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant) {
         return entitiesService.update(entityDefinitionId, entity, new DefaultEntityContext(participant));
     }
 
