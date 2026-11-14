@@ -72,31 +72,6 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         this.relationships = relationships;
     }
 
-    @Override
-    public Future<Long> count() {
-        return visibleIds().compose(ids -> projectRepository.count(requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<Project>> findAll(Pageable pageable) {
-        return visibleIds().compose(ids -> projectRepository.findAll(requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Page<Project>> search(String searchText, Pageable pageable) {
-        return visibleIds().compose(ids -> projectRepository.search(searchText, requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Long> countForApplication(String applicationId) {
-        return visibleIds().compose(ids -> projectRepository.countForApplication(applicationId, requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable) {
-        return visibleIds().compose(ids -> projectRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
-    }
-
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
     // record's creation to outlive; the functions the gateway checked on the project read it with super.findById
     @Override
@@ -111,7 +86,8 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     // What the caller may see, null for every project of the organization: the projects it reads, and those
     // containing an entity definition it reads, so a grant on an entity definition makes its project reachable
-    private Future<Set<String>> visibleIds() {
+    @Override
+    protected Future<Set<String>> visibleIds() {
         String organizationId = requireOrganizationId();
         return permissions.findAccessibleIds(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ).compose(projects -> projects == null
                 ? Future.succeededFuture(null)
