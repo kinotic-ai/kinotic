@@ -260,6 +260,11 @@ public class SystemTierTests extends KinoticTestBase {
         await(runAs(registrarCaller, () -> nodeOrchestration.registerNode(node)));
         assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
 
+        // another machine holding the registrar role is refused the node's id, and the node keeps its one agent
+        await(access.grant(new Subject(SubjectType.USER, other.getId()), VmNodeOrchestrationService.REGISTRAR_ROLE));
+        assertInstanceOf(AuthorizationException.class, failure(() -> runAs(otherCaller, () -> nodeOrchestration.registerNode(node))));
+        assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
+
         // the deregistration's finalizer takes the node out of the graph with its agent's grant
         await(nodeOrchestration.deregisterNode(node.getId()));
         assertTrue(awaitUntil(() -> await(vmNodeService.findById(node.getId())) == null), "the node was never finalized");
