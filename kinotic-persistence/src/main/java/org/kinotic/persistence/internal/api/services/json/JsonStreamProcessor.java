@@ -18,7 +18,8 @@ public interface JsonStreamProcessor<T, C, E> {
      * @param input to process
      * @param context the data the caller provides for processing
      * @return what the object became
-     * @throws IllegalStateException if the input yields no root object or more than one
+     * @throws IllegalArgumentException if the input is not a json object
+     * @throws IllegalStateException if the input is empty
      */
     E process(T input, C context);
 
@@ -27,6 +28,7 @@ public interface JsonStreamProcessor<T, C, E> {
      * @param input to process
      * @param context the data the caller provides for processing
      * @return what each root object became, in input order
+     * @throws IllegalArgumentException if the input is not a json array holding only objects
      */
     List<E> processArray(T input, C context);
 

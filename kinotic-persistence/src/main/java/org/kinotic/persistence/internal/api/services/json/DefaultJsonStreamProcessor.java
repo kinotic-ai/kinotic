@@ -73,15 +73,19 @@ public class DefaultJsonStreamProcessor<T, C, S extends JsonStreamProcessorState
 
                 }else{
 
+                    if(objectDepth == 0){
+                        requireRootToken(token, arrayDepth, processArray);
+                    }
+
                     if(token == JsonToken.END_OBJECT && objectDepth == 1){
                         strategy.onRootObjectEnd(jsonGenerator, state);
                         jsonGenerator.writeEndObject();
                         jsonGenerator.flush();
                         ret.add(strategy.emit(state));
-                    }else{
-                        if(!(processArray && isEnclosingArrayToken(token, arrayDepth))){
-                            jsonGenerator.copyCurrentEvent(jsonParser);
-                        }
+                    }else if(objectDepth > 0 || token == JsonToken.START_OBJECT){
+                        // outside a root object the only other tokens are the enclosing array's, which is dropped
+                        // so each root object is written on its own
+                        jsonGenerator.copyCurrentEvent(jsonParser);
                     }
 
                     if(token == JsonToken.START_OBJECT){
@@ -109,9 +113,17 @@ public class DefaultJsonStreamProcessor<T, C, S extends JsonStreamProcessorState
         return ret;
     }
 
-    // In array mode the enclosing array is dropped so each root object is written on its own
-    private boolean isEnclosingArrayToken(JsonToken token, int arrayDepth){
-        return (token == JsonToken.START_ARRAY && arrayDepth == 0)
-                || (token == JsonToken.END_ARRAY && arrayDepth == 1);
+    // Outside a root object the input may hold only the start of one, and in array mode the array enclosing them
+    private void requireRootToken(JsonToken token, int arrayDepth, boolean processArray){
+        if(processArray){
+            boolean valid = (token == JsonToken.START_ARRAY && arrayDepth == 0)
+                    || (token == JsonToken.START_OBJECT && arrayDepth == 1)
+                    || (token == JsonToken.END_ARRAY && arrayDepth == 1);
+            if(!valid){
+                throw new IllegalArgumentException("Expected a json array of objects");
+            }
+        }else if(token != JsonToken.START_OBJECT){
+            throw new IllegalArgumentException("Expected a json object");
+        }
     }
 }

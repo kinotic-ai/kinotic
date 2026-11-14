@@ -252,9 +252,29 @@ public class TokenBufferUpsertPreProcessorTest {
                          fail(processor, "[{\"id\":\"a\"},{\"id\":\"\"}]", context(TENANT1)),
                          "One bad element fails the whole array");
 
-        Future<EntityHolder<RawJson>> single = processor.process(buffer("[{\"id\":\"a\"},{\"id\":\"b\"}]"), context(TENANT1));
-        assertTrue(single.failed(), "An array is not a single entity");
-        assertInstanceOf(IllegalStateException.class, single.cause());
+    }
+
+    @Test
+    public void inputOfTheWrongShapeIsRejected() {
+        TokenBufferUpsertPreProcessor processor = processor(descriptor(MultiTenancyType.NONE),
+                                                            Map.of("id", new IdDecorator()));
+
+        for (String notAnObject : List.of("[{\"id\":\"a\"}]", "[{\"id\":\"a\"},{\"id\":\"b\"}]", "[]", "\"a\"", "5", "null")) {
+            Future<EntityHolder<RawJson>> single = processor.process(buffer(notAnObject), context(TENANT1));
+            assertTrue(single.failed(), () -> "A single entity must be a json object, but this was accepted: " + notAnObject);
+            assertInstanceOf(IllegalArgumentException.class, single.cause(), notAnObject);
+        }
+
+        for (String notAnArrayOfObjects : List.of("{\"id\":\"a\",\"tags\":[\"x\"]}",
+                                                  "[[{\"id\":\"a\"}]]",
+                                                  "[{\"id\":\"a\"},5]",
+                                                  "[\"a\"]",
+                                                  "[null]",
+                                                  "\"a\"")) {
+            Future<List<EntityHolder<RawJson>>> array = processor.processArray(buffer(notAnArrayOfObjects), context(TENANT1));
+            assertTrue(array.failed(), () -> "Entities must be a json array of objects, but this was accepted: " + notAnArrayOfObjects);
+            assertInstanceOf(IllegalArgumentException.class, array.cause(), notAnArrayOfObjects);
+        }
     }
 
     // ---- fixtures ----
