@@ -9,6 +9,7 @@ import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.services.EntityStatementResolver;
+import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.sql.domain.Statement;
@@ -19,24 +20,29 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Runs a write, INSERT, UPDATE or DELETE, confined to the one tenant the context writes. The result is a single
- * row, {@code {"count": n}}, holding the number of documents written.
+ * Runs a write, INSERT, UPDATE or DELETE, confined to the one tenant the context writes, for a participant holding
+ * the permission the statement needs; any other is refused with an
+ * {@link org.kinotic.core.api.exceptions.AuthorizationException}. The result is a single row, {@code {"count": n}},
+ * holding the number of documents written.
  * Created by Navíd Mitchell 🤝 Claude on 10/1/26.
  */
 public class StatementQueryExecutor extends AbstractQueryExecutor {
 
     private final Statement statement;
+    private final NamedQueryAuthorizer namedQueryAuthorizer;
     private final EntityStatementResolver entityStatementResolver;
     private final StatementExecutor<Statement, ?> statementExecutor;
     private final JsonMapper jsonMapper;
 
     public StatementQueryExecutor(EntityDescriptor entityDescriptor,
                                   Statement statement,
+                                  NamedQueryAuthorizer namedQueryAuthorizer,
                                   EntityStatementResolver entityStatementResolver,
                                   StatementExecutor<Statement, ?> statementExecutor,
                                   JsonMapper jsonMapper) {
         super(entityDescriptor);
         this.statement = statement;
+        this.namedQueryAuthorizer = namedQueryAuthorizer;
         this.entityStatementResolver = entityStatementResolver;
         this.statementExecutor = statementExecutor;
         this.jsonMapper = jsonMapper;
@@ -47,8 +53,13 @@ public class StatementQueryExecutor extends AbstractQueryExecutor {
         Map<String, Object> parameters = context.getNamedParameters();
         String tenantId = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED ? writeTenant(context.getEntityContext()) : null;
         Statement confined = entityStatementResolver.confine(statement, entityDescriptor, tenantId, parameters);
-        return KinoticUtil.toFuture(statementExecutor.executeQuery(confined, parameters))
-                          .map(result -> List.of(countRow(result, type)));
+        // The request was admitted for the permission of the statement held under this query's name when its
+        // permission was last read, which a query saved since under the same name may have replaced with this
+        // write, so the participant is checked for the statement that runs
+        boolean acrossTenants = tenantId != null && !tenantId.equals(context.getEntityContext().getTenantId());
+        return namedQueryAuthorizer.authorize(context.getEntityContext().getParticipant(), entityDescriptor.id(), statement, acrossTenants)
+                                   .compose(v -> KinoticUtil.toFuture(statementExecutor.executeQuery(confined, parameters)))
+                                   .map(result -> List.of(countRow(result, type)));
     }
 
     @Override

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
@@ -32,16 +33,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies that the request for a named query is checked for the permission its statement needs: a viewer of the
  * definition is admitted to a query that reads rows and refused one that updates them, with the reason, an editor
  * is admitted to the update, which then runs, a query the definition does not hold is refused, and a name two
- * queries share is checked for the first of them, the one that runs.
+ * queries share is checked for the first of them, the one that runs. The update itself refuses a viewer its request
+ * did not stop.
  */
 @SpringBootTest
 public class NamedQueryAuthorizationTests extends KinoticTestBase {
@@ -78,6 +83,9 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
         await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "namedQuery", caller, find)), "the viewer was never admitted to the query that reads");
         assertRefused(ENTITIES_SERVICE, "namedQuery", caller, rename, "the query is an UPDATE");
+        // a request admitted for the query a name held before reaches the update without its check, and is refused where it runs
+        assertInstanceOf(AuthorizationException.class,
+                         assertThrows(ExecutionException.class, () -> await(rename(person, caller))).getCause());
 
         await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.EDITOR), personHere)));
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "namedQuery", caller, rename)), "the editor was never admitted to the update");

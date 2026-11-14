@@ -6,6 +6,7 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
 import org.kinotic.domain.api.services.EntityStatementResolver;
+import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
@@ -46,6 +47,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private final AuthorizationServiceFactory authorizationServiceFactory;
     private final MigrationParser migrationParser;
     private final EntityStatementResolver entityStatementResolver;
+    private final NamedQueryAuthorizer namedQueryAuthorizer;
     private final List<StatementExecutor<?, ?>> statementExecutors;
     private final CrudServiceTemplate crudServiceTemplate;
     private final ReadPreProcessor readPreProcessor;
@@ -112,6 +114,6 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
                 .filter(candidate -> candidate.supports(statement))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No executor found for statement: " + statement.getClass().getSimpleName()));
-        return new StatementQueryExecutor(entityDescriptor, statement, entityStatementResolver, executor, jsonMapper);
+        return new StatementQueryExecutor(entityDescriptor, statement, namedQueryAuthorizer, entityStatementResolver, executor, jsonMapper);
     }
 }
