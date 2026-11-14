@@ -27,13 +27,29 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public Future<Long> countForProject(String projectId, String orgId) {
+        return countForProject(projectId, orgId, null);
+    }
+
+    /**
+     * Counts the project's documents among the given ids; every document when {@code ids} is null, none
+     * when it is empty.
+     */
+    public Future<Long> countForProject(String projectId, String orgId, Collection<String> ids) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
+        return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId), idsFilter(ids))));
     }
 
     public Future<Page<T>> findAllForProject(String projectId, String orgId, Pageable pageable) {
+        return findAllForProject(projectId, orgId, null, pageable);
+    }
+
+    /**
+     * The page of the project's documents among the given ids; every document when {@code ids} is null,
+     * none when it is empty.
+     */
+    public Future<Page<T>> findAllForProject(String projectId, String orgId, Collection<String> ids, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
+        return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId), idsFilter(ids))));
     }
 
     /**

@@ -272,6 +272,47 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                              .map(held -> held ? entityDefinition : null));
     }
 
+    @Override
+    public Future<Long> count() {
+        return readableIds().compose(ids -> entityDefinitionRepository.count(requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> findAll(Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.findAll(requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> search(String searchText, Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.search(searchText, requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Long> countForApplication(String applicationId) {
+        return readableIds().compose(ids -> entityDefinitionRepository.countForApplication(applicationId, requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
+    }
+
+    @Override
+    public Future<Long> countForProject(String projectId) {
+        return readableIds().compose(ids -> entityDefinitionRepository.countForProject(projectId, requireOrganizationId(), ids));
+    }
+
+    @Override
+    public Future<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable) {
+        return readableIds().compose(ids -> entityDefinitionRepository.findAllForProject(projectId, requireOrganizationId(), ids, pageable));
+    }
+
+    // The definitions the caller may read through any grant that reaches them, null for every definition of the
+    // organization
+    private Future<List<String>> readableIds() {
+        return permissions.findAccessibleIds(EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ);
+    }
+
     @WithSpan
     @Override
     public Future<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId,
