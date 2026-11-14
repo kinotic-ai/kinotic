@@ -64,8 +64,9 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
                 Pageable page = Pageable.create(0, PAGE_SIZE, null);
                 // The administrators are bound last, so a run that failed before them finds no administrator on
                 // the next start and places everything again; every binding has an id of its own, so one made
-                // twice is held once
-                ret = nodes.findAll(page)
+                // twice is held once. They are read first: a script writes the system's machines before its first
+                // user, so a run that reads the user reads every machine after it
+                ret = identities.findSystemUsers(page).compose(users -> nodes.findAll(page)
                            .compose(found -> relationships.ensure(SYSTEM, found.getContent().stream()
                                                                                .map(node -> AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT,
                                                                                                                        AuthzUtil.object(VmNodeService.RESOURCE_TYPE, node.getId())))
@@ -76,12 +77,11 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
                                                                  .map(machine -> AuthzUtil.object(AuthzConstants.USER_TYPE, machine.getId()))
                                                                  .toList(),
                                                          VmNodeOrchestrationService.REGISTRAR_ROLE))
-                           .compose(v -> identities.findSystemUsers(page))
-                           .compose(users -> bindEach(users.getContent().stream()
-                                                           .filter(SystemParticipantIdentity::isEnabled)
-                                                           .map(user -> AuthzUtil.object(AuthzConstants.USER_TYPE, user.getId()))
-                                                           .toList(),
-                                                      AuthzConstants.SYSTEM_ADMIN_ROLE));
+                           .compose(v -> bindEach(users.getContent().stream()
+                                                       .filter(SystemParticipantIdentity::isEnabled)
+                                                       .map(user -> AuthzUtil.object(AuthzConstants.USER_TYPE, user.getId()))
+                                                       .toList(),
+                                                  AuthzConstants.SYSTEM_ADMIN_ROLE)));
             }
             return ret;
         });

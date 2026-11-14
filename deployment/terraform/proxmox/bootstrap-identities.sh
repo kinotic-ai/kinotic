@@ -12,6 +12,10 @@
 # restarted with its new credentials, and the system server is restarted last: the seed job that
 # places the identities in the authorization graph runs as it starts.
 #
+# The machines are written before the system user, which the seed job reads first and takes as the
+# sign that the identities are all there. A run that fails before the system user is written can be
+# made again as it was: a node's machine has an id derived from the node's, so it is written over.
+#
 # ADMIN_SECRET_HASH, the bcrypt hash of a password the admin already has (its
 # kinotic_identity_credential's secretHash, read before the cluster was emptied), keeps that
 # password; no password file is written.
@@ -24,6 +28,7 @@ shift
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="$(terraform -chdir="$HERE" output -raw proxmox_host)"
 ES="$(terraform -chdir="$HERE" output -raw elasticsearch_url)"
+system_vmid="$(terraform -chdir="$HERE" output -json containers | python3 -c 'import sys, json; print(json.load(sys.stdin)["kinotic-server-system"])')"
 NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
 umask 077
 
@@ -57,6 +62,19 @@ if [[ "$existing" != "0" ]]; then
   exit 1
 fi
 
+for arg in "$@"; do
+  target="${arg%%=*}"
+  node="${arg#*=}"
+  machine_id="$(python3 -c 'import sys, uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, "kinotic:vm-manager:" + sys.argv[1]))' "$node")"
+  machine_secret="$(secret 40)"
+  rows "$machine_id" "$(bcrypt "$machine_secret")" \
+    "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineType\":\"CLIENT\",\"displayName\":\"$node vm-manager\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
+    | bulk
+  printf 'KINOTIC_CLIENT_ID=%s\nKINOTIC_CLIENT_SECRET=%s\n' "$machine_id" "$machine_secret" \
+    | ssh "$target" "sudo sh -c 'umask 077 && rm -f /etc/kinotic/vm-manager.secrets.env && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"
+  echo "==> Machine for $node installed on $target, its vm-manager restarted"
+done
+
 admin_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 if [[ -n "${ADMIN_SECRET_HASH:-}" ]]; then
   admin_hash="$ADMIN_SECRET_HASH"
@@ -75,21 +93,10 @@ else
   echo "==> System user $ADMIN_EMAIL; its password is in $password_file, delete it once saved"
 fi
 
-for arg in "$@"; do
-  target="${arg%%=*}"
-  node="${arg#*=}"
-  machine_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-  machine_secret="$(secret 40)"
-  rows "$machine_id" "$(bcrypt "$machine_secret")" \
-    "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineType\":\"CLIENT\",\"displayName\":\"$node vm-manager\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
-    | bulk
-  printf 'KINOTIC_CLIENT_ID=%s\nKINOTIC_CLIENT_SECRET=%s\n' "$machine_id" "$machine_secret" \
-    | ssh "$target" "sudo sh -c 'umask 077 && rm -f /etc/kinotic/vm-manager.secrets.env && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"
-  echo "==> Machine for $node installed on $target, its vm-manager restarted"
-done
-
 # The system server was running before these identities existed, and its seed job runs as it starts.
 # kinotic-keepalive.timer may start the stopped container first, which the start then finds running.
-system_vmid="$(terraform -chdir="$HERE" output -json containers | python3 -c 'import sys, json; print(json.load(sys.stdin)["kinotic-server-system"])')"
-ssh "root@$HOST" "pct stop '$system_vmid' && { pct start '$system_vmid' || pct status '$system_vmid' | grep -q running; }"
+if ! ssh "root@$HOST" "pct stop '$system_vmid' && { pct start '$system_vmid' || pct status '$system_vmid' | grep -q running; }"; then
+  echo "The identities are written, but the system server (container $system_vmid) was not restarted; restart it by hand, since its seed job places them as it starts" >&2
+  exit 1
+fi
 echo "==> System server restarted; its seed job makes $ADMIN_EMAIL a system administrator and each machine a node registrar"
