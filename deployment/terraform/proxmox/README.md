@@ -243,8 +243,8 @@ uploaded them.
    straight to Elasticsearch, the machines before the system user and the system user's identity
    last, so a run that fails before then can be made again as it was: what it wrote is written
    over. When that last write reports a failure the script reads the system user back, and
-   carries on if it is there; if the cluster gives no answer it keeps the password file and says
-   so. It then restarts the system
+   carries on if it is there; otherwise it stops, keeps the password file and says what the
+   next run decides. It then restarts the system
    server, whose seed job places them in the authorization graph as it starts
    (`kinotic.authz.seedGraph`, set in its `dev-server` profile): the system user as
    `system.admin` and each machine as `vm_node.registrar`. The system user signs in, and each

@@ -16,8 +16,9 @@
 # sign that the identities are all there. The system user's identity is the last write, after its
 # credential and the password file. A run that fails before it can be made again as it was: a
 # machine's id is derived from its node's and the system user's from its email, so each is written
-# over. A write of that identity that reports a failure is settled by reading the system user back:
-# the run carries on when it is there, and the password file is kept when the cluster gives no answer.
+# over. When the write of that identity reports a failure the system user is read back: the run
+# carries on when it is there, and otherwise stops with the password file kept, since the write may
+# still land.
 #
 # ADMIN_SECRET_HASH, the bcrypt hash of a password the admin already has (its
 # kinotic_identity_credential's secretHash, read before the cluster was emptied), keeps that
@@ -108,18 +109,16 @@ fi
 # is what the check for an existing system user reads, so it is written once the credential is held
 credential_row "$admin_id" "$admin_hash" | bulk
 trap - ERR
-# The identity can be written and the answer lost on its way back, so a write that reports a failure
-# is settled by counting the system user again
+# The identity can be written with the answer lost on its way back, and can land after the count that
+# follows a failure, so the password file outlives every failure of this write
 if ! identity_row "$admin_id" \
   "{\"id\":\"$admin_id\",\"type\":\"SYSTEM_USER\",\"email\":\"$ADMIN_EMAIL\",\"displayName\":\"$ADMIN_EMAIL\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
   | bulk; then
-  written="$(system_users)" || written="unknown"
-  if [[ "$written" == "0" ]]; then
-    if [[ -n "$password_file" ]]; then rm -f "$password_file"; fi
-    echo "The system user $ADMIN_EMAIL was not written; run this again" >&2
-    exit 1
-  elif [[ "$written" != "1" ]]; then
-    echo "The cluster did not say whether the system user $ADMIN_EMAIL was written.${password_file:+ Its password is in $password_file, to keep until a run succeeds.} Run this again: if it finds the system user there, restart the system server (container $system_vmid) by hand, since its seed job places the identities as it starts" >&2
+  if [[ "$(system_users || true)" != "1" ]]; then
+    echo "The write of the system user $ADMIN_EMAIL reported a failure, and the system user is not there to read. Run this again: if that run finds the system user there, restart the system server (container $system_vmid) by hand, since its seed job places the identities as it starts" >&2
+    if [[ -n "$password_file" ]]; then
+      echo "Keep $password_file until then: it holds the system user's password if that run finds the system user there. A run that succeeds writes a new password, and this file can be deleted" >&2
+    fi
     exit 1
   fi
 fi
