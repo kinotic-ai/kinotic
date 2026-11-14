@@ -87,21 +87,39 @@ const loading = ref(true)
 const acknowledging = ref<string | null>(null)
 const error = ref<string | null>(null)
 
+// each kind of request is counted, so only the response to the latest of its kind is shown
+let latestLoad = 0
+let latestCount = 0
+
 async function load(): Promise<void> {
+  const current = ++latestLoad
   loading.value = true
   try {
-    const [page, count] = await Promise.all([
+    const [page] = await Promise.all([
       Kinotic.vulnerabilityAlerts.findAll(Pageable.create(Math.floor(first.value / pageSize.value), pageSize.value, NEWEST_FIRST)),
-      Kinotic.vulnerabilityAlerts.countUnacknowledged(),
+      loadUnacknowledged(),
     ])
-    alerts.value = page.content ?? []
-    total.value = page.totalElements ?? alerts.value.length
-    unacknowledged.value = count
-    error.value = null
+    if (current === latestLoad) {
+      alerts.value = page.content ?? []
+      total.value = page.totalElements ?? alerts.value.length
+      error.value = null
+    }
   } catch (err) {
-    error.value = errorMessage(err, 'The vulnerability alerts could not be loaded')
+    if (current === latestLoad) {
+      error.value = errorMessage(err, 'The vulnerability alerts could not be loaded')
+    }
   } finally {
-    loading.value = false
+    if (current === latestLoad) {
+      loading.value = false
+    }
+  }
+}
+
+async function loadUnacknowledged(): Promise<void> {
+  const current = ++latestCount
+  const count = await Kinotic.vulnerabilityAlerts.countUnacknowledged()
+  if (current === latestCount) {
+    unacknowledged.value = count
   }
 }
 
@@ -110,13 +128,17 @@ async function acknowledge(alert: VulnerabilityAlert): Promise<void> {
   try {
     await Kinotic.vulnerabilityAlerts.acknowledge(alert.id)
     alert.acknowledged = true
-    if (unacknowledged.value) {
-      unacknowledged.value--
-    }
   } catch (err) {
     error.value = errorMessage(err, 'The alert could not be acknowledged')
+    return
   } finally {
     acknowledging.value = null
+  }
+  // read again rather than decremented, since a refresh under way may already count the acknowledgement
+  try {
+    await loadUnacknowledged()
+  } catch (err) {
+    error.value = errorMessage(err, 'The unacknowledged alerts could not be counted')
   }
 }
 

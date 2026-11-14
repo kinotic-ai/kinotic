@@ -581,7 +581,8 @@ public class CrudServiceTemplate {
      * @param type of the document to return
      * @param builderConsumer to customize the {@link MgetRequest}, or null if no customization is needed
      * @param resultMapper to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link Future} that will complete with the documents requested
+     * @return a {@link Future} that will complete with the documents requested that exist, or fail when
+     *         any of them could not be read
      */
     public <T, R> Future<List<R>> multiGet(List<MultiGetOperation> getOperations,
                                            Class<T> type,
@@ -610,6 +611,16 @@ public class CrudServiceTemplate {
 
                                                      List<MultiGetResponseItem<T>> recordsResponse = response.docs();
                                                      ArrayList<R> content = new ArrayList<>();
+
+                                                     // a document that could not be read counts as an error, since
+                                                     // leaving it out would report it as one that does not exist
+                                                     for (MultiGetResponseItem<T> hit : recordsResponse) {
+                                                         if (hit.isFailure()) {
+                                                             throw new IllegalStateException("Could not read document " + hit.failure().id()
+                                                                                                     + " of " + hit.failure().index()
+                                                                                                     + ": " + hit.failure().error().reason());
+                                                         }
+                                                     }
 
                                                      if(resultMapper != null) {
                                                          for (MultiGetResponseItem<T> hit : recordsResponse) {

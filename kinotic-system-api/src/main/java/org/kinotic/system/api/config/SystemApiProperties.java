@@ -39,8 +39,8 @@ public class SystemApiProperties {
     private UiDeploymentProperties uiDeployment = new UiDeploymentProperties();
 
     /**
-     * When true, for an environment without access to OSV, no vulnerability advisories are read and
-     * SBOMs are checked against the advisories already stored.
+     * When true, for an environment without access to OSV, no vulnerability advisories are read, and
+     * a project's SBOM is checked against the advisories already stored when it is recorded.
      */
     private boolean disableOsvImport = false;
 

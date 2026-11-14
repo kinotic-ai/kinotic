@@ -163,7 +163,8 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
     private static boolean isVersionedPackageUrl(String purl) {
         int lastSlash = purl.lastIndexOf('/');
         int at = purl.indexOf('@');
-        boolean ret = purl.startsWith("pkg:") && lastSlash > 0 && at > lastSlash && at == purl.lastIndexOf('@');
+        boolean ret = purl.startsWith("pkg:") && lastSlash > 0 && at > lastSlash && at == purl.lastIndexOf('@')
+                && at + 1 < purl.length() && "?#".indexOf(purl.charAt(at + 1)) < 0;
         if (ret) {
             try {
                 URLDecoder.decode(purl, StandardCharsets.UTF_8);
