@@ -218,7 +218,7 @@ import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Sh
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL, isAuthorizationError, usePagedList } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL, isAuthorizationError, latestOnly, usePagedList } from '@kinotic-ai/frontend-common'
 import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
@@ -481,7 +481,7 @@ function openLogLevel(nodeId: string) {
 }
 
 // The check of the libraries started last; Refresh can start another while one is still running
-let latestCheck = 0
+const startCheck = latestOnly()
 
 async function load() {
   loading.value = true
@@ -490,14 +490,14 @@ async function load() {
   scanWorkloads({}, { systemOnly: true }).then(list => { systemWorkloads.value = list })
                                           .catch(() => { systemWorkloads.value = null })
   // the libraries are checked apart from the topology, which shows without waiting for them
-  const check = ++latestCheck
+  const isLatestCheck = startCheck()
   Kinotic.clusterVulnerabilities.findAll().then(found => {
-    if (check === latestCheck) {
+    if (isLatestCheck()) {
       servers.value = found
       vulnerabilityError.value = null
     }
   }).catch(err => {
-    if (check === latestCheck) {
+    if (isLatestCheck()) {
       vulnerabilityError.value = errorMessage(err, "The servers' libraries could not be checked")
     }
   })

@@ -58,7 +58,7 @@ import Column from 'primevue/column'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { BellDot, ShieldAlert } from '@lucide/vue'
-import { DashboardSection, errorMessage, PageHeader, StatCard, TablePaginator, TimePill, TINTS, usePaging } from '@kinotic-ai/frontend-common'
+import { DashboardSection, errorMessage, latestOnly, PageHeader, StatCard, TablePaginator, TimePill, TINTS, usePaging } from '@kinotic-ai/frontend-common'
 import { VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
 import type { VulnerabilityAlert } from '@kinotic-ai/management-api'
@@ -86,37 +86,37 @@ const acknowledging = ref<string | null>(null)
 const error = ref<string | null>(null)
 
 // each kind of request is counted, so only the response to the latest of its kind is shown
-let latestLoad = 0
-let latestCount = 0
+const startLoad = latestOnly()
+const startCount = latestOnly()
 
 async function load(): Promise<void> {
-  const current = ++latestLoad
+  const isLatest = startLoad()
   loading.value = true
   try {
     const [page] = await Promise.all([
       Kinotic.vulnerabilityAlerts.findAll(Pageable.create(pageShown.value, pageSize.value, NEWEST_FIRST)),
       loadUnacknowledged(),
     ])
-    if (current === latestLoad) {
+    if (isLatest()) {
       alerts.value = page.content ?? []
       total.value = page.totalElements ?? alerts.value.length
       error.value = null
     }
   } catch (err) {
-    if (current === latestLoad) {
+    if (isLatest()) {
       error.value = errorMessage(err, 'The vulnerability alerts could not be loaded')
     }
   } finally {
-    if (current === latestLoad) {
+    if (isLatest()) {
       loading.value = false
     }
   }
 }
 
 async function loadUnacknowledged(): Promise<void> {
-  const current = ++latestCount
+  const isLatest = startCount()
   const count = await Kinotic.vulnerabilityAlerts.countUnacknowledged()
-  if (current === latestCount) {
+  if (isLatest()) {
     unacknowledged.value = count
   }
 }
