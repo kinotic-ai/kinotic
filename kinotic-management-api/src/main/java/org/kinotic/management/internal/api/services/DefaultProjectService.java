@@ -201,18 +201,15 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         return deleted(id, super::deleteByIdSync);
     }
 
-    // The project leaves the graph with every grant made on it, while no caller creates a project of its id
+    // The project leaves the graph with every grant made on it, while no caller creates a project of its id. The
+    // record is read under the lock, so a project created since the caller asked leaves the graph as well
     private Future<Void> deleted(String id, Function<String, Future<Void>> delete) {
-        return super.findById(id).compose(project -> {
-            Future<Void> ret;
-            if (project == null) {
-                ret = delete.apply(id);
-            } else {
-                String object = containment(project).object();
-                ret = relationships.exclusively(object, () -> delete.apply(id).compose(v -> relationships.removeObject(AuthzStoreService.SYSTEM, object)));
-            }
-            return ret;
-        });
+        String object = AuthzGraphUtil.authzObject(requireOrganizationId(), new Resource(ProjectService.RESOURCE_TYPE, id));
+        return relationships.exclusively(object, () -> super.findById(id)
+                .compose(project -> delete.apply(id)
+                                          .compose(v -> project == null
+                                                  ? Future.succeededFuture()
+                                                  : relationships.removeObject(AuthzStoreService.SYSTEM, object))));
     }
 
     // The project stored under the requested one's id, placed in the graph, or null when none is stored. A create
@@ -368,7 +365,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                 .compose(existing -> {
                     if (existing != null) {
                         // the create made again places the record before refusing the duplicate
-                        return placed(existing).compose(p -> Future.failedFuture(new IllegalArgumentException(
+                        return placed(project).compose(p -> Future.failedFuture(new IllegalArgumentException(
                                 "Project for id " + project.getId() + " already exists")));
                     }
                     return repoProvisioner.provision(project)

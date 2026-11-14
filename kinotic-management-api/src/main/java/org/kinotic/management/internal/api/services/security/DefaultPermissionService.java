@@ -127,10 +127,13 @@ public class DefaultPermissionService implements PermissionService {
                 // the row first, then its permissions: a role whose permissions failed to write exists and grants nothing
                 return roles.saveSync(existing, organizationId)
                             .compose(saved -> bundled(saved.getId())
-                                    .compose(before -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
-                                                                    .compose(v -> role.permissions().containsAll(before)
-                                                                            ? Future.succeededFuture()
-                                                                            : holdersReconnected(saved.getId(), model.grantableOn(home, ORGANIZATION))))
+                                    // read before the permissions are written, so an edit whose read failed is made
+                                    // again as the same edit
+                                    .compose(before -> role.permissions().containsAll(before)
+                                            ? Future.succeededFuture(List.<RelationshipTuple>of())
+                                            : holders(saved.getId(), model.grantableOn(home, ORGANIZATION)))
+                                    .compose(holders -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
+                                                                     .compose(v -> reconnected(holders)))
                                     .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
                                                model.grantableOn(home, ORGANIZATION), Set.copyOf(role.permissions())));
@@ -254,28 +257,29 @@ public class DefaultPermissionService implements PermissionService {
                         .compose(v -> reconnected(members)));
     }
 
-    // Ends the connections of the machines a role is granted to, on each type it may be granted on, so they
-    // connect again with the zones the role's permissions still give them
-    private Future<Void> holdersReconnected(String roleId, Set<String> boundOn) {
+    // The members of every grant of a role, read on each type the role may be granted on
+    private Future<List<RelationshipTuple>> holders(String roleId, Set<String> boundOn) {
         String role = AuthzUtil.roleObject(roleId);
-        Future<Void> ret = Future.succeededFuture();
+        Future<List<RelationshipTuple>> ret = Future.succeededFuture(new ArrayList<>());
         for (String type : boundOn) {
-            ret = ret.compose(v -> relationships.readByUser(SYSTEM, role, AuthzUtil.roleBindingType(type)))
-                     .compose(bindings -> {
-                         Future<Void> each = Future.succeededFuture();
-                         for (RelationshipTuple binding : bindings) {
-                             each = each.compose(v -> relationships.read(SYSTEM, binding.object(), AuthzConstants.MEMBER_RELATION))
-                                        .compose(this::reconnected);
-                         }
-                         return each;
-                     });
+            ret = ret.compose(found -> relationships.readByUser(SYSTEM, role, AuthzUtil.roleBindingType(type)).compose(bindings -> {
+                Future<List<RelationshipTuple>> each = Future.succeededFuture(found);
+                for (RelationshipTuple binding : bindings) {
+                    each = each.compose(members -> relationships.read(SYSTEM, binding.object(), AuthzConstants.MEMBER_RELATION)
+                                                                .map(read -> {
+                                                                    members.addAll(read);
+                                                                    return members;
+                                                                }));
+                }
+                return each;
+            }));
         }
         return ret;
     }
 
     // The zones a machine hosts services in are read from its grants when it connects and kept for the connection,
-    // so a grant taken from a machine ends its connections and it connects again with the zones it still holds. A
-    // user's requests are each checked as they arrive, so its connections stay
+    // so a grant or a role's permission taken from a machine ends its connections and it connects again with the
+    // zones it still holds. A user's requests are each checked as they arrive, so its connections stay
     private Future<Void> reconnected(List<RelationshipTuple> members) {
         Future<Void> ret = Future.succeededFuture();
         for (RelationshipTuple member : members) {
