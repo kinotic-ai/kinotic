@@ -51,6 +51,57 @@ public interface RelationshipService {
     Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType);
 
     /**
+     * The permissions a store holds for a role, which a grant of the role gives.
+     *
+     * @param store  the store, named as its record is
+     * @param roleId the role, {@code <home type>.<name>}
+     * @return the model names of the permissions, in their natural order; empty for a role the store holds none for
+     */
+    Future<Set<String>> findRolePermissions(String store, String roleId);
+
+    /**
+     * The role bindings a role or a subject is part of: the grants of the role, or the grants made to the subject.
+     *
+     * @param store   the store, named as its record is
+     * @param user    the role or the subject as a binding holds it: {@code <type>_role:<id>}, {@code user:<id>} or
+     *                {@code group:<id>#member}
+     * @param boundOn the types of the resources the bindings are attached to
+     * @return the bindings, each in {@code type:id} form
+     */
+    Future<List<String>> findBindings(String store, String user, Set<String> boundOn);
+
+    /**
+     * The members of a group or of a role binding.
+     *
+     * @param store  the store, named as its record is
+     * @param object the group or the binding, in {@code type:id} form
+     * @return the members as the store holds them: {@code user:<id>}, or {@code group:<id>#member} for a binding
+     *         made to a group
+     */
+    Future<List<String>> findMembers(String store, String object);
+
+    /**
+     * An object and each object containing it, read upward to a given ancestor or to the root of the object's tree.
+     *
+     * @param store   the store, named as its record is
+     * @param object  the object, in {@code type:id} form
+     * @param upTo    the ancestor the read stops at
+     * @param parents for each type contained in another, the type containing it, as {@link AuthzModel#parents} has it
+     * @return the object first, then each ancestor in order, ending with {@code upTo} when the object is inside it
+     */
+    Future<List<String>> findLineage(String store, String object, String upTo, Map<String, String> parents);
+
+    /**
+     * The objects of a type placed directly under a parent.
+     *
+     * @param store  the store, named as its record is
+     * @param parent the parent object, in {@code type:id} form
+     * @param type   the type of the objects placed under it
+     * @return the objects, each in {@code type:id} form
+     */
+    Future<List<String>> findContained(String store, String parent, String type);
+
+    /**
      * Whether the store holds exactly this relationship, as written, without the model's rules.
      *
      * @param store        the store, named as its record is

@@ -87,6 +87,20 @@ public final class AuthzGraphUtil {
     }
 
     /**
+     * The tuple making an organization's user a member of one of the organization's groups, which a grant to the
+     * group reaches.
+     *
+     * @param organizationUserId the organization's user
+     * @param groupId            the group
+     * @return the membership tuple
+     */
+    public static RelationshipTuple groupMember(String organizationUserId, String groupId) {
+        return new RelationshipTuple(authzUser(organizationUserId),
+                                     AuthzConstants.MEMBER_RELATION,
+                                     AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId));
+    }
+
+    /**
      * Who a grant to a subject is made to in the authorization stores: a user as {@code user:<id>}, a group as its
      * members, {@code group:<id>#member}.
      *

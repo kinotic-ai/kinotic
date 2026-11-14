@@ -40,7 +40,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -124,7 +123,7 @@ public class DefaultPermissionService implements PermissionService {
                 // nothing
                 return row.compose(existing -> roles.saveSync(existing.setName(role.name()).setDescription(role.description()).setUpdated(new Date()),
                                                               organizationId))
-                          .compose(saved -> bundled(saved.getId())
+                          .compose(saved -> relationships.findRolePermissions(SYSTEM, saved.getId())
                                   // read before the permissions are written, so an edit whose read failed is made
                                   // again as the same edit
                                   .compose(before -> role.permissions().containsAll(before)
@@ -148,9 +147,8 @@ public class DefaultPermissionService implements PermissionService {
         return relationships.exclusively(role, () -> requireRole(roleId, organizationId)
                 .compose(row -> model())
                 .compose(model -> requireUnused(role, model.grantableOn(AuthzUtil.roleHome(roleId), AuthzConstants.ORGANIZATION_TYPE), "Role " + roleId))
-                .compose(v -> relationships.read(SYSTEM, role))
                 // its permissions first, then the row: a role whose row outlives its permissions grants nothing
-                .compose(held -> relationships.remove(SYSTEM, held))
+                .compose(v -> relationships.removeObject(SYSTEM, role))
                 .compose(v -> roles.deleteByIdSync(roleId, organizationId)));
     }
 
@@ -181,9 +179,8 @@ public class DefaultPermissionService implements PermissionService {
         return whileGroupKept(groupId, organizationId, () -> model()
                 .compose(model -> requireUnused(AuthzGraphUtil.authzSubject(new Subject(SubjectType.GROUP, groupId)),
                                                 model.tier(AuthzConstants.ORGANIZATION_TYPE), "Group " + groupId))
-                .compose(v -> relationships.read(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
                 // its membership first, then the row: a group whose row outlives its members reaches nobody
-                .compose(held -> relationships.remove(SYSTEM, held))
+                .compose(v -> relationships.removeObject(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
                 .compose(v -> groups.deleteByIdSync(groupId, organizationId)));
     }
 
@@ -200,12 +197,12 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(groupId, "groupId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return requireGroup(groupId, organizationId)
-                .compose(row -> relationships.read(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
+                .compose(row -> relationships.findMembers(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
                 .compose(held -> {
                     List<Future<ParticipantIdentity>> members = new ArrayList<>();
-                    for (RelationshipTuple tuple : held) {
-                        if (AuthzConstants.MEMBER_RELATION.equals(tuple.relation()) && AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(tuple.user()))) {
-                            members.add(identities.findById(AuthzUtil.idOf(tuple.user())));
+                    for (String member : held) {
+                        if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member))) {
+                            members.add(identities.findById(AuthzUtil.idOf(member)));
                         }
                     }
                     return Future.all(members);
@@ -223,7 +220,7 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(userId, "userId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return whileGroupKept(groupId, organizationId, () -> requireMember(userId, organizationId)
-                .compose(v -> relationships.ensure(SYSTEM, List.of(membership(AuthzGraphUtil.authzUser(userId), groupId)))));
+                .compose(v -> relationships.ensure(SYSTEM, List.of(AuthzGraphUtil.groupMember(userId, groupId)))));
     }
 
     @Override
@@ -232,7 +229,7 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(userId, "userId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return requireGroup(groupId, organizationId)
-                .compose(row -> relationships.remove(SYSTEM, List.of(membership(AuthzGraphUtil.authzUser(userId), groupId))));
+                .compose(row -> relationships.remove(SYSTEM, List.of(AuthzGraphUtil.groupMember(userId, groupId))));
     }
 
     @Override
@@ -269,7 +266,7 @@ public class DefaultPermissionService implements PermissionService {
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return model().compose(model -> requireInOrganization(model, resource, organizationId))
                 // read before the grant is revoked, after which a failed read could not be made again
-                .compose(lineage -> relationships.read(SYSTEM, AuthzUtil.bindingObject(object, grantId), AuthzConstants.MEMBER_RELATION))
+                .compose(lineage -> relationships.findMembers(SYSTEM, AuthzUtil.bindingObject(object, grantId)))
                 .compose(this::machines)
                 .compose(machines -> (AuthzConstants.ORGANIZATION_TYPE.equals(resource.type())
                         ? identities.removeAdministrators(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class,
@@ -278,32 +275,26 @@ public class DefaultPermissionService implements PermissionService {
                         .compose(v -> reconnected(machines)));
     }
 
-    // The members of every grant of a role, read on each type the role may be granted on
-    private Future<List<RelationshipTuple>> holders(String roleId, Set<String> boundOn) {
-        String role = AuthzUtil.roleObject(roleId);
-        Future<List<RelationshipTuple>> ret = Future.succeededFuture(new ArrayList<>());
-        for (String type : boundOn) {
-            ret = ret.compose(found -> relationships.readByUser(SYSTEM, role, AuthzUtil.roleBindingType(type)).compose(bindings -> {
-                Future<List<RelationshipTuple>> each = Future.succeededFuture(found);
-                for (RelationshipTuple binding : bindings) {
-                    each = each.compose(members -> relationships.read(SYSTEM, binding.object(), AuthzConstants.MEMBER_RELATION)
-                                                                .map(read -> {
-                                                                    members.addAll(read);
-                                                                    return members;
-                                                                }));
-                }
-                return each;
-            }));
-        }
-        return ret;
+    // The members of every grant of a role, on each type the role may be granted on
+    private Future<List<String>> holders(String roleId, Set<String> boundOn) {
+        return relationships.findBindings(SYSTEM, AuthzUtil.roleObject(roleId), boundOn).compose(bindings -> {
+            Future<List<String>> ret = Future.succeededFuture(new ArrayList<>());
+            for (String binding : bindings) {
+                ret = ret.compose(found -> relationships.findMembers(SYSTEM, binding).map(members -> {
+                    found.addAll(members);
+                    return found;
+                }));
+            }
+            return ret;
+        });
     }
 
     // The ids of the machines among the members of grants
-    private Future<List<String>> machines(List<RelationshipTuple> members) {
+    private Future<List<String>> machines(List<String> members) {
         Future<List<String>> ret = Future.succeededFuture(new ArrayList<>());
-        for (RelationshipTuple member : members) {
-            if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member.user()))) {
-                String id = AuthzUtil.idOf(member.user());
+        for (String member : members) {
+            if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member))) {
+                String id = AuthzUtil.idOf(member);
                 ret = ret.compose(found -> identities.findById(id).map(identity -> {
                     if (identity instanceof MachineParticipantIdentity) {
                         found.add(id);
@@ -374,30 +365,12 @@ public class DefaultPermissionService implements PermissionService {
      */
     private Future<List<String>> requireInOrganization(AuthzModel model, Resource resource, String organizationId) {
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId);
-        return lineage(AuthzGraphUtil.authzObject(organizationId, resource), organization, model.parents(), new ArrayList<>()).map(lineage -> {
+        return relationships.findLineage(SYSTEM, AuthzGraphUtil.authzObject(organizationId, resource), organization, model.parents()).map(lineage -> {
             if (!organization.equals(lineage.getLast())) {
                 throw new IllegalArgumentException(AuthzUtil.object(resource.type(), resource.id()) + " is not in organization " + organizationId);
             }
             return lineage;
         });
-    }
-
-    // The object and each ancestor above it, up to the given one or the root of the object's tree. An object holds
-    // its parent under the relation named after the parent's type, and that relation alone is read: an application
-    // and an organization each hold a tuple per member beside it
-    private Future<List<String>> lineage(String object, String upTo, Map<String, String> parents, List<String> collected) {
-        collected.add(object);
-        String parentType = parents.get(AuthzUtil.typeOf(object));
-        Future<List<String>> ret;
-        if (object.equals(upTo) || parentType == null) {
-            ret = Future.succeededFuture(collected);
-        } else {
-            ret = relationships.read(SYSTEM, object, parentType)
-                               .compose(held -> held.isEmpty()
-                                       ? Future.succeededFuture(collected)
-                                       : lineage(held.getFirst().user(), upTo, parents, collected));
-        }
-        return ret;
     }
 
     // A role of the organization's tier, built in or its own, homed at the resource's type or inside it
@@ -473,19 +446,11 @@ public class DefaultPermissionService implements PermissionService {
         return identity instanceof OrganizationParticipantIdentity member && organizationId.equals(member.getOrganizationId());
     }
 
-    // A grant is revoked where it was made, so a role or group a grant still holds stays; its bindings are read
-    // on each type it may be granted on, since a binding is typed by what it is attached to
+    // A grant is revoked where it was made, so a role or group a grant still holds stays
     private Future<Void> requireUnused(String user, Set<String> boundOn, String what) {
-        List<Future<List<RelationshipTuple>>> reads = boundOn.stream()
-                                                             .map(type -> relationships.readByUser(SYSTEM, user, AuthzUtil.roleBindingType(type)))
-                                                             .toList();
-        return Future.all(reads).map(all -> {
-            int bindings = 0;
-            for (int i = 0; i < reads.size(); i++) {
-                bindings += all.<List<RelationshipTuple>>resultAt(i).size();
-            }
-            if (bindings > 0) {
-                throw new IllegalStateException(what + " is held by " + bindings + " grant(s); revoke them first");
+        return relationships.findBindings(SYSTEM, user, boundOn).map(bindings -> {
+            if (!bindings.isEmpty()) {
+                throw new IllegalStateException(what + " is held by " + bindings.size() + " grant(s); revoke them first");
             }
             return null;
         });
@@ -493,21 +458,9 @@ public class DefaultPermissionService implements PermissionService {
 
     private Future<RoleDefinition> defined(Role role, AuthzModel model) {
         String home = AuthzUtil.roleHome(role.getId());
-        return bundled(role.getId()).map(permissions -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
-                                                                           model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), permissions));
-    }
-
-    // The model names of the permissions the store holds for a role
-    private Future<Set<String>> bundled(String roleId) {
-        return relationships.read(SYSTEM, AuthzUtil.roleObject(roleId)).map(held -> {
-            Set<String> permissions = new TreeSet<>();
-            for (RelationshipTuple tuple : held) {
-                if (AuthzConstants.EVERYONE.equals(tuple.user())) {
-                    permissions.add(tuple.relation());
-                }
-            }
-            return permissions;
-        });
+        return relationships.findRolePermissions(SYSTEM, role.getId())
+                            .map(permissions -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
+                                                                   model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), permissions));
     }
 
     private Future<AuthzModel> model() {
@@ -528,11 +481,5 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notNull(resource, "resource cannot be null");
         Validate.notBlank(resource.type(), "resource type cannot be blank");
         Validate.notBlank(resource.id(), "resource id cannot be blank");
-    }
-
-    private static RelationshipTuple membership(String member, String groupId) {
-        return new RelationshipTuple(member,
-                                     AuthzConstants.MEMBER_RELATION,
-                                     AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId));
     }
 }

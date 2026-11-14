@@ -31,13 +31,13 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 @Slf4j
@@ -87,6 +87,73 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
+    public Future<Set<String>> findRolePermissions(String store, String roleId) {
+        return read(store, AuthzUtil.roleObject(roleId)).map(held -> {
+            Set<String> ret = new TreeSet<>();
+            for (RelationshipTuple tuple : held) {
+                // a role's permissions are the tuples it holds for everyone; a binding or anything else attached
+                // to the role object is not a permission
+                if (AuthzConstants.EVERYONE.equals(tuple.user())) {
+                    ret.add(tuple.relation());
+                }
+            }
+            return ret;
+        });
+    }
+
+    @Override
+    public Future<List<String>> findBindings(String store, String user, Set<String> boundOn) {
+        // a binding is typed by what it is attached to, so it is read on each type
+        List<Future<List<RelationshipTuple>>> reads = boundOn.stream()
+                                                             .map(type -> readByUser(store, user, AuthzUtil.roleBindingType(type)))
+                                                             .toList();
+        return Future.all(reads).map(all -> {
+            List<String> ret = new ArrayList<>();
+            for (int i = 0; i < reads.size(); i++) {
+                for (RelationshipTuple tuple : all.<List<RelationshipTuple>>resultAt(i)) {
+                    ret.add(tuple.object());
+                }
+            }
+            return ret;
+        });
+    }
+
+    @Override
+    public Future<List<String>> findMembers(String store, String object) {
+        return read(store, object, AuthzConstants.MEMBER_RELATION).map(held -> held.stream().map(RelationshipTuple::user).toList());
+    }
+
+    @Override
+    public Future<List<String>> findLineage(String store, String object, String upTo, Map<String, String> parents) {
+        return lineage(store, object, upTo, parents, new ArrayList<>());
+    }
+
+    // An object holds its parent under the relation named after the parent's type, and that relation alone is read:
+    // an application and an organization each hold a tuple per member beside it
+    private Future<List<String>> lineage(String store, String object, String upTo, Map<String, String> parents, List<String> collected) {
+        collected.add(object);
+        String parentType = parents.get(AuthzUtil.typeOf(object));
+        Future<List<String>> ret;
+        if (object.equals(upTo) || parentType == null) {
+            ret = Future.succeededFuture(collected);
+        } else {
+            ret = read(store, object, parentType).compose(held -> held.isEmpty()
+                    ? Future.succeededFuture(collected)
+                    : lineage(store, held.getFirst().user(), upTo, parents, collected));
+        }
+        return ret;
+    }
+
+    @Override
+    public Future<List<String>> findContained(String store, String parent, String type) {
+        String containment = AuthzUtil.typeOf(parent);
+        return readByUser(store, parent, type).map(held -> held.stream()
+                                                               .filter(tuple -> containment.equals(tuple.relation()))
+                                                               .map(RelationshipTuple::object)
+                                                               .toList());
+    }
+
+    @Override
     public Future<Boolean> holds(String store, RelationshipTuple relationship) {
         return read(store, new ReadRequestTupleKey().user(relationship.user())
                                                     .relation(relationship.relation())
@@ -131,10 +198,10 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     private Future<Void> reconcileRoles(String store, Map<String, Set<String>> roles) {
-        List<Future<List<RelationshipTuple>>> reads = new ArrayList<>();
+        List<Future<Set<String>>> reads = new ArrayList<>();
         List<String> ids = new ArrayList<>(roles.keySet());
         for (String roleId : ids) {
-            reads.add(read(store, AuthzUtil.roleObject(roleId)));
+            reads.add(findRolePermissions(store, roleId));
         }
         return Future.all(reads).compose(held -> {
             List<RelationshipTuple> writes = new ArrayList<>();
@@ -142,15 +209,10 @@ public class DefaultRelationshipService implements RelationshipService {
             for (int i = 0; i < ids.size(); i++) {
                 String role = AuthzUtil.roleObject(ids.get(i));
                 Set<String> desired = roles.get(ids.get(i));
-                Set<String> bundled = new HashSet<>();
-                for (RelationshipTuple tuple : held.<List<RelationshipTuple>>resultAt(i)) {
-                    // a role's permissions are the tuples it holds for everyone; a binding or anything else
-                    // attached to the role object is not a permission and is left alone
-                    if (AuthzConstants.EVERYONE.equals(tuple.user())) {
-                        bundled.add(tuple.relation());
-                        if (!desired.contains(tuple.relation())) {
-                            deletes.add(tuple);
-                        }
+                Set<String> bundled = held.resultAt(i);
+                for (String permission : bundled) {
+                    if (!desired.contains(permission)) {
+                        deletes.add(new RelationshipTuple(AuthzConstants.EVERYONE, permission, role));
                     }
                 }
                 for (String permission : desired) {

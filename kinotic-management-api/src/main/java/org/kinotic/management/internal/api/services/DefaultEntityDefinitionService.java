@@ -196,12 +196,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
                             .compose(v -> relationships.removeObject(store, object))
                             // the rows within a tenant are reached by tenant, so each tenant placed in the store is read
-                            .compose(v -> relationships.readByUser(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
+                            .compose(v -> relationships.findContained(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
                             .compose(placed -> {
                                 Future<Void> ret = Future.succeededFuture();
-                                for (RelationshipTuple tenant : placed) {
+                                for (String tenant : placed) {
                                     String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant.object())));
+                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant)));
                                     ret = ret.compose(w -> relationships.removeObject(store, within));
                                 }
                                 return ret;
