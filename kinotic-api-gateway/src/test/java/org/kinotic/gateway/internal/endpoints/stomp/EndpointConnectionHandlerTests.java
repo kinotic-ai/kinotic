@@ -8,6 +8,7 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
@@ -31,7 +32,12 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.event.ZoneRules;
+import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.ConnectionRevocation;
+import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
@@ -48,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -198,6 +205,49 @@ public class EndpointConnectionHandlerTests {
 
         verify(requestLivenessWatcher).unwatch(endsWith(":corr-3"));
         verify(replyConsumer).unregister();
+    }
+
+    @Test
+    public void testSessionLoginOfARevokedIdentityIsRefused() throws Exception {
+        when(services.securityService.reauthenticate(any()))
+                .thenReturn(Future.failedFuture(new AuthenticationException("The identity was removed")));
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
+
+        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
+                () -> handler.handshake(sessionLoginContext(new ConnectedInfo(participant(), null, null, "login-1")))
+                             .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+
+        HttpException rejection = Assertions.assertInstanceOf(HttpException.class, failure.getCause());
+        Assertions.assertEquals(401, rejection.getStatusCode());
+    }
+
+    @Test
+    public void testSessionLoginCarriesTheParticipantItsIdentityActsAsNow() throws Exception {
+        TestParticipant current = new TestParticipant("org-user");
+        when(services.securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(current));
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
+
+        handler.handshake(sessionLoginContext(new ConnectedInfo(participant(), null, null, "login-1")))
+               .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        verify(services.securityService).reauthenticate(any());
+        verify(services.securityService, never()).authenticate(any(), any());
+    }
+
+    @Test
+    public void testLogoutEndsOnlyTheConnectionsOfItsLogin() throws Exception {
+        when(services.securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(participant()));
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(sessionLoginContext(new ConnectedInfo(participant(), null, null, "login-1")))
+               .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, "login-2"));
+        Assertions.assertFalse(closed.await(200, TimeUnit.MILLISECONDS), "another login's logout ended the connection");
+
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, "login-1"));
+        Assertions.assertTrue(closed.await(5, TimeUnit.SECONDS), "the logout did not end the connection established on the login");
     }
 
     @Test
@@ -738,6 +788,17 @@ public class EndpointConnectionHandlerTests {
         handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         handler.connect(connectHeaders).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         return handler;
+    }
+
+    // An upgrade from a page whose session holds a login for it, as SessionBinding resolves it for the request
+    private RoutingContext sessionLoginContext(ConnectedInfo login) {
+        HttpServerRequest request = mock(HttpServerRequest.class);
+        when(request.headers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
+        RoutingContext routingContext = mock(RoutingContext.class);
+        when(routingContext.session()).thenReturn(services.sessionStore.createSession(SESSION_TIMEOUT_MS));
+        when(routingContext.request()).thenReturn(request);
+        when(routingContext.get(SessionBinding.class.getName() + ".login")).thenReturn(login);
+        return routingContext;
     }
 
     // Subscribes the connection's reply destination and returns its CRI; requests carry it as reply-to

@@ -72,4 +72,10 @@ public class TestSecurityService implements SecurityService {
         }
         return Future.succeededFuture(participant);
     }
+
+    /** Every participant stays as it was authenticated: the test server keeps no user store to resolve it against. */
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        return Future.succeededFuture(participant);
+    }
 }

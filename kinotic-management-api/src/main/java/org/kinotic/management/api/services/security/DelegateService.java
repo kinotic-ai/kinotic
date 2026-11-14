@@ -35,7 +35,9 @@ public interface DelegateService {
 
     /**
      * Ends a single session of one of the calling user's delegates. The session's tokens can
-     * no longer be refreshed; an unexpired access token runs out on its own short TTL.
+     * no longer be refreshed; an unexpired access token runs out on its own short TTL. The
+     * delegate's open connections end, and those of its other sessions reconnect with their own
+     * tokens.
      *
      * @param delegateId a delegate owned by the calling user
      * @param familyId   the session to end, from {@link #findSessions}

@@ -447,10 +447,11 @@ public class CrudServiceTemplate {
      *
      * @param indexName       name of the index to update
      * @param builderConsumer to customize the {@link UpdateByQueryRequest}: the query and the script, at least
-     * @return a {@link Future} that will complete with the number of documents the script changed
+     * @return a {@link Future} that will complete with the {@link UpdateByQueryResponse}, which counts the documents
+     *         the script changed and the ones skipped because another writer changed them
      */
-    public Future<Long> updateByQuery(String indexName,
-                                      Consumer<UpdateByQueryRequest.Builder> builderConsumer) {
+    public Future<UpdateByQueryResponse> updateByQuery(String indexName,
+                                                       Consumer<UpdateByQueryRequest.Builder> builderConsumer) {
         return KinoticUtil.toFuture(esAsyncClient.updateByQuery(builder -> {
             builder.index(indexName)
                    .refresh(true)
@@ -459,7 +460,7 @@ public class CrudServiceTemplate {
                 builderConsumer.accept(builder);
             }
             return builder;
-        })).map(UpdateByQueryResponse::updated);
+        }));
     }
 
     /**

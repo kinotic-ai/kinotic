@@ -25,9 +25,11 @@ public class ExpressionVisitor extends KinoticSQLBaseVisitor<Expression> {
         } else if (ctx.operator() != null) {
             // Binary expression: ID operator expression
             KinoticSQLParser.ExpressionContext rightCtx = ctx.expression();
-            // The right operand is kept as written since it is spliced into the update script as source
-            String right = rightCtx.value() != null ? rightCtx.value().getText() : Identifiers.name(rightCtx.identifier());
-            ret = new BinaryExpression(Identifiers.name(ctx.identifier()), ctx.operator().getText(), right);
+            if (rightCtx.value() == null) {
+                throw new IllegalArgumentException("The right operand of " + ctx.getText() + " must be a literal or a parameter");
+            }
+            ret = new BinaryExpression(Identifiers.name(ctx.identifier()), ctx.operator().getText(),
+                                       valueVisitor.visitValue(rightCtx.value()));
         } else if (ctx.LPAREN() != null) {
             ret = visit(ctx.expression()); // Unwrap parentheses
         } else {

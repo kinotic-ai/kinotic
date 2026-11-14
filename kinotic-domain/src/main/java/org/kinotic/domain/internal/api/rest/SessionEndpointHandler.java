@@ -2,7 +2,9 @@ package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.springframework.stereotype.Component;
@@ -15,12 +17,15 @@ import org.springframework.stereotype.Component;
  *       A cookie-auth client (the browser) uses this to decide whether to open the realtime
  *       WebSocket: a rejected WS upgrade is opaque to browsers, whereas this HTTP status is
  *       readable, so the SPA can fail fast instead of dialing an unauthenticated socket.</li>
- *   <li>{@code POST /api/auth/logout} — ends the calling page's login. The session, and its cookie, end once no
- *       page's login remains, and the realtime connections established on the session end with it.</li>
+ *   <li>{@code POST /api/auth/logout} — ends the calling page's login and the realtime connections established
+ *       on it. The session, and its cookie, end once no page's login remains.</li>
  * </ul>
  */
 @Component
+@RequiredArgsConstructor
 public class SessionEndpointHandler implements SuppliesGatewayRoutes {
+
+    private final ConnectionRevocationService connectionRevocationService;
 
     @Override
     public void mountRoutes(Router router) {
@@ -43,9 +48,13 @@ public class SessionEndpointHandler implements SuppliesGatewayRoutes {
         ctx.response().setStatusCode(authenticated ? 204 : 401).end();
     }
 
-    /** Ends the calling page's login. */
+    /** Ends the calling page's login, and the realtime connections established on it. */
     private void handleLogout(RoutingContext ctx) {
+        ConnectedInfo login = SessionBinding.connectedInfo(ctx);
         SessionBinding.unbind(ctx);
+        if (login != null && login.getLoginId() != null) {
+            connectionRevocationService.revokeLogin(login.getLoginId());
+        }
         ctx.response().setStatusCode(204).end();
     }
 }

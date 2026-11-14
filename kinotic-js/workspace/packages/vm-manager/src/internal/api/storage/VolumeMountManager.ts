@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { existsSync, mkdirSync, realpathSync } from 'node:fs'
+import { dirname, resolve, sep } from 'node:path'
 import type { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import type { VolumeMount, Workload } from '@kinotic-ai/management-api'
 
@@ -25,9 +25,10 @@ export class VolumeMountManager {
      * Validates every volume mount of a workload and creates the missing host directories of
      * the writable ones, leaving each mount ready for a provider to bind into the guest.
      *
-     * Every hostPath must resolve strictly inside the node's workload data directory: mounts
-     * are bound with the vm-manager's authority, so an unconstrained path would hand any host
-     * directory to the guest. A read-only mount must already exist and fails here naming the
+     * Every hostPath must resolve strictly inside the node's workload data directory, as written
+     * and as the filesystem resolves it through any symlink: mounts are bound with the
+     * vm-manager's authority, so an unconstrained path would hand any host directory to the
+     * guest. A read-only mount must already exist and fails here naming the
      * path, rather than the provider's runtime refusing the VM or an empty directory
      * appearing at the path.
      *
@@ -46,8 +47,28 @@ export class VolumeMountManager {
                                     + `${workload.id} does not exist on this node`)
                 }
             } else {
+                // checked before the directories are created too, since mkdirSync follows a symlink in the path
+                this.requireResolvedInside(hostPath, mount.hostPath, workload)
                 mkdirSync(hostPath, { recursive: true })
             }
+            this.requireResolvedInside(hostPath, mount.hostPath, workload)
+        }
+    }
+
+    // A directory a workload can write may hold a symlink it planted, which the lexical check passes and the
+    // provider follows when it binds the mount, so the deepest part of the path that exists must resolve inside
+    // the data directory as well
+    private requireResolvedInside(hostPath: string, written: string, workload: Workload): void {
+        mkdirSync(this.workloadDataDir, { recursive: true })
+        const dataDir = realpathSync(this.workloadDataDir)
+        let existing = hostPath
+        while (!existsSync(existing)) {
+            existing = dirname(existing)
+        }
+        const resolved = realpathSync(existing)
+        if (resolved !== dataDir && !resolved.startsWith(dataDir + sep)) {
+            throw new Error(`Volume mount ${written} of workload ${workload.id} resolves to ${resolved}, `
+                            + `outside the workload data directory ${dataDir}`)
         }
     }
 

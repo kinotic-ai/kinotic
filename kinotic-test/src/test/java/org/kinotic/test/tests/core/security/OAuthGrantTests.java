@@ -90,6 +90,24 @@ public class OAuthGrantTests extends KinoticTestBase {
     }
 
     @Test
+    public void aRevocationRacingARotationLeavesTheFamilyWithNoLiveToken() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            String token = await(refreshTokens.issue(user.getId(), KinoticAudience.PUBLISHED_SERVICES, null));
+            String familyId = await(refreshTokens.findActiveSessions(user.getId())).getFirst().familyId();
+
+            Future<RefreshTokenRotation> rotation = refreshTokens.rotate(token);
+            Future<Void> revocation = refreshTokens.revokeFamily(user.getId(), familyId);
+            Future.join(rotation, revocation).toCompletionStage().toCompletableFuture().handle((v, e) -> null).get(30, TimeUnit.SECONDS);
+
+            assertTrue(revocation.succeeded(), "the revocation failed: " + revocation.cause());
+            assertTrue(await(refreshTokens.findActiveSessions(user.getId())).isEmpty(), "a token of the revoked family is live");
+            if (rotation.succeeded()) {
+                assertThrows(ExecutionException.class, () -> await(refreshTokens.rotate(rotation.result().refreshToken())));
+            }
+        }
+    }
+
+    @Test
     public void deletingTheIdentityRevokesItsRefreshTokens() throws Exception {
         String token = await(refreshTokens.issue(user.getId(), KinoticAudience.MCP_TOOLS, "host"));
         await(identities.deleteById(user.getId()));

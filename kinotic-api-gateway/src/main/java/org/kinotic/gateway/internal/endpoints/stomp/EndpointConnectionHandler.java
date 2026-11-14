@@ -20,6 +20,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
@@ -96,24 +97,24 @@ public class EndpointConnectionHandler {
         routingContext.request().headers().remove(CLIENT_SECRET_HEADER);
 
         if (connectedInfo != null && connectedInfo.getParticipant() != null) {
-            registerForRevocation();
-            return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
+            // the session outlives a revocation, which ends only the connections open at the time, so the
+            // participant it holds is resolved against its identity again before a new connection carries it
+            return securityService.reauthenticate(connectedInfo.getParticipant())
+                                  .recover(throwable -> {
+                                      if (throwable instanceof AuthenticationException) {
+                                          SessionBinding.unbind(routingContext);
+                                      }
+                                      return Future.failedFuture(rejection(throwable));
+                                  })
+                                  .map(participant -> {
+                                      connectedInfo.setParticipant(participant);
+                                      registerForRevocation();
+                                      return MultiMap.caseInsensitiveMultiMap();
+                                  });
         }
 
         return securityService.authenticate(authenticationInfo, GATEWAY_CONTEXT)
-                              .recover(throwable -> {
-                                  // the upgrade is answered with the status of the HttpException: rejected credentials
-                                  // are the client's to change, a security service that could not answer is an outage
-                                  // the client should retry through
-                                  HttpException rejection;
-                                  if (throwable instanceof AuthenticationException) {
-                                      rejection = new HttpException(HttpResponseStatus.UNAUTHORIZED.code(), throwable);
-                                  } else {
-                                      log.warn("The security service could not authenticate a connection", throwable);
-                                      rejection = new HttpException(HttpResponseStatus.SERVICE_UNAVAILABLE.code(), throwable);
-                                  }
-                                  return Future.failedFuture(rejection);
-                              })
+                              .recover(throwable -> Future.failedFuture(rejection(throwable)))
                               .map(participant -> {
                                   connectedInfo = new ConnectedInfo();
                                   connectedInfo.setParticipant(participant);
@@ -127,6 +128,19 @@ public class EndpointConnectionHandler {
                               });
     }
 
+    // The upgrade is answered with the status of the HttpException: rejected credentials are the client's to change,
+    // a security service that could not answer is an outage the client should retry through
+    private static HttpException rejection(Throwable throwable) {
+        HttpException ret;
+        if (throwable instanceof AuthenticationException) {
+            ret = new HttpException(HttpResponseStatus.UNAUTHORIZED.code(), throwable);
+        } else {
+            log.warn("The security service could not authenticate a connection", throwable);
+            ret = new HttpException(HttpResponseStatus.SERVICE_UNAVAILABLE.code(), throwable);
+        }
+        return ret;
+    }
+
     // The participant is authenticated once, in the handshake, so a revocation of the identity ends the connection
     // through the registry from this point on: one that arrives before the CONNECT frame is recorded and refused
     // there. A revocation arrives on the event bus consumer's context, and the connection's state is touched only
@@ -137,7 +151,14 @@ public class EndpointConnectionHandler {
             revocation = cause;
             close.accept(cause);
         });
-        registrations.add(services.connectionRegistry.register(connectedInfo.getParticipant().getId(), closeOnContext));
+        registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
+                                                               connectedInfo.getParticipant().getId(),
+                                                               closeOnContext));
+        if (connectedInfo.getLoginId() != null) {
+            registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN,
+                                                                   connectedInfo.getLoginId(),
+                                                                   closeOnContext));
+        }
     }
 
     public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {

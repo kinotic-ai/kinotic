@@ -44,4 +44,9 @@ public class TestGatewaySecurityService implements SecurityService {
         return ret;
     }
 
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        return Future.succeededFuture(participant);
+    }
+
 }

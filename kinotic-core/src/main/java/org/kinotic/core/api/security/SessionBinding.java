@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 /**
@@ -89,11 +90,13 @@ public final class SessionBinding {
 
     /**
      * Binds {@code connectedInfo} to the page at {@code origin} in the request's session, stamped with the
-     * host the request was addressed to. {@code origin} is the calling page's for a login the page makes
-     * directly, and the page that started the flow for a login completed by a redirect.
+     * host the request was addressed to and a new {@link ConnectedInfo#getLoginId() login id}. {@code origin}
+     * is the calling page's for a login the page makes directly, and the page that started the flow for a
+     * login completed by a redirect.
      */
     public static void bind(RoutingContext ctx, String origin, ConnectedInfo connectedInfo) {
         connectedInfo.setHost(requestHost(ctx));
+        connectedInfo.setLoginId(UUID.randomUUID().toString());
         ctx.session().put(loginKey(origin), connectedInfo);
         if (Objects.equals(origin, origin(ctx))) {
             ctx.put(LOGIN_KEY, connectedInfo);

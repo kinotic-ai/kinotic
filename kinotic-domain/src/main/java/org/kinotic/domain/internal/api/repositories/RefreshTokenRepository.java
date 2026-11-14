@@ -18,6 +18,9 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
 
     private static final String REVOKE_SCRIPT = "ctx._source.revoked = true";
 
+    // a pass skips a token a rotation consumes while it runs, whose replacement the next pass finds
+    private static final int MAX_REVOCATION_PASSES = 5;
+
     private static final String CONSUME_SCRIPT = """
             if (ctx._source.revoked == true) {
                 ctx.op = 'noop'
@@ -36,7 +39,10 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
         return findFirst(b -> b.query(termFilter("tokenHash", tokenHash)));
     }
 
-    /** Finds every unrevoked token of the given identity — one per live family. */
+    /**
+     * Finds every unrevoked token of the given identity: one per live family, and two for a family while a rotation
+     * of it is under way.
+     */
     public Future<List<RefreshToken>> findActiveByIdentityId(String identityId) {
         return findAll(Pageable.ofSize(1000), b -> b.query(composeFilter(
                 termFilter("identityId", identityId),
@@ -79,9 +85,26 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
                                             termFilter("revoked", false)));
     }
 
+    // A rotation writes its replacement before it consumes the token it replaces, so a token that changed under a
+    // pass was consumed by a rotation whose replacement is already searchable and is revoked by the pass that follows
     private Future<Void> revokeMatching(Query live) {
+        return revokeMatching(live, 1);
+    }
+
+    private Future<Void> revokeMatching(Query live, int pass) {
         return crudServiceTemplate.updateByQuery(indexName, b -> b.query(live)
                                                                    .script(s -> s.source(src -> src.scriptString(REVOKE_SCRIPT))))
-                                  .mapEmpty();
+                                  .compose(response -> {
+                                      Future<Void> ret;
+                                      if (response.versionConflicts() == null || response.versionConflicts() == 0) {
+                                          ret = Future.succeededFuture();
+                                      } else if (pass < MAX_REVOCATION_PASSES) {
+                                          ret = revokeMatching(live, pass + 1);
+                                      } else {
+                                          ret = Future.failedFuture(new IllegalStateException(
+                                                  "The refresh tokens could not be revoked while they were being rotated; try again"));
+                                      }
+                                      return ret;
+                                  });
     }
 }
