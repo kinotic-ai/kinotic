@@ -155,6 +155,13 @@ public class RequestAuthorizationTests extends KinoticTestBase {
                                                         new Resource(EntityDefinitionService.RESOURCE_TYPE, definition.getId()))));
         assertTrue(awaitUntil(() -> admitted(ENTITY_DEFINITION_SERVICE, "unPublish", caller, List.of(definition.getId()))),
                    "the administrator of the definition never un-published it");
+
+        // the listings answer with the definitions the caller reads, so the gateway admits them unchecked
+        Map<String, Object> pageable = Map.of("pageNumber", 0, "pageSize", 10);
+        authorize(ENTITY_DEFINITION_SERVICE, "findAllForProject", caller, List.of(definition.getProjectId(), pageable));
+        authorize(ENTITY_DEFINITION_SERVICE, "countForProject", caller, List.of(definition.getProjectId()));
+        authorize(ENTITY_DEFINITION_SERVICE, "findAllForApplication", caller, List.of(application.getId(), pageable));
+        authorize(ENTITY_DEFINITION_SERVICE, "search", caller, List.of(definition.getName(), pageable));
     }
 
     @Test

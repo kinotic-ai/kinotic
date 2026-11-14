@@ -396,6 +396,34 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     @Test
+    public void aGroupOrARoleGrantedAsItIsDeletedIsKeptWithItsGrantOrDeletedWithNone() throws Exception {
+        Project project = project(application());
+        Resource onProject = new Resource(ProjectService.RESOURCE_TYPE, project.getId());
+        Subject holder = user(member(TEST_ORG_ID, "permission"));
+        for (int i = 0; i < 5; i++) {
+            Group group = await(runAsOrganization(() -> permissions.saveGroup(new Group().setName("Raced " + suffix()))));
+            Subject asGroup = new Subject(SubjectType.GROUP, group.getId());
+            Future<Grant> groupGranted = runAsOrganization(() -> permissions.grant(asGroup, "project.viewer", onProject));
+            Future<Void> groupDeleted = runAsOrganization(() -> permissions.deleteGroup(group.getId()));
+            await(groupGranted.otherwiseEmpty());
+            await(groupDeleted.otherwiseEmpty());
+
+            RoleDefinition role = await(runAsOrganization(() -> permissions.saveRole(
+                    new RoleDefinition(null, "Raced " + suffix(), null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_read")))));
+            Future<Grant> roleGranted = runAsOrganization(() -> permissions.grant(holder, role.id(), onProject));
+            Future<Void> roleDeleted = runAsOrganization(() -> permissions.deleteRole(role.id()));
+            await(roleGranted.otherwiseEmpty());
+            await(roleDeleted.otherwiseEmpty());
+
+            assertTrue(groupGranted.succeeded() != groupDeleted.succeeded(), "the group is granted the role or deleted, never both");
+            assertTrue(roleGranted.succeeded() != roleDeleted.succeeded(), "the role is granted or deleted, never both");
+            List<Grant> grants = await(runAsOrganization(() -> permissions.findGrants(onProject)));
+            assertEquals(groupGranted.succeeded(), grants.stream().anyMatch(grant -> grant.subject().equals(asGroup)));
+            assertEquals(roleGranted.succeeded(), grants.stream().anyMatch(grant -> grant.roleId().equals(role.id())));
+        }
+    }
+
+    @Test
     public void theCallerListsWhatItHolds() throws Exception {
         Application application = application();
         Project granted = project(application);

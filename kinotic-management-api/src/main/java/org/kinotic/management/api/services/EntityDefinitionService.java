@@ -35,6 +35,78 @@ public interface EntityDefinitionService extends ProjectScopedCrudService<Entity
     Future<EntityDefinition> findById(String id);
 
     /**
+     * Counts the entity definitions of the caller's organization that the caller may read.
+     *
+     * @return a {@link Future} emitting the count
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Long> count();
+
+    /**
+     * Returns the entity definitions of the caller's organization that the caller may read.
+     *
+     * @param pageable the paging parameters
+     * @return a {@link Future} emitting a page of definitions
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<EntityDefinition>> findAll(Pageable pageable);
+
+    /**
+     * Searches the entity definitions of the caller's organization that the caller may read.
+     *
+     * @param searchText the text to match definitions against
+     * @param pageable   the paging parameters
+     * @return a {@link Future} emitting a page of matching definitions
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<EntityDefinition>> search(String searchText, Pageable pageable);
+
+    /**
+     * Counts the entity definitions of the given application that the caller may read.
+     *
+     * @param applicationId the application to count definitions for
+     * @return a {@link Future} emitting the count
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Long> countForApplication(String applicationId);
+
+    /**
+     * Returns the entity definitions of the given application that the caller may read.
+     *
+     * @param applicationId the application to find definitions for
+     * @param pageable      the paging parameters
+     * @return a {@link Future} emitting a page of definitions
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable);
+
+    /**
+     * Counts the entity definitions of the given project that the caller may read.
+     *
+     * @param projectId the project to count definitions for
+     * @return a {@link Future} emitting the count
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Long> countForProject(String projectId);
+
+    /**
+     * Returns the entity definitions of the given project that the caller may read.
+     *
+     * @param projectId the project to find definitions for
+     * @param pageable  the paging parameters
+     * @return a {@link Future} emitting a page of definitions
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable);
+
+    /**
      * Creates a new {@link EntityDefinition}. Validates the definition, derives the logical
      * index name, and persists it. The definition is not usable for data operations until
      * {@link #publish(String)} is called.

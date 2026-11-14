@@ -267,6 +267,10 @@ const dataTablePt = computed(() => {
   };
 });
 
+// a search, a page change and a parent's find() can each start a load before the last one answered, so only the
+// latest load's answer, or refusal, is shown
+let latestFind = 0;
+
 onMounted(() => {
   const urlSearch = (route.query.search as string) || ''
   loading.value = true
@@ -346,10 +350,6 @@ function onSearchChange() {
 function handleCardClick(item: Identifiable<string>, index: number) {
   onRowClick({ data: item, index });
 }
-
-// a search, a page change and a parent's find() can each start a load before the last one answered, so only the
-// latest load's answer, or refusal, is shown
-let latestFind = 0;
 
 function find() {
   const thisFind = ++latestFind;

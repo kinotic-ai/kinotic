@@ -28,6 +28,7 @@ import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
@@ -41,6 +42,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -151,6 +153,50 @@ public class VisibilityTests extends KinoticTestBase {
                    "the application never became visible");
         assertEquals(List.of(a.getId()), ids(await(runAs(caller, () -> projectService.findAllForApplication(x.getId(), FIRST_PAGE)))));
         assertFalse(ids(await(runAs(caller, () -> projectService.findAll(FIRST_PAGE)))).contains(b.getId()));
+    }
+
+    @Test
+    public void aMemberListsTheEntityDefinitionsItMayRead() throws Exception {
+        Application x = application();
+        Project a = project(x);
+        Project b = project(x);
+        EntityDefinition granted = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), a.getId()))));
+        EntityDefinition beside = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), a.getId()))));
+        EntityDefinition elsewhere = await(runAsOrganization(() -> entityDefinitionService.create(definition(x.getId(), b.getId()))));
+        OrganizationParticipantIdentity sally = member(TEST_ORG_ID, "visible");
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, sally.getId()), "entity_definition.viewer",
+                                                        new Resource(EntityDefinitionService.RESOURCE_TYPE, granted.getId()))));
+        OrganizationParticipant caller = participant(sally.getId());
+
+        // the one definition the grant is made on, in every listing that holds it
+        assertTrue(awaitUntil(() -> ids(await(runAs(caller, () -> entityDefinitionService.findAllForProject(a.getId(), FIRST_PAGE)))).contains(granted.getId())),
+                   "the definition never became readable");
+        assertEquals(List.of(granted.getId()), ids(await(runAs(caller, () -> entityDefinitionService.findAllForProject(a.getId(), FIRST_PAGE)))));
+        assertEquals(1L, await(runAs(caller, () -> entityDefinitionService.countForProject(a.getId()))));
+        assertTrue(ids(await(runAs(caller, () -> entityDefinitionService.findAllForProject(b.getId(), FIRST_PAGE)))).isEmpty());
+        assertEquals(0L, await(runAs(caller, () -> entityDefinitionService.countForProject(b.getId()))));
+        assertEquals(List.of(granted.getId()), ids(await(runAs(caller, () -> entityDefinitionService.findAllForApplication(x.getId(), FIRST_PAGE)))));
+        assertEquals(1L, await(runAs(caller, () -> entityDefinitionService.countForApplication(x.getId()))));
+        assertEquals(List.of(granted.getId()), ids(await(runAs(caller, () -> entityDefinitionService.findAll(FIRST_PAGE)))));
+        assertEquals(1L, await(runAs(caller, entityDefinitionService::count)));
+        assertEquals(List.of(granted.getId()), ids(await(runAs(caller, () -> entityDefinitionService.search(granted.getName(), FIRST_PAGE)))));
+        assertTrue(ids(await(runAs(caller, () -> entityDefinitionService.search(beside.getName(), FIRST_PAGE)))).isEmpty());
+
+        // a grant on the application reaches every definition in it
+        OrganizationParticipantIdentity ravi = member(TEST_ORG_ID, "visible");
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, ravi.getId()), "entity_definition.viewer",
+                                                        new Resource(AuthzConstants.APPLICATION_TYPE, x.getId()))));
+        OrganizationParticipant reader = participant(ravi.getId());
+        assertTrue(awaitUntil(() -> await(runAs(reader, () -> entityDefinitionService.countForApplication(x.getId()))) == 3L),
+                   "the application's definitions never became readable");
+        assertEquals(Set.of(granted.getId(), beside.getId()),
+                     Set.copyOf(ids(await(runAs(reader, () -> entityDefinitionService.findAllForProject(a.getId(), FIRST_PAGE))))));
+        assertEquals(List.of(elsewhere.getId()), ids(await(runAs(reader, () -> entityDefinitionService.findAllForProject(b.getId(), FIRST_PAGE)))));
+        assertEquals(3L, await(runAs(reader, entityDefinitionService::count)));
+
+        // the administrator lists every definition
+        assertEquals(2L, await(runAsOrganization(() -> entityDefinitionService.countForProject(a.getId()))));
+        assertEquals(3L, await(runAsOrganization(() -> entityDefinitionService.countForApplication(x.getId()))));
     }
 
     @Test
