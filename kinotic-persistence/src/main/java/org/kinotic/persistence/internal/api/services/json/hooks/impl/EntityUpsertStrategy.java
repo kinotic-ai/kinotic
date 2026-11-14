@@ -1,12 +1,12 @@
-package org.kinotic.persistence.internal.api.hooks.impl;
+package org.kinotic.persistence.internal.api.services.json.hooks.impl;
 
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.internal.api.hooks.EntityUpsertState;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
+import org.kinotic.persistence.internal.api.services.json.hooks.EntityUpsertState;
+import org.kinotic.persistence.internal.api.services.json.hooks.UpsertFieldTransformer;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessorStrategy;
 import org.kinotic.persistence.internal.api.services.json.JsonTransformer;

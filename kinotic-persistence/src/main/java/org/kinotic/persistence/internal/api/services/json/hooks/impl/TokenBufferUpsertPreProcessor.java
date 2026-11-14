@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.hooks.impl;
+package org.kinotic.persistence.internal.api.services.json.hooks.impl;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
@@ -7,7 +7,7 @@ import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
+import org.kinotic.persistence.internal.api.services.json.hooks.UpsertFieldTransformer;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
 import tools.jackson.databind.DeserializationFeature;

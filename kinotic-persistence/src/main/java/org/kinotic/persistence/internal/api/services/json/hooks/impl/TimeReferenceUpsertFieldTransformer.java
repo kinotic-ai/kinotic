@@ -1,8 +1,8 @@
-package org.kinotic.persistence.internal.api.hooks.impl;
+package org.kinotic.persistence.internal.api.services.json.hooks.impl;
 
 import org.kinotic.domain.api.model.persistence.idl.decorators.TimeReferenceDecorator;
-import org.kinotic.persistence.internal.api.hooks.EntityUpsertState;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
+import org.kinotic.persistence.internal.api.services.json.hooks.EntityUpsertState;
+import org.kinotic.persistence.internal.api.services.json.hooks.UpsertFieldTransformer;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JsonGenerator;
 import tools.jackson.core.JsonParser;

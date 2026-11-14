@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.hooks;
+package org.kinotic.persistence.internal.api.services.json.hooks;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -17,10 +17,11 @@ import org.kinotic.domain.api.model.security.participant.DefaultOrganizationPart
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
+import org.kinotic.persistence.internal.api.services.json.hooks.UpsertFieldTransformer;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.ElasticVersion;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
+import org.kinotic.persistence.internal.api.services.json.hooks.impl.*;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;

@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.hooks;
+package org.kinotic.persistence.internal.api.services.json.hooks;
 
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.internal.api.services.json.JsonTransformer;
