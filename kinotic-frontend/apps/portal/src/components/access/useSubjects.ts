@@ -7,14 +7,17 @@ import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
 const debug = createDebug('access')
 
-// The pickers and the names on the grant rows read the first pages of the organization's members and groups,
-// which cover an organization of a few hundred members; a subject beyond them is shown by its id
+// The pickers list, and the grant rows name, the first pages of the organization's members and groups, which
+// cover an organization of a few hundred members; a member or a user beyond them is found by searching, and a
+// grant row names it by its id until it has been searched for
 const SUBJECT_PAGE_SIZE = 500
+// the matches a search lists; typing more narrows them
+const SEARCH_PAGE_SIZE = 50
 
 /**
  * Who a grant can be made to, read once per panel: the organization's members and groups, as the pickers of
  * the system store's panels list them, or, for an application, its users and machines, as the pickers of the
- * application's own store list them; the grant rows name whichever were read. Each list is read on its own,
+ * application's own store list them; the grant rows name whichever were read or searched for. Each list is read on its own,
  * and one the caller may not read is left empty, so a caller who may read access but not the members still
  * sees the grants, with such a subject named by its id; any other failure to read a list fails the load. Only
  * the latest load's lists are kept, so a page that switches application while a load is in flight shows the
@@ -29,11 +32,14 @@ export function useSubjects(applicationId: () => string | null = () => null): {
   groups: Ref<SubjectOption[]>
   machines: Ref<SubjectOption[]>
   load: () => Promise<void>
+  searchMembers: (text: string) => Promise<SubjectOption[]>
   labelOf: ComputedRef<(subject: Subject) => string>
 } {
   const members = ref<SubjectOption[]>([])
   const groups = ref<SubjectOption[]>([])
   const machines = ref<SubjectOption[]>([])
+  // the members and users a search found, by key, which the lists read at load may not hold
+  const searched = ref(new Map<string, SubjectOption>())
 
   let latestLoad = 0
 
@@ -70,15 +76,29 @@ export function useSubjects(applicationId: () => string | null = () => null): {
     }
   }
 
+  /**
+   * The organization's members or, for an application, its users whose name or email matches the text.
+   */
+  async function searchMembers(text: string): Promise<SubjectOption[]> {
+    const application = applicationId()
+    const pageable = Pageable.create(0, SEARCH_PAGE_SIZE)
+    const page = application === null
+        ? await Kinotic.members.searchMembers(text, pageable)
+        : await Kinotic.members.searchApplicationUsers(text, application, pageable)
+    const found = (page.content ?? []).map(memberOption)
+    searched.value = new Map([...searched.value, ...found.map(option => [keyOf(option.subject), option] as const)])
+    return found
+  }
+
   const labelOf = computed(() => {
     const names = new Map<string, string>()
-    for (const option of [...members.value, ...groups.value, ...machines.value]) {
+    for (const option of [...searched.value.values(), ...members.value, ...groups.value, ...machines.value]) {
       names.set(keyOf(option.subject), option.label)
     }
     return (subject: Subject) => names.get(keyOf(subject)) ?? subject.id
   })
 
-  return { members, groups, machines, load, labelOf }
+  return { members, groups, machines, load, searchMembers, labelOf }
 }
 
 // the key a subject is told apart by: a user and a group may share an id

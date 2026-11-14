@@ -39,6 +39,8 @@ const props = defineProps<{
   /** The roles the application's store defines. */
   roles: RoleDefinition[]
   users: SubjectOption[]
+  /** Finds the application's users matching a name or an email, for one the list does not hold. */
+  searchUsers: (text: string) => Promise<SubjectOption[]>
   machines: SubjectOption[]
   /** The tenants known so far, offered in the picker; any other id can be typed. */
   tenants: string[]
@@ -62,7 +64,7 @@ const tenantId = ref<string | null>(null)
 const definitionId = ref<string | null>(null)
 
 const tabs = computed<SubjectPickerTab[]>(() => [
-  { label: 'User', options: props.users, placeholder: 'Choose a user', emptyMessage: 'No users yet' },
+  { label: 'User', options: props.users, search: props.searchUsers, placeholder: 'Name or email of a user', emptyMessage: 'No user matches' },
   { label: 'Machine', options: props.machines, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
 ])
 

@@ -4,15 +4,8 @@
               @close="emit('update:visible', false)">
     <div class="flex flex-col gap-4">
       <form v-if="canManageAccess" id="group-member-form" class="flex gap-2" @submit.prevent="add">
-        <Select v-model="adding" :options="addable" option-label="label" option-value="id" filter :filter-fields="['label', 'detail']"
-                placeholder="Add a member" class="min-w-0 flex-1" empty-message="Everyone is in the group">
-          <template #option="{ option }">
-            <div class="flex flex-col">
-              <span class="text-sm">{{ option.label }}</span>
-              <span v-if="option.detail" class="text-xs text-muted-color">{{ option.detail }}</span>
-            </div>
-          </template>
-        </Select>
+        <SubjectPicker v-model="adding" :sources="[addable]" placeholder="Add a member" empty-message="No member to add matches"
+                       class="min-w-0 flex-1" />
         <Button type="submit" label="Add" icon="pi pi-plus" :loading="busy" :disabled="!adding" />
       </form>
 
@@ -44,13 +37,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Button from 'primevue/button'
-import Select from 'primevue/select'
 import Skeleton from 'primevue/skeleton'
 import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Group, OrganizationParticipantIdentity } from '@kinotic-ai/management-api'
 import { FormDrawer, InitialsTile, showErrorToast } from '@kinotic-ai/frontend-common'
-import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
+import { type SubjectOption, SubjectPicker, type SubjectSource } from '@kinotic-ai/frontend-common/management'
 import { useAccess } from '@/composables/useAccess'
 
 /** The members of a group, with adding and removing for a member who manages access. */
@@ -59,6 +51,8 @@ const props = defineProps<{
   group: Group | null
   /** The organization's members, as the picker offers them. */
   candidates: SubjectOption[]
+  /** Finds the organization's members matching a name or an email, for one the candidates do not hold. */
+  searchCandidates: (text: string) => Promise<SubjectOption[]>
 }>()
 
 const emit = defineEmits<{
@@ -70,14 +64,19 @@ const { canManageAccess } = useAccess()
 const members = ref<OrganizationParticipantIdentity[]>([])
 const loading = ref(false)
 const busy = ref(false)
-const adding = ref<string | null>(null)
+const adding = ref<SubjectOption | null>(null)
 // the ids of the members whose removal is in flight, so a second click sends nothing
 const removing = ref(new Set<string>())
 
-const addable = computed(() => {
+// the members the picker offers, listed and searched: whoever is in the group is left out
+const addable = computed<SubjectSource>(() => {
   const inGroup = new Set(members.value.map(member => member.id))
-  return props.candidates.filter(option => !inGroup.has(option.subject.id))
-                         .map(option => ({ id: option.subject.id, label: option.label, detail: option.detail }))
+  const outside = (options: SubjectOption[]) => options.filter(option => !inGroup.has(option.subject.id))
+  return {
+    label: 'Members',
+    options: outside(props.candidates),
+    search: async text => outside(await props.searchCandidates(text))
+  }
 })
 
 watch(() => [props.visible, props.group?.id], ([visible]) => {
@@ -117,7 +116,7 @@ async function add(): Promise<void> {
   }
   busy.value = true
   try {
-    await Kinotic.permissions.addGroupMember(props.group.id, adding.value)
+    await Kinotic.permissions.addGroupMember(props.group.id, adding.value.subject.id)
     await load()
   } catch (err) {
     showErrorToast(toast, 'Failed to add the member', err, { life: 8000 })

@@ -1,7 +1,7 @@
 <template>
   <AccessCheckPanel :tint="tint"
                     description="Ask whether a user or a machine holds a permission on the whole application, on one tenant, on one definition's rows or on those rows in one tenant, and which grants give it."
-                    :subject-groups="[{ label: 'Users', items: users }, { label: 'Machines', items: machines }]"
+                    :subject-groups="[{ label: 'Users', options: users, search: searchUsers }, { label: 'Machines', options: machines }]"
                     subject-placeholder="User or machine" :permission-options="permissionOptions" :roles="roles" :label-of="labelOf"
                     :initial-subject="initialSubject" grid-class="md:grid-cols-[1fr_1fr_1fr_1fr_auto]"
                     held-without-grant="Held through nothing a grant explains." no-grant="No grant reaching the resource gives the permission."
@@ -36,6 +36,8 @@ const props = defineProps<{
   tint: string
   applicationId: string
   users: SubjectOption[]
+  /** Finds the application's users matching a name or an email, for one the list does not hold. */
+  searchUsers: (text: string) => Promise<SubjectOption[]>
   machines: SubjectOption[]
   roles: RoleDefinition[]
   /** The model names of the permissions the application's store defines. */

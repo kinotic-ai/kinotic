@@ -58,7 +58,7 @@
     </DashboardSection>
 
     <AccessCheckPanel :tint="tint" description="Ask whether someone holds a permission here, and which grants give it."
-                      :subject-groups="[{ label: 'Members', items: members }, { label: 'Groups', items: groups }]"
+                      :subject-groups="[{ label: 'Members', options: members, search: searchMembers }, { label: 'Groups', options: groups }]"
                       subject-placeholder="Member or group" :permission-options="permissionOptions" :roles="roles" :label-of="labelOf"
                       held-without-grant="Held through nothing a grant explains, such as being a member of the organization."
                       :no-grant="`No grant on this ${resourceTypeLabel} or above it gives the permission.`" :explain="explain">
@@ -110,7 +110,7 @@ const props = defineProps<{
 const toast = useToast()
 const confirm = useConfirm()
 const { canManageAccess } = useAccess()
-const { members, groups, load: loadSubjects, labelOf } = useSubjects()
+const { members, groups, load: loadSubjects, searchMembers, labelOf } = useSubjects()
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
@@ -132,7 +132,7 @@ const permissionOptions = computed(() => (catalog.value[props.resource.type] ?? 
 })))
 
 const grantTabs = computed<SubjectPickerTab[]>(() => [
-  { label: 'Member', options: members.value, placeholder: 'Choose a member', emptyMessage: 'No members' },
+  { label: 'Member', options: members.value, search: searchMembers, placeholder: 'Name or email of a member', emptyMessage: 'No member matches' },
   { label: 'Group', options: groups.value, placeholder: 'Choose a group', emptyMessage: 'No groups yet' }
 ])
 

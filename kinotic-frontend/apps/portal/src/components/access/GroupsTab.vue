@@ -42,7 +42,7 @@
     </DashboardSection>
 
     <GroupDrawer v-model:visible="editorVisible" :group="editing" @saved="load" />
-    <GroupMembersDrawer v-model:visible="membersVisible" :group="opened" :candidates="members" />
+    <GroupMembersDrawer v-model:visible="membersVisible" :group="opened" :candidates="members" :search-candidates="searchMembers" />
   </div>
 </template>
 
@@ -70,7 +70,7 @@ const GROUPS_PAGE_SIZE = 500
 const toast = useToast()
 const confirm = useConfirm()
 const { canManageAccess } = useAccess()
-const { members, load: loadSubjects } = useSubjects()
+const { members, load: loadSubjects, searchMembers } = useSubjects()
 
 const groups = ref<Group[]>([])
 const loading = ref(true)

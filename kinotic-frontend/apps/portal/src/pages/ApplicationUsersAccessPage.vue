@@ -50,11 +50,11 @@
         </DataTable>
       </DashboardSection>
 
-      <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :machines="machines" :roles="roles"
+      <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :search-users="searchMembers" :machines="machines" :roles="roles"
                                :catalog="catalog" :tenants="tenants" :definitions="definitions" :label-of="labelOf" :initial-subject-id="subjectFilter?.id"
                                :initial-resource="resource" />
 
-      <EndUserGrantDrawer v-model:visible="grantDrawerVisible" :application-id="applicationId" :roles="roles" :users="members" :machines="machines"
+      <EndUserGrantDrawer v-model:visible="grantDrawerVisible" :application-id="applicationId" :roles="roles" :users="members" :search-users="searchMembers" :machines="machines"
                           :tenants="tenants" :definitions="definitions" :initial-resource="resource" @granted="onGranted" />
     </div>
   </div>
@@ -102,7 +102,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
-const { members, machines, load: loadSubjects, labelOf } = useSubjects(() => props.applicationId)
+const { members, machines, load: loadSubjects, searchMembers, labelOf } = useSubjects(() => props.applicationId)
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
