@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  # Documentation and build configuration stay out of the review, which holds a pull request
+  # to 100 files.
+  path_filters:
+    - "!website/**"
+    - "!CLAUDE.md"
+    - "!.coderabbit.yaml"
+    - "!gradle.properties"
+    - "!**/package.json"
+    - "!**/pnpm-workspace.yaml"
