@@ -1835,6 +1835,63 @@ reads ready as soon as its upload finished, since the edge reads the emulator on
 published UI is marked ready at once with nothing serving it, and a removed UI's record is
 deleted without a removal workload.
 
+## Vulnerability advisories
+
+The system server reads the vulnerability advisories of npm and Maven from OSV's export at
+`https://osv-vulnerabilities.storage.googleapis.com`, which it must be able to reach: the whole
+archive of each ecosystem the first time, a couple of hundred megabytes for npm, then only the
+advisories changed since, once an hour. An archive is downloaded to the server's temporary directory
+and deleted once read, so that directory needs room for it. The advisories are stored once for every organization, and
+every project's SBOM and every running server build is checked against them.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.disableOsvImport
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      When true OSV is never read, nothing rescans the SBOMs in the background, and the <code>
+        osv-import
+      </code>
+      
+       and <code>
+        sbom-scan
+      </code>
+      
+       system jobs are not offered; an SBOM is checked against the advisories already stored when it is recorded
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The tests set it.
+
 ## Workload storage and log limits
 
 A workload writes to two places the node must bound: the directories it mounts, and its own log output.

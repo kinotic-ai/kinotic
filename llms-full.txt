@@ -1440,6 +1440,30 @@ the dependencies it would list changed. The step reads `bun.lock` lockfile versi
 on any other lockfile version and on a dependency tree too large for one message to the platform,
 around 30,000 packages.
 
+### Vulnerabilities
+
+Every SBOM is checked against the vulnerability advisories [OSV](https://osv.dev) publishes for npm:
+the GitHub Advisory Database's advisories, most of them with a CVE, and the OpenSSF list of malicious
+packages. Kinotic reads OSV once an hour, so an advisory published today is checked against every
+project's SBOM within the hour, and an SBOM read by a deployment is checked as soon as it is recorded.
+A project gets one alert for each advisory that affects a version its SBOM lists, with the advisory's
+severity (a malicious package is always critical), its CVEs, the affected versions and the version that
+fixes each. An alert clears itself once neither the SBOM nor the advisory brings the two together any
+longer: after a push that upgrades the package, or when OSV withdraws the advisory. A sync that reports
+changed dependencies marks the SBOM outdated until the deployment reads the new one; the alerts of the
+earlier SBOM stay until then, and the new SBOM brings them in step with the new dependencies, keeping
+whether each was acknowledged. An acknowledged alert whose advisory becomes more severe, or comes to
+affect another of the project's packages, is unacknowledged again, so it is back among the alerts the
+inbox counts as new; another version of a package the alert already lists keeps the acknowledgement.
+
+The project's **SBOM** page lists its alerts above the packages, the most severe first, and marks each
+affected package. The organization's **Vulnerabilities** page is its inbox: every alert of every
+project, newest first, where a member can acknowledge an alert to mark it as seen, each linking to the
+project's SBOM page. `VulnerabilityAlertService` serves the same alerts to any client of your
+organization: `findAllForProject`, `findAll`, `countUnacknowledged` and `acknowledge`. All four are
+MCP tools too, the first three read-only, so an assistant connected to the platform can list a
+project's alerts, count the ones nobody has seen and acknowledge one.
+
 ## Deployment status
 
 The project's deployment record keeps what the deployment should be beside what it is, under
@@ -8252,6 +8276,63 @@ reads ready as soon as its upload finished, since the edge reads the emulator on
 published UI is marked ready at once with nothing serving it, and a removed UI's record is
 deleted without a removal workload.
 
+## Vulnerability advisories
+
+The system server reads the vulnerability advisories of npm and Maven from OSV's export at
+`https://osv-vulnerabilities.storage.googleapis.com`, which it must be able to reach: the whole
+archive of each ecosystem the first time, a couple of hundred megabytes for npm, then only the
+advisories changed since, once an hour. An archive is downloaded to the server's temporary directory
+and deleted once read, so that directory needs room for it. The advisories are stored once for every organization, and
+every project's SBOM and every running server build is checked against them.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic.systemApi.disableOsvImport
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      When true OSV is never read, nothing rescans the SBOMs in the background, and the <code>
+        osv-import
+      </code>
+      
+       and <code>
+        sbom-scan
+      </code>
+      
+       system jobs are not offered; an SBOM is checked against the advisories already stored when it is recorded
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The tests set it.
+
 ## Workload storage and log limits
 
 A workload writes to two places the node must bound: the directories it mounts, and its own log output.
@@ -12784,7 +12865,7 @@ The servers' own logs are in Loki's `kinotic-system` tenant, and every stream of
 </tbody>
 </table>
 
-The system console's Cluster page lists each server node with the server it runs (`management`, `system` or `app`) and its Kinotic version, and its **Logs** button shows that node's logs alone. A node with no `service.instance.id` shows every node of its server interleaved, and one with no `OTEL_SERVICE_NAME` shows no button. `LogService.tailServer` and `LogService.serverHistory` read them, for a system participant alone.
+The system console's Cluster page shows each server (`management`, `system` or `app`) with how many nodes run it; selecting a server lists its nodes with their Kinotic versions, searchable by name, address or id, and a node's **Logs** button shows that node's logs alone. A node with no `service.instance.id` shows every node of its server interleaved, and one with no `OTEL_SERVICE_NAME` shows no button. `LogService.tailServer` and `LogService.serverHistory` read them, for a system participant alone.
 
 The log view, here and for a workload's logs, loads the selected time range and follows new lines only once its **Follow** button is pressed. It shows an entry that spans several lines as one row per line under the entry's timestamp, and renders the ANSI color and style escapes a line carries as a terminal would. An entry shipped with an OpenTelemetry `severity_text` shows that level beside its timestamp, colored as Spring Boot's console colors it, an entry shipped with a `scope_name` (the OpenTelemetry agent sets it to the logger's name) shows that logger before its message, abbreviated as Spring Boot's console abbreviates it, and an entry shipped with an `exception_stacktrace` (the OpenTelemetry agent keeps a logged exception there rather than in the message) shows the stack trace under its message.
 
@@ -15374,7 +15455,7 @@ JobDefinition job = JobDefinition.create("Deploy project")
 
 `name` identifies the job across runs and is required to run it. `version` names the shape of its tasks and is recorded on every run: change it whenever the tasks, their order or what they store changes, since a run recorded with a version is [resumed](#resuming-a-run) only by a definition of that version. `input(...)` stores values in the scope as beans, so the first task's dependencies resolve the same way as any other.
 
-Definitions nest: `jobDefinition(...)` adds a whole `JobDefinition` as one task of another. A nested definition declares a `JobScope` — `CHILD` (the default) gives it a scope of its own that is destroyed when it finishes, while `PARENT` lets it store directly into its parent's scope. Passing `parallel = true` to `JobDefinition.create` makes the definition's tasks execute concurrently; the first failure cancels the in-flight siblings.
+Definitions nest: `jobDefinition(...)` adds a whole `JobDefinition` as one task of another. A nested definition declares a `JobScope` — `CHILD` (the default) gives it a scope of its own that is destroyed when it finishes, while `PARENT` lets it store directly into its parent's scope. Passing `parallel = true` to `JobDefinition.create` makes the definition's tasks execute concurrently; the first failure cancels the in-flight siblings. A sequential definition stops at its first failure, unless it is built with `continueOnFailure()`: then every task runs, and the definition fails once all have run, with the first failure — for tasks that do not depend on one another, such as one import per source.
 
 ### Task factories
 
@@ -15569,7 +15650,7 @@ JobDefinition job = JobDefinition.create("Roll up usage")
                                  .task(...);
 ```
 
-One run of an exclusive job executes at a time across the cluster for an owner. The job's `name` and the run's `JobOwner` — organization, application and project together — identify what is exclusive, so the same job still runs side by side for two organizations, or for two projects of one. A `run` or `resume` started while another run of that name executes for that owner, on any node, is refused: its event stream fails with an `IllegalStateException` and nothing of it is recorded, so the refused run never appears among the job's runs. The job can run again as soon as the executing run ends, whether it completed, failed, was cancelled, or its node left the cluster.
+One run of an exclusive job executes at a time across the cluster for an owner. The job's `name` and the run's `JobOwner` — organization, application and project together — identify what is exclusive, so the same job still runs side by side for two organizations, or for two projects of one. A `run` or `resume` started while another run of that name executes for that owner, on any node, is refused: its event stream fails with an `ExclusiveJobRunningException`, an `IllegalStateException`, and nothing of it is recorded, so the refused run never appears among the job's runs. The job can run again as soon as the executing run ends, whether it completed, failed, was cancelled, or its node left the cluster.
 
 `exclusive()` applies to the definition handed to `run` or `resume`; on a definition nested in another it has no effect.
 
@@ -15620,7 +15701,7 @@ A run that is no longer live is rendered from `findJobRun` and `findTasks` alone
 
 ## System jobs
 
-A system job is a grind job system users start on demand. Each is a Spring bean implementing `SystemJob`, whose one method builds a fresh, named and versioned definition for each run; its name identifies the job and is recorded on every run, so it must be unique among the system jobs:
+A system job is a grind job system users can start on demand; some also run on a schedule, and every run, started either way, is listed with its results. Each is a Spring bean implementing `SystemJob`, whose one method builds a fresh, named and versioned definition for each run; its name identifies the job and is recorded on every run, so it must be unique among the system jobs:
 
 ```java
 @Component
@@ -15671,7 +15752,7 @@ A step that runs a system workload shows the workload's console log on its row, 
 
 The log is read in the organization that owns the run: for a system job, the system's own log tenant, `kinotic-system`.
 
-Kinotic ships one system job:
+Kinotic ships these system jobs:
 
 <table>
 <thead>
@@ -15690,6 +15771,34 @@ Kinotic ships one system job:
   <tr>
     <td>
       <code>
+        osv-import
+      </code>
+    </td>
+    
+    <td>
+      Imports the vulnerability advisories <a href="https://osv.dev" rel="nofollow">
+        OSV
+      </a>
+      
+       changed since the last import, one step per ecosystem, and updates the alerts of the advisories that changed; each step shows how many advisories it stored and removed and how many of their alerts it raised, updated and cleared; a step that fails leaves the others to run. Runs hourly, one run at a time
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        sbom-scan
+      </code>
+    </td>
+    
+    <td>
+      Scans every project's SBOM, showing how many SBOMs it scanned and alerts it cleared, then reads again the advisories OSV no longer lists, one step per ecosystem; a step that fails leaves the others to run. Runs daily, one run at a time
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         workload-retention-sweep
       </code>
     </td>
@@ -15704,6 +15813,8 @@ Kinotic ships one system job:
   </tr>
 </tbody>
 </table>
+
+`kinotic.systemApi.disableOsvImport` removes `osv-import` and `sbom-scan`.
 
 
 # Project Publishing Design
@@ -16120,18 +16231,82 @@ run's target resolution.
 - **The project SBOM.** A project has one commit and one dependency hash, both on
 `ProjectDeployment.artifacts`; `ProjectDeployment.sbomGenerated` says whether the project's
 `ProjectDependencies` list those dependencies, and `recordArtifacts` clears it when a sync
-reports another hash. The deploy job's sixth task, **Generate SBOM**, runs
+reports another hash, keeping the tree and its alerts until the next SBOM replaces them. The deploy job's sixth task, **Generate SBOM**, runs
 `project-sbom-<projectId>` under `DeployTarget.sbomWorkloadId` only while the flag is clear:
 `generate-sbom.ts` reads the dependency tree of the read-only checkout's `bun.lock`, resolving
 each dependency the way bun loads it (for a package at key `a/b`, the first of `a/b/d`, `a/d`
 and `d` the lockfile holds), and records it with `recordSbom` as the sync machine, whose
 secret is reissued for it; the workload's only egress is the server, and the record is refused
-unless its hash is the one the sync reported. The server stores the tree as one document per
-project in `kinotic_project_dependencies`: `packages`, a keyword list of package URLs, so the
-projects holding a package are one term query, and `direct`, `development`, `optional` and
-`edges` as unindexed positions in it. The portal's SBOM page reads the tree through
+unless its hash is the one the sync reported. `recordArtifacts` and `recordSbom` hold a cluster
+lock per project while they record, so the reports of one project are recorded one after
+another and a tree is never stored while a sync replaces the dependencies it lists; a report
+that waits 30 seconds for the lock fails. The server
+stores the tree as one document per project in `kinotic_project_dependencies`: `packages`, a
+keyword list of package URLs, so the projects holding a package are one term query,
+`direct`, `development`, `optional` and `edges` as unindexed positions in it, and
+`dependencyHash`, the hash it was recorded with. The portal's SBOM page reads the tree through
 `ProjectService.findDependencies` and builds the CycloneDX document it downloads in the
-browser. A project's deletion deletes the tree with its deployment.
+browser. A project's deletion deletes the tree, and its vulnerability alerts, with its deployment.
+- **Vulnerability alerts.** `OsvAdvisoryImporter`, run hourly by the `OsvImportScheduler`
+cluster singleton on the system-api nodes, reads OSV's export for each `PackageEcosystem` (npm
+and Maven): `<ecosystem>/all.zip`, downloaded to a temporary file on the system server that is deleted once
+read, the first time, then the
+advisories `<ecosystem>/modified_id.csv` lists as changed since two days before
+`kinotic_osv_import_progress`'s `syncedThrough` whose stored copy is missing or older (OSV
+imports its sources on their own schedules, so a change can reach the list late), or the
+archive again past 2,000 changes. An advisory OSV lists but cannot be read holds `syncedThrough`
+at its change, so each import reads it again; the alerts of changed advisories whose scan fails are
+corrected by the daily `sbom-scan`. An advisory holds the packages of every ecosystem it names, read
+from either archive; one OSV no longer serves for an ecosystem loses that ecosystem's packages,
+and is stored withdrawn once it names none, which clears its alerts. `kinotic_vulnerability_advisory`
+holds one row per advisory for every organization; its `packages` keyword list names each
+affected package URL without a version, and `affected` holds the versions and ranges,
+unindexed. `VulnerabilityScanner` keeps `kinotic_vulnerability_alert`, one row per project and
+advisory affecting its SBOM, in step from both sides, storing nothing else per project:
+`recordSbom` scans the new tree (one terms query of its package URLs against `packages`) against
+every advisory, and an import that changes advisories recomputes only those advisories' alerts,
+since an alert depends on nothing but its advisory and its project's tree: it reads the trees
+listing a version of a package they name (prefix queries on
+`kinotic_project_dependencies.packages` under `<purl>@`, a page of trees at a time), matches
+the changed advisories against each in memory, then pages through the alerts stored for those
+advisories, deleting the ones no tree matched and skipping the ones already current, and saves
+the rest in bulk. Each scan writes the alerts
+that changed and deletes the ones no longer affected; an alert keeps when it was raised and
+whether it was acknowledged, unless its new finding is worse than the stored one, by a higher
+severity or a package the stored one lists at no version, which unacknowledges it in the shard
+operation that stores the finding. A scan works from the trees it read, so once its alerts are written
+it reads the `dependencyHash` of each project it wrote alerts for: a project whose tree was
+replaced meanwhile is scanned again from the stored tree, and the alerts written for a project
+whose tree was deleted meanwhile are deleted. A full archive read makes the scan of every tree due. The singleton
+runs both as [system jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs), `osv-import` hourly (one
+step per ecosystem, showing how many advisories it stored and removed and how many of their alerts
+it raised, updated and cleared) and `sbom-scan` daily (the scan of every tree as a backstop, also deleting the alerts
+of projects without a tree, then one step per ecosystem reading again the advisories
+`modified_id.csv` no longer lists and dropping those OSV no longer serves, or reading the archive
+again when more than 2,000 are unlisted), the day counted by a
+cluster atomic, so it survives the singleton moving. Both jobs are
+[exclusive](https://kinotic.ai/platform/reference/grind-jobs#exclusive-jobs): one import and one scan run at a time
+across the cluster, so a run an operator starts while the scheduled one is going is refused, as is
+the scheduled one while an operator's is going, and a run still going on the node the singleton
+leaves finishes there before its next host's starts. Every run is kept with its results on the
+system console's Jobs page. A step that fails fails its run like any job's, the other ecosystem's
+step running all the same: the next hourly import reads from the same point, an import that fails
+after storing advisories makes the scan of every tree due, and a failed daily run is followed by the
+next day's. Versions are ordered as the ecosystem orders them,
+semver for npm and Maven's `ComparableVersion`; a version neither can order, such as a git
+source, is affected only when an advisory lists it. The entries an advisory holds for one package
+are matched as one, so the fix reported for a version is one no entry affects, and a range
+holding `limit` events affects only the versions below one of them, a limit naming no fix. A package URL's version ends where its qualifiers or
+subpath start. `VulnerabilityAlertService` serves the alerts
+to the portal's SBOM and Vulnerabilities pages, and `ClusterVulnerabilityService` checks the
+libraries of each running server build against the same advisories for the system console's
+Cluster page: every node, when it starts, stores the libraries its jar lists in
+`META-INF/kinotic/components.txt` (written by the `serverComponents` task of the server
+convention, the OpenTelemetry agent among them) as its row of `kinotic_server_sbom`, keyed by its
+Ignite id, deletes that row when it shuts down, and deletes the rows of nodes that left the cluster
+without shutting down; the page reads the rows of the nodes running and groups the nodes
+listing the same libraries into one build. `kinotic.systemApi.disableOsvImport` stops OSV being read,
+and removes the singleton and both system jobs with it, so only `recordSbom` scans.
 - **Sites on Cloudflare.** Terraform's `modules/cloudflare-sites` owns everything a site needs, once
 per environment: the zone's settings and Total TLS, the app server's proxied hosts, and the
 sites Worker that serves `sites/<hostname>/` from the sites account, which `modules/sites`
@@ -16648,6 +16823,76 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
       </code>
       
        appended for the arm64 builds, with open and fixed history per finding. Each workflow run's summary lists the fixable findings for each image and platform.
+    </td>
+  </tr>
+</tbody>
+</table>
+
+### Runtime vulnerability monitoring
+
+<table>
+<thead>
+  <tr>
+    <th>
+      
+    </th>
+    
+    <th>
+      
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <strong>
+        Control
+      </strong>
+    </td>
+    
+    <td>
+      Each server jar lists the libraries it was built with and the OpenTelemetry agent it runs with (<code>
+        META-INF/kinotic/components.txt
+      </code>
+      
+      ), and each node stores that list as its SBOM when it starts. The running cluster checks the libraries of every server build its nodes run against the Maven advisories it reads from <a href="https://osv.dev" rel="nofollow">
+        OSV
+      </a>
+      
+      , the GitHub Advisory Database's among them.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Frequency
+      </strong>
+    </td>
+    
+    <td>
+      Whenever the system console's <strong>
+        Cluster
+      </strong>
+      
+       page is opened. The advisories are read from OSV hourly, so an advisory published after an image was built shows up within the hour.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Evidence
+      </strong>
+    </td>
+    
+    <td>
+      The <strong>
+        Vulnerabilities
+      </strong>
+      
+       section of the system console's Cluster page: a summary of each server build running (the nodes of one server kind and version that list the same libraries) with its node count and how many advisories affect it, and one row per advisory with its severity, CVEs, the builds it affects and the version that fixes each affected library.
     </td>
   </tr>
 </tbody>

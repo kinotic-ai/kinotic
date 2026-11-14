@@ -417,18 +417,82 @@ run's target resolution.
 - **The project SBOM.** A project has one commit and one dependency hash, both on
 `ProjectDeployment.artifacts`; `ProjectDeployment.sbomGenerated` says whether the project's
 `ProjectDependencies` list those dependencies, and `recordArtifacts` clears it when a sync
-reports another hash. The deploy job's sixth task, **Generate SBOM**, runs
+reports another hash, keeping the tree and its alerts until the next SBOM replaces them. The deploy job's sixth task, **Generate SBOM**, runs
 `project-sbom-<projectId>` under `DeployTarget.sbomWorkloadId` only while the flag is clear:
 `generate-sbom.ts` reads the dependency tree of the read-only checkout's `bun.lock`, resolving
 each dependency the way bun loads it (for a package at key `a/b`, the first of `a/b/d`, `a/d`
 and `d` the lockfile holds), and records it with `recordSbom` as the sync machine, whose
 secret is reissued for it; the workload's only egress is the server, and the record is refused
-unless its hash is the one the sync reported. The server stores the tree as one document per
-project in `kinotic_project_dependencies`: `packages`, a keyword list of package URLs, so the
-projects holding a package are one term query, and `direct`, `development`, `optional` and
-`edges` as unindexed positions in it. The portal's SBOM page reads the tree through
+unless its hash is the one the sync reported. `recordArtifacts` and `recordSbom` hold a cluster
+lock per project while they record, so the reports of one project are recorded one after
+another and a tree is never stored while a sync replaces the dependencies it lists; a report
+that waits 30 seconds for the lock fails. The server
+stores the tree as one document per project in `kinotic_project_dependencies`: `packages`, a
+keyword list of package URLs, so the projects holding a package are one term query,
+`direct`, `development`, `optional` and `edges` as unindexed positions in it, and
+`dependencyHash`, the hash it was recorded with. The portal's SBOM page reads the tree through
 `ProjectService.findDependencies` and builds the CycloneDX document it downloads in the
-browser. A project's deletion deletes the tree with its deployment.
+browser. A project's deletion deletes the tree, and its vulnerability alerts, with its deployment.
+- **Vulnerability alerts.** `OsvAdvisoryImporter`, run hourly by the `OsvImportScheduler`
+cluster singleton on the system-api nodes, reads OSV's export for each `PackageEcosystem` (npm
+and Maven): `<ecosystem>/all.zip`, downloaded to a temporary file on the system server that is deleted once
+read, the first time, then the
+advisories `<ecosystem>/modified_id.csv` lists as changed since two days before
+`kinotic_osv_import_progress`'s `syncedThrough` whose stored copy is missing or older (OSV
+imports its sources on their own schedules, so a change can reach the list late), or the
+archive again past 2,000 changes. An advisory OSV lists but cannot be read holds `syncedThrough`
+at its change, so each import reads it again; the alerts of changed advisories whose scan fails are
+corrected by the daily `sbom-scan`. An advisory holds the packages of every ecosystem it names, read
+from either archive; one OSV no longer serves for an ecosystem loses that ecosystem's packages,
+and is stored withdrawn once it names none, which clears its alerts. `kinotic_vulnerability_advisory`
+holds one row per advisory for every organization; its `packages` keyword list names each
+affected package URL without a version, and `affected` holds the versions and ranges,
+unindexed. `VulnerabilityScanner` keeps `kinotic_vulnerability_alert`, one row per project and
+advisory affecting its SBOM, in step from both sides, storing nothing else per project:
+`recordSbom` scans the new tree (one terms query of its package URLs against `packages`) against
+every advisory, and an import that changes advisories recomputes only those advisories' alerts,
+since an alert depends on nothing but its advisory and its project's tree: it reads the trees
+listing a version of a package they name (prefix queries on
+`kinotic_project_dependencies.packages` under `<purl>@`, a page of trees at a time), matches
+the changed advisories against each in memory, then pages through the alerts stored for those
+advisories, deleting the ones no tree matched and skipping the ones already current, and saves
+the rest in bulk. Each scan writes the alerts
+that changed and deletes the ones no longer affected; an alert keeps when it was raised and
+whether it was acknowledged, unless its new finding is worse than the stored one, by a higher
+severity or a package the stored one lists at no version, which unacknowledges it in the shard
+operation that stores the finding. A scan works from the trees it read, so once its alerts are written
+it reads the `dependencyHash` of each project it wrote alerts for: a project whose tree was
+replaced meanwhile is scanned again from the stored tree, and the alerts written for a project
+whose tree was deleted meanwhile are deleted. A full archive read makes the scan of every tree due. The singleton
+runs both as [system jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs), `osv-import` hourly (one
+step per ecosystem, showing how many advisories it stored and removed and how many of their alerts
+it raised, updated and cleared) and `sbom-scan` daily (the scan of every tree as a backstop, also deleting the alerts
+of projects without a tree, then one step per ecosystem reading again the advisories
+`modified_id.csv` no longer lists and dropping those OSV no longer serves, or reading the archive
+again when more than 2,000 are unlisted), the day counted by a
+cluster atomic, so it survives the singleton moving. Both jobs are
+[exclusive](https://kinotic.ai/platform/reference/grind-jobs#exclusive-jobs): one import and one scan run at a time
+across the cluster, so a run an operator starts while the scheduled one is going is refused, as is
+the scheduled one while an operator's is going, and a run still going on the node the singleton
+leaves finishes there before its next host's starts. Every run is kept with its results on the
+system console's Jobs page. A step that fails fails its run like any job's, the other ecosystem's
+step running all the same: the next hourly import reads from the same point, an import that fails
+after storing advisories makes the scan of every tree due, and a failed daily run is followed by the
+next day's. Versions are ordered as the ecosystem orders them,
+semver for npm and Maven's `ComparableVersion`; a version neither can order, such as a git
+source, is affected only when an advisory lists it. The entries an advisory holds for one package
+are matched as one, so the fix reported for a version is one no entry affects, and a range
+holding `limit` events affects only the versions below one of them, a limit naming no fix. A package URL's version ends where its qualifiers or
+subpath start. `VulnerabilityAlertService` serves the alerts
+to the portal's SBOM and Vulnerabilities pages, and `ClusterVulnerabilityService` checks the
+libraries of each running server build against the same advisories for the system console's
+Cluster page: every node, when it starts, stores the libraries its jar lists in
+`META-INF/kinotic/components.txt` (written by the `serverComponents` task of the server
+convention, the OpenTelemetry agent among them) as its row of `kinotic_server_sbom`, keyed by its
+Ignite id, deletes that row when it shuts down, and deletes the rows of nodes that left the cluster
+without shutting down; the page reads the rows of the nodes running and groups the nodes
+listing the same libraries into one build. `kinotic.systemApi.disableOsvImport` stops OSV being read,
+and removes the singleton and both system jobs with it, so only `recordSbom` scans.
 - **Sites on Cloudflare.** Terraform's `modules/cloudflare-sites` owns everything a site needs, once
 per environment: the zone's settings and Total TLS, the app server's proxied hosts, and the
 sites Worker that serves `sites/<hostname>/` from the sites account, which `modules/sites`

@@ -271,6 +271,76 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
 </tbody>
 </table>
 
+### Runtime vulnerability monitoring
+
+<table>
+<thead>
+  <tr>
+    <th>
+      
+    </th>
+    
+    <th>
+      
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <strong>
+        Control
+      </strong>
+    </td>
+    
+    <td>
+      Each server jar lists the libraries it was built with and the OpenTelemetry agent it runs with (<code>
+        META-INF/kinotic/components.txt
+      </code>
+      
+      ), and each node stores that list as its SBOM when it starts. The running cluster checks the libraries of every server build its nodes run against the Maven advisories it reads from <a href="https://osv.dev" rel="nofollow">
+        OSV
+      </a>
+      
+      , the GitHub Advisory Database's among them.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Frequency
+      </strong>
+    </td>
+    
+    <td>
+      Whenever the system console's <strong>
+        Cluster
+      </strong>
+      
+       page is opened. The advisories are read from OSV hourly, so an advisory published after an image was built shows up within the hour.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Evidence
+      </strong>
+    </td>
+    
+    <td>
+      The <strong>
+        Vulnerabilities
+      </strong>
+      
+       section of the system console's Cluster page: a summary of each server build running (the nodes of one server kind and version that list the same libraries) with its node count and how many advisories affect it, and one row per advisory with its severity, CVEs, the builds it affects and the version that fixes each affected library.
+    </td>
+  </tr>
+</tbody>
+</table>
+
 ### Release gate
 
 <table>
