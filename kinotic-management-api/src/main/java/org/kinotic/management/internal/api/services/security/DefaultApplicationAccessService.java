@@ -144,8 +144,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     private Future<Void> placed(Application application, String tenantId) {
         return requireTenant(application, tenantId)
                 .compose(v -> relationships.ensure(storeOf(application),
-                                                   List.of(AuthzGraphUtil.containment(AuthzGraphUtil.authzApplication(application.getOrganizationId(), application.getId()),
-                                                                                      AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId)))));
+                                                   List.of(AuthzGraphUtil.tenantContainment(application.getOrganizationId(), application.getId(), tenantId))));
     }
 
     // A grant on a tenant is made on one the application has where its administrators manage its tenants; a tenant

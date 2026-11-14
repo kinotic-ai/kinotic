@@ -120,15 +120,14 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
     }
 
     private Future<Boolean> place(Organization organization) {
-        String object = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organization.getId());
-        RelationshipTuple containment = AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, object);
+        RelationshipTuple containment = AuthzGraphUtil.organizationContainment(organization.getId());
         return relationships.holds(SYSTEM, containment)
-                            .compose(held -> held ? Future.succeededFuture(false) : placed(organization, object, containment));
+                            .compose(held -> held ? Future.succeededFuture(false) : placed(organization, containment));
     }
 
     // The containment is written last, so a run cut short leaves the organization for the next run to place again,
     // and the creator is bound under an id of its own, so a binding made twice is held once
-    private Future<Boolean> placed(Organization organization, String object, RelationshipTuple containment) {
+    private Future<Boolean> placed(Organization organization, RelationshipTuple containment) {
         Set<String> enabled = new HashSet<>();
         return members(organization.getId(), enabled)
                 .compose(v -> {
@@ -140,7 +139,7 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
                                                         AuthzUtil.roleBindingIdOf(AuthzConstants.ORGANIZATION_ADMIN_ROLE, AuthzUtil.idOf(creator)),
                                                         AuthzConstants.ORGANIZATION_ADMIN_ROLE,
                                                         creator,
-                                                        object);
+                                                        containment.object());
                     }
                     return ret;
                 })

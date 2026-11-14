@@ -142,8 +142,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     // is removed again, so an engine failure does not leave the name held by an organization nobody can reach; the
     // record alone is removed, since the graph holds nothing of it yet
     private Future<Organization> contained(Organization organization) {
-        return relationships.ensure(AuthzStoreService.SYSTEM,
-                                    List.of(AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, objectOf(organization.getId()))))
+        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(AuthzGraphUtil.organizationContainment(organization.getId())))
                             .map(organization)
                             .recover(err -> super.deleteByIdSync(organization.getId())
                                                  .onFailure(deleteErr -> log.warn("Could not remove organization {} after its graph placement failed: {}",

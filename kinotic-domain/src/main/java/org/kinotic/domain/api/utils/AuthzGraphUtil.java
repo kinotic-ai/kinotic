@@ -172,6 +172,28 @@ public final class AuthzGraphUtil {
     }
 
     /**
+     * The tuple placing an organization on the system, in the system's store.
+     *
+     * @param organizationId the organization
+     * @return the containment tuple
+     */
+    public static RelationshipTuple organizationContainment(String organizationId) {
+        return containment(AuthzConstants.SYSTEM_OBJECT, AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
+    }
+
+    /**
+     * The tuple placing a tenant under its application, in the application's own store.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application's id within it
+     * @param tenantId       the tenant's id within the application
+     * @return the containment tuple
+     */
+    public static RelationshipTuple tenantContainment(String organizationId, String applicationId, String tenantId) {
+        return containment(authzApplication(organizationId, applicationId), AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId));
+    }
+
+    /**
      * The tuples an application's user holds in its application's own store: the user is an end user of the
      * application, and its tenant is placed under the application with the user as a member. The system's store
      * holds the first of them, the end user tuple, alone.
@@ -184,7 +206,7 @@ public final class AuthzGraphUtil {
         String application = authzApplication(user.getOrganizationId(), user.getApplicationId());
         String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
         return List.of(new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, application),
-                       containment(application, tenant),
+                       tenantContainment(user.getOrganizationId(), user.getApplicationId(), user.getTenantId()),
                        new RelationshipTuple(me, AuthzConstants.MEMBER_RELATION, tenant));
     }
 

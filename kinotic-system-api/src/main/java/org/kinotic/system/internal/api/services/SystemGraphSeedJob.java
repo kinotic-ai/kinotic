@@ -9,15 +9,14 @@ import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.AuthzGraphSeedJob;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
-import org.kinotic.system.api.services.workload.VmNodeService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
+import org.kinotic.system.internal.api.services.workload.DefaultVmNodeOrchestrationService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -68,8 +67,7 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
                 // user, so a run that reads the user reads every machine after it
                 ret = identities.findSystemUsers(page).compose(users -> nodes.findAll(page)
                            .compose(found -> relationships.ensure(SYSTEM, found.getContent().stream()
-                                                                               .map(node -> AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT,
-                                                                                                                       AuthzUtil.object(VmNodeService.RESOURCE_TYPE, node.getId())))
+                                                                               .map(node -> DefaultVmNodeOrchestrationService.containment(node.getId()))
                                                                                .toList()))
                            .compose(v -> identities.findMachinesByScope(null, null, page))
                            .compose(machines -> bindEach(machines.getContent().stream()
