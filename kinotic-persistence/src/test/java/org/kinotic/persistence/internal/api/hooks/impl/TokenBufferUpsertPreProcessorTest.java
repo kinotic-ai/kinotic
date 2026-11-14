@@ -25,6 +25,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -150,7 +151,10 @@ public class TokenBufferUpsertPreProcessorTest {
         assertEquals("tenant1", matching.tenantId());
 
         EntityHolder<RawJson> nullValued = process(processor, "{\"id\":\"car-1\",\"tenantId\":null,\"make\":\"Audi\"}", context(TENANT1));
-        assertEquals("tenant1", json(nullValued.entity()).get("tenantId").asString(), "A null tenant is replaced by the participant's");
+        // compared as text, since parsing would hide a tenant field written twice
+        assertEquals("{\"id\":\"car-1\",\"tenantId\":\"tenant1\",\"make\":\"Audi\"}",
+                     new String(nullValued.entity().data(), StandardCharsets.UTF_8),
+                     "A null tenant is replaced by the participant's, in place");
         assertEquals("tenant1", nullValued.tenantId());
 
         assertInstanceOf(IllegalArgumentException.class,

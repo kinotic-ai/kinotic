@@ -118,11 +118,13 @@ public class EntityUpsertStrategy implements JsonStreamProcessorStrategy<TokenBu
         }
     }
 
-    // The tenant field of a SHARED entity without a tenant id field may be given only as the participant's tenant
+    // The tenant field of a SHARED entity without a tenant id field holds the participant's tenant: the data may
+    // leave it null or name that tenant, and either way it is written once, here
     private void transformTenantField(JsonParser parser, JsonGenerator generator, EntityUpsertState state) {
         String fieldName = parser.currentName();
-        String tenantId = state.readFieldValue(parser, String.class);
-        if(tenantId != null && !tenantId.equals(state.getContext().requireTenantId())){
+        String given = state.readFieldValue(parser, String.class);
+        String tenantId = state.getContext().requireTenantId();
+        if(given != null && !given.equals(tenantId)){
             throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
         }
         state.setTenantId(tenantId);

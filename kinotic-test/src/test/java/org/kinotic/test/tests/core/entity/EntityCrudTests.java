@@ -13,6 +13,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.test.support.sample.Car;
@@ -660,6 +661,35 @@ public class EntityCrudTests extends KinoticTestBase {
         StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(entityDefinition.getId(), entityContext)).toCompletionStage()))
                     .expectNext(0L)
                     .as("A rejected write stores nothing")
+                    .verifyComplete();
+    }
+
+    @Test
+    public void saveFillsANullTenantFieldWithTheParticipantsTenant() {
+        EntityContext entityContext = new DefaultEntityContext(applicationParticipant("tenant1", "user1"));
+        EntityDefinition entityDefinition = runAsOrganization(() -> testDataService.createEntityDefinition("NullTenantPerson_" + suffix(),
+                                                                                                           testDataService.createPersonSchema(MultiTenancyType.SHARED))).await();
+
+        // the id field must be present for the generated id to be assigned
+        HashMap<String, Object> person = new HashMap<>();
+        person.put("id", null);
+        person.put("firstName", "Ann");
+        person.put("lastName", "Smith");
+        person.put("addresses", List.of());
+        person.put("tenantId", null);
+        TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
+        tokenBuffer.writePOJO(person);
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext)).toCompletionStage()))
+                    .expectNextMatches(saved -> "tenant1".equals(objectMapper.readTree(saved.asParser()).get("tenantId").asString()))
+                    .as("A null tenant field is saved as the participant's tenant")
+                    .verifyComplete();
+
+        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).await();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.count(entityDefinition.getId(), entityContext)).toCompletionStage()))
+                    .expectNext(1L)
+                    .as("The entity is stored for the participant's tenant")
                     .verifyComplete();
     }
 
