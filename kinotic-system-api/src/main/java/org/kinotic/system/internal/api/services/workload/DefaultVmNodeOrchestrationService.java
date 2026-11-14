@@ -7,8 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
-import org.kinotic.authz.api.model.Subject;
-import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
@@ -108,10 +106,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         if (registrar == null) {
             ret = Future.succeededFuture();
         } else {
-            Subject machine = new Subject(SubjectType.USER, registrar.getId());
+            // the user the agent is bound as, which for a delegate is its owner
+            String machine = AuthzGraphUtil.authzUser(registrar);
             ret = relationships.findGrants(AuthzStoreService.SYSTEM, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId)).map(grants -> {
                 List<Grant> agents = grants.stream().filter(grant -> AGENT_ROLE.equals(grant.roleId())).toList();
-                if (!agents.isEmpty() && agents.stream().noneMatch(agent -> machine.equals(agent.subject()))) {
+                if (!agents.isEmpty() && agents.stream().noneMatch(agent -> machine.equals(AuthzGraphUtil.authzSubject(agent.subject())))) {
                     throw new AuthorizationException("Node " + nodeId + " is registered by another machine; deregister the node to register it from this one");
                 }
                 return null;
@@ -131,10 +130,10 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         RelationshipTuple onSystem = AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, node);
         Future<Void> ret = relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem));
         if (registrar != null) {
-            // one binding per node and machine, so a node registering again, or on another server, binds nothing twice
-            String bindingId = nodeId + "-agent-" + registrar.getId();
-            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, bindingId, AGENT_ROLE,
-                                                             AuthzGraphUtil.authzUser(registrar), node));
+            // one binding per node and agent, so a node registering again, or on another server, binds nothing twice
+            String agent = AuthzGraphUtil.authzUser(registrar);
+            String bindingId = nodeId + "-agent-" + AuthzUtil.idOf(agent);
+            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, bindingId, AGENT_ROLE, agent, node));
         }
         return ret;
     }
@@ -419,7 +418,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private Future<Requeue> finalizeDeregistration(VmNode node) {
         String nodeId = node.getId();
         log.info("Deregistering VmNode {}: its open runs are recorded FAILED", nodeId);
-        return forEachOpenRun(nodeId, workload -> {
+        // under the lock registerNode holds, so a registration of the id never has its graph placement removed
+        // or its record deleted beneath it
+        return relationships.exclusively(AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> forEachOpenRun(nodeId, workload -> {
                     log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                              workload.getId(), nodeId, workload.getStatus());
                     return workloadRepository.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();
@@ -427,7 +428,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 // the graph before the record: a removal that fails leaves the record for the master to try again
                 .compose(v -> released(nodeId))
                 .compose(v -> vmNodeRepository.deleteByIdSync(nodeId))
-                .map(Requeue.NONE);
+                .map(Requeue.NONE));
     }
 
     // Every grant made on the node is revoked and the node leaves the system, so a node registered again under the

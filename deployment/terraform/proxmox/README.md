@@ -240,10 +240,13 @@ uploaded them.
    Each machine's credentials go straight into its node's `vm-manager.secrets.env`, which starts
    its vm-manager; the system user's password goes to a temporary file whose path it prints.
    It refuses a cluster that already has that system user. The script writes the identities
-   straight to Elasticsearch and then restarts the system server, whose seed job places them in
-   the authorization graph as it starts (`kinotic.authz.seedGraph`, set in its `dev-server`
-   profile): the system user as `system.admin` and each machine as `vm_node.registrar`. The
-   system user signs in, and each node registers, once the server is back and the job has run.
+   straight to Elasticsearch, the machines before the system user and the system user's identity
+   last, so a run that fails before then can be made again as it was: what it wrote is written
+   over. It then restarts the system
+   server, whose seed job places them in the authorization graph as it starts
+   (`kinotic.authz.seedGraph`, set in its `dev-server` profile): the system user as
+   `system.admin` and each machine as `vm_node.registrar`. The system user signs in, and each
+   node registers, once the server is back and the job has run.
 
    ```bash
    ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2

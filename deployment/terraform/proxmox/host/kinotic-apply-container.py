@@ -45,6 +45,9 @@ import time
 IDMAP_BASE = 100000
 STATE_DIR = "/var/lib/kinotic/state"
 KEEPALIVE_DIR = os.path.join(STATE_DIR, "keepalive")
+# How long a wait_for or done_while command may take before it counts as failed, longer than the
+# longest wait a command asks its server for (Elasticsearch's cluster health, 30s)
+PROBE_TIMEOUT = 60
 
 
 def pct(*args, capture=False):
@@ -181,7 +184,11 @@ def place(files, dirs):
 # ── waiting ──────────────────────────────────────────────────────────────────
 
 def succeeds(command):
-    return subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+    try:
+        return subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=PROBE_TIMEOUT).returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
 
 
 def wait_for(command, timeout):

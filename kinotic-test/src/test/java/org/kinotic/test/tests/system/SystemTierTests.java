@@ -29,6 +29,7 @@ import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipan
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.ServerLogQuery;
@@ -260,6 +261,13 @@ public class SystemTierTests extends KinoticTestBase {
 
         // a node registering again binds nothing twice
         await(runAs(registrarCaller, () -> nodeOrchestration.registerNode(node)));
+        assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
+        // nor does a delegate of the agent, which registers the node as the agent would
+        Participant delegate = new DefaultSystemParticipant("delegate-" + suffix(),
+                                                            Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_MACHINE,
+                                                                   DomainUtil.ON_BEHALF_OF_METADATA_KEY, registrar.getId()),
+                                                            List.of());
+        await(runAs(delegate, () -> nodeOrchestration.registerNode(node)));
         assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
 
         // another machine holding the registrar role is refused the node's id, and the node keeps its one agent

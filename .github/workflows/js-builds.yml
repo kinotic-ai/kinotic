@@ -47,6 +47,17 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      # Branch-only: both projects link the first-party packages from their sources in
+      # kinotic-js/workspace, so those are built here first. Never merge into develop.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build first-party packages
+        working-directory: kinotic-js/workspace
+        run: |
+          bun install --frozen-lockfile
+          bunx bunup
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
