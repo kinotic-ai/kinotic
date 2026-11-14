@@ -334,6 +334,10 @@ public class GraphSyncTests extends KinoticTestBase {
                                                                           AuthzConstants.APPLICATION_TYPE,
                                                                           AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, saved.getId()));
         assertTrue(holds(definitionInApplication));
+        String definitionObject = AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, saved.getId());
+        await(relationships.ensureBound(AuthzStoreService.SYSTEM, "graph-cross-" + suffix, "entity_definition.viewer",
+                                        AuthzUtil.object(AuthzConstants.USER_TYPE, "graph-cross-reader-" + suffix), definitionObject));
+        assertEquals(1, await(relationships.findGrants(AuthzStoreService.SYSTEM, definitionObject)).size());
 
         // another organization's administrator, with an application and a project of the same ids in its own
         OrganizationParticipant outsider = signedUp(suffix);
@@ -347,6 +351,8 @@ public class GraphSyncTests extends KinoticTestBase {
         assertInstanceOf(AuthorizationException.class,
                          assertThrows(ExecutionException.class, () -> await(runAs(outsider, () -> entityDefinitionService.create(crossing)))).getCause());
         assertTrue(holds(definitionInApplication), "the definition is still in its application");
+        assertEquals(1, await(relationships.findGrants(AuthzStoreService.SYSTEM, definitionObject)).size(),
+                     "the grant made on the definition is still held");
     }
 
     // The administrator of an organization signed up for the test
