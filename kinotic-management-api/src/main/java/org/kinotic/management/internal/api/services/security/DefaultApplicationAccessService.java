@@ -192,10 +192,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
             if (!model.roles().containsKey(roleId)) {
                 throw new IllegalArgumentException("No role of the application has id " + roleId);
             }
-            if (!model.grantable(roleId, resourceType)) {
-                throw new IllegalArgumentException("Role " + roleId + " is homed at " + AuthzUtil.roleHome(roleId)
-                                                           + " and cannot be granted on a " + resourceType);
-            }
+            model.requireGrantable(roleId, resourceType);
             return null;
         });
     }

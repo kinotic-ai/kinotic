@@ -60,6 +60,20 @@ public record AuthzModel(ObjectNode definition,
     }
 
     /**
+     * Requires that a role may be granted on a resource of a type.
+     *
+     * @param roleId       the role, {@code <home type>.<name>}
+     * @param resourceType the type of the resource the grant is made on
+     * @throws IllegalArgumentException when the engine would refuse the grant
+     */
+    public void requireGrantable(String roleId, String resourceType) {
+        if (!grantable(roleId, resourceType)) {
+            throw new IllegalArgumentException("Role " + roleId + " is homed at " + AuthzUtil.roleHome(roleId)
+                                                       + " and cannot be granted on a " + resourceType);
+        }
+    }
+
+    /**
      * The types of a tier a role homed at a type may be granted on.
      *
      * @param home the role's home type

@@ -51,9 +51,10 @@ public class DefaultSystemAccessService implements SystemAccessService {
         validate(subject);
         Validate.notBlank(roleId, "roleId cannot be blank");
         return model().compose(model -> {
-            if (!model.roles().containsKey(roleId) || !model.grantable(roleId, AuthzConstants.SYSTEM_TYPE)) {
+            if (!model.roles().containsKey(roleId)) {
                 throw new IllegalArgumentException("No role of the system has id " + roleId);
             }
+            model.requireGrantable(roleId, AuthzConstants.SYSTEM_TYPE);
             return requireStaff(subject);
         }).compose(stored -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored), AuthzConstants.SYSTEM_OBJECT))
           .map(bindingId -> new Grant(bindingId, roleId, subject, SYSTEM_RESOURCE));
