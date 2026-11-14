@@ -28,7 +28,7 @@ import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.security.CallerPermissions;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.springframework.stereotype.Component;
@@ -50,7 +50,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     private final ProjectRepository projectRepository;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final DefaultPermissionService permissions;
+    private final CallerPermissions permissions;
     private final ApplicationSignUpService applicationSignUpService;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final PasswordConfigurationService passwordConfigurationService;
@@ -62,7 +62,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectRepository projectRepository,
                                      EntityDefinitionRepository entityDefinitionRepository,
-                                     DefaultPermissionService permissions,
+                                     CallerPermissions permissions,
                                      ApplicationSignUpService applicationSignUpService,
                                      UiDeploymentRepository uiDeploymentRepository,
                                      PasswordConfigurationService passwordConfigurationService,

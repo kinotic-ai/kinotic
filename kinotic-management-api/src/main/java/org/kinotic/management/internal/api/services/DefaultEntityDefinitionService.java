@@ -28,7 +28,7 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.security.CallerPermissions;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
@@ -54,7 +54,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
-    private final DefaultPermissionService permissions;
+    private final CallerPermissions permissions;
     private final ProjectRepository projects;
 
     public DefaultEntityDefinitionService(EventService eventService,
@@ -65,7 +65,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
-                                          DefaultPermissionService permissions,
+                                          CallerPermissions permissions,
                                           ProjectRepository projects) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;

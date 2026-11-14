@@ -31,7 +31,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.security.CallerPermissions;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -48,7 +48,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     private final ProjectRepository projectRepository;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final DefaultPermissionService permissions;
+    private final CallerPermissions permissions;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
@@ -56,7 +56,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     public DefaultProjectService(ProjectRepository repository,
                                  EntityDefinitionRepository entityDefinitionRepository,
-                                 DefaultPermissionService permissions,
+                                 CallerPermissions permissions,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
