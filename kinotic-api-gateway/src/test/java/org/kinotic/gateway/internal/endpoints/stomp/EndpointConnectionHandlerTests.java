@@ -95,7 +95,9 @@ public class EndpointConnectionHandlerTests {
     private ReplyFlowControl replyFlowControl;
 
     // The clustered session store needs a clustered Vert.x; one Ignite node on ports of its own, so a
-    // core test JVM running alongside never joins it
+    // core test JVM running alongside never joins it. The node takes the next port when its first is in use,
+    // so the IP finder names every port it may take: a node whose own address is among them starts the
+    // cluster, and one whose address is not waits without end for a node at the addresses it was given
     @BeforeAll
     public static void startCluster() throws Exception {
         IgniteConfiguration configuration = new IgniteConfiguration()
@@ -103,7 +105,8 @@ public class EndpointConnectionHandlerTests {
                 .setMetricsLogFrequency(0)
                 .setWorkDirectory("/tmp/ignite-gateway-tests")
                 .setDiscoverySpi(new TcpDiscoverySpi().setLocalPort(48500)
-                                                      .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:48500"))))
+                                                      .setLocalPortRange(10)
+                                                      .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:48500..48509"))))
                 .setCommunicationSpi(new TcpCommunicationSpi().setLocalPort(48100));
         ignite = Ignition.start(configuration);
         vertx = Vertx.builder()
