@@ -13,6 +13,7 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -96,6 +97,13 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         try {
             // will throw an exception if invalid
             DomainUtil.validateEntityDefinition(entityDefinition);
+            // checked before the lock and the removal below, which name the organization the definition carries
+            // and which the write's own organization check comes too late for
+            String organizationId = requireOrganizationId();
+            if (!organizationId.equals(entityDefinition.getOrganizationId())) {
+                throw new AuthorizationException("Cannot create an entity definition of organization '" + entityDefinition.getOrganizationId()
+                                                 + "' while authenticated as organization '" + organizationId + "'");
+            }
 
             entityDefinition.setApplicationId(entityDefinition.getApplicationId().trim());
             entityDefinition.setProjectId(entityDefinition.getProjectId().trim());
@@ -221,9 +229,11 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         return deleteAndEvict(entityDefinitionId);
     }
 
+    // The definition is read once the lock is held, so the one deleted is the one stored then: a definition
+    // created under the id after another caller's delete is deleted only if it too is unpublished
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return super.findById(entityDefinitionId)
-                .compose(entityDefinition -> {
+        return relationships.exclusively(AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
+                                         () -> super.findById(entityDefinitionId).compose(entityDefinition -> {
 
                     if (entityDefinition == null) {
                         return Future.failedFuture(new IllegalArgumentException(
@@ -235,8 +245,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    return relationships.exclusively(containment(entityDefinition).object(), () -> deleted(entityDefinition));
-                });
+                    return deleted(entityDefinition);
+                }));
     }
 
     // Sync delete, then evict: the deletion must be searchable before the eviction fires, and the eviction must
