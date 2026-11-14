@@ -19,12 +19,7 @@ import org.kinotic.authz.api.services.AuthzStoreService;
 @NoArgsConstructor
 public class AuthzStore implements Reconcilable<AuthzModelRevision> {
     /**
-     * The id of the system's store record.
-     */
-    public static final String SYSTEM = AuthzStoreService.SYSTEM;
-
-    /**
-     * {@link #SYSTEM} for the system's store, or the application's id in the stores,
+     * {@link AuthzStoreService#SYSTEM} for the system's store, or the application's id in the stores,
      * {@link org.kinotic.domain.api.utils.AuthzGraphUtil#authzApplicationId}.
      */
     private String id;

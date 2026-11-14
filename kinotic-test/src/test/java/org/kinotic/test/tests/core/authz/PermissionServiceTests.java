@@ -492,7 +492,7 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     private boolean reconciledTo(String hash) throws Exception {
-        AuthzStore store = await(stores.findById(AuthzStore.SYSTEM));
+        AuthzStore store = await(stores.findById(AuthzStoreService.SYSTEM));
         ReconcileState<AuthzModelRevision> state = store.getState();
         return state.isReconciled() && state.getObserved() != null && hash.equals(state.getObserved().hash());
     }

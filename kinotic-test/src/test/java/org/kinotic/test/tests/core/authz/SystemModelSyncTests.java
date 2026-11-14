@@ -97,7 +97,7 @@ public class SystemModelSyncTests extends KinoticTestBase {
     }
 
     private boolean reconciledTo(String hash) throws Exception {
-        AuthzStore store = await(stores.findById(AuthzStore.SYSTEM));
+        AuthzStore store = await(stores.findById(AuthzStoreService.SYSTEM));
         ReconcileState<AuthzModelRevision> state = store.getState();
         return state.isReconciled() && state.getObserved() != null && hash.equals(state.getObserved().hash());
     }
@@ -107,7 +107,7 @@ public class SystemModelSyncTests extends KinoticTestBase {
         return await(watchEvents.findAll(Pageable.create(0, 500, null))).getContent()
                                                                         .stream()
                                                                         .filter(event -> event.type() == WatchedType.AUTHZ_STORE
-                                                                                && AuthzStore.SYSTEM.equals(event.id())
+                                                                                && AuthzStoreService.SYSTEM.equals(event.id())
                                                                                 && event.eventType() == WatchEventType.DESIRED_RENEWED)
                                                                         .count();
     }
