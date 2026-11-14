@@ -23,6 +23,7 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -34,6 +35,7 @@ import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzPermissionChoice;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
+import org.kinotic.sql.domain.Statement;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -76,7 +78,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultRequestAuthorizer implements RequestAuthorizer {
+public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAuthorizer {
 
     // a service's contract is read from the directory once and kept until the directory announces it written again;
     // the retention bounds how long a node that missed the announcement keeps an old check
@@ -89,6 +91,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
                                                                new Resource(AuthzConstants.APPLICATION_TYPE, "{" + AuthzConstants.APPLICATION_ID_REFERENCE + "}"),
                                                                new Resource(AuthzConstants.ORGANIZATION_TYPE, "{" + AuthzConstants.ORGANIZATION_ID_REFERENCE + "}"));
     private static final Resource SYSTEM_LEVEL = new Resource(AuthzConstants.SYSTEM_TYPE, AuthzConstants.SYSTEM_OBJECT_ID);
+    // the check of a named query's statement names its definition as a function's check names a parameter
+    private static final String STATEMENT_DEFINITION_PARAMETER = "entityDefinitionId";
+    private static final String STATEMENT_DEFINITION_ID = "{" + STATEMENT_DEFINITION_PARAMETER + "}";
+    private static final List<ParameterReference> STATEMENT_DEFINITION_REFERENCES =
+            List.of(new ParameterReference(STATEMENT_DEFINITION_PARAMETER, STATEMENT_DEFINITION_PARAMETER, 0, List.of()));
 
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final ObjectProvider<RequestPermissionResolver> permissionResolvers;
@@ -124,6 +131,19 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer {
     public Future<Void> authorize(CRI cri, Participant participant, ObjectNode arguments) {
         Validate.notNull(arguments, "arguments cannot be null");
         return authorize(cri, participant, reference -> named(arguments, reference));
+    }
+
+    @Override
+    public Future<Void> authorize(ScopedParticipant participant, String entityDefinitionId, Statement statement, boolean acrossTenants) {
+        Validate.notBlank(entityDefinitionId, "entityDefinitionId cannot be blank");
+        Validate.notNull(statement, "statement cannot be null");
+        AuthzCheckC3Decorator check = new AuthzCheckC3Decorator().setResource(AuthzConstants.ENTITY_DEFINITION_TYPE)
+                                                                 .setPermissionResource(AuthzConstants.ENTITY_DEFINITION_TYPE)
+                                                                 .setResourceId(STATEMENT_DEFINITION_ID)
+                                                                 .setAcrossTenants(acrossTenants);
+        FunctionSpec spec = new FunctionSpec(check, STATEMENT_DEFINITION_REFERENCES, null, List.of());
+        return withStore(participant, (scoped, store) -> check(spec, NamedQueryPermissionResolver.permissionOf(statement), scoped, store,
+                                                                reference -> entityDefinitionId));
     }
 
     // Authorizes the request, reading a parameter the check names with the given function

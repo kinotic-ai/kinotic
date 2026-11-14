@@ -63,8 +63,8 @@ public class DefaultSystemAccessService implements SystemAccessService {
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
         // a disabled administrator cannot sign in, so its grant keeps no one able to run the system
-        return identities.requireAnotherAdministrator(AuthzConstants.SYSTEM_OBJECT, grant -> grant.id().equals(grantId), SystemParticipantIdentity.class)
-                            .compose(v -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
+        return identities.removeAdministrators(AuthzConstants.SYSTEM_OBJECT, grant -> grant.id().equals(grantId), SystemParticipantIdentity.class,
+                                               () -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
     }
 
     @Override

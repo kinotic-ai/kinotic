@@ -58,7 +58,7 @@
     </DashboardSection>
 
     <AccessCheckPanel :tint="tint" description="Ask whether someone holds a permission here, and which grants give it."
-                      :subject-groups="[{ label: 'Members', items: members }, { label: 'Groups', items: groups }]"
+                      :subject-groups="[{ label: 'Members', options: members, search: searchMembers }, { label: 'Groups', options: groups }]"
                       subject-placeholder="Member or group" :permission-options="permissionOptions" :roles="roles" :label-of="labelOf"
                       held-without-grant="Held through nothing a grant explains, such as being a member of the organization."
                       :no-grant="`No grant on this ${resourceTypeLabel} or above it gives the permission.`" :explain="explain">
@@ -110,7 +110,7 @@ const props = defineProps<{
 const toast = useToast()
 const confirm = useConfirm()
 const { canManageAccess } = useAccess()
-const { members, groups, load: loadSubjects, labelOf } = useSubjects()
+const { members, groups, load: loadSubjects, searchMembers, labelOf } = useSubjects()
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
@@ -132,12 +132,13 @@ const permissionOptions = computed(() => (catalog.value[props.resource.type] ?? 
 })))
 
 const grantTabs = computed<SubjectPickerTab[]>(() => [
-  { label: 'Member', options: members.value, placeholder: 'Choose a member', emptyMessage: 'No members' },
+  { label: 'Member', options: members.value, search: searchMembers, placeholder: 'Name or email of a member', emptyMessage: 'No member matches' },
   { label: 'Group', options: groups.value, placeholder: 'Choose a group', emptyMessage: 'No groups yet' }
 ])
 
 // the panel is kept when the header switches the resource in place, so a load may start while an earlier one is
-// in flight; only the latest load's answer, or failure, reaches the panel
+// in flight; only the latest load's answer, or failure, reaches the panel, and the grants are emptied as a load
+// starts, so a load that fails shows none of another resource's
 let latestLoad = 0
 
 watch(() => [props.resource.type, props.resource.id], load, { immediate: true })
@@ -146,6 +147,7 @@ async function load(): Promise<void> {
   const thisLoad = ++latestLoad
   loading.value = true
   error.value = null
+  grants.value = []
   try {
     const [loadedGrants, loadedRoles, loadedCatalog] = await Promise.all([
       Kinotic.permissions.findGrants(props.resource),

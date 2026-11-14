@@ -5,13 +5,17 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.model.Requeue;
@@ -84,14 +88,36 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Participant registrar = securityContext.currentParticipant();
         log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
 
-        return recordInventory(registration, 1)
+        // two machines registering one id together would each find the node without an agent
+        return relationships.exclusively(AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> requireAgentOrNone(nodeId, registrar)
+                .compose(v -> recordInventory(registration, 1))
                 // a registered node should be taking workloads; a node registering again holds that intent already
                 .compose(v -> vmNodeRepository.updateDesired(nodeId, ONLINE, null, "registration"))
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
                 .compose(node -> vmNodeRepository.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
                 .compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
                 .compose(v -> contained(nodeId, registrar))
-                .compose(v -> vmNodeRepository.findById(nodeId));
+                .compose(v -> vmNodeRepository.findById(nodeId)));
+    }
+
+    // The registrar role is held on the system, by every node's machine, so it alone would let one node's machine
+    // register another node's id, write that node's inventory and report as it. A node that has an agent is
+    // registered again by one of its agents only; a registration made from inside the server carries no participant
+    private Future<Void> requireAgentOrNone(String nodeId, Participant registrar) {
+        Future<Void> ret;
+        if (registrar == null) {
+            ret = Future.succeededFuture();
+        } else {
+            Subject machine = new Subject(SubjectType.USER, registrar.getId());
+            ret = relationships.findGrants(AuthzStoreService.SYSTEM, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId)).map(grants -> {
+                List<Grant> agents = grants.stream().filter(grant -> AGENT_ROLE.equals(grant.roleId())).toList();
+                if (!agents.isEmpty() && agents.stream().noneMatch(agent -> machine.equals(agent.subject()))) {
+                    throw new AuthorizationException("Node " + nodeId + " is registered by another machine; deregister the node to register it from this one");
+                }
+                return null;
+            });
+        }
+        return ret;
     }
 
     /**

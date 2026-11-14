@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * {@link ServiceDirectoryStrategy} persisting directory entries in Elasticsearch. An application's contract is
@@ -51,8 +52,13 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
 
     @Override
     public Future<Set<String>> upsertEntries(Collection<ServiceDirectoryEntry> entries) {
-        return generable(entries).compose(v -> repository.upsertEntries(entries))
-                                 .onSuccess(changed -> renewStoresOf(entries, changed));
+        return generable(entries).compose(v -> repository.upsertEntries(entries)
+                                                         .onSuccess(changed -> renewStoresOf(entries, changed))
+                                                         // a write failing for one entry has stored the others and
+                                                         // names none of them, so every entry's store is renewed
+                                                         .onFailure(e -> renewStoresOf(entries, entries.stream()
+                                                                                                       .map(ServiceDirectoryEntry::getId)
+                                                                                                       .collect(Collectors.toSet()))));
     }
 
     // A declaration the derivation accepts can still give the generator nothing to build: a role bundling a

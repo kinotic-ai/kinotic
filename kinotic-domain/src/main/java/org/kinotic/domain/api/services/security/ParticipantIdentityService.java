@@ -22,6 +22,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 import java.util.List;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public interface ParticipantIdentityService extends IdentifiableCrudService<ParticipantIdentity, String> {
 
@@ -218,16 +219,22 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     Future<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(Participant owner, Pageable pageable);
 
     /**
-     * Refuses taking away the administrator grants on a resource that {@code leaving} selects when one of them is held
-     * by a user of {@code holderType} who can sign in, enabled and claimed, and none of the remaining ones is, so the
-     * resource keeps an administrator.
+     * Takes away the administrator grants on a resource that {@code leaving} selects, by running {@code removal},
+     * and refuses when one of them is held by a user of {@code holderType} who can sign in, enabled and claimed, and
+     * none of the remaining ones is, so the resource keeps an administrator. The removals on one resource run one
+     * after another across the cluster, so each counts the administrators the one before it left.
      *
      * @param object     the resource, as the system's store names it, such as {@code organization:<id>}
      * @param leaving    selects the grants being taken away
      * @param holderType the kind of user that must keep administering the resource
-     * @return a future that succeeds when the grants may go, failed with an {@link IllegalStateException} otherwise
+     * @param removal    takes the grants away, or the user holding them out of the resource
+     * @return a future emitting what the removal emits, failed with an {@link IllegalStateException} when the grants
+     * may not go
      */
-    Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType);
+    <T> Future<T> removeAdministrators(String object,
+                                       Predicate<Grant> leaving,
+                                       Class<? extends UserParticipantIdentity> holderType,
+                                       Supplier<Future<T>> removal);
 
     /**
      * Provisions a machine identity, assigning id and dates, enabling it, and generating the

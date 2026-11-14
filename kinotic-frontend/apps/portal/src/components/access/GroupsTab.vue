@@ -42,7 +42,7 @@
     </DashboardSection>
 
     <GroupDrawer v-model:visible="editorVisible" :group="editing" @saved="load" />
-    <GroupMembersDrawer v-model:visible="membersVisible" :group="opened" :candidates="members" />
+    <GroupMembersDrawer v-model:visible="membersVisible" :group="opened" :candidates="members" :search-candidates="searchMembers" />
   </div>
 </template>
 
@@ -64,14 +64,13 @@ import GroupDrawer from './GroupDrawer.vue'
 import GroupMembersDrawer from './GroupMembersDrawer.vue'
 import { useSubjects } from './useSubjects'
 
-// an organization's groups are few; the first page holds them all
 const GROUPS_PAGE_SIZE = 500
 
 /** The organization's groups, their members, and, for a member who manages access, creating, renaming and deleting them. */
 const toast = useToast()
 const confirm = useConfirm()
 const { canManageAccess } = useAccess()
-const { members, load: loadSubjects } = useSubjects()
+const { members, load: loadSubjects, searchMembers } = useSubjects()
 
 const groups = ref<Group[]>([])
 const loading = ref(true)
@@ -96,8 +95,12 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    const page = await Kinotic.permissions.findGroups(Pageable.create(0, GROUPS_PAGE_SIZE))
-    groups.value = page.content ?? []
+    // the table lists every group, so every page is read
+    const found: Group[] = []
+    for await (const page of await Kinotic.permissions.findGroups(Pageable.create(0, GROUPS_PAGE_SIZE))) {
+      found.push(...(page.content ?? []))
+    }
+    groups.value = found
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {

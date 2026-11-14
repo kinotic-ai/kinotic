@@ -47,14 +47,15 @@ public interface PermissionService {
     /**
      * Creates or updates a custom role: its name, its description and the permissions it bundles, which take
      * effect on every grant of the role at once. A new role is homed at its {@code resourceType}, one of the
-     * organization's tree, and its id starts with it; the home of a saved role does not change. Fails for a
-     * built-in role, for a permission outside the role's home and the types inside it, and for an id that names no
-     * role of the organization.
+     * organization's tree, and its id starts with it; the home of a saved role does not change. A role that loses
+     * a permission ends the connections of the machines it is granted to. Fails for a built-in role, for a
+     * permission outside the role's home and the types inside it, and for an id that names no role of the
+     * organization.
      *
      * @param role the role, with a null id for a new one
      * @return the role as saved
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<RoleDefinition> saveRole(RoleDefinition role);
 
     /**
@@ -63,7 +64,7 @@ public interface PermissionService {
      *
      * @param roleId the role
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> deleteRole(String roleId);
 
     /**
@@ -80,7 +81,7 @@ public interface PermissionService {
      * @param group the group, with a null id for a new one
      * @return the group as saved
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Group> saveGroup(Group group);
 
     /**
@@ -89,7 +90,7 @@ public interface PermissionService {
      *
      * @param groupId the group
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> deleteGroup(String groupId);
 
     /**
@@ -106,7 +107,7 @@ public interface PermissionService {
      * @param groupId the group
      * @param userId  the member's identity id
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> addGroupMember(String groupId, String userId);
 
     /**
@@ -115,7 +116,7 @@ public interface PermissionService {
      * @param groupId the group
      * @param userId  the user's identity id
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> removeGroupMember(String groupId, String userId);
 
     /**
@@ -129,17 +130,19 @@ public interface PermissionService {
      * @param resource where the grant is made
      * @return the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Grant> grant(Subject subject, String roleId, Resource resource);
 
     /**
      * Revokes a grant where it was made. The organization keeps at least one administrator who can sign in, so its
      * last grant of {@code organization.admin} held by an enabled organization user who is no longer pending is refused.
+     * A grant revoked from a machine ends the machine's connections, so the zones it hosts services in are read
+     * again from the grants it still holds when it reconnects.
      *
      * @param resource where the grant was made
      * @param grantId  the grant
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS)
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_ACCESS, consistent = true)
     Future<Void> revoke(Resource resource, String grantId);
 
     /**

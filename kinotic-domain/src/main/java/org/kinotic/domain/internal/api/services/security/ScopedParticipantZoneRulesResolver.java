@@ -48,11 +48,13 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
                 && zonePartitioningService.hostsZone(DomainUtil.APP_ZONE_PREFIX + "." + organization.getOrganizationId())) {
             String organizationId = organization.getOrganizationId();
             String prefix = organizationId + ".";
+            // read past the engine's caches: a machine whose grant is revoked has its connections ended and
+            // reconnects at once, and an answer kept from before the revocation gives it the zone back
             hostedZones = relationships.listObjects(AuthzStoreService.SYSTEM,
                                                     AuthzGraphUtil.authzUser(participant),
                                                     CAN_REGISTER_SERVICES,
                                                     AuthzConstants.APPLICATION_TYPE,
-                                                    Consistency.MINIMIZE_LATENCY)
+                                                    Consistency.HIGHER_CONSISTENCY)
                                        .map(applications -> applications.stream()
                                                                         .map(AuthzUtil::idOf)
                                                                         // a machine is granted only within its organization

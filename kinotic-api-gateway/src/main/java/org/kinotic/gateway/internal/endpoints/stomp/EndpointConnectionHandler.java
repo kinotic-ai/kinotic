@@ -291,11 +291,12 @@ public class EndpointConnectionHandler {
                             handedOff.complete();
                             return accepted;
                         })
+                        // no reply will come for a request that never left. It is forgotten before the next event is
+                        // let through, so a cancel waiting behind a refused request finds nothing to cancel
+                        .onFailure(throwable -> incomingInvocationTracker.requestFinished(correlationId))
                         .andThen(result -> handedOff.tryComplete())
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
-                            // no reply will come for a request that never left
-                            incomingInvocationTracker.requestFinished(correlationId);
                             throwable = KinoticUtil.mapSendFailure(throwable,
                                                                    incomingEvent.cri(),
                                                                    services.serviceDirectoryProvider.getIfAvailable());

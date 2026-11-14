@@ -141,8 +141,14 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                     if(application != null){
                         // an existing application keeps its tenant policy: flipping it here would
                         // split its users into tenanted and untenanted halves, since only users
-                        // created while it is enabled receive a tenant
-                        ret = Future.succeededFuture(application);
+                        // created while it is enabled receive a tenant. Provisioning writes the store's record
+                        // last, so an application with no record is still being provisioned by the caller that
+                        // created it, or never was; it is provisioned here, which is idempotent, so it is not
+                        // returned before its store exists
+                        ret = stores.findById(AuthzGraphUtil.authzApplicationId(organizationId, applicationId))
+                                    .compose(record -> record != null
+                                            ? Future.succeededFuture(application)
+                                            : storeProvisioner.provision(application));
                     }else{
                         Application newApplication = new Application(name, description);
                         newApplication.setOrganizationId(organizationId);

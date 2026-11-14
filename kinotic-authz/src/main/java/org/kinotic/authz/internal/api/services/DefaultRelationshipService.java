@@ -12,7 +12,9 @@ import dev.openfga.sdk.api.model.TupleKey;
 import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
 import dev.openfga.sdk.errors.ApiException;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.Validate;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
@@ -44,9 +46,12 @@ import java.util.UUID;
 public class DefaultRelationshipService implements RelationshipService {
 
     private static final int HTTP_CONFLICT = 409;
+    private static final String OBJECT_LOCK_PREFIX = "kinotic.authz.object.";
+    private static final long OBJECT_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final OpenFgaService fga;
     private final DefaultAuthzStoreService stores;
+    private final Vertx vertx;
 
     // Adds and removes relationships, in as many requests as the engine's limit per request takes
     private Future<Void> write(String store, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {
@@ -189,6 +194,13 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
+    public <T> Future<T> exclusively(String object, Supplier<Future<T>> changes) {
+        Validate.notBlank(object, "object cannot be blank");
+        Validate.notNull(changes, "changes cannot be null");
+        return vertx.sharedData().withLock(OBJECT_LOCK_PREFIX + object, OBJECT_LOCK_TIMEOUT_MILLIS, changes);
+    }
+
+    @Override
     public Future<Void> removeObject(String store, String object) {
         return read(store, object).compose(held -> {
             Future<Void> ret = Future.succeededFuture();
@@ -206,7 +218,9 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Void> removeSubject(String store, String user) {
-        // the engine reads by user within one object type, so every type of the store's model is read
+        // the engine reads by user within one object type, so every type a version of the store's model has had is
+        // read: a relationship written under a type the newest version dropped is still held, and holds again
+        // once the type is declared again
         return stores.typesOf(store)
                      .compose(types -> Future.all(types.stream().map(type -> readByUser(store, user, type)).toList()))
                      .compose(reads -> {
@@ -394,10 +408,11 @@ public class DefaultRelationshipService implements RelationshipService {
         return ret;
     }
 
-    // A request the engine refused as invalid: the SDK's FgaApiValidationError, or the bare 400 or 422 a streamed
-    // request fails with
+    // A request the engine refused as invalid: the 400 it answers with for a version, type or relation the store
+    // lacks. The SDK's FgaApiValidationError also covers the 422 of a request the engine throttled until it timed
+    // out, which says nothing about the model
     private static boolean isValidationError(Throwable e) {
-        return e instanceof ApiException api && (api.getStatusCode() == 400 || api.getStatusCode() == 422);
+        return e instanceof ApiException api && api.getStatusCode() == 400;
     }
 
     private Future<Boolean> requestCheck(String store, String modelId, CheckRequestTupleKey key, List<TupleKey> contextual, Consistency consistency) {

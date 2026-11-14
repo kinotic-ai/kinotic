@@ -144,18 +144,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<Project> createProjectIfNotExist(Project project) {
         validateAndDeriveId(project);
         return super.findById(project.getId())
-                .compose(existing -> {
+                .compose(existing -> existing == null ? Future.succeededFuture(existing) : placed(project))
+                .compose(placed -> {
                     Future<Project> ret;
-                    if (existing != null) {
-                        ret = placed(requireApplicationOf(project, existing));
+                    if (placed != null) {
+                        ret = Future.succeededFuture(placed);
                     } else {
-                        // the create refuses an id already held, so of two callers at once only the first places
-                        // the project in the graph, and grants made on it since are kept
+                        // of two callers at once only the first writes the project and places it in the graph, so
+                        // grants made on it since are kept
                         ret = repoProvisioner.provision(project)
-                                             .compose(super::createSync)
-                                             .compose(this::contained)
+                                             .compose(provisioned -> written(provisioned, super::createSync))
                                              .recover(ex -> AlreadyExistsException.isCause(ex)
-                                                     ? super.findById(project.getId()).map(found -> requireApplicationOf(project, found))
+                                                     ? placed(project)
                                                      : Future.failedFuture(ex));
                     }
                     return ret;
@@ -193,39 +193,57 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     @Override
     public Future<Void> deleteById(String id) {
-        return super.findById(id).compose(project -> super.deleteById(id).compose(v -> uncontained(project)));
+        return deleted(id, super::deleteById);
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return super.findById(id).compose(project -> super.deleteByIdSync(id).compose(v -> uncontained(project)));
+        return deleted(id, super::deleteByIdSync);
     }
 
-    // A create whose placement failed left the record without its place in the graph, which the record outlives
-    // since its repository exists by then; ensure is idempotent, so a project placed already keeps its grants, and
-    // the engine being unreachable leaves the project as it is rather than failing the caller
-    private Future<Project> placed(Project existing) {
-        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(existing)))
-                            .recover(err -> {
-                                log.warn("Could not place project {} in the graph: {}", existing.getId(), err.getMessage());
-                                return Future.succeededFuture();
-                            })
-                            .map(existing);
+    // The project leaves the graph with every grant made on it, while no caller creates a project of its id. The
+    // record is read under the lock, so a project created since the caller asked leaves the graph as well
+    private Future<Void> deleted(String id, Function<String, Future<Void>> delete) {
+        String object = AuthzGraphUtil.authzObject(requireOrganizationId(), new Resource(ProjectService.RESOURCE_TYPE, id));
+        return relationships.exclusively(object, () -> super.findById(id)
+                .compose(project -> delete.apply(id)
+                                          .compose(v -> project == null
+                                                  ? Future.succeededFuture()
+                                                  : relationships.removeObject(AuthzStoreService.SYSTEM, object))));
     }
 
-    // The project's place in the graph, written once the record is, so a write that fails leaves a project
-    // nobody can reach rather than one nobody stores. What a deleted project of the same id left behind, when the
-    // removal after its record's deletion failed, is removed first, so the project starts with no grant
-    private Future<Project> contained(Project project) {
+    // The project stored under the requested one's id, placed in the graph, or null when none is stored. A create
+    // whose placement failed left the record without its place in the graph, which the record outlives since its
+    // repository exists by then; ensure is idempotent, so a project placed already keeps its grants, and the engine
+    // being unreachable leaves the project as it is rather than failing the caller. The record is read while no
+    // other caller creates or deletes a project of the id, so the application it is placed in is the one storing it
+    private Future<Project> placed(Project requested) {
+        return relationships.exclusively(containment(requested).object(), () -> super.findById(requested.getId())
+                .map(stored -> requireApplicationOf(requested, stored))
+                .compose(stored -> stored == null
+                        ? Future.succeededFuture(stored)
+                        : relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(stored)))
+                                       .recover(err -> {
+                                           log.warn("Could not place project {} in the graph: {}", stored.getId(), err.getMessage());
+                                           return Future.succeededFuture();
+                                       })
+                                       .map(stored)));
+    }
+
+    // Writes the project and its place in the graph while no other caller creates or deletes a project of its id,
+    // which a caller chooses and the graph knows by organization, whichever application it is in. What a deleted
+    // project of the id left behind, when the removal after its record's deletion failed, is removed before the
+    // record is written, so the new project is never reached through a grant made on the old one, and a removal
+    // that cannot be made fails the create. A placement that fails leaves a project nobody can reach rather than
+    // one nobody stores, since its repository exists by then
+    private Future<Project> written(Project project, Function<Project, Future<Project>> write) {
         RelationshipTuple containment = containment(project);
-        return relationships.removeObject(AuthzStoreService.SYSTEM, containment.object())
-                            .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)))
-                            .map(project);
-    }
-
-    // The project leaves the graph with every grant made on it, so one created again under its id starts with none
-    private Future<Void> uncontained(Project project) {
-        return project == null ? Future.succeededFuture() : relationships.removeObject(AuthzStoreService.SYSTEM, containment(project).object());
+        return relationships.exclusively(containment.object(), () -> super.findById(project.getId())
+                .compose(existing -> existing == null
+                        ? relationships.removeObject(AuthzStoreService.SYSTEM, containment.object())
+                        : Future.failedFuture(new AlreadyExistsException("Project for id " + project.getId() + " already exists")))
+                .compose(v -> write.apply(project))
+                .compose(stored -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)).map(stored)));
     }
 
     static RelationshipTuple containment(Project project) {
@@ -347,16 +365,15 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                 .compose(existing -> {
                     if (existing != null) {
                         // the create made again places the record before refusing the duplicate
-                        return placed(existing).compose(p -> Future.failedFuture(new IllegalArgumentException(
+                        return placed(project).compose(p -> Future.failedFuture(new IllegalArgumentException(
                                 "Project for id " + project.getId() + " already exists")));
                     }
                     return repoProvisioner.provision(project)
-                                          .compose(provisioned -> write.apply(provisioned)
+                                          .compose(provisioned -> written(provisioned, write)
                                                   .recover(ex -> AlreadyExistsException.isCause(ex)
                                                           ? Future.failedFuture(new IllegalArgumentException(
                                                                   "Project for id " + project.getId() + " already exists"))
-                                                          : Future.failedFuture(ex)))
-                                          .compose(this::contained);
+                                                          : Future.failedFuture(ex)));
                 });
     }
 

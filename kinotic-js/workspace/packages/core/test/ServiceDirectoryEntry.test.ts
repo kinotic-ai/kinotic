@@ -194,6 +194,28 @@ describe('Kinotic JS', () => {
                 expect(bus.registrations()).toHaveLength(0)
             })
 
+            it('refuses a function marked unchecked beside its check, whatever its definition declares', () => {
+                // generated while generate carried the check alone
+                declareServiceDefinitions([invoiceDefinition('ContradictingService', permission('can_generate'))])
+                @AuthzResource('invoice')
+                class ContradictingService {
+                    findInvoices(): Promise<string[]> {
+                        return Promise.resolve([])
+                    }
+
+                    @AuthzUnchecked
+                    @AuthzCheck({permission: 'can_generate'})
+                    generate(name: string): Promise<string> {
+                        return Promise.resolve(name)
+                    }
+                }
+                const {registry: services, bus} = registry(true)
+
+                expect(() => services.register(identifier('ContradictingService'), new ContradictingService()))
+                    .toThrowError(/generate of ContradictingService is marked @AuthzUnchecked beside the @AuthzCheck/)
+                expect(bus.registrations()).toHaveLength(0)
+            })
+
             it('refuses a resource service the project declared no definition for', () => {
                 @AuthzResource('invoice')
                 class InvoiceService {

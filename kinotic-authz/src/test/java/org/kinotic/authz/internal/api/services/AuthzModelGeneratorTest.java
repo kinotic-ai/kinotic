@@ -335,6 +335,28 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aPermissionImplyingAnAdministratorsOneIsNoEditorsOrMaintainers() {
+        AuthzModel model = generator.systemModel(List.of(
+                service("ProjectService", "project", "application",
+                        function("findById", "project", "project", "can_read"),
+                        function("deleteById", "project", "project", "can_delete"),
+                        function("purge", "project", "project", "can_purge", "can_archive"),
+                        function("archive", "project", "project", "can_archive", "can_delete"),
+                        function("share", "project", "project", "can_share", "can_manage_access"),
+                        function("grant", "project", "project", "can_manage_access")),
+                service("ClusterService", "system", null,
+                        function("getClusterInfo", "system", "system", "can_read_cluster"),
+                        function("createMachine", "system", "system", "can_manage_machines"),
+                        function("rotateMachines", "system", "system", "can_rotate_machines", "can_manage_machines"))));
+
+        // can_purge deletes through can_archive, and can_share manages access, so an editor holding either would hold
+        // what only an administrator may
+        assertEquals(Set.of("project_can_read"), model.roles().get("project.editor"));
+        assertTrue(model.roles().get("project.admin").containsAll(Set.of("project_can_purge", "project_can_archive", "project_can_share")));
+        assertEquals(Set.of("system_can_read_cluster", "project_can_read"), model.roles().get(AuthzConstants.SYSTEM_MAINTAINER_ROLE));
+    }
+
+    @Test
     public void declaredRolesBundleTheirTypesPermissions() {
         AuthzModel model = generator.systemModel(systemServices());
 
@@ -540,6 +562,31 @@ public class AuthzModelGeneratorTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
         assertTrue(e.getMessage().contains("ledger"));
+    }
+
+    @Test
+    public void twoTypesPermissionsOfOneModelNameFail() {
+        List<ServiceDefinition> services = List.of(service("FleetService", "fleet", "application",
+                                                           function("findReport", "fleet", "fleet", "report_can_read")),
+                                                   service("FleetReportService", "fleet_report", "application",
+                                                           function("findById", "fleet_report", "fleet_report", "can_read")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+        assertTrue(e.getMessage().contains("fleet_report_can_read"));
+    }
+
+    @Test
+    public void aReadingPermissionImplyingMoreThanReadingFails() {
+        List<ServiceDefinition> services = List.of(service("ProjectService", "project", "application",
+                                                           function("findById", "project", "project", "can_read"),
+                                                           function("findMembers", "project", "project", "can_read_members", "can_manage_members"),
+                                                           function("addMember", "project", "project", "can_manage_members")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+        assertTrue(e.getMessage().contains("project_can_read_members"));
+        assertTrue(e.getMessage().contains("can_manage_members"));
     }
 
     @Test

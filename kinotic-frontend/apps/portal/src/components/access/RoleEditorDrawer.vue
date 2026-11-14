@@ -97,8 +97,13 @@ const groups = computed(() => {
   }))
 })
 
+// counts the times the drawer opened, so a save that completes after the drawer was closed and opened again
+// leaves the editor it did not start open
+let opening = 0
+
 watch(() => props.visible, visible => {
   if (visible) {
+    opening++
     name.value = props.role?.name ?? ''
     description.value = props.role?.description ?? ''
     home.value = props.role?.resourceType ?? homes.value[0]?.type ?? null
@@ -116,6 +121,7 @@ async function submit(): Promise<void> {
   if (name.value.trim() === '' || selected.value.length === 0 || home.value === null) {
     return
   }
+  const thisOpening = opening
   saving.value = true
   try {
     const saved = await Kinotic.permissions.saveRole({
@@ -129,7 +135,9 @@ async function submit(): Promise<void> {
     })
     toast.add({ severity: 'success', summary: props.role?.id ? 'Role saved' : 'Role created', life: 4000 })
     emit('saved', saved)
-    emit('update:visible', false)
+    if (thisOpening === opening) {
+      emit('update:visible', false)
+    }
   } catch (err) {
     showErrorToast(toast, 'Failed to save role', err, { life: 8000 })
   } finally {

@@ -38,7 +38,7 @@
 
       <AccessCheckPanel :tint="TINTS.ink"
                         description="Ask whether a system user or a machine holds one of the system's permissions, and which grants give it."
-                        :subject-groups="[{ label: 'System users', items: systemUsers }, { label: 'Machines', items: machines }]"
+                        :subject-groups="[{ label: 'System users', options: systemUsers, search: searchSystemUsers }, { label: 'Machines', options: machines }]"
                         subject-placeholder="System user or machine" :permission-options="permissionOptions" :roles="roles"
                         :label-of="labelOf" :initial-subject="subjectFilter ?? undefined"
                         held-without-grant="Held through nothing a grant explains." no-grant="No grant on the system gives the permission."
@@ -84,7 +84,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
-const { systemUsers, machines, load: loadSubjects, optionOf, labelOf } = useSubjects()
+const { systemUsers, machines, load: loadSubjects, searchSystemUsers, optionOf, labelOf } = useSubjects()
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
@@ -120,7 +120,7 @@ const catalog = computed(() => {
 const permissionOptions = computed(() => catalog.value.map(name => ({ name, label: permissionLabel(splitPermission(name).permission) })))
 
 const grantTabs = computed<SubjectPickerTab[]>(() => [
-  { label: 'System user', options: systemUsers.value, placeholder: 'Choose a system user', emptyMessage: 'No system users' },
+  { label: 'System user', options: systemUsers.value, search: searchSystemUsers, placeholder: 'Name or email of a system user', emptyMessage: 'No system user matches' },
   { label: 'Machine', options: machines.value, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
 ])
 

@@ -26,6 +26,7 @@ import org.kinotic.management.api.services.security.MemberService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 
 @Component
@@ -77,10 +78,12 @@ public class DefaultMemberService implements MemberService {
     @Override
     public Future<Void> setMemberEnabled(String identityId, boolean enabled) {
         return loadOwnedMember(identityId, requireOrgParticipant())
-                .compose(member -> enabled ? Future.succeededFuture(member) : requireAnotherAdministrator(member))
-                // saveSync so the console's immediate re-query sees the change
-                .compose(member -> identityService.saveSync(member.setEnabled(enabled))
-                                                  .compose(saved -> memberOfOrganization(member)));
+                .compose(member -> enabled ? saveEnabled(member, true) : leavingOrganization(member, () -> saveEnabled(member, false)));
+    }
+
+    // saveSync so the console's immediate re-query sees the change
+    private Future<Void> saveEnabled(UserParticipantIdentity member, boolean enabled) {
+        return identityService.saveSync(member.setEnabled(enabled)).compose(saved -> memberOfOrganization(member));
     }
 
     // a disabled organization user is out of its organization's members, so nothing granted to the organization's
@@ -102,25 +105,25 @@ public class DefaultMemberService implements MemberService {
     public Future<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
-                .compose(this::requireAnotherAdministrator)
                 // cascades the credential, the bindings and the delegates; sync so the console's immediate re-query
                 // no longer shows the member
-                .compose(member -> identityService.deleteByIdSync(member.getId()).map(member))
+                .compose(member -> leavingOrganization(member, () -> identityService.deleteByIdSync(member.getId())).map(member))
                 // a member goes with the invitation they never accepted
                 .compose(member -> inviteService.deletePendingInvite(member.getEmail(), participant.getOrganizationId(),
                                                                      member instanceof ApplicationParticipantIdentity user ? user.getApplicationId() : null));
     }
 
-    // an organization user going out of the organization leaves it another administrator who can sign in
-    private Future<UserParticipantIdentity> requireAnotherAdministrator(UserParticipantIdentity member) {
-        Future<UserParticipantIdentity> ret;
+    // an organization user going out of the organization, as the given function takes it, leaves the organization
+    // another administrator who can sign in
+    private Future<Void> leavingOrganization(UserParticipantIdentity member, Supplier<Future<Void>> leave) {
+        Future<Void> ret;
         if (member instanceof OrganizationParticipantIdentity organizationUser) {
-            ret = identityService.requireAnotherAdministrator(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
-                                                              grant -> grant.subject().id().equals(organizationUser.getId()),
-                                                              OrganizationParticipantIdentity.class)
-                                 .map(member);
+            ret = identityService.removeAdministrators(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
+                                                       grant -> grant.subject().id().equals(organizationUser.getId()),
+                                                       OrganizationParticipantIdentity.class,
+                                                       leave);
         } else {
-            ret = Future.succeededFuture(member);
+            ret = leave.get();
         }
         return ret;
     }

@@ -12,8 +12,8 @@ spring:
     import: optional:file:/etc/kinotic/secrets.yml
 kinotic:
   authz:
-    # bootstrap-identities.sh writes the first system user and each node's machine straight to Elasticsearch, and
-    # the seed job places them in the authorization graph when this server next starts
+    # bootstrap-identities.sh writes the first system user and each node's machine straight to Elasticsearch and
+    # restarts this server, whose seed job places them in the authorization graph as it starts
     seedGraph: true
   managementApi:
     entityDefinition:

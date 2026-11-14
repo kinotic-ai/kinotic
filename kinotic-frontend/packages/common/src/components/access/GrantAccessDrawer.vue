@@ -5,13 +5,8 @@
         <div>
           <span class="mb-2 block text-sm font-medium">Who</span>
           <SelectButton v-model="tabLabel" :options="tabs.map(tab => tab.label)" :allow-empty="false" class="mb-3" />
-          <Select v-model="subjectId" :options="tab.options" option-label="label" option-value="subject.id"
-                  filter :filter-fields="['label', 'detail']" :placeholder="tab.placeholder"
-                  class="w-full" :empty-message="tab.emptyMessage">
-            <template #option="{ option }">
-              <SubjectOptionItem :option="option" />
-            </template>
-          </Select>
+          <SubjectPicker v-model="picked" :sources="tab ? [tab] : []" :placeholder="tab?.placeholder ?? ''"
+                         :empty-message="tab?.emptyMessage ?? ''" />
         </div>
         <slot />
         <div>
@@ -51,8 +46,9 @@ import type { Grant, RoleDefinition, Subject } from '@kinotic-ai/management-api'
 import FormDrawer from '../FormDrawer.vue'
 import { showErrorToast } from '../../util/helpers'
 import { summarizeRole } from '../../util/access'
+import type { SubjectOption } from './SubjectOption'
+import SubjectPicker from './SubjectPicker.vue'
 import type { SubjectPickerTab } from './SubjectPickerTab'
-import SubjectOptionItem from './SubjectOptionItem.vue'
 
 /**
  * Grants a role to a subject picked from one of the picker's tabs, through the given grant call. The default slot
@@ -84,34 +80,41 @@ const toast = useToast()
 const formId = useId()
 const roleInputId = useId()
 const tabLabel = ref(props.tabs[0]?.label ?? '')
-const subjectId = ref<string | null>(null)
+const picked = ref<SubjectOption | null>(null)
 const roleId = ref<string | null>(null)
 const granting = ref(false)
 
 const tab = computed(() => props.tabs.find(candidate => candidate.label === tabLabel.value) ?? props.tabs[0])
-const picked = computed(() => tab.value?.options.find(option => option.subject.id === subjectId.value) ?? null)
+
+// counts the times the drawer opened, so a grant that completes after the drawer was closed and opened again
+// leaves the picks it did not start open
+let opening = 0
 
 watch(() => props.visible, visible => {
   if (visible) {
+    opening++
     tabLabel.value = props.tabs[0]?.label ?? ''
-    subjectId.value = null
+    picked.value = null
     roleId.value = null
   }
 })
 
 // a subject of one tab is not one of another, so switching the tab clears the pick
-watch(tabLabel, () => { subjectId.value = null })
+watch(tabLabel, () => { picked.value = null })
 
 async function submit(): Promise<void> {
   if (!picked.value || !roleId.value || !props.ready) {
     return
   }
+  const thisOpening = opening
   granting.value = true
   try {
     const grant = await props.grant(picked.value.subject, roleId.value)
     toast.add({ severity: 'success', summary: 'Access granted', life: 4000 })
     emit('granted', grant)
-    emit('update:visible', false)
+    if (thisOpening === opening) {
+      emit('update:visible', false)
+    }
   } catch (err) {
     showErrorToast(toast, 'Failed to grant access', err, { life: 8000 })
   } finally {

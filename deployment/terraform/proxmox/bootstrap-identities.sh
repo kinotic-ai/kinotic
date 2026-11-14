@@ -9,7 +9,8 @@
 # Only bcrypt hashes reach Elasticsearch. The admin's password is written to a 0600 temporary file
 # for the operator, whose path is printed; each machine's credentials go straight into its node's
 # /etc/kinotic/vm-manager.secrets.env and are never written locally. Each node's vm-manager is
-# restarted with its new credentials.
+# restarted with its new credentials, and the system server is restarted last: the seed job that
+# places the identities in the authorization graph runs as it starts.
 #
 # ADMIN_SECRET_HASH, the bcrypt hash of a password the admin already has (its
 # kinotic_identity_credential's secretHash, read before the cluster was emptied), keeps that
@@ -86,3 +87,9 @@ for arg in "$@"; do
     | ssh "$target" "sudo sh -c 'umask 077 && rm -f /etc/kinotic/vm-manager.secrets.env && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"
   echo "==> Machine for $node installed on $target, its vm-manager restarted"
 done
+
+# The system server was running before these identities existed, and its seed job runs as it starts.
+# kinotic-keepalive.timer may start the stopped container first, which the start then finds running.
+system_vmid="$(terraform -chdir="$HERE" output -json containers | python3 -c 'import sys, json; print(json.load(sys.stdin)["kinotic-server-system"])')"
+ssh "root@$HOST" "pct stop '$system_vmid' && { pct start '$system_vmid' || pct status '$system_vmid' | grep -q running; }"
+echo "==> System server restarted; its seed job makes $ADMIN_EMAIL a system administrator and each machine a node registrar"

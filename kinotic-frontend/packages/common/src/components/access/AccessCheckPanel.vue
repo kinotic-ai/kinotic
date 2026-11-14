@@ -2,17 +2,11 @@
   <DashboardSection :icon="SearchCheck" :tint="tint" title="Check access" :description="description">
     <div class="flex flex-col gap-4 p-5">
       <div :class="['grid gap-3', gridClass]">
-        <Select v-model="subjectKey" :options="groupedOptions" option-label="label" option-value="key" filter
-                :filter-fields="['label', 'detail']" option-group-label="label" option-group-children="items"
-                :placeholder="subjectPlaceholder" class="w-full">
-          <template #option="{ option }">
-            <SubjectOptionItem :option="option" />
-          </template>
-        </Select>
+        <SubjectPicker v-model="picked" :sources="subjectGroups" :placeholder="subjectPlaceholder" empty-message="No one matches" />
         <slot name="selectors" />
         <Select v-model="permission" :options="permissionOptions" option-label="label" option-value="name"
                 placeholder="Permission" class="w-full" />
-        <Button type="button" label="Check" icon="pi pi-search" :loading="checking" :disabled="!subjectKey || !permission" @click="check" />
+        <Button type="button" label="Check" icon="pi pi-search" :loading="checking" :disabled="!picked || !permission" @click="check" />
       </div>
 
       <div v-if="checked" :class="['flex items-start gap-3 rounded-xl border p-4', checked.explanation.allowed
@@ -42,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, watch } from 'vue'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
@@ -52,7 +46,8 @@ import DashboardSection from '../DashboardSection.vue'
 import { showErrorToast } from '../../util/helpers'
 import type { CheckedAccess } from './CheckedAccess'
 import type { SubjectOption } from './SubjectOption'
-import SubjectOptionItem from './SubjectOptionItem.vue'
+import SubjectPicker from './SubjectPicker.vue'
+import type { SubjectSource } from './SubjectSource'
 
 /**
  * Explains a subject's access: whether a subject picked from the groups holds a permission, through the given
@@ -63,7 +58,7 @@ const props = withDefaults(defineProps<{
   tint: string
   description: string
   /** The subjects offered, in labelled groups. */
-  subjectGroups: { label: string, items: SubjectOption[] }[]
+  subjectGroups: SubjectSource[]
   subjectPlaceholder: string
   /** The permissions offered: each one's model name and its label. */
   permissionOptions: { name: string, label: string }[]
@@ -84,20 +79,28 @@ const props = withDefaults(defineProps<{
 })
 
 const toast = useToast()
-const subjectKey = ref<string | null>(props.initialSubject ? keyOf(props.initialSubject) : null)
+const picked = ref<SubjectOption | null>(props.initialSubject ? listed(props.initialSubject) ?? named(props.initialSubject) : null)
 const permission = ref<string | null>(null)
 const checking = ref(false)
 const checked = ref<CheckedAccess | null>(null)
 const checkedLabel = ref('')
 
-// a user and a group may share an id, so a subject is picked by its type and id
-const groupedOptions = computed(() => props.subjectGroups.map(group => ({
-  label: group.label,
-  items: group.items.map(option => ({ ...option, key: keyOf(option.subject) }))
-})))
+// a subject picked before the lists were read is shown as the lists name it once they hold it
+watch(() => props.subjectGroups, () => {
+  const option = picked.value ? listed(picked.value.subject) : undefined
+  if (option) {
+    picked.value = option
+  }
+})
 
-function keyOf(subject: Subject): string {
-  return `${subject.type}:${subject.id}`
+// a user and a group may share an id, so a listed subject is found by its type and id
+function listed(subject: Subject): SubjectOption | undefined {
+  return props.subjectGroups.flatMap(group => group.options)
+              .find(option => option.subject.type === subject.type && option.subject.id === subject.id)
+}
+
+function named(subject: Subject): SubjectOption {
+  return { subject, label: props.labelOf(subject), detail: null }
 }
 
 function roleName(roleId: string): string {
@@ -105,15 +108,17 @@ function roleName(roleId: string): string {
 }
 
 async function check(): Promise<void> {
-  const picked = props.subjectGroups.flatMap(group => group.items).find(option => keyOf(option.subject) === subjectKey.value)
-  if (!picked || !permission.value) {
+  const subject = picked.value
+  if (!subject || !permission.value) {
     return
   }
   checking.value = true
   try {
-    checked.value = await props.explain(picked.subject, permission.value)
-    checkedLabel.value = picked.label
+    checked.value = await props.explain(subject.subject, permission.value)
+    checkedLabel.value = subject.label
   } catch (err) {
+    // a check that fails shows no answer, instead of the one before it
+    checked.value = null
     showErrorToast(toast, 'Failed to check access', err, { life: 8000 })
   } finally {
     checking.value = false

@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.authz;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
@@ -8,10 +9,12 @@ import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
@@ -25,6 +28,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
@@ -49,10 +53,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -60,7 +69,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * an entity definition and a user each take their place in it as part of the write that creates them and leave
  * it with the write that deletes them; the built-in roles bundle what the system model has; and the user who
  * signs an organization up administers it, which a check through the model answers. An application provisioned
- * while it holds users is given them, as one a migration seeded is at the first start.
+ * while it holds users is given them, as one a migration seeded is by the seed job. An organization created under
+ * the id of a deleted one starts with none of its users, and a project deleted and created at once is stored only
+ * with its place in the graph.
  */
 @SpringBootTest
 public class GraphSyncTests extends KinoticTestBase {
@@ -69,6 +80,9 @@ public class GraphSyncTests extends KinoticTestBase {
 
     @Autowired
     private ApplicationService applicationService;
+
+    @Autowired
+    private OrganizationService organizationService;
 
     @Autowired
     private ProjectService projectService;
@@ -138,6 +152,87 @@ public class GraphSyncTests extends KinoticTestBase {
         assertFalse(holds(definitionInApplication), "a deleted entity definition leaves the graph");
         await(runAsOrganization(() -> projectService.deleteById(created.getId())));
         assertFalse(holds(projectInApplication), "a deleted project leaves the graph");
+    }
+
+    @Test
+    public void anOrganizationCreatedUnderADeletedOnesIdStartsWithNoneOfItsUsers() throws Exception {
+        String name = "Left Org " + suffix();
+        Organization first = await(organizationService.createSync(new Organization().setName(name).setDescription("graph sync")));
+        OrganizationParticipantIdentity founder = member(first.getId(), "left-founder");
+        // a sign-up rolled back while the engine fails leaves this: a founder whose organization's record is gone
+        await(organizationService.deleteByIdSync(first.getId()));
+        assertNotNull(await(identityService.findById(founder.getId())));
+
+        Organization second = await(organizationService.createSync(new Organization().setName(name).setDescription("graph sync")));
+
+        assertEquals(first.getId(), second.getId());
+        assertNull(await(identityService.findById(founder.getId())), "the deleted organization's user is a user of the new one");
+        assertTrue(holds(new RelationshipTuple(AuthzConstants.SYSTEM_OBJECT, AuthzConstants.SYSTEM_TYPE,
+                                               AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, second.getId()))),
+                   "the organization is under the system");
+        assertInstanceOf(AlreadyExistsException.class,
+                         assertThrows(ExecutionException.class,
+                                      () -> await(organizationService.createSync(new Organization().setName(name)))).getCause());
+    }
+
+    @Test
+    public void aProjectDeletedAndCreatedAtOnceIsStoredOnlyWithItsPlaceInTheGraph() throws Exception {
+        String suffix = suffix();
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Race " + suffix, "graph sync", null)));
+        for (int i = 0; i < 5; i++) {
+            String name = "graph-race-" + suffix + "-" + i;
+            Project created = await(runAsOrganization(() -> projectService.createSync(project(application, name))));
+            RelationshipTuple projectInApplication = new RelationshipTuple(AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId())),
+                                                                           AuthzConstants.APPLICATION_TYPE,
+                                                                           AuthzUtil.object(ProjectService.RESOURCE_TYPE, AuthzGraphUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, created.getId())));
+
+            Future<Void> deletion = runAsOrganization(() -> projectService.deleteByIdSync(created.getId()));
+            // refused when it finds the project still stored
+            Future<Project> creation = runAsOrganization(() -> projectService.createSync(project(application, name)));
+            await(deletion);
+            await(creation.otherwiseEmpty());
+
+            boolean stored = await(runAsOrganization(() -> projectService.findById(created.getId()))) != null;
+            assertEquals(stored, holds(projectInApplication), "a stored project is in its application, and a deleted one is not");
+        }
+    }
+
+    @Test
+    public void aProjectFoundWhileItsIdMovesToAnotherApplicationIsPlacedOnlyWhereItIsStored() throws Exception {
+        String suffix = suffix();
+        Application first = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Move A " + suffix, "graph sync", null)));
+        Application second = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Move B " + suffix, "graph sync", null)));
+        for (int i = 0; i < 5; i++) {
+            String name = "graph-move-" + suffix + "-" + i;
+            Project created = await(runAsOrganization(() -> projectService.createSync(project(first, name))));
+            String object = AuthzUtil.object(ProjectService.RESOURCE_TYPE, AuthzGraphUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, created.getId()));
+
+            // refused when it finds the project stored by the second application
+            Future<Project> found = runAsOrganization(() -> projectService.createProjectIfNotExist(project(first, name)));
+            Project underTheSameId = project(second, name);
+            underTheSameId.setId(created.getId());
+            Future<Project> moved = runAsOrganization(() -> projectService.deleteByIdSync(created.getId()))
+                    .compose(v -> runAsOrganization(() -> projectService.createSync(underTheSameId)));
+            await(found.otherwiseEmpty());
+            await(moved.otherwiseEmpty());
+
+            Project stored = await(runAsOrganization(() -> projectService.findById(created.getId())));
+            for (Application application : List.of(first, second)) {
+                RelationshipTuple inApplication = new RelationshipTuple(AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId())),
+                                                                        AuthzConstants.APPLICATION_TYPE,
+                                                                        object);
+                assertEquals(stored != null && stored.getApplicationId().equals(application.getId()), holds(inApplication),
+                             "a project is in the application storing it and in no other");
+            }
+        }
+    }
+
+    private static Project project(Application application, String name) {
+        Project ret = new Project();
+        ret.setOrganizationId(TEST_ORG_ID);
+        ret.setApplicationId(application.getId());
+        ret.setName(name);
+        return ret;
     }
 
     @Test

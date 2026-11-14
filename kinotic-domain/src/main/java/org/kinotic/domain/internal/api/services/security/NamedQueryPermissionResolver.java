@@ -17,6 +17,7 @@ import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzPermissionChoice;
 import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.DeleteStatement;
 import org.kinotic.sql.domain.statements.InsertStatement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
@@ -130,16 +131,24 @@ public class NamedQueryPermissionResolver implements RequestPermissionResolver {
         AuthzPermissionChoice ret = READ;
         if (decorator != null && decorator.getStatements() != null) {
             try {
-                ret = switch (migrationParser.parseStatement(decorator.getStatements(), "Named query " + query.getName())) {
-                    case InsertStatement _ -> INSERT;
-                    case UpdateStatement _ -> EDIT;
-                    case DeleteStatement _ -> DELETE;
-                    default -> READ;
-                };
+                ret = permissionOf(migrationParser.parseStatement(decorator.getStatements(), "Named query " + query.getName()));
             } catch (IllegalArgumentException e) {
                 ret = READ;
             }
         }
         return ret;
+    }
+
+    /**
+     * @param statement a named query's statement
+     * @return the permission the statement needs on its entity definition, with the reason
+     */
+    static AuthzPermissionChoice permissionOf(Statement statement) {
+        return switch (statement) {
+            case InsertStatement _ -> INSERT;
+            case UpdateStatement _ -> EDIT;
+            case DeleteStatement _ -> DELETE;
+            default -> READ;
+        };
     }
 }

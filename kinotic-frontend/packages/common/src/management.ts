@@ -28,5 +28,7 @@ export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.v
 export * from './components/access/CheckedAccess'
 export * from './components/access/SubjectPickerTab'
 export * from './components/access/SubjectOption'
+export * from './components/access/SubjectSource'
 export { default as AccessCheckPanel } from './components/access/AccessCheckPanel.vue'
 export { default as GrantAccessDrawer } from './components/access/GrantAccessDrawer.vue'
+export { default as SubjectPicker } from './components/access/SubjectPicker.vue'

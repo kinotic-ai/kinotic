@@ -24,6 +24,8 @@ A container already in that state and running is left alone; otherwise it is sto
 up to date, and started once `wait_for` succeeds. A started container is marked for
 kinotic-keepalive.timer, which restarts one whose entrypoint exits. A `run_once` container
 (the migration) runs to completion and `verify` once per configuration, and is not kept alive.
+One with a `done_while` command counts as run only while the command succeeds, and runs again
+on the next apply when it fails.
 
 With --prepare, only the files and directories are placed: Proxmox mounts the bind mounts
 and unpacks the image over them inside the container's user namespace, which cannot take
@@ -178,9 +180,13 @@ def place(files, dirs):
 
 # ── waiting ──────────────────────────────────────────────────────────────────
 
+def succeeds(command):
+    return subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+
+
 def wait_for(command, timeout):
     deadline = time.time() + timeout
-    while subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+    while not succeeds(command):
         if time.time() > deadline:
             sys.exit(f"gave up after {timeout}s waiting for: {command}")
         time.sleep(5)
@@ -222,6 +228,12 @@ def apply(manifest):
     ran = os.path.join(STATE_DIR, f"{vmid}.ran")
     if manifest.get("run_once"):
         done = os.path.exists(ran) and open(ran).read().strip() == fingerprint(manifest, env)
+        # The entrypoint's exit status is not known here, so a run whose effect cannot be verified
+        # when it ends is judged on the next apply by what depends on it
+        done_while = manifest.get("done_while")
+        if done and done_while and not succeeds(done_while):
+            print(f"{name} ({vmid}): running again, since this fails: {done_while}")
+            done = False
         if in_sync and done:
             print(f"{name} ({vmid}): unchanged")
             return

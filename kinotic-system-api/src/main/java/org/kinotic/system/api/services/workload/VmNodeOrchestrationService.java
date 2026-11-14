@@ -42,10 +42,13 @@ public interface VmNodeOrchestrationService {
      * Registers a VmNode with the orchestrator so it can receive workload deployments. If a node with
      * the same id already exists it is updated with the new resource info. A registered node's
      * desired state is to take workloads, and the registration is the node's word that it is up, so a
-     * node registering again after a silence is reachable at once.
+     * node registering again after a silence is reachable at once. A node that has an agent is registered
+     * again by one of its agents only, so one node's machine cannot take another node's id; the node is
+     * deregistered to hand its id to another machine.
      *
      * @param registration the node registration info
-     * @return a future that will complete with the registered node
+     * @return a future that will complete with the registered node, or fail with an
+     *         {@link org.kinotic.core.api.exceptions.AuthorizationException} when the node's agent is another machine
      */
     @AuthzCheck(resource = AuthzConstants.SYSTEM_TYPE, permission = AuthzConstants.CAN_REGISTER_NODE)
     Future<VmNode> registerNode(VmNodeRegistration registration);
