@@ -149,6 +149,28 @@ public class McpServiceSchemaTest {
         Assertions.assertFalse(retry.isIdempotentHint());
     }
 
+    @Test
+    public void everyVulnerabilityAlertFunctionIsATool() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class)));
+
+        ServiceDefinition service = namespaceDefinition.getServices()
+                                                       .stream()
+                                                       .findFirst()
+                                                       .orElseThrow();
+
+        // the three that read are hinted by their names
+        Assertions.assertTrue(mcpTool(service, "findAllForProject").isReadOnlyHint());
+        Assertions.assertTrue(mcpTool(service, "findAll").isReadOnlyHint());
+        Assertions.assertTrue(mcpTool(service, "countUnacknowledged").isReadOnlyHint());
+
+        // acknowledge changes an alert, and its own @McpTool states what its name leaves out
+        McpToolC3Decorator acknowledge = mcpTool(service, "acknowledge");
+        Assertions.assertFalse(acknowledge.isReadOnlyHint());
+        Assertions.assertFalse(acknowledge.isDestructiveHint());
+        Assertions.assertTrue(acknowledge.isIdempotentHint());
+    }
+
     private static McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
         McpToolC3Decorator ret = service.getFunctions()
                                         .stream()
