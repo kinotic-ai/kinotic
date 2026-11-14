@@ -405,7 +405,7 @@ CREATE TABLE IF NOT EXISTS kinotic_billing_plan (
         type KEYWORD,
         amount LONG NOT INDEXED,
         meter KEYWORD,
-        unitAmount DECIMAL NOT INDEXED,
+        unitAmount DOUBLE NOT INDEXED,
         includedQuantity LONG NOT INDEXED,
         stripePriceId KEYWORD NOT INDEXED
     ),
