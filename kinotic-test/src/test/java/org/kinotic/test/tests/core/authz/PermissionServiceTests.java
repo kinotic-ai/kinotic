@@ -424,6 +424,23 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     @Test
+    public void aRoleEditedAsItIsDeletedStaysDeleted() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            RoleDefinition role = await(runAsOrganization(() -> permissions.saveRole(
+                    new RoleDefinition(null, "Raced " + suffix(), null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_read")))));
+            Future<Void> deleted = runAsOrganization(() -> permissions.deleteRole(role.id()));
+            Future<RoleDefinition> edited = runAsOrganization(() -> permissions.saveRole(
+                    new RoleDefinition(role.id(), "Edited " + suffix(), null, false, null, null, Set.of("project_can_read", "project_can_edit"))));
+            await(deleted.otherwiseEmpty());
+            await(edited.otherwiseEmpty());
+
+            assertTrue(deleted.succeeded(), "a role no one was granted is deleted");
+            assertFalse(await(runAsOrganization(permissions::findRoles)).stream().anyMatch(listed -> listed.id().equals(role.id())),
+                        "the edit wrote the deleted role again");
+        }
+    }
+
+    @Test
     public void theCallerListsWhatItHolds() throws Exception {
         Application application = application();
         Project granted = project(application);

@@ -118,26 +118,27 @@ public class DefaultPermissionService implements PermissionService {
                     throw new IllegalArgumentException("No permission a role homed at " + home + " can bundle is named '" + permission + "'");
                 }
             }
-            Future<Role> row = role.id() == null
-                    ? Future.succeededFuture(new Role().setId(AuthzUtil.roleId(home, UUID.randomUUID().toString()))
-                                                       .setOrganizationId(organizationId)
-                                                       .setCreated(new Date()))
-                    : requireRole(role.id(), organizationId);
-            return row.compose(existing -> {
-                existing.setName(role.name()).setDescription(role.description()).setUpdated(new Date());
+            String roleId = role.id() == null ? AuthzUtil.roleId(home, UUID.randomUUID().toString()) : role.id();
+            // Under the lock a grant and a deletion of the role take. The role is read under it, so an edit that
+            // waited for a deletion finds no role and writes none; and every machine the role is granted to is
+            // among the holders read here or is granted the role as this edit leaves it
+            return relationships.exclusively(AuthzUtil.roleObject(roleId), () -> {
+                Future<Role> row = role.id() == null
+                        ? Future.succeededFuture(new Role().setId(roleId).setOrganizationId(organizationId).setCreated(new Date()))
+                        : requireRole(roleId, organizationId);
                 // The row first, then its permissions: a role whose permissions failed to write exists and grants
-                // nothing. Under the lock a grant of the role takes, so every machine the role is granted to is
-                // among the holders read here or is granted the role as this edit leaves it
-                return relationships.exclusively(AuthzUtil.roleObject(existing.getId()), () -> roles.saveSync(existing, organizationId)
-                            .compose(saved -> bundled(saved.getId())
-                                    // read before the permissions are written, so an edit whose read failed is made
-                                    // again as the same edit
-                                    .compose(before -> role.permissions().containsAll(before)
-                                            ? Future.succeededFuture(List.<String>of())
-                                            : holders(saved.getId(), model.grantableOn(home, ORGANIZATION)).compose(this::machines))
-                                    .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
-                                                                      .compose(v -> reconnected(machines)))
-                                    .map(saved)));
+                // nothing
+                return row.compose(existing -> roles.saveSync(existing.setName(role.name()).setDescription(role.description()).setUpdated(new Date()),
+                                                              organizationId))
+                          .compose(saved -> bundled(saved.getId())
+                                  // read before the permissions are written, so an edit whose read failed is made
+                                  // again as the same edit
+                                  .compose(before -> role.permissions().containsAll(before)
+                                          ? Future.succeededFuture(List.<String>of())
+                                          : holders(saved.getId(), model.grantableOn(home, ORGANIZATION)).compose(this::machines))
+                                  .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
+                                                                    .compose(v -> reconnected(machines)))
+                                  .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
                                                model.grantableOn(home, ORGANIZATION), Set.copyOf(role.permissions())));
         });
