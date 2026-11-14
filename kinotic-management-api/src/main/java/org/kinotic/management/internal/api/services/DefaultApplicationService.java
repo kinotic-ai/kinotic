@@ -38,6 +38,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 @Slf4j
 @Component
@@ -135,16 +137,16 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     public Future<Application> createApplicationIfNotExist(String name, String description, TenantManagement tenantManagement) {
         String applicationId = DomainUtil.slugifyId(name);
         String organizationId = requireOrganizationId();
-        return super.findById(applicationId)
+        return exclusively(applicationId, () -> super.findById(applicationId)
                 .compose(application -> {
                     Future<Application> ret;
                     if(application != null){
                         // an existing application keeps its tenant policy: flipping it here would
                         // split its users into tenanted and untenanted halves, since only users
                         // created while it is enabled receive a tenant. Provisioning writes the store's record
-                        // last, so an application with no record is still being provisioned by the caller that
-                        // created it, or never was; it is provisioned here, which is idempotent, so it is not
-                        // returned before its store exists
+                        // last, so an application with no record was left by a server that stopped while
+                        // provisioning it; it is provisioned here, which is idempotent, so it is not returned
+                        // before its store exists
                         ret = stores.findById(AuthzGraphUtil.authzApplicationId(organizationId, applicationId))
                                     .compose(record -> record != null
                                             ? Future.succeededFuture(application)
@@ -155,32 +157,43 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                         // a caller with no tenancy opinion, such as the CLI ensuring the app row exists,
                         // omits the argument and leaves tenants to their administrators
                         newApplication.setTenantManagement(tenantManagement != null ? tenantManagement : TenantManagement.TENANT_ADMINISTRATORS);
-                        // a create, which fails on an existing id, so of two callers racing only the one that wrote
-                        // the record deletes it when provisioning fails; the other provisions the record it finds,
-                        // which is idempotent, so neither returns an application before its store exists
-                        ret = super.create(newApplication)
-                                   .compose(this::provisioned)
-                                   .recover(ex -> AlreadyExistsException.isCause(ex)
-                                           ? super.findById(applicationId).compose(found -> found == null
-                                                   ? Future.failedFuture(ex)
-                                                   : storeProvisioner.provision(found))
-                                           : Future.failedFuture(ex));
+                        ret = super.create(newApplication).compose(this::provisioned);
                     }
                     return ret;
-                });
+                }));
     }
 
     @Override
     public Future<Application> create(Application entity) {
-        // Force the id to derive from the name; beforeSave mints it from the slug.
-        entity.setId(null);
-        return failOnDuplicateName(super.create(entity), entity).compose(this::provisioned);
+        return created(entity, super::create);
     }
 
     @Override
     public Future<Application> createSync(Application entity) {
-        entity.setId(null);
-        return failOnDuplicateName(super.createSync(entity), entity).compose(this::provisioned);
+        return created(entity, super::createSync);
+    }
+
+    private Future<Application> created(Application entity, Function<Application, Future<Application>> create) {
+        // the id always derives from the name, whatever id the caller sent
+        entity.setId(DomainUtil.slugifyId(entity.getName()));
+        return exclusively(entity.getId(), () -> failOnDuplicateName(create.apply(entity), entity).compose(this::provisioned));
+    }
+
+    @Override
+    public Future<Void> deleteById(String id) {
+        return exclusively(id, () -> super.deleteById(id));
+    }
+
+    @Override
+    public Future<Void> deleteByIdSync(String id) {
+        return exclusively(id, () -> super.deleteByIdSync(id));
+    }
+
+    // One caller at a time creates, provisions or deletes the application of an id. A create whose store fails to
+    // provision deletes the application again, so a caller finding the record meanwhile would be answered with an
+    // application about to be deleted, and a delete would leave the store a create is still writing
+    private <T> Future<T> exclusively(String applicationId, Supplier<Future<T>> changes) {
+        return relationships.exclusively(AuthzGraphUtil.authzApplication(requireOrganizationId(), applicationId), changes);
     }
 
     // An application whose store could not be provisioned is deleted again with whatever provisioning wrote, so the

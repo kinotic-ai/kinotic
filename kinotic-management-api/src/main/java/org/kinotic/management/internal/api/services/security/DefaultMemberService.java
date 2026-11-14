@@ -26,6 +26,7 @@ import org.kinotic.management.api.services.security.MemberService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 
@@ -77,8 +78,16 @@ public class DefaultMemberService implements MemberService {
 
     @Override
     public Future<Void> setMemberEnabled(String identityId, boolean enabled) {
-        return loadOwnedMember(identityId, requireOrgParticipant())
-                .compose(member -> enabled ? saveEnabled(member, true) : leavingOrganization(member, () -> saveEnabled(member, false)));
+        return changingMember(identityId, requireOrgParticipant(),
+                              member -> enabled ? saveEnabled(member, true) : leavingOrganization(member, () -> saveEnabled(member, false)));
+    }
+
+    // One caller at a time enables, disables or removes a member, each of which writes the identity and then its
+    // place among the organization's members: interleaved, an enabling could leave an enabled member out of the
+    // organization, or put a removed one back in it. The member is read once the lock is held
+    private <T> Future<T> changingMember(String identityId, OrganizationParticipant participant, Function<UserParticipantIdentity, Future<T>> change) {
+        Validate.notBlank(identityId, "identityId is required");
+        return relationships.exclusively(AuthzGraphUtil.authzUser(identityId), () -> loadOwnedMember(identityId, participant).compose(change));
     }
 
     // saveSync so the console's immediate re-query sees the change
@@ -104,10 +113,10 @@ public class DefaultMemberService implements MemberService {
     @Override
     public Future<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return loadOwnedMember(identityId, participant)
-                // cascades the credential, the bindings and the delegates; sync so the console's immediate re-query
-                // no longer shows the member
-                .compose(member -> leavingOrganization(member, () -> identityService.deleteByIdSync(member.getId())).map(member))
+        // cascades the credential, the bindings and the delegates; sync so the console's immediate re-query
+        // no longer shows the member
+        return changingMember(identityId, participant,
+                              member -> leavingOrganization(member, () -> identityService.deleteByIdSync(member.getId())).map(member))
                 // a member goes with the invitation they never accepted
                 .compose(member -> inviteService.deletePendingInvite(member.getEmail(), participant.getOrganizationId(),
                                                                      member instanceof ApplicationParticipantIdentity user ? user.getApplicationId() : null));
@@ -164,7 +173,6 @@ public class DefaultMemberService implements MemberService {
      * disable or remove themselves out of the org.
      */
     private Future<UserParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
-        Validate.notBlank(identityId, "identityId is required");
         if (identityId.equals(participant.getId())) {
             return Future.failedFuture(
                     new IllegalArgumentException("You cannot perform this action on yourself."));

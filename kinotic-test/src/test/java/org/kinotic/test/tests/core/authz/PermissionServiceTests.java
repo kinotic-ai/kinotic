@@ -229,6 +229,27 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     @Test
+    public void aMemberEnabledAndDisabledAtOnceIsInTheOrganizationExactlyWhenEnabled() throws Exception {
+        Organization organization = await(organizationService.createSync(new Organization().setName("Permission " + suffix()).setDescription("members")));
+        Participant caller = new DefaultOrganizationParticipant("caller-" + suffix(), organization.getId(),
+                                                                Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                                List.of());
+        OrganizationParticipantIdentity member = member(organization.getId(), "toggled");
+        RelationshipTuple membership = AuthzGraphUtil.organizationMember(member.getId(), organization.getId());
+        for (int i = 0; i < 5; i++) {
+            Future<Void> disabling = runAs(caller, () -> memberService.setMemberEnabled(member.getId(), false));
+            Future<Void> enabling = runAs(caller, () -> memberService.setMemberEnabled(member.getId(), true));
+            await(disabling);
+            await(enabling);
+
+            boolean enabled = await(identityService.findById(member.getId())).isEnabled();
+            assertEquals(enabled, await(relationships.holds(AuthzStoreService.SYSTEM, membership)),
+                         "an enabled member is in its organization, and a disabled one is not");
+        }
+    }
+
+    @Test
     public void administratorsRevokedTogetherLeaveOne() throws Exception {
         Organization organization = await(organizationService.createSync(new Organization().setName("Permission " + suffix()).setDescription("administrators")));
         Participant caller = new DefaultOrganizationParticipant("caller-" + suffix(), organization.getId(),

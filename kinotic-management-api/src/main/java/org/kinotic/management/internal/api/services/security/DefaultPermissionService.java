@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 
@@ -124,8 +125,10 @@ public class DefaultPermissionService implements PermissionService {
                     : requireRole(role.id(), organizationId);
             return row.compose(existing -> {
                 existing.setName(role.name()).setDescription(role.description()).setUpdated(new Date());
-                // the row first, then its permissions: a role whose permissions failed to write exists and grants nothing
-                return roles.saveSync(existing, organizationId)
+                // The row first, then its permissions: a role whose permissions failed to write exists and grants
+                // nothing. Under the lock a grant of the role takes, so every machine the role is granted to is
+                // among the holders read here or is granted the role as this edit leaves it
+                return relationships.exclusively(AuthzUtil.roleObject(existing.getId()), () -> roles.saveSync(existing, organizationId)
                             .compose(saved -> bundled(saved.getId())
                                     // read before the permissions are written, so an edit whose read failed is made
                                     // again as the same edit
@@ -134,7 +137,7 @@ public class DefaultPermissionService implements PermissionService {
                                             : holders(saved.getId(), model.grantableOn(home, ORGANIZATION)).compose(this::machines))
                                     .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
                                                                       .compose(v -> reconnected(machines)))
-                                    .map(saved));
+                                    .map(saved)));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
                                                model.grantableOn(home, ORGANIZATION), Set.copyOf(role.permissions())));
         });
@@ -238,8 +241,17 @@ public class DefaultPermissionService implements PermissionService {
         return requireGrantable(roleId, resource.type(), organizationId)
                 .compose(v -> requireSubject(subject, organizationId))
                 .compose(stored -> requireInOrganization(resource, organizationId)
-                        .compose(lineage -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored), AuthzGraphUtil.authzObject(organizationId, resource))))
+                        .compose(lineage -> whileUnedited(roleId, () -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored),
+                                                                                           AuthzGraphUtil.authzObject(organizationId, resource)))))
                 .map(bindingId -> new Grant(bindingId, roleId, subject, resource));
+    }
+
+    // A role of the organization's own is granted while no edit of it is under way, so saveRole finds every machine
+    // the role is granted to before it takes a permission away. A built-in role never changes
+    private <T> Future<T> whileUnedited(String roleId, Supplier<Future<T>> grant) {
+        return model().compose(model -> model.roles().containsKey(roleId)
+                ? grant.get()
+                : relationships.exclusively(AuthzUtil.roleObject(roleId), grant));
     }
 
     @Override
