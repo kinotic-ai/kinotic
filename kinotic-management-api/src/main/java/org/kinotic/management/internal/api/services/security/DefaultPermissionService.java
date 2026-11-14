@@ -29,6 +29,7 @@ import org.kinotic.domain.api.repositories.RoleRepository;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.PermissionService;
@@ -50,7 +51,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 @RequiredArgsConstructor
 public class DefaultPermissionService implements PermissionService {
 
-    // the console reads an organization's roles whole, so they are read a page at a time until a page is not full
+    // the console reads an organization's roles whole, a page at a time
     private static final int ROLE_PAGE_SIZE = 1000;
     // the root of the tier an organization's members manage: the organization and everything inside it but tenants
     private static final String ORGANIZATION = AuthzConstants.ORGANIZATION_TYPE;
@@ -74,7 +75,7 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         return model().compose(model -> {
             List<RoleDefinition> ret = new ArrayList<>(model.builtInRoles(ORGANIZATION));
-            return customRoles(organizationId, 0, new ArrayList<>())
+            return customRoles(organizationId)
                     .compose(rows -> Future.all(rows.stream().map(row -> defined(row, model)).toList()))
                     .map(defined -> {
                         ret.addAll(defined.list());
@@ -83,14 +84,9 @@ public class DefaultPermissionService implements PermissionService {
         });
     }
 
-    private Future<List<Role>> customRoles(String organizationId, int pageNumber, List<Role> found) {
-        return roles.findAll(organizationId, Pageable.create(pageNumber, ROLE_PAGE_SIZE, Sort.by("name")))
-                    .compose(page -> {
-                        found.addAll(page.getContent());
-                        return page.getContent().size() < ROLE_PAGE_SIZE
-                                ? Future.succeededFuture(found)
-                                : customRoles(organizationId, pageNumber + 1, found);
-                    });
+    // In name order, with the id ordering roles that share a name so the paging has a unique order
+    private Future<List<Role>> customRoles(String organizationId) {
+        return CursorPaging.readAll(pageable -> roles.findAll(organizationId, pageable), ROLE_PAGE_SIZE, Sort.by("name", "id"));
     }
 
     @Override
