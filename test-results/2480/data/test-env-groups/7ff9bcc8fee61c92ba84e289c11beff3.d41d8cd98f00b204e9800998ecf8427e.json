@@ -1,0 +1,1 @@
+{"id":"7ff9bcc8fee61c92ba84e289c11beff3.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.client.KinoticConnectionTests.testPendingCallFailsWhenTheGatewayStopsAndTheConnectionRecoversWhenItRestarts","name":"testPendingCallFailsWhenTheGatewayStopsAndTheConnectionRecoversWhenItRestarts()","status":"passed","testResultsByEnv":{"default":"c701dfde04e0e71a3f4c5dc035dc23d8"}}
