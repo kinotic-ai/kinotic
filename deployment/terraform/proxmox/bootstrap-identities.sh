@@ -16,7 +16,8 @@
 # sign that the identities are all there. The system user's identity is the last write, after its
 # credential and the password file. A run that fails before it can be made again as it was: a
 # machine's id is derived from its node's and the system user's from its email, so each is written
-# over.
+# over. A write of that identity that reports a failure is settled by reading the system user back:
+# the run carries on when it is there, and the password file is kept when the cluster gives no answer.
 #
 # ADMIN_SECRET_HASH, the bcrypt hash of a password the admin already has (its
 # kinotic_identity_credential's secretHash, read before the cluster was emptied), keeps that
@@ -63,9 +64,13 @@ bulk() {
     | python3 -c 'import sys, json; r = json.load(sys.stdin); sys.exit("bulk write failed: " + json.dumps(r)) if r["errors"] else None'
 }
 
-# A second run against a populated cluster would leave two system users with one email
-existing="$(es "'$ES/kinotic_participant_identity/_count' -d '{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"type\":\"SYSTEM_USER\"}},{\"term\":{\"email\":\"$ADMIN_EMAIL\"}}]}}}'" \
-  | python3 -c 'import sys, json; print(json.load(sys.stdin)["count"])')"
+# How many system users have the admin's email
+system_users() {
+  es "'$ES/kinotic_participant_identity/_count' -d '{\"query\":{\"bool\":{\"filter\":[{\"term\":{\"type\":\"SYSTEM_USER\"}},{\"term\":{\"email\":\"$ADMIN_EMAIL\"}}]}}}'" \
+    | python3 -c 'import sys, json; print(json.load(sys.stdin)["count"])'
+}
+
+existing="$(system_users)"
 if [[ "$existing" != "0" ]]; then
   echo "A system user $ADMIN_EMAIL already exists; this is for an empty cluster" >&2
   exit 1
@@ -87,6 +92,7 @@ for arg in "$@"; do
 done
 
 admin_id="$(python3 -c 'import sys, uuid; print(uuid.uuid5(uuid.NAMESPACE_URL, "kinotic:system-user:" + sys.argv[1]))' "$ADMIN_EMAIL")"
+password_file=""
 if [[ -n "${ADMIN_SECRET_HASH:-}" ]]; then
   admin_hash="$ADMIN_SECRET_HASH"
 else
@@ -95,16 +101,28 @@ else
   # A full template, since GNU mktemp refuses the bare prefix BSD mktemp takes with -t
   password_file="$(mktemp "${TMPDIR:-/tmp}/kinotic-system-admin.XXXXXX")"
   echo "$admin_password" > "$password_file"
-  # A password of a system user that was not written is in no use
+  # The identity is written after the credential, so a failed credential leaves no system user
   trap 'rm -f "$password_file"' ERR
 fi
 # Two requests, since one bulk request can write the identity and fail the credential: the identity
 # is what the check for an existing system user reads, so it is written once the credential is held
 credential_row "$admin_id" "$admin_hash" | bulk
-identity_row "$admin_id" \
-  "{\"id\":\"$admin_id\",\"type\":\"SYSTEM_USER\",\"email\":\"$ADMIN_EMAIL\",\"displayName\":\"$ADMIN_EMAIL\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
-  | bulk
 trap - ERR
+# The identity can be written and the answer lost on its way back, so a write that reports a failure
+# is settled by counting the system user again
+if ! identity_row "$admin_id" \
+  "{\"id\":\"$admin_id\",\"type\":\"SYSTEM_USER\",\"email\":\"$ADMIN_EMAIL\",\"displayName\":\"$ADMIN_EMAIL\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}" \
+  | bulk; then
+  written="$(system_users)" || written="unknown"
+  if [[ "$written" == "0" ]]; then
+    if [[ -n "$password_file" ]]; then rm -f "$password_file"; fi
+    echo "The system user $ADMIN_EMAIL was not written; run this again" >&2
+    exit 1
+  elif [[ "$written" != "1" ]]; then
+    echo "The cluster did not say whether the system user $ADMIN_EMAIL was written.${password_file:+ Its password is in $password_file, to keep until a run succeeds.} Run this again: if it finds the system user there, restart the system server (container $system_vmid) by hand, since its seed job places the identities as it starts" >&2
+    exit 1
+  fi
+fi
 if [[ -n "${ADMIN_SECRET_HASH:-}" ]]; then
   echo "==> System user $ADMIN_EMAIL, with the password it already had"
 else
