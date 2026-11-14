@@ -16,6 +16,7 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.Group;
 import org.kinotic.domain.api.model.security.Role;
@@ -59,6 +60,7 @@ public class DefaultPermissionService implements PermissionService {
     private final RoleRepository roles;
     private final GroupRepository groups;
     private final ParticipantIdentityService identities;
+    private final ConnectionRevocationService connectionRevocationService;
 
     @Override
     public Future<Map<String, Set<String>>> findPermissions() {
@@ -239,10 +241,29 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return requireInOrganization(resource, organizationId)
-                .compose(lineage -> ORGANIZATION.equals(resource.type())
+                .compose(lineage -> relationships.read(SYSTEM, AuthzUtil.bindingObject(object, grantId), AuthzConstants.MEMBER_RELATION))
+                .compose(members -> (ORGANIZATION.equals(resource.type())
                         ? identities.removeAdministrators(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class,
                                                           () -> relationships.revoke(SYSTEM, grantId, object))
-                        : relationships.revoke(SYSTEM, grantId, object));
+                        : relationships.revoke(SYSTEM, grantId, object))
+                        .compose(v -> reconnected(members)));
+    }
+
+    // The zones a machine hosts services in are read from its grants when it connects and kept for the connection,
+    // so a grant taken from a machine ends its connections and it connects again with the zones it still holds. A
+    // user's requests are each checked as they arrive, so its connections stay
+    private Future<Void> reconnected(List<RelationshipTuple> members) {
+        Future<Void> ret = Future.succeededFuture();
+        for (RelationshipTuple member : members) {
+            if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member.user()))) {
+                String id = AuthzUtil.idOf(member.user());
+                ret = ret.compose(v -> identities.findById(id))
+                         .compose(identity -> identity instanceof MachineParticipantIdentity
+                                 ? connectionRevocationService.revoke(id)
+                                 : Future.succeededFuture());
+            }
+        }
+        return ret;
     }
 
     @Override

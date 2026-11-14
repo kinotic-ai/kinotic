@@ -17,6 +17,8 @@ import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.ZoneRulesResolver;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
@@ -25,6 +27,8 @@ import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.security.Group;
+import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachineType;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
@@ -32,6 +36,7 @@ import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
@@ -39,6 +44,7 @@ import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.security.MemberService;
 import org.kinotic.management.api.services.security.PermissionService;
+import org.kinotic.test.support.kinotic.ConnectionRevocationRecorder;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -59,7 +65,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies the console's access control over the system store: custom roles defined from the model's catalog
  * and deleted once unused, grants reaching down the containment tree and stopping when revoked, groups granting
- * through their members, and the caller's own access listed and explained.
+ * through their members, a grant revoked from a machine ending the machine's connections, and the caller's own
+ * access listed and explained.
  */
 @SpringBootTest
 public class PermissionServiceTests extends KinoticTestBase {
@@ -93,6 +100,12 @@ public class PermissionServiceTests extends KinoticTestBase {
 
     @Autowired
     private ServiceDirectory serviceDirectory;
+
+    @Autowired
+    private ZoneRulesResolver zoneRulesResolver;
+
+    @Autowired
+    private ConnectionRevocationRecorder connectionRevocations;
 
     // The master ticks every two seconds, then writes the model and brings the built-in roles in step, which
     // every grant below binds on
@@ -271,6 +284,34 @@ public class PermissionServiceTests extends KinoticTestBase {
         await(runAsOrganization(() -> permissions.revoke(onApplication, grant.id())));
         assertFalse(held(member, "project_can_edit", onProject));
         assertFalse(await(runAsOrganization(() -> permissions.findGrants(onProject))).contains(grant));
+    }
+
+    @Test
+    public void aGrantRevokedFromAMachineEndsItsConnections() throws Exception {
+        Application application = application();
+        Resource onApplication = new Resource(AuthzConstants.APPLICATION_TYPE, application.getId());
+        MachineParticipantIdentity machine = new MachineParticipantIdentity();
+        machine.setMachineType(MachineType.APP_RUNTIME).setOrganizationId(TEST_ORG_ID).setDisplayName("Permission runtime " + suffix());
+        String machineId = await(identityService.createMachine(machine)).machine().getId();
+        Participant runtime = new DefaultOrganizationParticipant(machineId, TEST_ORG_ID,
+                                                                 Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                        ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
+                                                                 List.of());
+        OrganizationParticipantIdentity member = member(TEST_ORG_ID, "permission");
+        CRI hosted = CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, application.getId()) + "~ReportService#1.0.0");
+        Grant toMachine = await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId),
+                                                                          AuthzConstants.APPLICATION_RUNTIME_ROLE, onApplication)));
+        Grant toMember = await(runAsOrganization(() -> permissions.grant(user(member), "project.editor", onApplication)));
+        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
+
+        await(runAsOrganization(() -> permissions.revoke(onApplication, toMember.id())));
+        await(runAsOrganization(() -> permissions.revoke(onApplication, toMachine.id())));
+
+        // a machine connecting again right after the revocation hosts nothing in the application's zone
+        assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
+        // a person's requests are each checked, so the grant revoked before the machine's ended no connection
+        assertFalse(connectionRevocations.isRevoked(member.getId()));
     }
 
     @Test

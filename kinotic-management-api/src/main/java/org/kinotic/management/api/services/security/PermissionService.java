@@ -135,6 +135,8 @@ public interface PermissionService {
     /**
      * Revokes a grant where it was made. The organization keeps at least one administrator who can sign in, so its
      * last grant of {@code organization.admin} held by an enabled organization user who is no longer pending is refused.
+     * A grant revoked from a machine ends the machine's connections, so the zones it hosts services in are read
+     * again from the grants it still holds when it reconnects.
      *
      * @param resource where the grant was made
      * @param grantId  the grant
