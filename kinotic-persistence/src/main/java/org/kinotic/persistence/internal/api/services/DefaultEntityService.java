@@ -26,12 +26,8 @@ import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
+import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
-import tools.jackson.core.JacksonException;
-import tools.jackson.core.JsonPointer;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.*;
@@ -48,9 +44,10 @@ public class DefaultEntityService implements EntityService {
     private final TokenBufferUpsertPreProcessor upsertPreProcessor;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
-    private final ObjectMapper objectMapper;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
+    private final JsonStreamProcessor<RawJson, ElasticVersion, RawJson> readResultProcessor;
+    private final JsonStreamProcessor<RawJson, ElasticVersion, TokenBuffer> writeResultProcessor;
     private final EntityDescriptor entityDescriptor;
 
     @WithSpan
@@ -192,49 +189,13 @@ public class DefaultEntityService implements EntityService {
     public <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
-                .compose(un -> {
-
-                    if(FastestType.class.isAssignableFrom(type)){
-
-                        if(entityDescriptor.isOptimisticLockingEnabled()){
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            Map.class,
-                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
-                                            hit -> type.cast(new FastestType(updateVersionForEntity(hit.source(),
-                                                                                              hit.primaryTerm(),
-                                                                                              hit.seqNo()
-                                            ))));
-                        }else{
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            RawJson.class,
-                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
-                                            hit -> type.cast(new FastestType(hit.source())));
-                        }
-                    }else{
-
-                        if(entityDescriptor.isOptimisticLockingEnabled()){
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            type,
-                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
-                                            hit -> updateVersionForEntity(hit.source(),
-                                                                          hit.primaryTerm(),
-                                                                          hit.seqNo()
-                                            ));
-                        }else{
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            type,
-                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context));
-                        }
-                    }
-                }).map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"));
+                .compose(un -> crudServiceTemplate
+                        .search(entityDescriptor.itemIndex(),
+                                pageable,
+                                sourceType(type),
+                                builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
+                                hit -> toResult(hit.source(), hit.primaryTerm(), hit.seqNo(), type)))
+                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"));
     }
 
     @WithSpan
@@ -337,7 +298,7 @@ public class DefaultEntityService implements EntityService {
                              }
 
                              return i;
-                         })).map(indexResponse -> postProcessSaveOrUpdate(entityHolder,
+                         })).map(indexResponse -> toWriteResult(entityHolder,
                                                                           indexResponse.primaryTerm(),
                                                                           indexResponse.seqNo())));
     }
@@ -347,61 +308,13 @@ public class DefaultEntityService implements EntityService {
     public <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
         return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.SEARCH, context))
-                .compose(un -> {
-
-                    if(FastestType.class.isAssignableFrom(type)){
-
-                        if(entityDescriptor.isOptimisticLockingEnabled()){
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            Map.class,
-                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
-                                                                                     searchText,
-                                                                                     builder,
-                                                                                     context),
-                                            hit -> type.cast(new FastestType(updateVersionForEntity(hit.source(),
-                                                                                              hit.primaryTerm(),
-                                                                                              hit.seqNo()
-                                            ))));
-                        }else{
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            RawJson.class,
-                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
-                                                                                     searchText,
-                                                                                     builder,
-                                                                                     context),
-                                            hit -> type.cast(new FastestType(hit.source())));
-                        }
-                    }else{
-
-                        if(entityDescriptor.isOptimisticLockingEnabled()){
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            type,
-                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
-                                                                                     searchText,
-                                                                                     builder,
-                                                                                     context),
-                                            hit -> updateVersionForEntity(hit.source(),
-                                                                          hit.primaryTerm(),
-                                                                          hit.seqNo()
-                                            ));
-                        }else{
-                            return crudServiceTemplate
-                                    .search(entityDescriptor.itemIndex(),
-                                            pageable,
-                                            type,
-                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
-                                                                                     searchText,
-                                                                                     builder,
-                                                                                     context));
-                        }
-                    }
-                }).map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"));
+                .compose(un -> crudServiceTemplate
+                        .search(entityDescriptor.itemIndex(),
+                                pageable,
+                                sourceType(type),
+                                builder -> readPreProcessor.beforeSearch(entityDescriptor, searchText, builder, context),
+                                hit -> toResult(hit.source(), hit.primaryTerm(), hit.seqNo(), type)))
+                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"));
     }
 
     @WithSpan
@@ -443,7 +356,7 @@ public class DefaultEntityService implements EntityService {
 
                              return KinoticUtil.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
                                                        .map(updateResponse ->
-                                                                    postProcessSaveOrUpdate(entityHolder,
+                                                                    toWriteResult(entityHolder,
                                                                                             updateResponse.primaryTerm(),
                                                                                             updateResponse.seqNo()));
                          });
@@ -483,86 +396,56 @@ public class DefaultEntityService implements EntityService {
     }
 
     private <T> Future<T> doFindById(String id, Class<T> type, EntityContext context) {
-        if(FastestType.class.isAssignableFrom(type)){
-            if(entityDescriptor.isOptimisticLockingEnabled()){
-                return crudServiceTemplate
-                        .findById(entityDescriptor.itemIndex(),
-                                  id,
-                                  Map.class,
-                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
-                                  result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
-                                                                                     result.primaryTerm(),
-                                                                                     result.seqNo()
-                                  ))));
-            }else{
-                return crudServiceTemplate
-                        .findById(entityDescriptor.itemIndex(),
-                                  id,
-                                  RawJson.class,
-                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
-                                  result -> type.cast(new FastestType(result.source())));
-            }
-        }else{
-
-            if(entityDescriptor.isOptimisticLockingEnabled()){
-                return crudServiceTemplate
-                        .findById(entityDescriptor.itemIndex(),
-                                  id,
-                                  type,
-                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
-                                  result -> updateVersionForEntity(result.source(),
-                                                                   result.primaryTerm(),
-                                                                   result.seqNo()
-                                  ));
-            }else{
-                return crudServiceTemplate
-                        .findById(entityDescriptor.itemIndex(),
-                                  id,
-                                  type,
-                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context));
-            }
-        }
+        return crudServiceTemplate
+                .findById(entityDescriptor.itemIndex(),
+                          id,
+                          sourceType(type),
+                          builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
+                          result -> toResult(result.source(), result.primaryTerm(), result.seqNo(), type));
     }
 
     private <T> Future<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
                                             Class<T> type,
                                             EntityContext context) {
-        if(FastestType.class.isAssignableFrom(type)){
-            if(entityDescriptor.isOptimisticLockingEnabled()){
-                return crudServiceTemplate
-                        .multiGet(composedIds,
-                                  Map.class,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
-                                  result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
-                                                                                     result.primaryTerm(),
-                                                                                     result.seqNo()
-                                  ))));
-            }else{
-                return crudServiceTemplate
-                        .multiGet(composedIds,
-                                  RawJson.class,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
-                                  result -> type.cast(new FastestType(result.source())));
-            }
-        }else{
+        return crudServiceTemplate
+                .multiGet(composedIds,
+                          sourceType(type),
+                          builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
+                          result -> toResult(result.source(), result.primaryTerm(), result.seqNo(), type));
+    }
 
-            if(entityDescriptor.isOptimisticLockingEnabled()){
-                return crudServiceTemplate
-                        .multiGet(composedIds,
-                                  type,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
-                                  result -> updateVersionForEntity(result.source(),
-                                                                   result.primaryTerm(),
-                                                                   result.seqNo()
-                                  ));
-            }else{
-                return crudServiceTemplate
-                        .multiGet(composedIds,
-                                  type,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
-                                  null);
-            }
+    // A FastestType is read as whichever type goes back out to the caller with the least work: RawJson, which is
+    // written out as it is, or for an entity with a version field a Map, which takes the version without the
+    // document being parsed a second time
+    private Class<?> sourceType(Class<?> type) {
+        Class<?> ret;
+        if(!FastestType.class.isAssignableFrom(type)){
+            ret = type;
+        }else if(entityDescriptor.isOptimisticLockingEnabled()){
+            ret = Map.class;
+        }else{
+            ret = RawJson.class;
         }
+        return ret;
+    }
+
+    private <T> T toResult(Object source, Long primaryTerm, Long seqNo, Class<T> type) {
+        Object entity = entityDescriptor.isOptimisticLockingEnabled() ? withVersion(source, primaryTerm, seqNo) : source;
+        return type.cast(FastestType.class.isAssignableFrom(type) ? new FastestType(entity) : entity);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Object withVersion(Object source, Long primaryTerm, Long seqNo) {
+        Object ret;
+        switch (source) {
+            case RawJson rawJson -> ret = readResultProcessor.process(rawJson, new ElasticVersion(primaryTerm, seqNo));
+            case Map map -> {
+                map.put(entityDescriptor.versionFieldName(), primaryTerm + ":" + seqNo);
+                ret = map;
+            }
+            case null, default -> throw new IllegalArgumentException("Pojo Not Supported for Version");
+        }
+        return ret;
     }
 
     private Future<TokenBuffer> doPersist(TokenBuffer entity,
@@ -644,77 +527,11 @@ public class DefaultEntityService implements EntityService {
         });
     }
 
-    private TokenBuffer postProcessSaveOrUpdate(EntityHolder<RawJson> entityHolder, Long primaryTerm, Long seqNo) {
-        // The upsert pre-processor holds each entity as RawJson, which uses less memory for bulk operations,
-        // so it is converted back to the TokenBuffer a save or update returns
-        TokenBuffer ret;
-        if(entityDescriptor.isOptimisticLockingEnabled()){
-            Object versioned = updateVersionForEntity((Object) entityHolder.entity(), primaryTerm, seqNo, true);
-            ret = (TokenBuffer) versioned;
-        }else{
-            try {
-                ObjectNode node = (ObjectNode) objectMapper.readTree(entityHolder.entity().data());
-                ret = new TokenBuffer(objectMapper._serializationContext(), false);
-                objectMapper.writeValue(ret, node);
-            } catch (JacksonException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-        return ret;
-    }
-
-    private <T> T updateVersionForEntity(T entity, Long primaryTerm, Long seqNo){
-        return updateVersionForEntity(entity, primaryTerm, seqNo, false);
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private <T> T updateVersionForEntity(T entity, Long primaryTerm, Long seqNo, boolean convertRawJsonToTokenBuffer){
-        String versionValue =  primaryTerm + ":" + seqNo;
-
-        switch (entity) {
-            case TokenBuffer buffer -> {
-                try {
-                    // Convert TokenBuffer to JSON tree
-                    JsonNode node = objectMapper.readTree(buffer.asParser(objectMapper._deserializationContext()));
-
-                    node.withObject(JsonPointer.empty())
-                        .put(entityDescriptor.versionFieldName(), versionValue);
-
-                    // Serialize back to TokenBuffer
-                    TokenBuffer updatedBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
-                    objectMapper.writeValue(updatedBuffer, node);
-
-                    return (T) updatedBuffer;
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to update version in TokenBuffer", e);
-                }
-            }
-            case Map map -> map.put(entityDescriptor.versionFieldName(), versionValue);
-            case RawJson rawJson -> {
-
-                try {
-                    ObjectNode node = (ObjectNode) objectMapper.readTree(rawJson.data());
-                    node.put(entityDescriptor.versionFieldName(), versionValue);
-
-                    // All token buffers passed to save or update will receive a RawJson object do to how the upsert pre processor works
-                    // So we convert if need be
-                    if (convertRawJsonToTokenBuffer) {
-
-                        TokenBuffer updatedBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
-                        objectMapper.writeValue(updatedBuffer, node);
-                        return (T) updatedBuffer;
-                    } else {
-
-                        byte[] updatedData = objectMapper.writeValueAsBytes(node);
-                        return (T) new RawJson(updatedData);
-                    }
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to update version in RawJson", e);
-                }
-            }
-            case null, default -> throw new IllegalArgumentException("Pojo Not Supported for Version");
-        }
-        return entity;
+    // The upsert pre-processor holds each entity as RawJson, which uses less memory for bulk operations, so it is
+    // written back out as the TokenBuffer a save or update returns
+    private TokenBuffer toWriteResult(EntityHolder<RawJson> entityHolder, Long primaryTerm, Long seqNo) {
+        ElasticVersion version = entityDescriptor.isOptimisticLockingEnabled() ? new ElasticVersion(primaryTerm, seqNo) : null;
+        return writeResultProcessor.process(entityHolder.entity(), version);
     }
 
     private Future<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
