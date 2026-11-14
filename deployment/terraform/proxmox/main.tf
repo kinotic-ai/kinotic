@@ -481,7 +481,10 @@ locals {
       gid              = 101
       wait_for         = local.openfga_healthy
       verify           = "curl -sf '${local.openfga_url}/stores?name=kinotic-system' | grep -Eq '\"name\":[[:space:]]*\"kinotic-system\"'"
-      done_while       = null
+      # Runs again while the engine is not healthy, which waits for the engine and fails the apply when
+      # it stays unhealthy, as it does after a schema migration that failed. The failed apply makes
+      # terraform run the applier again, and with it the migration
+      done_while       = local.openfga_healthy
       timeout          = 300
     }
     loki = {

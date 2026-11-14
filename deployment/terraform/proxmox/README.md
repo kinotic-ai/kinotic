@@ -323,8 +323,9 @@ uploaded them.
   `ssh root@<host> python3 /var/lib/vz/snippets/kinotic-apply-container.py /var/lib/vz/snippets/kinotic-*.manifest.json`.
   To re-run the migration on the same image, `rm /var/lib/kinotic/state/120.ran` first.
   `openfga-migrate` runs again on its own whenever the engine is not healthy when the applier
-  reaches it. A schema migration that failed leaves the engine unhealthy, so the apply fails
-  waiting for it at `openfga-init`, and the next apply runs the applier and the migration again.
+  reaches it, and so does `openfga-init`, which waits for the engine first. A schema migration
+  that failed leaves the engine unhealthy, so the apply fails waiting for it at `openfga-init`,
+  and the next apply runs the applier and the migration again.
 - **New secrets** are another `./sync-secrets.sh`, which re-applies the servers.
 - **Starting over** with an empty cluster, for a migration that edits `V1__init.sql`: remove the
   servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
