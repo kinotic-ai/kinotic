@@ -3,6 +3,7 @@ package org.kinotic.persistence.internal.api.services;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.RawJson;
 import lombok.extern.slf4j.Slf4j;
 
 import org.kinotic.core.api.crud.Page;
@@ -186,8 +187,8 @@ public class DefaultEntitiesService implements EntitiesService {
 
     @WithSpan
     @Override
-    public Future<TokenBuffer> save(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
-                                    TokenBuffer entity,
+    public Future<RawJson> save(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
+                                TokenBuffer entity,
                               EntityContext context) {
         return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.save(entity, context));
@@ -206,8 +207,8 @@ public class DefaultEntitiesService implements EntitiesService {
 
     @WithSpan
     @Override
-    public Future<TokenBuffer> update(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
-                                      TokenBuffer entity,
+    public Future<RawJson> update(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
+                                  TokenBuffer entity,
                                 EntityContext context) {
         return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.update(entity, context));

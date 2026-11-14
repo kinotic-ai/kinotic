@@ -47,6 +47,7 @@ public class EntityServiceCache {
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final JsonMapper upsertJsonMapper;
+    private final EntityVersionWriter unversionedVersionWriter;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
@@ -81,6 +82,8 @@ public class EntityServiceCache {
         this.readPostProcessor = readPostProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.domainPersistenceProperties = domainPersistenceProperties;
+
+        this.unversionedVersionWriter = new EntityVersionWriter(jsonMapper, null);
 
         this.upsertFieldTransformers = PersistenceUtil.listToMap(upsertFieldTransformers,
                                                                 t -> t.implementsDecorator().getName());
@@ -143,6 +146,11 @@ public class EntityServiceCache {
 
         EntityDescriptor entityDescriptor = entityDefinition.toDescriptor();
 
+        // an entity without a version field has no version to write, so every such entity shares one writer
+        String versionFieldName = entityDescriptor.versionFieldName();
+        EntityVersionWriter versionWriter = versionFieldName != null ? new EntityVersionWriter(jsonMapper, versionFieldName)
+                                                                     : unversionedVersionWriter;
+
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
                                  .map(authService -> new DefaultEntityService(
                                          authService,
@@ -156,6 +164,7 @@ public class EntityServiceCache {
                                          jsonMapper,
                                          readPreProcessor,
                                          readPostProcessor,
+                                         versionWriter,
                                          entityDescriptor));
     }
 

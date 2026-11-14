@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -169,7 +170,7 @@ public interface EntityService {
      * @param context the context for this operation
      * @return {@link Future} emitting the saved entity
      */
-    Future<TokenBuffer> save(TokenBuffer entity, EntityContext context);
+    Future<RawJson> save(TokenBuffer entity, EntityContext context);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@link Pageable} object.
@@ -199,6 +200,6 @@ public interface EntityService {
      * @param context     the context for this operation
      * @return {@link Future} emitting the saved entity
      */
-    Future<TokenBuffer> update(TokenBuffer entity, EntityContext context);
+    Future<RawJson> update(TokenBuffer entity, EntityContext context);
 
 }
