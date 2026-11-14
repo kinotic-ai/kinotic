@@ -204,6 +204,7 @@ locals {
     gid              = 0
     wait_for         = null
     verify           = null
+    done_while       = null
     timeout          = 300
   } }
 
@@ -366,6 +367,7 @@ locals {
     privileged_ports = false
     wait_for         = local.es_healthy
     verify           = null
+    done_while       = null
     timeout          = 300
   } }
 
@@ -396,6 +398,7 @@ locals {
       gid              = 70
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     openfga-migrate = {
@@ -419,6 +422,9 @@ locals {
       gid              = 65532
       wait_for         = local.openfga_db_listening
       verify           = null
+      # The engine is healthy only on a datastore at the revision it requires, so a migration that
+      # failed runs again on the next apply instead of counting as done
+      done_while       = local.openfga_healthy
       timeout          = 300
     }
     openfga = {
@@ -451,6 +457,7 @@ locals {
       gid              = 65532
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     openfga-init = {
@@ -474,6 +481,7 @@ locals {
       gid              = 101
       wait_for         = local.openfga_healthy
       verify           = "curl -sf '${local.openfga_url}/stores?name=kinotic-system' | grep -Eq '\"name\":[[:space:]]*\"kinotic-system\"'"
+      done_while       = null
       timeout          = 300
     }
     loki = {
@@ -497,6 +505,7 @@ locals {
       gid              = 10001
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     tempo = {
@@ -523,6 +532,7 @@ locals {
       gid              = 10001
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     mimir = {
@@ -549,6 +559,7 @@ locals {
       gid              = 10001
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     kinotic-migration = {
@@ -578,6 +589,7 @@ locals {
       gid              = 1001
       wait_for         = local.es_healthy
       verify           = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
+      done_while       = null
       timeout          = 900
     }
     edge = {
@@ -606,6 +618,7 @@ locals {
       gid              = 99
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
   })
@@ -651,6 +664,7 @@ locals {
     run_once         = c.run_once
     wait_for         = c.wait_for
     verify           = c.verify
+    done_while       = c.done_while
     timeout          = c.timeout
   } }
 }
