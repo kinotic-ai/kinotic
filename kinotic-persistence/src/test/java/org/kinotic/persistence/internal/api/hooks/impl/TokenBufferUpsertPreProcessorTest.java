@@ -22,6 +22,7 @@ import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.ElasticVersion;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
@@ -55,7 +56,7 @@ public class TokenBufferUpsertPreProcessorTest {
                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                List.of("ADMIN"));
 
-    private final JsonMapper jsonMapper = JsonMapper.builder().build();
+    private final JsonMapper jsonMapper = JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     private final DomainPersistenceProperties properties = new DomainPersistenceProperties();
 
     @Test

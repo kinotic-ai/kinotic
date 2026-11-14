@@ -22,6 +22,7 @@ import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
@@ -45,6 +46,7 @@ public class EntityServiceCache {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
+    private final JsonMapper upsertJsonMapper;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
@@ -69,6 +71,12 @@ public class EntityServiceCache {
         this.esAsyncClient = esAsyncClient;
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
+        // Jackson 3 fails on trailing tokens by default; an upsert transformer reads one field's value and leaves
+        // the parser on the rest of the input, so the check is off in this mapper. A mapper holds its own
+        // deserializer caches, so the one copy is shared by every entity service
+        this.upsertJsonMapper = jsonMapper.rebuild()
+                                          .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                                          .build();
         this.readPreProcessor = readPreProcessor;
         this.readPostProcessor = readPostProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -140,7 +148,7 @@ public class EntityServiceCache {
                                          authService,
                                          crudServiceTemplate,
                                          new TokenBufferUpsertPreProcessor(domainPersistenceProperties,
-                                                                           jsonMapper,
+                                                                           upsertJsonMapper,
                                                                            entityDescriptor,
                                                                            fieldTransformers),
                                          esAsyncClient,

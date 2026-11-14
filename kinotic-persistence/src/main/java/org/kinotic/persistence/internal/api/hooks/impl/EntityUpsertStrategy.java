@@ -37,6 +37,8 @@ public class EntityUpsertStrategy implements JsonStreamProcessorStrategy<TokenBu
     private final Map<String, JsonTransformer<EntityUpsertState>> transformers;
 
     /**
+     * @param jsonMapper        reads each transformed field's value from the middle of the input, so it must have
+     *                          {@link DeserializationFeature#FAIL_ON_TRAILING_TOKENS} disabled
      * @param fieldTransformers the transformer for each decorated json path of the entity
      */
     public EntityUpsertStrategy(DomainPersistenceProperties domainPersistenceProperties,
@@ -44,11 +46,7 @@ public class EntityUpsertStrategy implements JsonStreamProcessorStrategy<TokenBu
                                 EntityDescriptor entityDescriptor,
                                 Map<String, UpsertFieldTransformer> fieldTransformers) {
         this.domainPersistenceProperties = domainPersistenceProperties;
-        // Jackson 3 fails on trailing tokens by default; a transformer reads one field's value and leaves the
-        // parser on the rest of the input, so the check must be off for those partial reads
-        this.jsonMapper = jsonMapper.rebuild()
-                                    .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                                    .build();
+        this.jsonMapper = jsonMapper;
         this.entityDescriptor = entityDescriptor;
         this.transformers = new LinkedHashMap<>(fieldTransformers);
 

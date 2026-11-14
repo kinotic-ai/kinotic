@@ -10,6 +10,7 @@ import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
@@ -27,6 +28,8 @@ public class TokenBufferUpsertPreProcessor {
     private final JsonStreamProcessor<TokenBuffer, EntityContext, EntityHolder<RawJson>> processor;
 
     /**
+     * @param jsonMapper        reads each transformed field's value from the middle of the input, so it must have
+     *                          {@link DeserializationFeature#FAIL_ON_TRAILING_TOKENS} disabled
      * @param fieldTransformers the transformer for each decorated json path of the entity
      */
     public TokenBufferUpsertPreProcessor(DomainPersistenceProperties domainPersistenceProperties,
