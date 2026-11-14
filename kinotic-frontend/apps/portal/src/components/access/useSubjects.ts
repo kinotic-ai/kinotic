@@ -1,5 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { Kinotic, type Page, Pageable } from '@kinotic-ai/core'
+import { type IterablePage, Kinotic, type Page, Pageable } from '@kinotic-ai/core'
 import { type ApplicationParticipantIdentity, type Group, type MachineParticipantIdentity, type OrganizationParticipantIdentity, type Subject,
   SubjectType } from '@kinotic-ai/management-api'
 import { createDebug, isAuthorizationError } from '@kinotic-ai/frontend-common'
@@ -7,9 +7,9 @@ import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
 const debug = createDebug('access')
 
-// The pickers list, and the grant rows name, the first pages of the organization's members and groups, which
-// cover an organization of a few hundred members; a member or a user beyond them is found by searching, and a
-// grant row names it by its id until it has been searched for
+// The pickers list, and the grant rows name, every group and machine and the first page of the organization's
+// members or the application's users, which covers a few hundred of them; a member or a user beyond it is found
+// by searching, and a grant row names it by its id until it has been searched for
 const SUBJECT_PAGE_SIZE = 500
 // the matches a search lists; typing more narrows them
 const SEARCH_PAGE_SIZE = 50
@@ -48,23 +48,23 @@ export function useSubjects(applicationId: () => string | null = () => null): {
     const application = applicationId()
     if (application === null) {
       await Promise.all([
-        read(thisLoad, 'members', Kinotic.members.findMembers(Pageable.create(0, SUBJECT_PAGE_SIZE)), members, memberOption),
-        read(thisLoad, 'groups', Kinotic.permissions.findGroups(Pageable.create(0, SUBJECT_PAGE_SIZE)), groups, groupOption)
+        read(thisLoad, 'members', firstPage(Kinotic.members.findMembers(Pageable.create(0, SUBJECT_PAGE_SIZE))), members, memberOption),
+        read(thisLoad, 'groups', everyPage(Kinotic.permissions.findGroups(Pageable.create(0, SUBJECT_PAGE_SIZE))), groups, groupOption)
       ])
     } else {
       await Promise.all([
-        read(thisLoad, 'users', Kinotic.members.findApplicationUsers(application, Pageable.create(0, SUBJECT_PAGE_SIZE)), members, memberOption),
-        read(thisLoad, 'machines', Kinotic.machines.findMachines(application, Pageable.create(0, SUBJECT_PAGE_SIZE)), machines, machineOption)
+        read(thisLoad, 'users', firstPage(Kinotic.members.findApplicationUsers(application, Pageable.create(0, SUBJECT_PAGE_SIZE))), members, memberOption),
+        read(thisLoad, 'machines', everyPage(Kinotic.machines.findMachines(application, Pageable.create(0, SUBJECT_PAGE_SIZE))), machines, machineOption)
       ])
     }
   }
 
   // a list the caller may not read is left empty, and the panel shows the rest; any other failure is the caller's
-  async function read<T>(thisLoad: number, what: string, page: Promise<Page<T>>, into: Ref<SubjectOption[]>,
+  async function read<T>(thisLoad: number, what: string, items: Promise<T[]>, into: Ref<SubjectOption[]>,
                          option: (item: T) => SubjectOption): Promise<void> {
     let options: SubjectOption[] = []
     try {
-      options = ((await page).content ?? []).map(option)
+      options = (await items).map(option)
     } catch (err) {
       if (!isAuthorizationError(err)) {
         throw err
@@ -99,6 +99,19 @@ export function useSubjects(applicationId: () => string | null = () => null): {
   })
 
   return { members, groups, machines, load, searchMembers, labelOf }
+}
+
+async function firstPage<T>(page: Promise<Page<T>>): Promise<T[]> {
+  return (await page).content ?? []
+}
+
+// the groups and the machines have no search on the server, so the pickers list all of them
+async function everyPage<T>(pages: Promise<IterablePage<T>>): Promise<T[]> {
+  const items: T[] = []
+  for await (const page of await pages) {
+    items.push(...(page.content ?? []))
+  }
+  return items
 }
 
 // the key a subject is told apart by: a user and a group may share an id

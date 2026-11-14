@@ -1,5 +1,5 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { Kinotic, Pageable } from '@kinotic-ai/core'
+import { FunctionalIterablePage, Kinotic, Pageable } from '@kinotic-ai/core'
 import { type MachineParticipantIdentity, type Subject, SubjectType, type SystemParticipantIdentity } from '@kinotic-ai/management-api'
 import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
@@ -9,9 +9,9 @@ export interface SystemSubjectOption extends SubjectOption {
   staff: 'System user' | 'Machine'
 }
 
-// The pickers list, and the grant rows name, the first pages of the system users and machines, which cover a
-// system of a few hundred of each; a system user beyond them is found by searching, and a grant row names it by
-// its id until it has been searched for
+// The pickers list, and the grant rows name, every machine and the first page of the system users, which covers
+// a few hundred of them; a system user beyond it is found by searching, and a grant row names it by its id until
+// it has been searched for
 const SUBJECT_PAGE_SIZE = 500
 // the matches a search lists; typing more narrows them
 const SEARCH_PAGE_SIZE = 50
@@ -34,12 +34,23 @@ export function useSubjects(): {
   const searched = ref(new Map<string, SystemSubjectOption>())
 
   async function load(): Promise<void> {
-    const [userPage, machinePage] = await Promise.all([
+    const [userPage, everyMachine] = await Promise.all([
       Kinotic.systemMembers.findUsers(Pageable.create(0, SUBJECT_PAGE_SIZE)),
-      Kinotic.systemMembers.findMachines(Pageable.create(0, SUBJECT_PAGE_SIZE))
+      findEveryMachine()
     ])
     systemUsers.value = (userPage.content ?? []).map(systemUserOption)
-    machines.value = (machinePage.content ?? []).map(machineOption)
+    machines.value = everyMachine.map(machineOption)
+  }
+
+  // the machines have no search on the server, so the pickers list all of them
+  async function findEveryMachine(): Promise<MachineParticipantIdentity[]> {
+    const pageable = Pageable.create(0, SUBJECT_PAGE_SIZE)
+    const first = await Kinotic.systemMembers.findMachines(pageable)
+    const found: MachineParticipantIdentity[] = []
+    for await (const page of new FunctionalIterablePage(pageable, first, next => Kinotic.systemMembers.findMachines(next))) {
+      found.push(...(page.content ?? []))
+    }
+    return found
   }
 
   /** The system users whose name or email matches the text. */
