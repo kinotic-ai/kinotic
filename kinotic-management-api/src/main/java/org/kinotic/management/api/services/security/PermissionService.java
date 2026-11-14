@@ -47,9 +47,10 @@ public interface PermissionService {
     /**
      * Creates or updates a custom role: its name, its description and the permissions it bundles, which take
      * effect on every grant of the role at once. A new role is homed at its {@code resourceType}, one of the
-     * organization's tree, and its id starts with it; the home of a saved role does not change. Fails for a
-     * built-in role, for a permission outside the role's home and the types inside it, and for an id that names no
-     * role of the organization.
+     * organization's tree, and its id starts with it; the home of a saved role does not change. A role that loses
+     * a permission ends the connections of the machines it is granted to. Fails for a built-in role, for a
+     * permission outside the role's home and the types inside it, and for an id that names no role of the
+     * organization.
      *
      * @param role the role, with a null id for a new one
      * @return the role as saved

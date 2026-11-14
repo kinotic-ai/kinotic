@@ -315,6 +315,37 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     @Test
+    public void aRoleThatLosesAPermissionEndsTheConnectionsOfItsMachines() throws Exception {
+        Application application = application();
+        Resource onApplication = new Resource(AuthzConstants.APPLICATION_TYPE, application.getId());
+        MachineParticipantIdentity machine = new MachineParticipantIdentity();
+        machine.setMachineType(MachineType.APP_RUNTIME).setOrganizationId(TEST_ORG_ID).setDisplayName("Role runtime " + suffix());
+        String machineId = await(identityService.createMachine(machine)).machine().getId();
+        Participant runtime = new DefaultOrganizationParticipant(machineId, TEST_ORG_ID,
+                                                                 Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                        ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
+                                                                 List.of());
+        CRI hosted = CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, application.getId()) + "~ReportService#1.0.0");
+        String canRegisterServices = AuthzUtil.permissionName(AuthzConstants.APPLICATION_TYPE, AuthzConstants.CAN_REGISTER_SERVICES);
+        RoleDefinition hosting = await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(null, "Hosting " + suffix(), null, false, AuthzConstants.APPLICATION_TYPE, null,
+                                   Set.of(canRegisterServices, "application_can_read")))));
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId), hosting.id(), onApplication)));
+        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
+
+        // an edit that takes no permission from the role leaves the machine connected
+        await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, hosting.permissions()))));
+        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertFalse(connectionRevocations.isRevoked(machineId));
+
+        await(runAsOrganization(() -> permissions.saveRole(
+                new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, Set.of("application_can_read")))));
+        assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
+    }
+
+    @Test
     public void groupsGrantThroughTheirMembers() throws Exception {
         Group group = await(runAsOrganization(() -> permissions.saveGroup(new Group().setName("QA " + suffix()).setDescription("tests everything"))));
         OrganizationParticipantIdentity member = member(TEST_ORG_ID, "permission");

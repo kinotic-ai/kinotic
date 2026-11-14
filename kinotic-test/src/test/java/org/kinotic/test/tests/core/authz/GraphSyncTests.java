@@ -197,6 +197,36 @@ public class GraphSyncTests extends KinoticTestBase {
         }
     }
 
+    @Test
+    public void aProjectFoundWhileItsIdMovesToAnotherApplicationIsPlacedOnlyWhereItIsStored() throws Exception {
+        String suffix = suffix();
+        Application first = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Move A " + suffix, "graph sync", null)));
+        Application second = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Move B " + suffix, "graph sync", null)));
+        for (int i = 0; i < 5; i++) {
+            String name = "graph-move-" + suffix + "-" + i;
+            Project created = await(runAsOrganization(() -> projectService.createSync(project(first, name))));
+            String object = AuthzUtil.object(ProjectService.RESOURCE_TYPE, AuthzGraphUtil.authzId(ProjectService.RESOURCE_TYPE, TEST_ORG_ID, created.getId()));
+
+            // refused when it finds the project stored by the second application
+            Future<Project> found = runAsOrganization(() -> projectService.createProjectIfNotExist(project(first, name)));
+            Project underTheSameId = project(second, name);
+            underTheSameId.setId(created.getId());
+            Future<Project> moved = runAsOrganization(() -> projectService.deleteByIdSync(created.getId()))
+                    .compose(v -> runAsOrganization(() -> projectService.createSync(underTheSameId)));
+            await(found.otherwiseEmpty());
+            await(moved.otherwiseEmpty());
+
+            Project stored = await(runAsOrganization(() -> projectService.findById(created.getId())));
+            for (Application application : List.of(first, second)) {
+                RelationshipTuple inApplication = new RelationshipTuple(AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId())),
+                                                                        AuthzConstants.APPLICATION_TYPE,
+                                                                        object);
+                assertEquals(stored != null && stored.getApplicationId().equals(application.getId()), holds(inApplication),
+                             "a project is in the application storing it and in no other");
+            }
+        }
+    }
+
     private static Project project(Application application, String name) {
         Project ret = new Project();
         ret.setOrganizationId(TEST_ORG_ID);

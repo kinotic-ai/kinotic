@@ -144,17 +144,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<Project> createProjectIfNotExist(Project project) {
         validateAndDeriveId(project);
         return super.findById(project.getId())
-                .compose(existing -> {
+                .compose(existing -> existing == null ? Future.succeededFuture(existing) : placed(project))
+                .compose(placed -> {
                     Future<Project> ret;
-                    if (existing != null) {
-                        ret = placed(requireApplicationOf(project, existing));
+                    if (placed != null) {
+                        ret = Future.succeededFuture(placed);
                     } else {
                         // of two callers at once only the first writes the project and places it in the graph, so
                         // grants made on it since are kept
                         ret = repoProvisioner.provision(project)
                                              .compose(provisioned -> written(provisioned, super::createSync))
                                              .recover(ex -> AlreadyExistsException.isCause(ex)
-                                                     ? super.findById(project.getId()).map(found -> requireApplicationOf(project, found))
+                                                     ? placed(project)
                                                      : Future.failedFuture(ex));
                     }
                     return ret;
@@ -214,16 +215,22 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         });
     }
 
-    // A create whose placement failed left the record without its place in the graph, which the record outlives
-    // since its repository exists by then; ensure is idempotent, so a project placed already keeps its grants, and
-    // the engine being unreachable leaves the project as it is rather than failing the caller
-    private Future<Project> placed(Project existing) {
-        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(existing)))
-                            .recover(err -> {
-                                log.warn("Could not place project {} in the graph: {}", existing.getId(), err.getMessage());
-                                return Future.succeededFuture();
-                            })
-                            .map(existing);
+    // The project stored under the requested one's id, placed in the graph, or null when none is stored. A create
+    // whose placement failed left the record without its place in the graph, which the record outlives since its
+    // repository exists by then; ensure is idempotent, so a project placed already keeps its grants, and the engine
+    // being unreachable leaves the project as it is rather than failing the caller. The record is read while no
+    // other caller creates or deletes a project of the id, so the application it is placed in is the one storing it
+    private Future<Project> placed(Project requested) {
+        return relationships.exclusively(containment(requested).object(), () -> super.findById(requested.getId())
+                .map(stored -> requireApplicationOf(requested, stored))
+                .compose(stored -> stored == null
+                        ? Future.succeededFuture(stored)
+                        : relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(stored)))
+                                       .recover(err -> {
+                                           log.warn("Could not place project {} in the graph: {}", stored.getId(), err.getMessage());
+                                           return Future.succeededFuture();
+                                       })
+                                       .map(stored)));
     }
 
     // Writes the project and its place in the graph while no other caller creates or deletes a project of its id,

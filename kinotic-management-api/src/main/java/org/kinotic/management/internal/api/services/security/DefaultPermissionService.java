@@ -126,7 +126,12 @@ public class DefaultPermissionService implements PermissionService {
                 existing.setName(role.name()).setDescription(role.description()).setUpdated(new Date());
                 // the row first, then its permissions: a role whose permissions failed to write exists and grants nothing
                 return roles.saveSync(existing, organizationId)
-                            .compose(saved -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions())).map(saved));
+                            .compose(saved -> bundled(saved.getId())
+                                    .compose(before -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
+                                                                    .compose(v -> role.permissions().containsAll(before)
+                                                                            ? Future.succeededFuture()
+                                                                            : holdersReconnected(saved.getId(), model.grantableOn(home, ORGANIZATION))))
+                                    .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
                                                model.grantableOn(home, ORGANIZATION), Set.copyOf(role.permissions())));
         });
@@ -247,6 +252,25 @@ public class DefaultPermissionService implements PermissionService {
                                                           () -> relationships.revoke(SYSTEM, grantId, object))
                         : relationships.revoke(SYSTEM, grantId, object))
                         .compose(v -> reconnected(members)));
+    }
+
+    // Ends the connections of the machines a role is granted to, on each type it may be granted on, so they
+    // connect again with the zones the role's permissions still give them
+    private Future<Void> holdersReconnected(String roleId, Set<String> boundOn) {
+        String role = AuthzUtil.roleObject(roleId);
+        Future<Void> ret = Future.succeededFuture();
+        for (String type : boundOn) {
+            ret = ret.compose(v -> relationships.readByUser(SYSTEM, role, AuthzUtil.roleBindingType(type)))
+                     .compose(bindings -> {
+                         Future<Void> each = Future.succeededFuture();
+                         for (RelationshipTuple binding : bindings) {
+                             each = each.compose(v -> relationships.read(SYSTEM, binding.object(), AuthzConstants.MEMBER_RELATION))
+                                        .compose(this::reconnected);
+                         }
+                         return each;
+                     });
+        }
+        return ret;
     }
 
     // The zones a machine hosts services in are read from its grants when it connects and kept for the connection,
@@ -493,15 +517,20 @@ public class DefaultPermissionService implements PermissionService {
 
     private Future<RoleDefinition> defined(Role role, AuthzModel model) {
         String home = AuthzUtil.roleHome(role.getId());
-        return relationships.read(SYSTEM, AuthzUtil.roleObject(role.getId())).map(held -> {
+        return bundled(role.getId()).map(permissions -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
+                                                                           model.grantableOn(home, ORGANIZATION), permissions));
+    }
+
+    // The model names of the permissions the store holds for a role
+    private Future<Set<String>> bundled(String roleId) {
+        return relationships.read(SYSTEM, AuthzUtil.roleObject(roleId)).map(held -> {
             Set<String> permissions = new TreeSet<>();
             for (RelationshipTuple tuple : held) {
                 if (AuthzConstants.EVERYONE.equals(tuple.user())) {
                     permissions.add(tuple.relation());
                 }
             }
-            return new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
-                                      model.grantableOn(home, ORGANIZATION), permissions);
+            return permissions;
         });
     }
 
