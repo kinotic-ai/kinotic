@@ -28,6 +28,11 @@ public class SystemSecurityService implements SecurityService {
         return credentialAuthenticationService.authenticate(authenticationInfo, context, SystemSecurityService::admits);
     }
 
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        return credentialAuthenticationService.reauthenticate(participant, SystemSecurityService::admits);
+    }
+
     private static boolean admits(ParticipantIdentity identity, Participant participant) {
         return participant instanceof SystemParticipant;
     }

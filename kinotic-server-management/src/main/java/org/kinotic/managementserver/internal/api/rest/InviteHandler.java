@@ -6,6 +6,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
@@ -186,7 +187,7 @@ public class InviteHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
               .compose(invite -> startFlowForInvite(ctx, invite, configId, token))
               .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
               .onFailure(err -> {
-                  log.warn("Invite OIDC start failed for config {}: {}", configId, err.getMessage());
+                  log.warn("Invite OIDC start failed for config {}: {}", KinoticUtil.singleLine(configId), err.getMessage());
                   String code = err instanceof OidcCallbackException oce
                           ? oce.getErrorCode() : OidcErrorCodes.INVITE_INVALID;
                   redirectInviteError(ctx, SessionBinding.origin(ctx), code, token);

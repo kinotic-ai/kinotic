@@ -13,7 +13,10 @@ import com.github.jknack.handlebars.EscapingStrategy;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.context.MapValueResolver;
+import com.github.jknack.handlebars.io.AbstractTemplateLoader;
 import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
+import com.github.jknack.handlebars.io.TemplateLoader;
+import com.github.jknack.handlebars.io.TemplateSource;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +65,16 @@ public class EmailService {
     /** Longer than any rendered email, which bounds what a template can expand to. */
     private static final int MAX_RENDERED_LENGTH = 1024 * 1024;
 
+    // the built-in helpers that iterate, or that declare and render partials
+    private static final List<String> REPEATING_HELPERS = List.of("each", "block", "partial", "embedded", "precompile");
+
+    private static final TemplateLoader NO_PARTIALS = new AbstractTemplateLoader() {
+        @Override
+        public TemplateSource sourceAt(String location) throws IOException {
+            throw new IOException("An email template cannot include the partial " + location);
+        }
+    };
+
     // Two engines differing by template suffix and escaping: HTML bodies HTML-escape
     // {{var}} by default (templates opt out with {{{var}}} for system-constructed URLs);
     // plain-text bodies must not be escaped at all.
@@ -70,6 +83,13 @@ public class EmailService {
     private static final Handlebars TEXT_TEMPLATES =
             new Handlebars(new ClassPathTemplateLoader("/templates/email", ".txt"))
                     .with(EscapingStrategy.NOOP);
+
+    // The engines for the templates a caller supplies. Handlebars renders a block's body into a buffer of its own
+    // before the bounded writer sees any of it, so what may repeat a body, a partial, an inline partial or an
+    // iterating helper, is refused: without them what a template renders is bounded by its own length and its variables'
+    private static final Handlebars CALLER_HTML_TEMPLATES = withoutRepetition(new Handlebars(NO_PARTIALS));
+    private static final Handlebars CALLER_TEXT_TEMPLATES = withoutRepetition(new Handlebars(NO_PARTIALS))
+            .with(EscapingStrategy.NOOP);
 
     private static final Template VERIFICATION_HTML = compileTemplate(HTML_TEMPLATES, "verification-email");
     private static final Template VERIFICATION_TEXT = compileTemplate(TEXT_TEMPLATES, "verification-email");
@@ -306,9 +326,9 @@ public class EmailService {
         sample.put("displayName", "Display Name");
         sample.put("verificationUrl", "https://example.invalid/signup/verify?token=sample");
         try {
-            renderInline(TEXT_TEMPLATES, subject, sample);
-            renderInline(HTML_TEMPLATES, htmlBody, sample);
-            renderInline(TEXT_TEMPLATES, textBody, sample);
+            renderInline(CALLER_TEXT_TEMPLATES, subject, sample);
+            renderInline(CALLER_HTML_TEMPLATES, htmlBody, sample);
+            renderInline(CALLER_TEXT_TEMPLATES, textBody, sample);
         } catch (RuntimeException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             throw new IllegalArgumentException("Invalid email template: " + cause.getMessage(), e);
@@ -344,6 +364,18 @@ public class EmailService {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed compiling stored email template", e);
         }
+    }
+
+    private static Handlebars withoutRepetition(Handlebars engine) {
+        for (String helper : REPEATING_HELPERS) {
+            engine.registerHelper(helper, (context, options) -> {
+                throw new IllegalArgumentException("An email template cannot use the " + helper + " helper");
+            });
+        }
+        engine.registerDecorator("inline", (fn, options) -> {
+            throw new IllegalArgumentException("An email template cannot declare an inline partial");
+        });
+        return engine;
     }
 
     private static String render(Template template, Map<String, Object> variables) {
@@ -390,9 +422,9 @@ public class EmailService {
                                     Map<String, Object> variables) {
         return send(toEmail,
                     toName,
-                    renderInline(TEXT_TEMPLATES, subjectSource, variables),
-                    renderInline(HTML_TEMPLATES, htmlSource, variables),
-                    renderInline(TEXT_TEMPLATES, textSource, variables));
+                    renderInline(CALLER_TEXT_TEMPLATES, subjectSource, variables),
+                    renderInline(CALLER_HTML_TEMPLATES, htmlSource, variables),
+                    renderInline(CALLER_TEXT_TEMPLATES, textSource, variables));
     }
 
     private Future<Void> send(String toEmail,

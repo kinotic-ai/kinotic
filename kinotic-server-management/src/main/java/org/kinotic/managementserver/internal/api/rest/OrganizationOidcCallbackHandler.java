@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
@@ -95,7 +96,7 @@ public class OrganizationOidcCallbackHandler implements SuppliesGatewayRoutes {
                                 }
                             })
                             .onFailure(failure -> {
-                                log.warn("OIDC callback failed for config {}: {}", configId, failure.getMessage());
+                                log.warn("OIDC callback failed for config {}: {}", KinoticUtil.singleLine(configId), failure.getMessage());
                                 if (flow == null || flow.purpose() == null) {
                                     // no flow of this session's is waiting, so there is no page to return to but the login
                                     authEndpointSupport.redirectCallbackFailure(ctx, failure);

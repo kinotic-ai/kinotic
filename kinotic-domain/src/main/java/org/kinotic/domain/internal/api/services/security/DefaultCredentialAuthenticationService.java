@@ -12,6 +12,7 @@ import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.services.security.CredentialAuthenticationService;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -44,7 +45,8 @@ import java.util.function.BiPredicate;
  *       here — the token carries its own.</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
- * which establishes the browser session the STOMP handshake reads.
+ * which establishes the browser session the STOMP handshake reads. The participant that session holds is
+ * re-resolved the way a JWT's {@code sub} is, so a session outliving its user or scope is refused.
  */
 @Slf4j
 @Component
@@ -60,20 +62,31 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                                             AuthenticationContext context,
                                             BiPredicate<ParticipantIdentity, Participant> admitted) {
         Validate.notNull(context, "context is required");
-        return authenticateIdentity(authenticationInfo, context)
-                .compose(authenticated -> {
-                    Future<Participant> ret;
-                    if (admitted.test(authenticated.identity(), authenticated.participant())) {
-                        ret = Future.succeededFuture(authenticated.participant());
-                    } else {
-                        // valid credentials of an identity another server serves, such as a system
-                        // user's on the management server; the caller gets the answer a wrong password gets
-                        log.debug("Credentials of identity {} acting as {} are not admitted by this server",
-                                  authenticated.identity().getId(), authenticated.participant());
-                        ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
-                    }
-                    return ret;
-                });
+        return authenticateIdentity(authenticationInfo, context).compose(authenticated -> admit(authenticated, admitted));
+    }
+
+    @Override
+    public Future<Participant> reauthenticate(Participant participant,
+                                              BiPredicate<ParticipantIdentity, Participant> admitted) {
+        Validate.notNull(participant, "participant is required");
+        ParticipantScope scope = DomainUtil.scopeOf(participant);
+        return resolveIdentity(participant.getId(), scope.organizationId(), scope.applicationId())
+                .compose(authenticated -> admit(authenticated, admitted));
+    }
+
+    private static Future<Participant> admit(AuthenticatedIdentity authenticated,
+                                             BiPredicate<ParticipantIdentity, Participant> admitted) {
+        Future<Participant> ret;
+        if (admitted.test(authenticated.identity(), authenticated.participant())) {
+            ret = Future.succeededFuture(authenticated.participant());
+        } else {
+            // valid credentials of an identity another server serves, such as a system
+            // user's on the management server; the caller gets the answer a wrong password gets
+            log.debug("Credentials of identity {} acting as {} are not admitted by this server",
+                      authenticated.identity().getId(), authenticated.participant());
+            ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+        }
+        return ret;
     }
 
     private Future<AuthenticatedIdentity> authenticateIdentity(Map<String, String> authenticationInfo, AuthenticationContext context) {
@@ -208,21 +221,22 @@ public class DefaultCredentialAuthenticationService implements CredentialAuthent
                         });
     }
 
-    private Future<AuthenticatedIdentity> resolveIdentity(String sub, String jwtOrgId, String jwtAppId) {
-        // a failure of the identity store is not a rejection of the token and fails the authentication as itself
-        return identityService.findById(sub)
+    // resolves the identity a token's sub or a session's participant names, in the scope it was authenticated for
+    private Future<AuthenticatedIdentity> resolveIdentity(String identityId, String organizationId, String applicationId) {
+        // a failure of the identity store is not a rejection and fails the authentication as itself
+        return identityService.findById(identityId)
                               .compose(identity -> identity == null
-                                      ? Future.failedFuture(new AuthenticationException("No user for sub " + sub))
-                                      : identityService.resolveParticipant(identity, jwtOrgId, jwtAppId)
+                                      ? Future.failedFuture(new AuthenticationException("No identity " + identityId))
+                                      : identityService.resolveParticipant(identity, organizationId, applicationId)
                                                        .compose(participant -> {
                                                            Future<AuthenticatedIdentity> ret;
                                                            if (participant == null) {
                                                                // disabled, re-scoped, or no longer a member of the scope
-                                                               // the token was minted for. The ids stay in the log; the
+                                                               // it was authenticated for. The ids stay in the log; the
                                                                // caller gets none back.
-                                                               log.warn("Identity {} may not act in scope {} the JWT names", sub,
-                                                                        DomainUtil.describeScope(jwtOrgId, jwtAppId));
-                                                               ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
+                                                               log.warn("Identity {} may not act in scope {}", identityId,
+                                                                        DomainUtil.describeScope(organizationId, applicationId));
+                                                               ret = Future.failedFuture(new AuthenticationException("The identity may not act in the scope it was authenticated for"));
                                                            } else {
                                                                ret = Future.succeededFuture(new AuthenticatedIdentity(identity, participant));
                                                            }

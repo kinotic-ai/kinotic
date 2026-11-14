@@ -21,6 +21,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -122,7 +123,7 @@ public class OidcFlowOrchestrator {
             // an OAuth error is a short code (RFC 6749 §4.1.2.1); anything else arriving on the public callback is
             // reflected into neither the log nor the browser
             String error = OAUTH_ERROR_CODE.matcher(idpError).matches() ? idpError : OidcErrorCodes.INVALID_CALLBACK;
-            log.info("OIDC callback error from config {}: {}", pathConfigId, error);
+            log.info("OIDC callback error from config {}: {}", KinoticUtil.singleLine(pathConfigId), error);
             return Future.failedFuture(new OidcCallbackException(error));
         }
         if (code == null || state == null) {
@@ -131,7 +132,7 @@ public class OidcFlowOrchestrator {
 
         if (flowSession == null || !flowSession.state().equals(state)
                 || !flowSession.configId().equals(pathConfigId)) {
-            log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
+            log.warn("OIDC callback state mismatch for configId={}", KinoticUtil.singleLine(pathConfigId));
             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
         }
 

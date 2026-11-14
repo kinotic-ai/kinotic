@@ -33,8 +33,9 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
             ctx._source.%1$s = params.%1$s;
             """;
 
+    // The right operand crosses as a script param, literal or parameter alike, so no operand text reaches the source
     private static final String BINARY_ASSIGNMENT = """
-            ctx._source.%1$s = ctx._source.%2$s %3$s %4$s;
+            ctx._source.%1$s = ctx._source.%2$s %3$s params.%1$s;
             """;
 
     // A null clears the field, leaving the document as though it had never carried one
@@ -123,7 +124,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
         }
 
         assignments.forEach((field, expr) -> {
-            if (expr instanceof BinaryExpression(String left, String binaryOperator, String rightOperand)) {
+            if (expr instanceof BinaryExpression(String left, String binaryOperator, Object ignored)) {
                 String operator = switch (binaryOperator) {
                     case "+" -> "+";
                     case "-" -> "-";
@@ -132,9 +133,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                     default -> throw new IllegalStateException("Unsupported operator: " + binaryOperator);
                 };
 
-                String right = ParameterUtils.isReference(rightOperand) ? "params." + field : rightOperand;
-
-                script.append(BINARY_ASSIGNMENT.formatted(field, left, operator, right));
+                script.append(BINARY_ASSIGNMENT.formatted(field, left, operator));
             } else if (clearsStoredValue(expr)) {
                 script.append(CLEARING_ASSIGNMENT.formatted(field));
             } else if (mergesIntoStoredObject(expr)) {
@@ -179,8 +178,8 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                 }
             } else if (expr instanceof NamedParameter(String name)) {
                 params.put(field, ParameterUtils.resolve(name, parameters));
-            } else if (expr instanceof BinaryExpression binExpr && ParameterUtils.isReference(binExpr.right())) {
-                params.put(field, ParameterUtils.resolve(ParameterUtils.nameOf(binExpr.right()), parameters));
+            } else if (expr instanceof BinaryExpression binary) {
+                params.put(field, ParameterUtils.bind(binary.right(), parameters));
             }
         });
         return params;

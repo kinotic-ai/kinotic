@@ -87,6 +87,8 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
                         throw new IllegalArgumentException("Flattened decorator can only be applied to Objects or Unions");
                     }
 
+                    rejectPoliciesWithin(type, state.getCurrentJsonPath());
+
                     FlattenedDecorator decorator = property.findDecorator(FlattenedDecorator.class);
                     builder.properties(fieldName, FlattenedProperty.of(f -> f.depthLimit(decorator.getDepthLimit())
                                                                              .index(decorator.isIndex()))
@@ -119,6 +121,26 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
         return builder.build()._toProperty();
     }
 
+
+    // A flattened object is mapped as a single field and its properties are never converted, so a policy on one of
+    // them would never reach the decorated properties the field policies are read from
+    private static void rejectPoliciesWithin(C3Type type, String jsonPath) {
+        switch (type) {
+            case ObjectC3Type object -> {
+                for (PropertyDefinition property : object.getProperties()) {
+                    String propertyPath = jsonPath + "." + property.getName();
+                    if (property.containsDecorator(PolicyDecorator.class)) {
+                        throw new IllegalArgumentException("A Policy cannot be applied to a field of a Flattened object, at: " + propertyPath);
+                    }
+                    rejectPoliciesWithin(property.getType(), propertyPath);
+                }
+            }
+            case UnionC3Type union -> union.getTypes().forEach(member -> rejectPoliciesWithin(member, jsonPath));
+            case ArrayC3Type array -> rejectPoliciesWithin(array.getContains(), jsonPath);
+            case MapC3Type map -> rejectPoliciesWithin(map.getValue(), jsonPath);
+            default -> { }
+        }
+    }
 
     private void processDecorators(PropertyDefinition prop,
                                    ElasticConversionState state,

@@ -42,6 +42,23 @@ class EmailServiceTest {
                      () -> emailService.validateTemplate(template("https://builder.example.com").setHtmlBody("{{> header}}")));
     }
 
+    @Test
+    void aTemplateThatCouldRepeatABodyIsRejected() {
+        for (String body : new String[]{"{{#each this}}{{#each this}}{{this}}{{/each}}{{/each}}",
+                                        "{{#*inline \"p\"}}{{acceptUrl}}{{/inline}}{{> p}}{{> p}}",
+                                        "{{#partial \"p\"}}{{acceptUrl}}{{/partial}}{{#block \"p\"}}{{/block}}",
+                                        "{{#if acceptUrl}}{{> p}}{{/if}}"}) {
+            assertThrows(IllegalArgumentException.class,
+                         () -> emailService.validateTemplate(template("https://builder.example.com").setHtmlBody(body)), body);
+        }
+    }
+
+    @Test
+    void aConditionalSectionIsAccepted() {
+        assertDoesNotThrow(() -> emailService.validateTemplate(
+                template("https://builder.example.com").setTextBody("{{#if inviterName}}{{inviterName}} invited you{{else}}You are invited{{/if}}: {{acceptUrl}}")));
+    }
+
     private static EmailTemplate template(String uiBaseUrl) {
         return new EmailTemplate().setUiBaseUrl(uiBaseUrl)
                                   .setSubject("Join {{organizationName}}")

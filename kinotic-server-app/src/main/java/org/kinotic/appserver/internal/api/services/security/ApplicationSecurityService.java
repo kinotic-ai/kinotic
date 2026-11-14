@@ -40,6 +40,13 @@ public class ApplicationSecurityService implements SecurityService {
         return credentialAuthenticationService.authenticate(authenticationInfo, context, (identity, participant) -> admits(identity, participant, applicationKey));
     }
 
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        // a session is refused on any host but the one its login was established on, so the application the
+        // login was admitted for is already the one the request addresses
+        return credentialAuthenticationService.reauthenticate(participant, (identity, current) -> admits(identity, current, null));
+    }
+
     private static boolean admits(ParticipantIdentity identity, Participant participant, ApplicationKey applicationKey) {
         boolean ret;
         if (participant instanceof ApplicationParticipant user) {

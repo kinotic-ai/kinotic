@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 
 /**
  * A revocation published to every node consuming it, which every node running the API gateway does: every
- * connection authenticated as the identity ends.
+ * connection authenticated as the identity, or established on the browser login, that it names ends.
  */
 @Getter
 @Setter
@@ -17,6 +17,10 @@ import lombok.experimental.Accessors;
 @AllArgsConstructor
 public final class ConnectionRevocation {
 
-    private String identityId;
+    /** Whether {@link #id} names an identity or a browser login. */
+    private ConnectionRevocationType type;
+
+    /** The id of the identity or of the browser login whose connections end. */
+    private String id;
 
 }

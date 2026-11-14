@@ -16,8 +16,11 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -44,9 +47,14 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     public Future<List<DelegateSession>> findActiveSessions(String identityId) {
         Validate.notBlank(identityId, "identityId is required");
         Date now = new Date();
+        // a family holds two live tokens while a rotation of it is under way, and is one session
         return refreshTokenRepository.findActiveByIdentityId(identityId)
                 .map(tokens -> tokens.stream()
                         .filter(t -> t.getExpiresAt().after(now))
+                        .collect(Collectors.toMap(RefreshToken::getFamilyId, Function.identity(),
+                                                  (a, b) -> a.getCreated().after(b.getCreated()) ? a : b,
+                                                  LinkedHashMap::new))
+                        .values().stream()
                         .map(t -> new DelegateSession(t.getFamilyId(), t.getLabel(),
                                                       t.getCreated(), t.getExpiresAt()))
                         .toList());
@@ -99,17 +107,18 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                                 new IllegalArgumentException("Refresh token identity is missing or disabled"));
                     }
 
-                    // The presented token is consumed before the replacement is minted, under the replacement's
-                    // id, so two rotations presenting one token at once mint at most one replacement: the one
-                    // that finds the token consumed is a reuse. A consumed token whose replacement then fails to
-                    // mint sends the client back to sign in, which beats a lineage holding two live tokens.
+                    // The replacement is written, searchable, before the presented token is consumed under its id,
+                    // so a revocation of the lineage either finds the presented token live, and the consume then
+                    // fails, or finds the replacement. Two rotations presenting one token at once each write a
+                    // replacement, and only the one that consumes the token keeps it: the other deletes its own and
+                    // is a reuse.
                     String replacementId = UUID.randomUUID().toString();
-                    return refreshTokenRepository.consume(current.getId(), replacementId)
-                            .compose(consumed -> consumed
-                                    ? mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(),
-                                           current.getLabel())
-                                            .map(plaintext -> new RefreshTokenRotation(identity, plaintext, current.getAudience()))
-                                    : reused(current));
+                    return mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(), current.getLabel())
+                            .compose(plaintext -> refreshTokenRepository.consume(current.getId(), replacementId)
+                                    .compose(consumed -> consumed
+                                            ? Future.succeededFuture(new RefreshTokenRotation(identity, plaintext, current.getAudience()))
+                                            : refreshTokenRepository.deleteById(replacementId)
+                                                                    .compose(v -> reused(current))));
                 });
     }
 

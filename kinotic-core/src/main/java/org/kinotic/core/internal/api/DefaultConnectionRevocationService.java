@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.kinotic.core.api.security.ConnectionRevocationService;
+import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,8 +28,19 @@ public class DefaultConnectionRevocationService implements ConnectionRevocationS
     @Override
     public Future<Void> revoke(String identityId) {
         Validate.notBlank(identityId, "identityId must not be blank");
-        eventService.publish(new ConnectionRevocation(identityId))
-                    .onFailure(error -> log.error("The revocation of identity {} was not delivered to every node", identityId, error));
+        return publish(new ConnectionRevocation(ConnectionRevocationType.IDENTITY, identityId));
+    }
+
+    @Override
+    public Future<Void> revokeLogin(String loginId) {
+        Validate.notBlank(loginId, "loginId must not be blank");
+        return publish(new ConnectionRevocation(ConnectionRevocationType.LOGIN, loginId));
+    }
+
+    private Future<Void> publish(ConnectionRevocation revocation) {
+        eventService.publish(revocation)
+                    .onFailure(error -> log.error("The revocation of {} {} was not delivered to every node",
+                                                  revocation.getType(), revocation.getId(), error));
         return Future.succeededFuture();
     }
 

@@ -45,4 +45,25 @@ public abstract class AbstractTokenVerificationRepository<T extends PendingVerif
             return Future.succeededFuture(pending);
         });
     }
+
+    /**
+     * Finds the live record for the token, as {@link #findValidByToken} does, and takes it: it is deleted, and exactly
+     * one of any callers racing on the same token gets it; the others fail as for a token already consumed. A caller
+     * whose work on the record then fails gives it back with {@link #restore}.
+     */
+    public Future<T> claimValidByToken(String verificationToken) {
+        return findValidByToken(verificationToken)
+                .compose(pending -> consume(pending.getId())
+                        .compose(claimed -> claimed
+                                ? Future.succeededFuture(pending)
+                                : Future.failedFuture(new IllegalArgumentException("Invalid or already consumed token."))));
+    }
+
+    /**
+     * Writes back a record taken with {@link #claimValidByToken}, searchable by its token once the future completes,
+     * so the link that carries it can be followed again.
+     */
+    public Future<T> restore(T claimed) {
+        return saveSync(claimed);
+    }
 }

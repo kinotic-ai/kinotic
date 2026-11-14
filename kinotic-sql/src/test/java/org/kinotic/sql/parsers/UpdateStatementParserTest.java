@@ -15,6 +15,7 @@ import org.kinotic.sql.domain.statements.UpdateStatement;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -119,13 +120,29 @@ class UpdateStatementParserTest {
     }
 
     @Test
-    void whenBinaryAssignment_thenOperandsKeptAsWritten() {
-        UpdateStatement statement = parseUpdate("UPDATE products SET quantity = quantity + 1 WHERE sku = 'WDG-001';");
+    void whenBinaryAssignment_thenTheRightOperandIsAValue() {
+        UpdateStatement statement = parseUpdate("UPDATE products SET quantity = quantity + 1, name = name + 'x\\' WHERE sku = 'WDG-001';");
 
         BinaryExpression expression = assertInstanceOf(BinaryExpression.class, statement.assignments().get("quantity"));
         assertEquals("quantity", expression.left());
         assertEquals("+", expression.operator());
-        assertEquals("1", expression.right());
+        assertEquals(1, ((Number) expression.right()).intValue());
+        BinaryExpression concatenation = assertInstanceOf(BinaryExpression.class, statement.assignments().get("name"));
+        assertEquals("x\\", concatenation.right());
+    }
+
+    @Test
+    void whenBinaryAssignmentReadsAParameter_thenTheRightOperandIsTheParameter() {
+        UpdateStatement statement = parseUpdate("UPDATE products SET quantity = quantity - :sold WHERE sku = 'WDG-001';");
+
+        BinaryExpression expression = assertInstanceOf(BinaryExpression.class, statement.assignments().get("quantity"));
+        assertEquals(new NamedParameter("sold"), expression.right());
+    }
+
+    @Test
+    void whenBinaryAssignmentReadsAField_thenRejected() {
+        assertThrows(IllegalArgumentException.class,
+                     () -> parseUpdate("UPDATE products SET quantity = quantity + reserved WHERE sku = 'WDG-001';"));
     }
 
     @Test

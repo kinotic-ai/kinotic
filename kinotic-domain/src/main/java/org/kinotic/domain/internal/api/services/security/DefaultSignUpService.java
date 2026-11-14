@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Slf4j
 @Component
@@ -102,19 +103,24 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
 
-        return pendingSignUpRepository.findValidByToken(token)
-                .compose(pending -> createOrgWithFounder(orgName, orgDescription, pending, password)
-                        .compose(founder -> pendingSignUpRepository.deleteById(pending.getId())
-                                .map(founder)));
+        return completeSignUp(token, pending -> createOrgWithFounder(orgName, orgDescription, pending, password));
     }
 
     @Override
     public Future<Participant> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
         Validate.notBlank(orgName, "Organization name is required");
-        return pendingSignUpRepository.findValidByToken(token)
-                .compose(pending -> createOrgWithFounder(orgName, orgDescription, pending, null)
-                        .compose(founder -> pendingSignUpRepository.deleteById(pending.getId())
-                                .map(founder)));
+        return completeSignUp(token, pending -> createOrgWithFounder(orgName, orgDescription, pending, null));
+    }
+
+    // The pending sign-up is claimed before anything is created, so concurrent completions with one token create one
+    // organization; a completion that fails, a taken name among the causes, gives the sign-up back for another try
+    private Future<Participant> completeSignUp(String token, Function<PendingSignUp, Future<Participant>> complete) {
+        return pendingSignUpRepository.claimValidByToken(token)
+                .compose(pending -> complete.apply(pending)
+                        .recover(err -> pendingSignUpRepository.restore(pending)
+                                .onFailure(restoreErr -> log.warn("Could not restore pending sign-up {}: {}",
+                                                                  pending.getId(), restoreErr.getMessage()))
+                                .transform(v -> Future.failedFuture(err))));
     }
 
     // a founder who signed up with a password signs in with it, so the organization's login takes one

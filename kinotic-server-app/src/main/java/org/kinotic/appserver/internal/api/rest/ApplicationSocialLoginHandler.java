@@ -5,6 +5,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.appserver.internal.api.services.security.SocialLoginHandoff;
 import org.kinotic.appserver.internal.api.services.security.SocialLoginHandoffService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -154,7 +155,7 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                        // a callback that reached here resolved the registration, so the lookup found the configuration
                        .compose(result -> handOff(ctx, result, found.result().configuration())))
                .onFailure(ex -> {
-                   log.warn("Social login callback failed for config {}: {}", pathConfigId, ex.getMessage());
+                   log.warn("Social login callback failed for config {}: {}", KinoticUtil.singleLine(pathConfigId), ex.getMessage());
                    if (flow != null && flow.origin() != null) {
                        authEndpointSupport.redirectCallbackFailure(ctx, flow.origin(), ex);
                    } else {

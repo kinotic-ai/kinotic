@@ -24,4 +24,9 @@ public class TestSecurityService implements SecurityService {
     public Future<Participant> authenticate(Map<String, String> authenticationInfo, AuthenticationContext context) {
         return credentialAuthenticationService.authenticate(authenticationInfo, context, (identity, participant) -> true);
     }
+
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        return credentialAuthenticationService.reauthenticate(participant, (identity, current) -> true);
+    }
 }
