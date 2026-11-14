@@ -3,6 +3,7 @@ package org.kinotic.grind;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.ServerInfo;
+import org.kinotic.grind.api.model.ExclusiveJobRunningException;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
@@ -45,7 +46,7 @@ public class ExclusiveTest extends AbstractGrindTest {
         JobRunHandle refusedHandle = otherJobService.run(gatedJob(gate), JobOwner.system());
         RunResult refused = await(refusedHandle);
 
-        assertInstanceOf(IllegalStateException.class, refused.error());
+        assertInstanceOf(ExclusiveJobRunningException.class, refused.error());
         assertNull(repository.savedRuns.get(refusedHandle.getJobRunId()));
 
         gate.complete(null);
@@ -99,7 +100,7 @@ public class ExclusiveTest extends AbstractGrindTest {
         JobRunHandle refusedHandle = otherJobService.resume(failed.getJobRunId(), failingJob(fail));
         RunResult refused = await(refusedHandle);
 
-        assertInstanceOf(IllegalStateException.class, refused.error());
+        assertInstanceOf(ExclusiveJobRunningException.class, refused.error());
         assertNull(repository.savedRuns.get(refusedHandle.getJobRunId()));
 
         gate.complete(null);

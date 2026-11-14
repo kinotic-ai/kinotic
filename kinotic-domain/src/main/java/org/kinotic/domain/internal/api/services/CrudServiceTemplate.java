@@ -65,10 +65,12 @@ public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
 
-    // retry_on_conflict for partial updates. A conflict needs another write to land in the microseconds
-    // between the update's internal get and its reindex, so consuming all 5 would take sustained
-    // pathological contention on one document
-    private static final int UPDATE_CONFLICT_RETRIES = 5;
+    /**
+     * The {@code retry_on_conflict} of a partial update.
+     */
+    // A conflict needs another write to land in the microseconds between the update's internal get and
+    // its reindex, so consuming all 5 would take sustained pathological contention on one document
+    public static final int UPDATE_CONFLICT_RETRIES = 5;
 
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
@@ -132,6 +134,25 @@ public class CrudServiceTemplate {
             }
             return builder;
         }));
+    }
+
+    /**
+     * Applies the operations in one bulk request; they become visible in search results with the
+     * index's next refresh.
+     *
+     * @param operations the operations, each naming its index, id and routing
+     * @return a {@link Future} that will complete when every operation is applied, or fail with the reasons the
+     * operations that failed give; deleting or updating a document that does not exist is not a failure
+     */
+    public Future<Void> bulk(List<BulkOperation> operations) {
+        return applied(operations, null).mapEmpty();
+    }
+
+    /**
+     * As {@link #bulk(List)}, and waits for the operations to be visible in search results.
+     */
+    public Future<Void> bulkSync(List<BulkOperation> operations) {
+        return applied(operations, Refresh.WaitFor).mapEmpty();
     }
 
     /**
@@ -562,12 +583,17 @@ public class CrudServiceTemplate {
      * @param type of the document to return
      * @param builderConsumer to customize the {@link MgetRequest}, or null if no customization is needed
      * @param resultMapper to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link Future} that will complete with the documents requested
+     * @return a {@link Future} that will complete with the documents requested that exist, none when the
+     *         list is empty, or fail when any of them could not be read
      */
     public <T, R> Future<List<R>> multiGet(List<MultiGetOperation> getOperations,
                                            Class<T> type,
                                            Consumer<MgetRequest.Builder> builderConsumer,
                                            Function<GetResult<T>, R> resultMapper){
+        if (getOperations.isEmpty()) {
+            // Elasticsearch rejects a multi-get request with no documents
+            return Future.succeededFuture(List.of());
+        }
         @SuppressWarnings("unchecked")
         JsonEndpoint<MgetRequest, MgetResponse<T>, ErrorResponse> endpoint =
                 (JsonEndpoint<MgetRequest, MgetResponse<T>, ErrorResponse>) MgetRequest._ENDPOINT;
@@ -591,6 +617,16 @@ public class CrudServiceTemplate {
 
                                                      List<MultiGetResponseItem<T>> recordsResponse = response.docs();
                                                      ArrayList<R> content = new ArrayList<>();
+
+                                                     // a document that could not be read counts as an error, since
+                                                     // leaving it out would report it as one that does not exist
+                                                     for (MultiGetResponseItem<T> hit : recordsResponse) {
+                                                         if (hit.isFailure()) {
+                                                             throw new IllegalStateException("Could not read document " + hit.failure().id()
+                                                                                                     + " of " + hit.failure().index()
+                                                                                                     + ": " + hit.failure().error().reason());
+                                                         }
+                                                     }
 
                                                      if(resultMapper != null) {
                                                          for (MultiGetResponseItem<T> hit : recordsResponse) {
@@ -726,10 +762,6 @@ public class CrudServiceTemplate {
                                                String source,
                                                Map<String, Map<String, Object>> paramsById,
                                                Consumer<UpdateAction.Builder<Map, Map<String, Object>>> actionConsumer) {
-        if (paramsById.isEmpty()) {
-            // Elasticsearch rejects a bulk request with no operations
-            return Future.succeededFuture(Set.of());
-        }
         List<BulkOperation> operations = new ArrayList<>(paramsById.size());
         paramsById.forEach((id, params) -> operations.add(BulkOperation.of(b -> b.<Map, Map<String, Object>>update(u -> u
                 .index(indexName)
@@ -745,23 +777,39 @@ public class CrudServiceTemplate {
                 })))));
         // one request with refresh=wait_for holds one refresh listener per shard, where a request per document
         // holds one each and, past index.max_refresh_listeners, forces a refresh
-        return KinoticUtil.toFuture(esAsyncClient.bulk(br -> br.operations(operations).refresh(Refresh.WaitFor)))
+        return applied(operations, Refresh.WaitFor).map(items -> {
+            Set<String> changed = new HashSet<>();
+            for (BulkResponseItem item : items) {
+                if (item.error() == null && !"noop".equals(item.result())) {
+                    changed.add(item.id());
+                }
+            }
+            return changed;
+        });
+    }
+
+    // The response's item of each operation, in the order they were sent, once none of them failed; deleting or
+    // updating a document that does not exist is not a failure
+    private Future<List<BulkResponseItem>> applied(List<BulkOperation> operations, Refresh refresh) {
+        if (operations.isEmpty()) {
+            // Elasticsearch rejects a bulk request with no operations
+            return Future.succeededFuture(List.of());
+        }
+        return KinoticUtil.toFuture(esAsyncClient.bulk(br -> br.operations(operations).refresh(refresh)))
                           .compose(response -> {
                               List<String> failures = new ArrayList<>();
-                              Set<String> changed = new HashSet<>();
-                              for (BulkResponseItem item : response.items()) {
-                                  if (item.error() != null) {
-                                      if (item.status() != 404) {
-                                          failures.add(item.id() + ": " + item.error().reason());
-                                      }
-                                  } else if (!"noop".equals(item.result())) {
-                                      changed.add(item.id());
+                              // the response lists one item per operation, in the order they were sent
+                              for (int i = 0; i < response.items().size(); i++) {
+                                  BulkResponseItem item = response.items().get(i);
+                                  BulkOperation operation = operations.get(i);
+                                  boolean missingDocument = item.status() == 404 && (operation.isDelete() || operation.isUpdate());
+                                  if (item.error() != null && !missingDocument) {
+                                      failures.add(item.index() + "/" + item.id() + ": " + item.error().reason());
                                   }
                               }
                               return failures.isEmpty()
-                                      ? Future.succeededFuture(changed)
-                                      : Future.<Set<String>>failedFuture(new IllegalStateException("Bulk update of " + indexName
-                                                                                                           + " failed for " + failures));
+                                      ? Future.succeededFuture(response.items())
+                                      : Future.<List<BulkResponseItem>>failedFuture(new IllegalStateException("Bulk request failed for " + failures));
                           });
     }
 

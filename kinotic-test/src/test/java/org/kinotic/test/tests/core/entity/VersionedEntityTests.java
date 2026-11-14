@@ -2,6 +2,7 @@ package org.kinotic.test.tests.core.entity;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch.core.GetResponse;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,10 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.VersionDecorator;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.persistence.api.model.FastestType;
+import org.kinotic.persistence.api.services.JsonEntitiesRepository;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -22,8 +26,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.util.TokenBuffer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -48,12 +54,15 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class VersionedEntityTests extends KinoticTestBase {
 
     private static final String TENANT = "tenant1";
+    private static final String TENANT_ID_FIELD = "tenantId";
     private static final String VERSION_FIELD = "version";
 
     @Autowired
     private ElasticsearchAsyncClient esAsyncClient;
     @Autowired
     private EntitiesService entitiesService;
+    @Autowired
+    private JsonEntitiesRepository jsonEntitiesRepository;
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
@@ -124,6 +133,80 @@ public class VersionedEntityTests extends KinoticTestBase {
         Page<RawJson> searched = runAsOrganization(() -> entitiesService.search(definition.getId(), "lastName: Jones", Pageable.ofSize(10), RawJson.class, context)).await();
         assertEquals(1, searched.getContent().size());
         assertEquals(current, versionOf(json(searched.getContent().getFirst())), "search");
+    }
+
+    @Test
+    public void theRepositoryReturnsTheWholeDocumentWithItsCurrentVersion() throws Exception {
+        EntityDefinition definition = createVersionedPersonDefinition();
+        EntityContext context = context();
+        ScopedParticipant participant = applicationParticipant(TENANT, "user1");
+        Map<String, Object> person = person("p1", "Ann", "Smith", null);
+        person.put("addresses", List.of(Map.of("street", "1 Main St", "city", "Springfield", "state", "IL", "zip", "62701")));
+
+        JsonNode created = await(runAsOrganization(() -> jsonEntitiesRepository.save(definition.getId(), buffer(person), participant))
+                                         .map(saved -> objectMapper.readTree(saved.data())));
+        ObjectNode expected = objectMapper.valueToTree(person);
+        expected.put(TENANT_ID_FIELD, TENANT);
+        expected.put(VERSION_FIELD, versionOf(created));
+        assertEquals(expected, created, "A save returns the stored document with its new version");
+
+        Map<String, Object> change = Map.of("id", "p1", "lastName", "Jones", VERSION_FIELD, versionOf(created));
+        JsonNode updated = await(runAsOrganization(() -> jsonEntitiesRepository.update(definition.getId(), buffer(change), participant))
+                                         .map(saved -> objectMapper.readTree(saved.data())));
+        ObjectNode expectedUpdate = objectMapper.valueToTree(change);
+        expectedUpdate.put(TENANT_ID_FIELD, TENANT);
+        expectedUpdate.put(VERSION_FIELD, versionOf(updated));
+        assertEquals(expectedUpdate, updated, "An update returns the fields it was given with the document's new version");
+
+        runAsOrganization(() -> entitiesService.syncIndex(definition.getId(), context)).await();
+        expected.put("lastName", "Jones");
+        expected.put(VERSION_FIELD, versionOf(updated));
+        expected.remove(TENANT_ID_FIELD);
+
+        FastestType byId = await(runAsOrganization(() -> jsonEntitiesRepository.findById(definition.getId(), "p1", participant)));
+        assertEquals(expected, withoutTenant(byId), "findById");
+        assertEquals(findById(definition, context, "p1"), wire(byId), "findById returns the same document for either result type");
+
+        List<FastestType> byIds = await(runAsOrganization(() -> jsonEntitiesRepository.findByIds(definition.getId(), List.of("p1"), participant)));
+        assertEquals(1, byIds.size());
+        assertEquals(expected, withoutTenant(byIds.getFirst()), "findByIds");
+
+        Page<FastestType> all = await(runAsOrganization(() -> jsonEntitiesRepository.findAll(definition.getId(), Pageable.ofSize(10), participant)));
+        assertEquals(1, all.getContent().size());
+        assertEquals(expected, withoutTenant(all.getContent().getFirst()), "findAll");
+
+        Page<FastestType> searched = await(runAsOrganization(() -> jsonEntitiesRepository.search(definition.getId(), "lastName: Jones", Pageable.ofSize(10), participant)));
+        assertEquals(1, searched.getContent().size());
+        assertEquals(expected, withoutTenant(searched.getContent().getFirst()), "search");
+    }
+
+    @Test
+    public void aValueStoredUnderTheVersionFieldIsReplacedByTheDocumentsVersion() throws Exception {
+        EntityDefinition definition = createVersionedPersonDefinition();
+        EntityContext context = context();
+        ScopedParticipant participant = applicationParticipant(TENANT, "user1");
+
+        // a migration's INSERT writes the columns it is given, so a document can hold a value under the version field
+        Map<String, Object> stored = person("p1", "Ann", "Smith", "stale");
+        stored.put(TENANT_ID_FIELD, TENANT);
+        esAsyncClient.index(i -> i.index(definition.getItemIndex())
+                                  .id(TENANT + ":p1")
+                                  .routing(TENANT)
+                                  .document(stored)
+                                  .refresh(Refresh.True))
+                     .get(30, TimeUnit.SECONDS);
+        GetResponse<Map> raw = esAsyncClient.get(g -> g.index(definition.getItemIndex()).id(TENANT + ":p1").routing(TENANT), Map.class)
+                                            .get(30, TimeUnit.SECONDS);
+        String current = raw.primaryTerm() + ":" + raw.seqNo();
+
+        FastestType byId = await(runAsOrganization(() -> jsonEntitiesRepository.findById(definition.getId(), "p1", participant)));
+        assertHoldsOnlyVersion(current, byId, "findById");
+
+        Page<FastestType> all = await(runAsOrganization(() -> jsonEntitiesRepository.findAll(definition.getId(), Pageable.ofSize(10), participant)));
+        assertEquals(1, all.getContent().size());
+        assertHoldsOnlyVersion(current, all.getContent().getFirst(), "findAll");
+
+        assertEquals(current, versionOf(findById(definition, context, "p1")), "findById as RawJson");
     }
 
     @Test
@@ -201,6 +284,14 @@ public class VersionedEntityTests extends KinoticTestBase {
         assertFalse(stored.source().containsKey(VERSION_FIELD), "The version field is not part of the stored document");
     }
 
+    /** The entity as a client receives it holds the given version, and holds a version field once. */
+    private void assertHoldsOnlyVersion(String version, FastestType entity, String message) {
+        String text = new String(objectMapper.writeValueAsBytes(entity), StandardCharsets.UTF_8);
+        assertEquals(version, versionOf(objectMapper.readTree(text)), message);
+        assertEquals(text.indexOf("\"" + VERSION_FIELD + "\":"), text.lastIndexOf("\"" + VERSION_FIELD + "\":"),
+                     message + " writes the version field once: " + text);
+    }
+
     private static void assertVersionConflict(Throwable failure, String message) {
         assertInstanceOf(ElasticsearchException.class, failure, message);
         assertEquals(409, ((ElasticsearchException) failure).status(), message);
@@ -251,6 +342,18 @@ public class VersionedEntityTests extends KinoticTestBase {
         return ret;
     }
 
+    /** The entity as a client receives it: serialized the way the gateway writes a result. */
+    private JsonNode wire(FastestType entity) {
+        return objectMapper.readTree(objectMapper.writeValueAsBytes(entity));
+    }
+
+    // some reads return the tenant field and some leave it out
+    private JsonNode withoutTenant(FastestType entity) {
+        ObjectNode ret = (ObjectNode) wire(entity);
+        ret.remove(TENANT_ID_FIELD);
+        return ret;
+    }
+
     private JsonNode json(RawJson rawJson) {
         return objectMapper.readTree(rawJson.data());
     }
@@ -263,12 +366,12 @@ public class VersionedEntityTests extends KinoticTestBase {
 
     private Future<JsonNode> save(EntityDefinition definition, EntityContext context, Map<String, ?> person) {
         return runAsOrganization(() -> entitiesService.save(definition.getId(), buffer(person), context)
-                                                      .map(saved -> objectMapper.readTree(saved.asParser())));
+                                                      .map(saved -> objectMapper.readTree(saved.data())));
     }
 
     private Future<JsonNode> update(EntityDefinition definition, EntityContext context, Map<String, ?> person) {
         return runAsOrganization(() -> entitiesService.update(definition.getId(), buffer(person), context)
-                                                      .map(saved -> objectMapper.readTree(saved.asParser())));
+                                                      .map(saved -> objectMapper.readTree(saved.data())));
     }
 
     private Future<Void> bulkSave(EntityDefinition definition, EntityContext context, List<? extends Map<String, ?>> people) {

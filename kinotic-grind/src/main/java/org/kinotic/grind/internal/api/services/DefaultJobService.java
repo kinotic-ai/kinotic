@@ -2,6 +2,7 @@ package org.kinotic.grind.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.grind.api.model.ExclusiveJobRunningException;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
@@ -179,7 +180,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
      * Executes the body of a run of the definition for the owner on the calling run thread. The
      * body of an exclusive definition executes while this node holds the cluster lock of the
      * job's name and owner. While another run holds that lock the run is refused before the
-     * body executes: its events fail with an {@link IllegalStateException}.
+     * body executes: its events fail with an {@link ExclusiveJobRunningException}.
      */
     private void execute(DefaultJobDefinition definition, JobOwner owner, RunEventEmitter emitter, Runnable body) {
         if (definition.isExclusive()) {
@@ -193,8 +194,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                 acquiring.onSuccess(Lock::release);
                 emitter.runCancelled();
             } catch (Throwable t) {
-                emitter.runFailed(new IllegalStateException("Exclusive job " + definition.getName()
-                        + " is already running for its owner", t));
+                emitter.runFailed(new ExclusiveJobRunningException(definition.getName(), t));
             }
             if (lock != null) {
                 try {

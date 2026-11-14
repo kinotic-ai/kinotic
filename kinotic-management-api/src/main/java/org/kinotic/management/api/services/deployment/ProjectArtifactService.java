@@ -14,7 +14,9 @@ import org.kinotic.management.api.services.ProjectService;
  * Records the artifacts a project's deployment workloads find on the project's
  * {@link ProjectDeployment}, and the SBOM they generate as its {@link ProjectDependencies}. Every
  * call is authorized by the caller's organization alone, so any participant of the project's
- * organization can report on the project's behalf.
+ * organization can report on the project's behalf. The reports of one project are recorded one
+ * after another, and a report fails when an earlier one of its project is still being recorded
+ * after 30 seconds.
  */
 @Publish
 @AuthzResource(value = ProjectService.RESOURCE_TYPE, parent = AuthzConstants.APPLICATION_TYPE)
@@ -39,11 +41,14 @@ public interface ProjectArtifactService {
      *
      * @param projectId      the project whose checkout the SBOM was generated from
      * @param dependencyHash the fingerprint of the dependencies the tree lists
-     * @param dependencies   the dependency tree, stored under the project's id, organization and
-     *                       application whatever ids it carries; no package may be listed twice,
+     * @param dependencies   the dependency tree, stored under the project's id, organization,
+     *                       application and the dependency hash whatever it carries; every package must be a package
+     *                       URL with its version, percent-encoded, no package may be listed twice,
      *                       and every position must name one of its packages
-     * @return a future completing once the tree is stored and the deployment record says the
-     *         project has an SBOM of its dependencies
+     * @return a future completing once the tree is stored, the deployment record says the
+     *         project has an SBOM of its dependencies, and the tree's check against the
+     *         vulnerability advisories has ended, raising an alert for each advisory that affects
+     *         it; the call succeeds whether or not that check does
      */
     @AuthzCheck(permission = AuthzConstants.CAN_EDIT)
     Future<Void> recordSbom(String projectId, String dependencyHash, ProjectDependencies dependencies);

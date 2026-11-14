@@ -1,14 +1,16 @@
 package org.kinotic.persistence.internal.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.persistence.api.model.ParameterHolder;
+
+import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;
 
@@ -20,21 +22,19 @@ public interface EntityService {
 
     /**
      * Saves all given entities.
-     * @param entities all the entities to save
+     * @param entities a json array of the entities to save
      * @param context the context for this operation
      * @return {@link Future} that will complete when all entities have been saved
-     * @param <T> the type of the entities, this can be a {@link List} or {@link RawJson}
      */
-    <T> Future<Void> bulkSave(T entities, EntityContext context);
+    Future<Void> bulkSave(TokenBuffer entities, EntityContext context);
 
     /**
      * Updates all given entities.
-     * @param entities all the entities to save
+     * @param entities a json array of the entities to update
      * @param context the context for this operation
-     * @return {@link Future} that will complete when all entities have been saved
-     * @param <T> the type of the entities, this can be a {@link List} or {@link RawJson}
+     * @return {@link Future} that will complete when all entities have been updated
      */
-    <T> Future<Void> bulkUpdate(T entities, EntityContext context);
+    Future<Void> bulkUpdate(TokenBuffer entities, EntityContext context);
 
     /**
      * Returns the number of entities available.
@@ -170,7 +170,7 @@ public interface EntityService {
      * @param context the context for this operation
      * @return {@link Future} emitting the saved entity
      */
-    <T> Future<T> save(T entity, EntityContext context);
+    Future<RawJson> save(TokenBuffer entity, EntityContext context);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@link Pageable} object.
@@ -200,6 +200,6 @@ public interface EntityService {
      * @param context     the context for this operation
      * @return {@link Future} emitting the saved entity
      */
-    <T> Future<T> update(T entity, EntityContext context);
+    Future<RawJson> update(TokenBuffer entity, EntityContext context);
 
 }

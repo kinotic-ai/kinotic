@@ -12,17 +12,17 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
-import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
-import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
+import org.kinotic.persistence.internal.api.services.json.hooks.impl.TokenBufferUpsertPreProcessor;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
-import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
+import org.kinotic.persistence.internal.api.services.json.hooks.ReadPostProcessor;
+import org.kinotic.persistence.internal.api.services.json.hooks.ReadPreProcessor;
+import org.kinotic.persistence.internal.api.services.json.hooks.UpsertFieldTransformer;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
@@ -46,11 +46,13 @@ public class EntityServiceCache {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
+    private final JsonMapper upsertJsonMapper;
+    private final EntityVersionWriter unversionedVersionWriter;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
     private final DomainPersistenceProperties domainPersistenceProperties;
-    private final Map<String, UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors;
+    private final Map<String, UpsertFieldTransformer> upsertFieldTransformers;
     private final AsyncLoadingCache<CacheKey, EntityService> cache;
 
     public EntityServiceCache(AuthorizationServiceFactory authServiceFactory,
@@ -63,20 +65,28 @@ public class EntityServiceCache {
                                     EntityDefinitionRepository entityDefinitionRepository,
                                     PersistenceProperties persistenceProperties,
                                     DomainPersistenceProperties domainPersistenceProperties,
-                                    List<UpsertFieldPreProcessor<?, ?, ?>> upsertFieldPreProcessors,
+                                    List<UpsertFieldTransformer> upsertFieldTransformers,
                                     DefaultCaffeineCacheFactory cacheFactory) {
         this.authServiceFactory = authServiceFactory;
         this.crudServiceTemplate = crudServiceTemplate;
         this.esAsyncClient = esAsyncClient;
         this.namedQueriesService = namedQueriesService;
         this.jsonMapper = jsonMapper;
+        // Jackson 3 fails on trailing tokens by default; an upsert transformer reads one field's value and leaves
+        // the parser on the rest of the input, so the check is off in this mapper. A mapper holds its own
+        // deserializer caches, so the one copy is shared by every entity service
+        this.upsertJsonMapper = jsonMapper.rebuild()
+                                          .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                                          .build();
         this.readPreProcessor = readPreProcessor;
         this.readPostProcessor = readPostProcessor;
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.domainPersistenceProperties = domainPersistenceProperties;
 
-        this.upsertFieldPreProcessors = PersistenceUtil.listToMap(upsertFieldPreProcessors,
-                                                                 p -> p.implementsDecorator().getName());
+        this.unversionedVersionWriter = new EntityVersionWriter(jsonMapper, null);
+
+        this.upsertFieldTransformers = PersistenceUtil.listToMap(upsertFieldTransformers,
+                                                                t -> t.implementsDecorator().getName());
 
         this.cache = cacheFactory.<CacheKey, EntityService>newBuilder()
                                  .name("entityServiceCache")
@@ -112,7 +122,6 @@ public class EntityServiceCache {
                 .toCompletableFuture();
     }
 
-    @SuppressWarnings("unchecked")
     public Future<EntityService> createEntityService(EntityDefinition entityDefinition) {
 
         if(entityDefinition == null){
@@ -121,36 +130,41 @@ public class EntityServiceCache {
             return Future.failedFuture(new IllegalArgumentException("EntityDefinition must be published"));
         }
 
-        // Map of jsonPath to DecoratorLogic
-        Map<String, DecoratorLogic> fieldPreProcessors = new LinkedHashMap<>();
+        // Map of jsonPath to the transformer of its decorator
+        Map<String, UpsertFieldTransformer> fieldTransformers = new LinkedHashMap<>();
 
         for(DecoratedProperty decoratedProperty : entityDefinition.getDecoratedProperties()){
 
             for(C3Decorator decorator : decoratedProperty.getDecorators()){
 
-                UpsertFieldPreProcessor<C3Decorator, Object, Object> processor =
-                        (UpsertFieldPreProcessor<C3Decorator, Object, Object>)upsertFieldPreProcessors.get(decorator.getClass().getName());
-                if(processor != null){
-                    fieldPreProcessors.put(decoratedProperty.getJsonPath(), new DecoratorLogic(decorator, processor));
+                UpsertFieldTransformer transformer = upsertFieldTransformers.get(decorator.getClass().getName());
+                if(transformer != null){
+                    fieldTransformers.put(decoratedProperty.getJsonPath(), transformer);
                 }
             }
         }
 
         EntityDescriptor entityDescriptor = entityDefinition.toDescriptor();
 
+        // an entity without a version field has no version to write, so every such entity shares one writer
+        String versionFieldName = entityDescriptor.versionFieldName();
+        EntityVersionWriter versionWriter = versionFieldName != null ? new EntityVersionWriter(jsonMapper, versionFieldName)
+                                                                     : unversionedVersionWriter;
+
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
                                  .map(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
-                                         new DelegatingUpsertPreProcessor(domainPersistenceProperties,
-                                                                          jsonMapper,
-                                                                          entityDescriptor,
-                                                                          fieldPreProcessors),
+                                         new TokenBufferUpsertPreProcessor(domainPersistenceProperties,
+                                                                           upsertJsonMapper,
+                                                                           entityDescriptor,
+                                                                           fieldTransformers),
                                          esAsyncClient,
                                          namedQueriesService,
                                          jsonMapper,
                                          readPreProcessor,
                                          readPostProcessor,
+                                         versionWriter,
                                          entityDescriptor));
     }
 

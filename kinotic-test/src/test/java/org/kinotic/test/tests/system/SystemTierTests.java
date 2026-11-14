@@ -71,6 +71,7 @@ public class SystemTierTests extends KinoticTestBase {
     private static final String ORGANIZATION_SERVICE = "system-api~org.kinotic.system.api.services.SystemOrganizationService";
     private static final String MEMBER_SERVICE = "system-api~org.kinotic.system.api.services.SystemMemberService";
     private static final String CLUSTER_SERVICE = "system-api~org.kinotic.system.api.services.KinoticClusterInfoService";
+    private static final String CLUSTER_VULNERABILITY_SERVICE = "system-api~org.kinotic.system.api.services.ClusterVulnerabilityService";
     private static final String LICENSE_SERVICE = "system-api~org.kinotic.system.api.services.LicenseService";
     private static final String ACCESS_SERVICE = "system-api~org.kinotic.system.api.services.SystemAccessService";
     private static final String NODE_SERVICE = "system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService";
@@ -183,6 +184,7 @@ public class SystemTierTests extends KinoticTestBase {
         authorize(ORGANIZATION_SERVICE, "findApplications", caller, List.of(organization.getId(), PAGE));
         authorize(ORGANIZATION_SERVICE, "findMembers", caller, Arrays.asList(organization.getId(), null, PAGE));
         authorize(CLUSTER_SERVICE, "getClusterInfo", caller, List.of());
+        authorize(CLUSTER_VULNERABILITY_SERVICE, "findAll", caller, List.of());
         // the License page reads the license and the cluster's id, and only installing a key manages the cluster
         authorize(LICENSE_SERVICE, "findCurrent", caller, List.of());
         authorize(LICENSE_SERVICE, "findClusterId", caller, List.of());

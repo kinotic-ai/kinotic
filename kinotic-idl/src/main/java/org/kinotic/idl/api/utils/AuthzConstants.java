@@ -118,6 +118,7 @@ public final class AuthzConstants {
     public static final String CAN_MANAGE_INTEGRATIONS = "can_manage_integrations";
     public static final String CAN_MANAGE_MACHINES = "can_manage_machines";
     public static final String CAN_MANAGE_MEMBERS = "can_manage_members";
+    public static final String CAN_MANAGE_VULNERABILITIES = "can_manage_vulnerabilities";
     public static final String CAN_MANAGE_WORKLOADS = "can_manage_workloads";
     public static final String CAN_REGISTER_NODE = "can_register_node";
     public static final String CAN_REGISTER_SERVICES = "can_register_services";
@@ -130,6 +131,7 @@ public final class AuthzConstants {
     public static final String CAN_READ_MACHINES = "can_read_machines";
     public static final String CAN_READ_MEMBERS = "can_read_members";
     public static final String CAN_READ_TELEMETRY = "can_read_telemetry";
+    public static final String CAN_READ_VULNERABILITIES = "can_read_vulnerabilities";
     public static final String CAN_READ_WORKLOADS = "can_read_workloads";
     /**
      * The permissions deciding who may act: granting roles, issuing machine credentials and admitting members. A

@@ -14,6 +14,7 @@ import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.management.api.services.telemetry.LogService;
 import org.kinotic.management.api.services.telemetry.TelemetryService;
+import org.kinotic.management.api.services.vulnerability.VulnerabilityAlertService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
 import org.kinotic.management.internal.api.services.DefaultEntityDefinitionService;
 import org.kinotic.management.internal.api.services.DefaultJobMonitoringService;
@@ -29,6 +30,7 @@ import org.kinotic.management.internal.api.services.security.DefaultApplicationA
 import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
 import org.kinotic.management.internal.api.services.telemetry.DefaultLogService;
 import org.kinotic.management.internal.api.services.telemetry.DefaultTelemetryService;
+import org.kinotic.management.internal.api.services.vulnerability.DefaultVulnerabilityAlertService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -93,9 +95,10 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(LogService.class, DefaultLogService.class),
                                                            new ServiceDeclaration(JobMonitoringService.class, DefaultJobMonitoringService.class),
                                                            new ServiceDeclaration(MigrationService.class, DefaultMigrationService.class),
-                                                           new ServiceDeclaration(ProjectArtifactService.class, DefaultProjectArtifactService.class)));
+                                                           new ServiceDeclaration(ProjectArtifactService.class, DefaultProjectArtifactService.class),
+                                                           new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class)));
 
-        Assertions.assertEquals(15, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(16, namespaceDefinition.getServices().size());
     }
 
     @Test
@@ -175,6 +178,28 @@ public class McpServiceSchemaTest {
         Assertions.assertFalse(retry.isReadOnlyHint());
         Assertions.assertFalse(retry.isDestructiveHint());
         Assertions.assertFalse(retry.isIdempotentHint());
+    }
+
+    @Test
+    public void everyVulnerabilityAlertFunctionIsATool() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class)));
+
+        ServiceDefinition service = namespaceDefinition.getServices()
+                                                       .stream()
+                                                       .findFirst()
+                                                       .orElseThrow();
+
+        // the three that read are hinted by their names
+        Assertions.assertTrue(mcpTool(service, "findAllForProject").isReadOnlyHint());
+        Assertions.assertTrue(mcpTool(service, "findAll").isReadOnlyHint());
+        Assertions.assertTrue(mcpTool(service, "countUnacknowledged").isReadOnlyHint());
+
+        // acknowledge changes an alert, and its own @McpTool states what its name leaves out
+        McpToolC3Decorator acknowledge = mcpTool(service, "acknowledge");
+        Assertions.assertFalse(acknowledge.isReadOnlyHint());
+        Assertions.assertFalse(acknowledge.isDestructiveHint());
+        Assertions.assertTrue(acknowledge.isIdempotentHint());
     }
 
     private static McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
