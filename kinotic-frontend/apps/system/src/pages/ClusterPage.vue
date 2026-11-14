@@ -23,13 +23,44 @@
         </StatCard>
       </div>
 
+      <DashboardSection :icon="ShieldAlert" :tint="advisoryRows.length ? TINTS.red : TINTS.ink" title="Vulnerabilities"
+                        :count="advisoryRows.length"
+                        description="Advisories from OSV that affect the libraries the running server builds were built with. Nodes running the same build share one entry.">
+        <Message v-if="vulnerabilityError" severity="warn" :closable="false" class="m-5">{{ vulnerabilityError }}</Message>
+        <div v-else-if="servers === null" class="py-6 text-center text-sm text-muted-color">Checking the servers' libraries…</div>
+        <template v-else>
+          <div class="flex flex-wrap gap-2 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
+            <span v-for="({ server, check }, index) in buildChips" :key="index" v-tooltip.top="check.problem"
+                  class="inline-flex items-center gap-1.5 rounded-md border border-surface-200 px-2 py-1 text-xs dark:border-surface-700">
+              <span :class="['size-2 rounded-full', check.dot]" />
+              <span class="font-semibold text-surface-950 dark:text-surface-0">{{ server.serverName || UNKNOWN_VERSION }}</span>
+              <span class="font-mono text-surface-700 dark:text-surface-200">{{ releaseOf(server.version) }}</span>
+              <span class="text-muted-color">· {{ server.nodeCount }} {{ server.nodeCount === 1 ? 'node' : 'nodes' }} · {{ check.summary }}</span>
+            </span>
+          </div>
+          <VulnerabilityFindingsTable :items="advisoryRows" data-key="finding.advisoryId"
+                                      :empty-title="advisoryEmpty.title" :empty-hint="advisoryEmpty.hint">
+            <template #columns>
+              <Column header="Builds" style="width: 18%">
+                <template #body="{ data }">
+                  <div class="flex flex-wrap gap-1">
+                    <span v-for="(build, index) in data.builds" :key="index"
+                          class="rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200">{{ build.serverName || UNKNOWN_VERSION }} {{ releaseOf(build.version) }}</span>
+                  </div>
+                </template>
+              </Column>
+            </template>
+          </VulnerabilityFindingsTable>
+        </template>
+      </DashboardSection>
+
       <DashboardSection :icon="Server" :tint="TINTS.ink" title="Server nodes" :count="cluster?.nodes.length"
-                        description="Logs follows that node's logs. Logging opens its logger levels and trace-log filters.">
-        <!-- the cluster's shape at a glance: its nodes in the order they joined, linked, with a pulse
-             running between them while the cluster serves -->
-        <div v-if="orderedNodes.length > 0"
+                        description="Each server and how many nodes run it; select one to list its nodes. Logs follows a node's logs. Logging opens its logger levels and trace-log filters.">
+        <!-- the cluster's shape at a glance: its servers in the order their first node joined, linked,
+             with a pulse running between them while the cluster serves -->
+        <div v-if="serverGroups.length > 0"
              class="topology flex items-center gap-0 overflow-x-auto border-b border-surface-200 px-5 py-5 dark:border-surface-700">
-          <template v-for="(node, position) in orderedNodes" :key="node.nodeId">
+          <template v-for="(group, position) in serverGroups" :key="group.name">
             <div v-if="position > 0" class="relative h-px min-w-8 flex-1 overflow-visible bg-surface-300 dark:bg-surface-600" aria-hidden="true">
               <!-- the pulse: a streak of light fading out at both ends, its bright head leading -->
               <span v-if="cluster?.active" class="topology__pulse absolute -top-[2px] flex h-[5px] w-16 items-center">
@@ -38,67 +69,88 @@
                 <span class="h-px w-3 bg-gradient-to-r from-purple-500 to-transparent" />
               </span>
             </div>
-            <div class="flex shrink-0 items-center gap-2.5 rounded-xl border border-surface-200 bg-surface-0 px-3 py-2 shadow-sm dark:border-surface-700 dark:bg-surface-900">
+            <button type="button" :aria-pressed="serverFilter === group.name" @click="toggleServerFilter(group.name)"
+                    :class="['flex shrink-0 items-center gap-2.5 rounded-xl border bg-surface-0 px-3 py-2 text-left shadow-sm dark:bg-surface-900',
+                             serverFilter === group.name ? 'border-purple-500 ring-2 ring-purple-500/30' : 'border-surface-200 dark:border-surface-700']">
               <span :class="['flex h-7 w-7 items-center justify-center rounded-md', TINTS.ink]">
                 <Server :size="14" :stroke-width="1.75" aria-hidden="true" />
               </span>
               <div class="leading-tight">
-                <div class="text-[0.8125rem] font-semibold text-surface-950 dark:text-surface-0">{{ nodeTitle(node) }}</div>
-                <div class="font-mono text-[0.6875rem] text-muted-color">#{{ node.order }} · {{ primaryAddress(node.addresses) }}</div>
+                <div class="text-[0.8125rem] font-semibold text-surface-950 dark:text-surface-0">{{ group.name }}</div>
+                <div class="text-[0.6875rem] text-muted-color">
+                  {{ group.nodes.length }} {{ group.nodes.length === 1 ? 'node' : 'nodes' }}<span v-if="group.behind" class="text-orange-600 dark:text-orange-400"> · {{ group.behind }} behind</span>
+                </div>
               </div>
-            </div>
+            </button>
           </template>
         </div>
-        <DataTable :value="cluster?.nodes ?? []" size="small" class="text-sm" data-key="nodeId">
-          <template #empty>
-            <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Loading cluster topology…</div>
-            <EmptyChartCharacter v-else class="py-6" title="No server nodes reported" />
-          </template>
-          <Column header="Node" style="width: 38%">
-            <template #body="{ data }">
-              <span class="flex items-center gap-3">
-                <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.ink]">
-                  <Server :size="16" :stroke-width="1.75" aria-hidden="true" />
-                </span>
-                <span class="min-w-0">
-                  <span class="flex items-center gap-2">
-                    <span class="truncate font-semibold text-surface-950 dark:text-surface-0">{{ nodeTitle(data) }}</span>
-                    <span class="shrink-0 rounded-md bg-surface-100 px-1.5 text-[0.6875rem] font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300"
-                          v-tooltip.top="'Order it joined the cluster'">#{{ data.order }}</span>
+        <template v-if="orderedNodes.length === 0">
+          <div v-if="loading" class="py-6 text-center text-sm text-muted-color">Loading cluster topology…</div>
+          <EmptyChartCharacter v-else class="py-6" title="No server nodes reported" />
+        </template>
+        <p v-else-if="serverFilter === null" class="px-5 py-4 text-sm text-muted-color">Select a server above to list its nodes.</p>
+        <template v-else>
+          <div class="flex flex-wrap items-center gap-3 border-b border-surface-200 px-5 py-3 dark:border-surface-700">
+            <IconField class="w-full sm:w-80">
+              <InputIcon class="pi pi-search" />
+              <InputText v-model="nodeSearch" placeholder="Search by name, address or id" size="small" class="w-full" />
+            </IconField>
+            <Button :label="`${serverFilter} nodes`" icon="pi pi-times" icon-pos="right" severity="secondary"
+                    size="small" outlined v-tooltip.top="'Close the node list'" @click="serverFilter = null" />
+          </div>
+          <DataTable :value="pageNodes" size="small" class="text-sm" data-key="nodeId">
+            <template #empty>
+              <div class="py-6 text-center text-sm text-muted-color">No {{ serverFilter }} node matches the search.</div>
+            </template>
+            <Column header="Node" style="width: 38%">
+              <template #body="{ data }">
+                <span class="flex items-center gap-3">
+                  <span :class="['flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', TINTS.ink]">
+                    <Server :size="16" :stroke-width="1.75" aria-hidden="true" />
                   </span>
-                  <span class="mt-0.5 block truncate font-mono text-xs text-muted-color" v-tooltip.top="data.nodeId">{{ shortId(data.nodeId) }}</span>
+                  <span class="min-w-0">
+                    <span class="flex items-center gap-2">
+                      <span class="truncate font-semibold text-surface-950 dark:text-surface-0">{{ nodeTitle(data) }}</span>
+                      <span class="shrink-0 rounded-md bg-surface-100 px-1.5 text-[0.6875rem] font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300"
+                            v-tooltip.top="'Order it joined the cluster'">#{{ data.order }}</span>
+                    </span>
+                    <span class="mt-0.5 block truncate font-mono text-xs text-muted-color" v-tooltip.top="data.nodeId">{{ shortId(data.nodeId) }}</span>
+                  </span>
                 </span>
-              </span>
-            </template>
-          </Column>
-          <Column header="Version">
-            <template #body="{ data }">
-              <span class="inline-flex items-center gap-1.5">
-                <span class="whitespace-nowrap rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200"
-                      v-tooltip.top="data.version ?? undefined">{{ releaseOf(data.version) }}</span>
-                <Tag v-if="commonVersion && data.version !== commonVersion" value="behind" severity="warn" />
-              </span>
-            </template>
-          </Column>
-          <Column header="Address" class="hidden md:table-cell">
-            <template #body="{ data }">
-              <span class="inline-flex items-center gap-1.5" v-tooltip.top="data.addresses.join(', ')">
-                <span class="font-mono text-surface-800 dark:text-surface-100">{{ primaryAddress(data.addresses) }}</span>
-                <span v-if="data.addresses.length > 1" class="text-xs text-muted-color">+{{ data.addresses.length - 1 }}</span>
-              </span>
-            </template>
-          </Column>
-          <Column style="width: 13rem">
-            <template #body="{ data }">
-              <div class="flex justify-end">
-                <Button v-if="data.telemetryServiceName" label="Logs" icon="pi pi-align-left" severity="secondary" text
-                        size="small" @click="openServerLogs(data)" />
-                <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
-                        @click="openLogLevel(data.nodeId)" />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
+              </template>
+            </Column>
+            <Column header="Version">
+              <template #body="{ data }">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="whitespace-nowrap rounded-md bg-surface-100 px-1.5 py-0.5 font-mono text-xs text-surface-700 dark:bg-surface-800 dark:text-surface-200"
+                        v-tooltip.top="data.version ?? undefined">{{ releaseOf(data.version) }}</span>
+                  <Tag v-if="commonVersion && data.version !== commonVersion" value="behind" severity="warn" />
+                </span>
+              </template>
+            </Column>
+            <Column header="Address" class="hidden md:table-cell">
+              <template #body="{ data }">
+                <span class="inline-flex items-center gap-1.5" v-tooltip.top="data.addresses.join(', ')">
+                  <span class="font-mono text-surface-800 dark:text-surface-100">{{ primaryAddress(data.addresses) }}</span>
+                  <span v-if="data.addresses.length > 1" class="text-xs text-muted-color">+{{ data.addresses.length - 1 }}</span>
+                </span>
+              </template>
+            </Column>
+            <Column style="width: 13rem">
+              <template #body="{ data }">
+                <div class="flex justify-end">
+                  <Button v-if="data.telemetryServiceName" label="Logs" icon="pi pi-align-left" severity="secondary" text
+                          size="small" @click="openServerLogs(data)" />
+                  <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
+                          @click="openLogLevel(data.nodeId)" />
+                </div>
+              </template>
+            </Column>
+          </DataTable>
+          <TablePaginator v-if="visibleNodes.length" class="border-t border-surface-200 px-5 py-3 dark:border-surface-700"
+                          :first="nodeFirst" :rows="nodePageSize" :total-records="visibleNodes.length"
+                          :rows-per-page-options="NODE_PAGE_SIZES" @page="onNodePage" />
+        </template>
       </DashboardSection>
 
       <div class="grid gap-4 lg:grid-cols-2">
@@ -156,14 +208,18 @@ import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Tag as TagIcon } from '@lucide/vue'
+import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, ShieldAlert, Tag as TagIcon } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
-import type { KinoticClusterInfo, KinoticNodeInfo } from '@kinotic-ai/system-api'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, isAuthorizationError } from '@kinotic-ai/frontend-common'
+import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
+import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
+import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL, isAuthorizationError, usePagedList } from '@kinotic-ai/frontend-common'
+import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import ServerLogsDialog from '@/components/ServerLogsDialog.vue'
@@ -173,6 +229,36 @@ import { clusterHeartbeat as clusterHeartbeatOf } from '@/util/nodes'
 const router = useRouter()
 
 const cluster = ref<KinoticClusterInfo | null>(null)
+/** Each running server build with the advisories affecting its libraries, null until they load. */
+const servers = ref<ServerVulnerabilities[] | null>(null)
+const vulnerabilityError = ref<string | null>(null)
+
+/**
+ * How a build's chip shows the check of its libraries: the colour of its dot, what it reads after
+ * the node count, and, for a build that was not checked, why, shown on hovering the chip.
+ */
+interface BuildCheck { dot: string, summary: string, problem?: string }
+
+/** Each running server build with how its chip shows the check of its libraries. */
+const buildChips = computed(() => (servers.value ?? []).map(server => ({ server, check: buildCheck(server) })))
+
+/** One row per advisory, with every running build it affects and the affected versions of all of them, the most severe first. */
+const advisoryRows = computed(() => {
+  const byId = new Map<string, { finding: VulnerabilityFinding, builds: ServerVulnerabilities[] }>()
+  for (const server of servers.value ?? []) {
+    for (const finding of server.findings) {
+      const row = byId.get(finding.advisoryId)
+      if (row) {
+        row.builds.push(server)
+        const known = new Set(row.finding.packages.map(pkg => pkg.purl))
+        row.finding.packages.push(...finding.packages.filter(pkg => !known.has(pkg.purl)))
+      } else {
+        byId.set(finding.advisoryId, { finding: { ...finding, packages: [...finding.packages] }, builds: [server] })
+      }
+    }
+  }
+  return [...byId.values()].sort((a, b) => severityRank(a.finding) - severityRank(b.finding))
+})
 const loading = ref(false)
 const error = ref<string | null>(null)
 const refused = ref(false)
@@ -186,6 +272,8 @@ const serverLogsVisible = ref(false)
 /** What a node running from classes, with no packaged version, shows for one. */
 const UNKNOWN_VERSION = 'unknown'
 
+const SEVERITY_ORDER = Object.values(AdvisorySeverity)
+
 /** What the system's observability holds, named on its card. */
 const SIGNALS = [
   { label: 'Traces', icon: markRaw(ChartGantt) },
@@ -194,6 +282,39 @@ const SIGNALS = [
 ]
 
 const orderedNodes = computed(() => [...(cluster.value?.nodes ?? [])].sort((a, b) => a.order - b.order))
+
+const NODE_PAGE_SIZES = [10, 25, 50, 100]
+
+/** The server, by name, whose nodes the node list shows, or null while no server is selected. */
+const serverFilter = ref<string | null>(null)
+const nodeSearch = ref('')
+
+/** The cluster's nodes grouped by the server they run, in the order each server's first node joined. */
+const serverGroups = computed(() => {
+  const byName = new Map<string, { name: string, nodes: KinoticNodeInfo[], behind: number }>()
+  for (const node of orderedNodes.value) {
+    const name = serverOf(node)
+    let group = byName.get(name)
+    if (!group) {
+      group = { name, nodes: [], behind: 0 }
+      byName.set(name, group)
+    }
+    group.nodes.push(node)
+    if (commonVersion.value && node.version !== commonVersion.value) {
+      group.behind++
+    }
+  }
+  return [...byName.values()]
+})
+
+const visibleNodes = computed(() => {
+  const needle = nodeSearch.value.trim().toLowerCase()
+  return orderedNodes.value.filter(node => (serverFilter.value === null || serverOf(node) === serverFilter.value)
+    && (!needle || [nodeTitle(node), node.nodeId, ...node.addresses, ...node.hostNames].some(text => text.toLowerCase().includes(needle))))
+})
+
+const { first: nodeFirst, pageSize: nodePageSize, pageItems: pageNodes, onPage: onNodePage } =
+  usePagedList(visibleNodes, NODE_PAGE_SIZES[0], [nodeSearch, serverFilter])
 
 /** The system's own workloads, null until they load or when they fail to. */
 const systemWorkloads = ref<Workload[] | null>(null)
@@ -213,6 +334,55 @@ function nodeTitle(node: KinoticNodeInfo): string {
 /** The release a version string names, without its build suffix: "2.18.0" of "2.18.0#20260423-sha1:d49adada". */
 function releaseOf(version: string | null): string {
   return version?.split('#')[0] || UNKNOWN_VERSION
+}
+
+/** What the advisory table shows with no row: a clean result only when every build was checked. */
+const advisoryEmpty = computed(() => {
+  const unchecked = buildChips.value.filter(chip => chip.check.problem).length
+  let ret: { title: string, hint: string }
+  if (unchecked === 0) {
+    ret = { title: 'No known vulnerabilities', hint: 'No advisory affects the libraries of the running server builds.' }
+  } else if (unchecked === buildChips.value.length) {
+    ret = { title: 'Not checked', hint: "No running build's libraries could be checked; hover a build above for why." }
+  } else {
+    ret = { title: 'No known vulnerabilities in the builds checked', hint: 'Some builds could not be checked; hover a grey build above for why.' }
+  }
+  return ret
+})
+
+// a malicious package ranks above every severity
+function severityRank(finding: VulnerabilityFinding): number {
+  return finding.type === AdvisoryType.MALICIOUS ? -1 : SEVERITY_ORDER.indexOf(finding.severity)
+}
+
+function buildCheck(server: ServerVulnerabilities): BuildCheck {
+  let ret: BuildCheck
+  if (server.error) {
+    ret = { dot: SEVERITY_FILL.secondary, summary: 'not checked', problem: `This build's libraries could not be checked: ${server.error}` }
+  } else if (!server.componentCount) {
+    ret = {
+      dot: SEVERITY_FILL.secondary,
+      summary: 'no library list',
+      problem: 'This build was started without the library list a server build packages, so there are no libraries to check.',
+    }
+  } else if (server.findings.length) {
+    ret = {
+      dot: countSevere(server.findings) ? SEVERITY_FILL.danger : SEVERITY_FILL.warn,
+      summary: `${server.findings.length} ${server.findings.length === 1 ? 'advisory' : 'advisories'}`,
+    }
+  } else {
+    ret = { dot: SEVERITY_FILL.success, summary: 'no advisories' }
+  }
+  return ret
+}
+
+// a node that names no server is grouped under its own title, so it never merges with another
+function serverOf(node: KinoticNodeInfo): string {
+  return node.serverName || nodeTitle(node)
+}
+
+function toggleServerFilter(name: string): void {
+  serverFilter.value = serverFilter.value === name ? null : name
 }
 
 function shortId(id: string): string {
@@ -310,12 +480,27 @@ function openLogLevel(nodeId: string) {
   logLevelVisible.value = true
 }
 
+// The check of the libraries started last; Refresh can start another while one is still running
+let latestCheck = 0
+
 async function load() {
   loading.value = true
   error.value = null
   // the system workloads summary is a nicety; failing to load it leaves its card with just the link
   scanWorkloads({}, { systemOnly: true }).then(list => { systemWorkloads.value = list })
                                           .catch(() => { systemWorkloads.value = null })
+  // the libraries are checked apart from the topology, which shows without waiting for them
+  const check = ++latestCheck
+  Kinotic.clusterVulnerabilities.findAll().then(found => {
+    if (check === latestCheck) {
+      servers.value = found
+      vulnerabilityError.value = null
+    }
+  }).catch(err => {
+    if (check === latestCheck) {
+      vulnerabilityError.value = errorMessage(err, "The servers' libraries could not be checked")
+    }
+  })
   try {
     cluster.value = await Kinotic.clusterInfo.getClusterInfo()
     refused.value = false

@@ -1,0 +1,284 @@
+package org.kinotic.persistence.internal.api.services.json.hooks;
+
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.*;
+import org.kinotic.domain.api.config.DomainPersistenceProperties;
+import org.kinotic.persistence.api.model.EntityContext;
+import org.kinotic.domain.api.model.persistence.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Keeps track of all read operations pre-processors for a given EntityDefinition.
+ * This allows for the logic path to only call the pre-processors that are needed for a given operation and EntityDefinition.
+ * WARNING: This class does not validate any of the security or expected constraints defined for EntityDefinitions. This is meant to be used after those operations are performed.
+ * Created by Navíd Mitchell 🤪on 6/13/23.
+ */
+@Component
+public class ReadPreProcessor {
+    private static final Logger log = LoggerFactory.getLogger(ReadPreProcessor.class);
+
+    private final DomainPersistenceProperties domainPersistenceProperties;
+
+    public ReadPreProcessor(DomainPersistenceProperties domainPersistenceProperties) {
+        this.domainPersistenceProperties = domainPersistenceProperties;
+    }
+
+    public void beforeCount(EntityDescriptor entityDescriptor,
+                            String query,
+                            CountRequest.Builder builder,
+                            EntityContext context) {
+
+        Query.Builder queryBuilder = createQueryWithTenantLogicAndSearch(entityDescriptor, query, context, builder::routing);
+
+        if(queryBuilder != null){
+            builder.query(queryBuilder.build());
+        }
+    }
+
+    public void beforeDelete(EntityDescriptor entityDescriptor,
+                             DeleteRequest.Builder builder,
+                             EntityContext context) {
+
+        builder.refresh(Refresh.True);
+
+        // add multi tenancy filters if needed
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
+            if(context.hasTenantSelection()){
+                builder.routing(context.getTenantSelection().getFirst());
+            }else{
+                builder.routing(context.requireTenantId());
+            }
+        }
+    }
+
+    public void beforeDeleteByQuery(EntityDescriptor entityDescriptor,
+                                    String query,
+                                    DeleteByQueryRequest.Builder builder,
+                                    EntityContext context) {
+
+        Query.Builder queryBuilder = createQueryWithTenantLogicAndSearch(entityDescriptor, query, context, builder::routing);
+
+        if(queryBuilder != null){
+            builder.query(queryBuilder.build());
+        }
+    }
+
+    public void beforeFindAll(EntityDescriptor entityDescriptor,
+                              SearchRequest.Builder builder,
+                              EntityContext context) {
+
+        Query.Builder queryBuilder = createQueryWithTenantLogic(entityDescriptor, context, builder::routing);
+
+        addSourceFilter(entityDescriptor, builder, context);
+
+        if(queryBuilder != null){
+            builder.query(queryBuilder.build());
+        }
+
+        if(entityDescriptor.isOptimisticLockingEnabled()){
+            builder.seqNoPrimaryTerm(true);
+        }
+    }
+
+    /**
+     * Prepares the search a SELECT runs: the condition is combined with the tenant logic of
+     * {@link #beforeFindAll}, and the source is projected to the listed columns.
+     *
+     * @param condition the condition a document must match, or null to match every document
+     * @param columns   the top-level fields the source is projected to, or an empty list for the whole document
+     */
+    public void beforeSelect(EntityDescriptor entityDescriptor,
+                             SearchRequest.Builder builder,
+                             EntityContext context,
+                             Query condition,
+                             List<String> columns) {
+
+        Query.Builder tenantQuery = createQueryWithTenantLogic(entityDescriptor, context, builder::routing);
+
+        if(condition != null || tenantQuery != null){
+            // both are filters: a SELECT ranks nothing, it orders by its ORDER BY
+            builder.query(q -> q.bool(b -> {
+                if(condition != null){
+                    b.filter(condition);
+                }
+                if(tenantQuery != null){
+                    b.filter(tenantQuery.build());
+                }
+                return b;
+            }));
+        }
+
+        if(!columns.isEmpty()){
+            builder.source(b -> b.filter(sf -> {
+                sf.includes(columns);
+                // the tenant field rides along for the multi tenancy check that follows the read
+                if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
+                    sf.includes(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()));
+                }
+                return sf;
+            }));
+        }
+    }
+
+    public void beforeFindById(EntityDescriptor entityDescriptor,
+                               GetRequest.Builder builder,
+                               EntityContext context){
+
+        // add multi tenancy filters if needed
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
+            if(context.hasTenantSelection()){
+                builder.routing(context.getTenantSelection().getFirst());
+            }else{
+                builder.routing(context.requireTenantId());
+                if(!entityDescriptor.isMultiTenantSelectionEnabled()) {
+                    builder.sourceExcludes(domainPersistenceProperties.getTenantIdFieldName());
+                }
+            }
+        }
+
+        if(context.hasIncludedFieldsFilter()){
+            builder.sourceIncludes(context.getIncludedFieldsFilter());
+        }
+    }
+
+
+    public void beforeFindByIds(EntityDescriptor entityDescriptor,
+                                MgetRequest.Builder builder,
+                                EntityContext context){
+
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
+            && !entityDescriptor.isMultiTenantSelectionEnabled()){
+            builder.sourceExcludes(domainPersistenceProperties.getTenantIdFieldName());
+        }
+
+        if(context.hasIncludedFieldsFilter()){
+            builder.sourceIncludes(context.getIncludedFieldsFilter());
+        }
+    }
+
+    public void beforeSearch(EntityDescriptor entityDescriptor,
+                             String searchText,
+                             SearchRequest.Builder builder,
+                             EntityContext context) {
+
+        Query.Builder queryBuilder = createQueryWithTenantLogicAndSearch(entityDescriptor, searchText, context, builder::routing);
+
+        addSourceFilter(entityDescriptor, builder, context);
+
+        builder.query(queryBuilder.build());
+
+        if(entityDescriptor.isOptimisticLockingEnabled()){
+            builder.seqNoPrimaryTerm(true);
+        }
+    }
+
+    public Query.Builder createQueryWithTenantLogic(EntityDescriptor entityDescriptor, EntityContext context, Consumer<String> routingConsumer) {
+        Query.Builder queryBuilder = null;
+        // add multi tenancy filters if needed
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED && !context.selectsAllTenants()){
+
+            // Check if multiple tenants are selected if not use the logged-in user's tenant
+            if(context.hasTenantSelection()) {
+                List<String> multiTenantSelection = context.getTenantSelection();
+                List<FieldValue> fieldValues = new ArrayList<>(multiTenantSelection.size());
+                for(String tenantId : multiTenantSelection){
+                    fieldValues.add(FieldValue.of(tenantId));
+                }
+                log.trace("Find All Multi tenant selection provided. Received {} tenants", multiTenantSelection.size());
+
+                // We do not add routing since the data could be spread across multiple shards
+                queryBuilder = new Query.Builder();
+                queryBuilder.bool(b -> b.filter(qb -> qb.terms(tsq -> tsq.field(entityDescriptor.tenantIdFieldName())
+                                                                         .terms(tqf-> tqf.value(fieldValues)))));
+            }else{
+
+                String tenantId = context.requireTenantId();
+                routingConsumer.accept(tenantId);
+                queryBuilder = new Query.Builder();
+                queryBuilder
+                        .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()))
+                                                                  .value(tenantId))));
+            }
+        }
+        return queryBuilder;
+    }
+
+    public Query.Builder createQueryWithTenantLogicAndSearch(EntityDescriptor entityDescriptor,
+                                                             String searchText,
+                                                             EntityContext context,
+                                                             Consumer<String> routingConsumer) {
+        Query.Builder queryBuilder;
+        if(searchText != null){
+            queryBuilder = new Query.Builder();
+            // add multi tenancy filters if needed
+            if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED && !context.selectsAllTenants()){
+
+                // Check if multiple tenants are selected if not use the logged-in user's tenant
+                if(context.hasTenantSelection()) {
+                    List<String> multiTenantSelection = context.getTenantSelection();
+                    List<FieldValue> fieldValues = new ArrayList<>(multiTenantSelection.size());
+                    for(String tenantId : multiTenantSelection){
+                        fieldValues.add(FieldValue.of(tenantId));
+                    }
+                    log.trace("Search Multi tenant selection provided. Received {} tenants", multiTenantSelection.size());
+
+                    // We do not add routing since the data could be spread across multiple shards
+                    queryBuilder
+                            .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
+                                        .filter(qb -> qb.terms(tsq -> tsq.field(entityDescriptor.tenantIdFieldName())
+                                                                         .terms(tqf-> tqf.value(fieldValues)))));
+
+                }else{
+
+                    String tenantId = context.requireTenantId();
+                    routingConsumer.accept(tenantId);
+                    queryBuilder
+                            .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
+                                        .filter(qb -> qb.term(tq -> tq.field(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()))
+                                                                      .value(tenantId))));
+                }
+            }else{
+                queryBuilder.queryString(qs -> qs.query(searchText).analyzeWildcard(true));
+            }
+        }else{
+            queryBuilder = createQueryWithTenantLogic(entityDescriptor, context, routingConsumer);
+        }
+        return queryBuilder;
+    }
+
+    private void addSourceFilter(EntityDescriptor entityDescriptor, SearchRequest.Builder builder, EntityContext context) {
+        // Set source fields filters
+        builder.source(b -> b.filter(sf -> {
+            // TODO: Put this back when no longer applicable
+            // If MultiTenancyType.SHARED exclude tenant id
+//            if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
+//                // Currently this must not be done to support our multi tenancy paranoid check
+//                sf.excludes(domainPersistenceProperties.getTenantIdFieldName());
+//            }
+            // Add source fields filter
+            if(context.hasIncludedFieldsFilter()){
+                // If fields filter is empty  we exclude all fields from the source
+                if(context.getIncludedFieldsFilter().isEmpty()) {
+                    sf.excludes("*");
+                }else {
+                    sf.includes(context.getIncludedFieldsFilter());
+                }
+                // TODO: remove this when above is put back
+                if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
+                    sf.includes(entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName()));
+                }
+            }
+            return sf;
+        }));
+    }
+
+}

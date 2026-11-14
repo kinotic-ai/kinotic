@@ -51,9 +51,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies a request is authorized as the gateway and the MCP endpoint authorize it, against the contracts the
  * directory holds and the system store: Sally, an editor of project A, edits A and is refused on B, with the
  * positional body a STOMP request carries and the named one a tool call carries; a CLI delegate of hers acts as
- * her within the CLI's ceiling; a member with no grant is refused the organization's members and its viewer is not; a check naming an
- * application the member's scope lacks is made on the organization; a function with no check passes on its
- * zone; and the organization a migration seeds is administered by its creator.
+ * her within the CLI's ceiling; a member with no grant is refused the organization's members and its vulnerability
+ * inbox and its viewer is not; a check naming an application the member's scope lacks is made on the organization;
+ * a function with no check passes on its zone; and the organization a migration seeds is administered by its
+ * creator.
  */
 @SpringBootTest
 public class RequestAuthorizationTests extends KinoticTestBase {
@@ -62,6 +63,7 @@ public class RequestAuthorizationTests extends KinoticTestBase {
     private static final String ENTITY_DEFINITION_SERVICE = "management-api~org.kinotic.management.api.services.EntityDefinitionService";
     private static final String MEMBER_SERVICE = "management-api~org.kinotic.management.api.services.security.MemberService";
     private static final String PERMISSION_SERVICE = "management-api~org.kinotic.management.api.services.security.PermissionService";
+    private static final String VULNERABILITY_ALERT_SERVICE = "management-api~org.kinotic.management.api.services.vulnerability.VulnerabilityAlertService";
     // the organization V2__kinotic_test_users seeds, and the user it names as the creator
     private static final String SEEDED_ORGANIZATION_ID = TEST_ORG_ID;
     private static final String SEEDED_CREATOR_ID = "00000000-0000-0000-0000-000000000002";
@@ -178,6 +180,8 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         List<Object> listing = Arrays.asList(null, Map.of("pageNumber", 0, "pageSize", 10));
 
         assertRefused(MEMBER_SERVICE, "findMembers", caller, listing, "organization:" + TEST_ORG_ID);
+        List<Object> inbox = List.of(Map.of("pageNumber", 0, "pageSize", 10));
+        assertRefused(VULNERABILITY_ALERT_SERVICE, "findAll", caller, inbox, "organization_can_read_vulnerabilities");
 
         // a listing of the caller's own access is admitted by the zone alone
         authorize(PERMISSION_SERVICE, "listAccessible", caller, List.of(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ));
@@ -186,6 +190,10 @@ public class RequestAuthorizationTests extends KinoticTestBase {
                                                         new Resource(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID))));
         assertTrue(awaitUntil(() -> admitted(MEMBER_SERVICE, "findMembers", caller, listing)), "the viewer never saw the members");
         assertRefused(MEMBER_SERVICE, "removeMember", caller, List.of(member.getId()), "organization_can_manage_members");
+        // the vulnerability inbox is read with the organization, and an alert in it is acknowledged by who manages them
+        authorize(VULNERABILITY_ALERT_SERVICE, "findAll", caller, inbox);
+        authorize(VULNERABILITY_ALERT_SERVICE, "countUnacknowledged", caller, List.of());
+        assertRefused(VULNERABILITY_ALERT_SERVICE, "acknowledge", caller, List.of("an-alert"), "organization_can_manage_vulnerabilities");
 
         // re-syncing the projects' index names no application, so the check is made on the organization, which
         // the organization's viewer holds no project permission on; an editor of projects granted on the

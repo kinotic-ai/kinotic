@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.core.JacksonException;
-import tools.jackson.core.JsonParser;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
@@ -125,8 +124,8 @@ public class TestHelper {
         }
         return runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .map(saved -> {
-                                  try (JsonParser parser = saved.asParser()) {
-                                      return objectMapper.readValue(parser, Car.class);
+                                  try {
+                                      return objectMapper.readValue(saved.data(), Car.class);
                                   } catch (JacksonException e) {
                                       throw new IllegalStateException(e);
                                   }
@@ -144,8 +143,8 @@ public class TestHelper {
 
         return runAsOrganization(() -> entitiesService.update(entityDefinition.getId(), tokenBuffer, entityContext))
                                  .map(saved -> {
-                                  try (JsonParser parser = saved.asParser()) {
-                                      return objectMapper.readValue(parser, Car.class);
+                                  try {
+                                      return objectMapper.readValue(saved.data(), Car.class);
                                   } catch (JacksonException e) {
                                       throw new IllegalStateException(e);
                                   }
@@ -177,8 +176,8 @@ public class TestHelper {
                                                                                           tokenBuffer,
                                                                                           entityContext)
                                                                                     .compose(saved -> {
-                                                                                        try (JsonParser parser = saved.asParser()) {
-                                                                                            Person deserializedPerson = objectMapper.readValue(parser,
+                                                                                        try {
+                                                                                            Person deserializedPerson = objectMapper.readValue(saved.data(),
                                                                                                                                                Person.class);
                                                                                             return Future.succeededFuture(deserializedPerson);
                                                                                         } catch (JacksonException e) {

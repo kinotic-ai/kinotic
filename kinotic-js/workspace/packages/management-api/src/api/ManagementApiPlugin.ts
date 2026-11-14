@@ -21,6 +21,7 @@ import { ApplicationAccessService, type IApplicationAccessService } from '@/api/
 import { OwnedPasswordConfigurationService, type IOwnedPasswordConfigurationService } from '@/api/services/security/IOwnedPasswordConfigurationService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
+import { VulnerabilityAlertService, type IVulnerabilityAlertService } from '@/api/services/IVulnerabilityAlertService'
 
 export interface IManagementApiExtension {
     applications: IApplicationService
@@ -45,6 +46,7 @@ export interface IManagementApiExtension {
     permissions: IPermissionService
     applicationAccess: IApplicationAccessService
     githubAppInstallations: IGitHubAppInstallationService
+    vulnerabilityAlerts: IVulnerabilityAlertService
 }
 
 export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
@@ -72,6 +74,7 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             permissions: new PermissionService(kinotic),
             applicationAccess: new ApplicationAccessService(kinotic),
             githubAppInstallations: new GitHubAppInstallationService(kinotic),
+            vulnerabilityAlerts: new VulnerabilityAlertService(kinotic),
         }
     }
 }

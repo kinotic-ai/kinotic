@@ -3,6 +3,8 @@ import { TaskViews } from '@kinotic-ai/management-api'
 import WorkloadLogTaskView from '../WorkloadLogTaskView.vue'
 import ProjectArtifactsTaskView from '../deploy/ProjectArtifactsTaskView.vue'
 import SbomGenerationTaskView from '../deploy/SbomGenerationTaskView.vue'
+import AdvisoryImportTaskView from '../vulnerability/AdvisoryImportTaskView.vue'
+import SbomScanTaskView from '../vulnerability/SbomScanTaskView.vue'
 import type { JobTaskNode } from './JobTaskNode'
 
 /**
@@ -13,7 +15,9 @@ import type { JobTaskNode } from './JobTaskNode'
 export const TASK_VIEWS: Record<string, Component> = {
   [TaskViews.WORKLOAD_LOG]: markRaw(WorkloadLogTaskView),
   [TaskViews.PROJECT_ARTIFACTS]: markRaw(ProjectArtifactsTaskView),
-  [TaskViews.SBOM_GENERATION]: markRaw(SbomGenerationTaskView)
+  [TaskViews.SBOM_GENERATION]: markRaw(SbomGenerationTaskView),
+  [TaskViews.ADVISORY_IMPORT]: markRaw(AdvisoryImportTaskView),
+  [TaskViews.SBOM_SCAN]: markRaw(SbomScanTaskView)
 }
 
 /** The component rendering the task's current view, or null when it shows none this console renders. */

@@ -63,16 +63,18 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      * document just written is seen.
      */
     public Future<List<T>> findAllById(Collection<String> ids) {
-        Future<List<T>> ret;
-        if (ids.isEmpty()) {
-            ret = Future.succeededFuture(List.of());
-        } else {
-            List<MultiGetOperation> operations = ids.stream()
-                                                    .map(id -> MultiGetOperation.of(op -> op.index(indexName).id(id)))
-                                                    .toList();
-            ret = crudServiceTemplate.multiGet(operations, type, null, null);
-        }
-        return ret;
+        return findAllById(ids, null);
+    }
+
+    /**
+     * Reads the documents with the given ids with full builder access. Subclasses use this overload
+     * to issue specialized multi-gets, such as one reading only some fields.
+     */
+    protected Future<List<T>> findAllById(Collection<String> ids, Consumer<MgetRequest.Builder> builderConsumer) {
+        List<MultiGetOperation> operations = ids.stream()
+                                                .map(id -> MultiGetOperation.of(op -> op.index(indexName).id(id)))
+                                                .toList();
+        return crudServiceTemplate.multiGet(operations, type, builderConsumer, null);
     }
 
     protected Future<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {
