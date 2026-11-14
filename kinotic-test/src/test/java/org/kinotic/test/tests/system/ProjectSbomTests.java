@@ -126,6 +126,30 @@ public class ProjectSbomTests extends KinoticTestBase {
     }
 
     @Test
+    public void aTreeListingAMalformedPackageUrlIsRefused() throws Exception {
+        String projectId = deployedProject("sbom-malformed");
+        ProjectDependencies tree = tree().setPackages(List.of("pkg:npm/express@5.1.0", "pkg:npm/debug@4.4.1%", "pkg:npm/typescript@5.9.2"));
+
+        Exception failure = assertThrows(Exception.class, () -> await(runAs(syncMachine(),
+                () -> projectArtifactService.recordSbom(projectId, "hash-1", tree))));
+
+        assertTrue(failure.getMessage().contains("not a package URL with a version"), failure.getMessage());
+        assertNull(await(projectDependencies.findById(projectId, TEST_ORG_ID)));
+    }
+
+    @Test
+    public void aTreeListingAPackageUrlWithAnEmptyVersionIsRefused() throws Exception {
+        String projectId = deployedProject("sbom-versionless");
+        ProjectDependencies tree = tree().setPackages(List.of("pkg:npm/express@5.1.0", "pkg:npm/debug@", "pkg:npm/typescript@5.9.2"));
+
+        Exception failure = assertThrows(Exception.class, () -> await(runAs(syncMachine(),
+                () -> projectArtifactService.recordSbom(projectId, "hash-1", tree))));
+
+        assertTrue(failure.getMessage().contains("not a package URL with a version"), failure.getMessage());
+        assertNull(await(projectDependencies.findById(projectId, TEST_ORG_ID)));
+    }
+
+    @Test
     public void aTreeListingAPackageTwiceIsRefused() throws Exception {
         String projectId = deployedProject("sbom-duplicate");
         ProjectDependencies tree = tree().setPackages(List.of("pkg:npm/express@5.1.0", "pkg:npm/debug@4.4.1", "pkg:npm/express@5.1.0"));

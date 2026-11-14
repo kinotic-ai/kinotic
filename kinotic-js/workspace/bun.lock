@@ -60,7 +60,7 @@
     },
     "packages/management-api": {
       "name": "@kinotic-ai/management-api",
-      "version": "5.0.0-beta.72",
+      "version": "5.0.0-beta.73",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -109,7 +109,7 @@
     },
     "packages/system-api": {
       "name": "@kinotic-ai/system-api",
-      "version": "5.0.0-beta.41",
+      "version": "5.0.0-beta.42",
       "devDependencies": {
         "@kinotic-ai/core": "workspace:*",
         "@kinotic-ai/management-api": "workspace:*",

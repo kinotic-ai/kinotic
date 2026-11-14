@@ -20,6 +20,8 @@ kinotic:
       domain: apps.localhost
   maxNumberOfCoresToUse: 4
   systemApi:
+    # tests store the advisories they check SBOMs against; OSV is never read
+    disableOsvImport: true
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
       managementServer:

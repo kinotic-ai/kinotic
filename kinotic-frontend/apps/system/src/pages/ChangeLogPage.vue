@@ -13,8 +13,8 @@
     <WatchEventsTimeline :entries="entries" show-record empty-text="Nothing has happened in the system yet." />
 
     <TablePaginator v-if="total > 0" class="mt-3"
-                    :first="first" :rows="rows" :total-records="total" :rows-per-page-options="ROWS_PER_PAGE"
-                    @page="changePage" />
+                    :first="first" :rows="pageSize" :total-records="total" :rows-per-page-options="ROWS_PER_PAGE"
+                    @page="onPage" />
   </div>
 </template>
 
@@ -22,19 +22,17 @@
 import { onMounted, ref } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
-import type { PageState } from 'primevue/paginator'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { WatchEvent } from '@kinotic-ai/management-api'
-import { PageHeader, TablePaginator, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, TablePaginator, errorMessage, usePaging } from '@kinotic-ai/frontend-common'
 import { WatchEventsTimeline } from '@kinotic-ai/frontend-common/management'
 
 const ROWS_PER_PAGE = [25, 50, 100]
 
 const entries = ref<WatchEvent[]>([])
 const total = ref(0)
-const first = ref(0)
-const rows = ref(50)
+const { first, pageSize, page: pageShown, onPage } = usePaging(50, load)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -42,7 +40,7 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const page = await Kinotic.watchEvents.findAll(Pageable.create(Math.floor(first.value / rows.value), rows.value))
+    const page = await Kinotic.watchEvents.findAll(Pageable.create(pageShown.value, pageSize.value))
     entries.value = page.content ?? []
     total.value = page.totalElements ?? 0
   } catch (err) {
@@ -50,12 +48,6 @@ async function load() {
   } finally {
     loading.value = false
   }
-}
-
-function changePage(state: PageState) {
-  first.value = state.first
-  rows.value = state.rows
-  load()
 }
 
 onMounted(load)

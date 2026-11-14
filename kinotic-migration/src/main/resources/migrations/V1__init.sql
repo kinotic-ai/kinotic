@@ -91,17 +91,69 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
 -- while the project's kinotic_project_deployment row has sbomGenerated set. packages lists every
 -- installed package version as a package URL and is indexed, so the projects holding a package
 -- are one term query; direct, development and optional are positions in packages, and edges holds
--- [dependent, dependency] position pairs, read whole and never searched. One row per project; id
--- equals the projectId.
+-- [dependent, dependency] position pairs, read whole and never searched. dependencyHash is the
+-- artifacts.dependencyHash of the checkout the tree was read from. One row per project; id equals
+-- the projectId.
 CREATE TABLE IF NOT EXISTS kinotic_project_dependencies (
     id KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    dependencyHash KEYWORD,
     packages KEYWORD,
     direct INTEGER NOT INDEXED,
     development INTEGER NOT INDEXED,
     optional INTEGER NOT INDEXED,
     edges JSON NOT INDEXED
+);
+
+-- The libraries each Kinotic server node runs, recorded when the node starts and deleted when it shuts down, or by
+-- the next node to start when it left without; id is the node's Ignite id. packages, the package URL of each
+-- library, is read whole and never searched.
+CREATE TABLE IF NOT EXISTS kinotic_server_sbom (
+    id KEYWORD,
+    packages KEYWORD NOT INDEXED
+);
+
+-- Vulnerability advisories read from OSV, one row per advisory, shared by every organization.
+-- packages lists the package URL, without a version, of every package the advisory affects, so
+-- the advisories of an SBOM's packages are one terms query; affected holds which versions of each,
+-- read whole and never searched. withdrawn is set once OSV withdraws the advisory.
+CREATE TABLE IF NOT EXISTS kinotic_vulnerability_advisory (
+    id KEYWORD,
+    aliases KEYWORD,
+    summary TEXT,
+    type KEYWORD,
+    severity KEYWORD,
+    modified DATE,
+    withdrawn DATE,
+    packages KEYWORD,
+    affected JSON NOT INDEXED
+);
+
+-- How far the advisories of each package ecosystem have been read from OSV; id is the ecosystem.
+CREATE TABLE IF NOT EXISTS kinotic_osv_import_progress (
+    id KEYWORD,
+    syncedThrough DATE
+);
+
+-- The advisories affecting each project's SBOM, one row per project and advisory while the advisory
+-- affects the SBOM; the rows of an organization are its vulnerability inbox. id is
+-- <projectId>~<advisoryId>.
+CREATE TABLE IF NOT EXISTS kinotic_vulnerability_alert (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    finding OBJECT (
+        advisoryId KEYWORD,
+        aliases KEYWORD,
+        summary TEXT,
+        type KEYWORD,
+        severity KEYWORD,
+        packages JSON NOT INDEXED
+    ),
+    created DATE,
+    acknowledged BOOLEAN
 );
 
 -- Microservice deployments: one row per microservice artifact a project deployment has ensured.

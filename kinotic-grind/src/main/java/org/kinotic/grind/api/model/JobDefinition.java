@@ -49,6 +49,12 @@ public interface JobDefinition {
     boolean isParallel();
 
     /**
+     * True if a task of this definition failing does not stop the tasks after it.
+     * @return true when every task runs before the definition fails
+     */
+    boolean isContinueOnFailure();
+
+    /**
      * True if one run of this job executes at a time across the cluster for an owner.
      * @return true when exclusive
      */
@@ -72,10 +78,20 @@ public interface JobDefinition {
     JobDefinition version(String version);
 
     /**
+     * Makes each task of this sequential definition run even after one before it fails; the
+     * definition then fails once every task has run, with the first failure. Tasks that do not
+     * depend on one another, such as one import per source, each get their run.
+     * @return this for fluent use
+     * @throws IllegalStateException if the definition is parallel, whose first failure cancels the
+     *         tasks still running
+     */
+    JobDefinition continueOnFailure();
+
+    /**
      * Lets one run of this job execute at a time across the cluster for an owner. A run or
      * resume of the job's name started for an owner while another executes for that owner is
      * refused before anything of it is recorded: its events fail with an
-     * {@link IllegalStateException}.
+     * {@link ExclusiveJobRunningException}.
      * @return this for fluent use
      */
     JobDefinition exclusive();

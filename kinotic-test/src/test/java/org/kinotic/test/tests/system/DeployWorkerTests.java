@@ -272,6 +272,7 @@ public class DeployWorkerTests extends KinoticTestBase {
         await(projectDependencies.saveSync(new ProjectDependencies().setId(projectId)
                                                                     .setOrganizationId(TEST_ORG_ID)
                                                                     .setApplicationId(TEST_APP_ID)
+                                                                    .setDependencyHash("hash-1")
                                                                     .setPackages(List.of("pkg:npm/express@5.1.0"))
                                                                     .setDirect(List.of(0)),
                                            TEST_ORG_ID));
