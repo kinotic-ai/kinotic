@@ -69,15 +69,18 @@ const adding = ref<SubjectOption | null>(null)
 const removing = ref(new Set<string>())
 
 // the members the picker offers, listed and searched: whoever is in the group is left out
-const addable = computed<SubjectSource>(() => {
+const addable = computed<SubjectSource>(() => ({
+  label: 'Members',
+  options: outside(props.candidates),
+  search: async text => outside(await props.searchCandidates(text))
+}))
+
+// Reads the group's members as it is called, so a search that answers after the members were read again leaves out
+// whoever is in the group by then
+function outside(options: SubjectOption[]): SubjectOption[] {
   const inGroup = new Set(members.value.map(member => member.id))
-  const outside = (options: SubjectOption[]) => options.filter(option => !inGroup.has(option.subject.id))
-  return {
-    label: 'Members',
-    options: outside(props.candidates),
-    search: async text => outside(await props.searchCandidates(text))
-  }
-})
+  return options.filter(option => !inGroup.has(option.subject.id))
+}
 
 watch(() => [props.visible, props.group?.id], ([visible]) => {
   if (visible && props.group?.id) {

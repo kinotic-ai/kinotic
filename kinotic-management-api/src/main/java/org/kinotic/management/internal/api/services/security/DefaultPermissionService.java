@@ -148,13 +148,15 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(roleId, "roleId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         String role = AuthzUtil.roleObject(roleId);
-        return requireRole(roleId, organizationId)
+        // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
+        // finds the role gone
+        return relationships.exclusively(role, () -> requireRole(roleId, organizationId)
                 .compose(row -> model())
                 .compose(model -> requireUnused(role, model.grantableOn(AuthzUtil.roleHome(roleId), ORGANIZATION), "Role " + roleId))
                 .compose(v -> relationships.read(SYSTEM, role))
                 // its permissions first, then the row: a role whose row outlives its permissions grants nothing
                 .compose(held -> relationships.remove(SYSTEM, held))
-                .compose(v -> roles.deleteByIdSync(roleId, organizationId));
+                .compose(v -> roles.deleteByIdSync(roleId, organizationId)));
     }
 
     @Override
@@ -181,14 +183,20 @@ public class DefaultPermissionService implements PermissionService {
     public Future<Void> deleteGroup(String groupId) {
         Validate.notBlank(groupId, "groupId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
-        String group = AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId);
-        return requireGroup(groupId, organizationId)
-                .compose(row -> model())
+        return whileGroupKept(groupId, organizationId, () -> model()
                 .compose(model -> requireUnused(AuthzGraphUtil.authzSubject(new Subject(SubjectType.GROUP, groupId)), model.tier(ORGANIZATION), "Group " + groupId))
-                .compose(v -> relationships.read(SYSTEM, group))
+                .compose(v -> relationships.read(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
                 // its membership first, then the row: a group whose row outlives its members reaches nobody
                 .compose(held -> relationships.remove(SYSTEM, held))
-                .compose(v -> groups.deleteByIdSync(groupId, organizationId));
+                .compose(v -> groups.deleteByIdSync(groupId, organizationId)));
+    }
+
+    // One caller at a time deletes a group, adds a member to it or grants it a role, so a deletion finds every grant
+    // made to the group, and a grant or a member is never written for a group whose row is gone. The group is read
+    // once the lock is held
+    private <T> Future<T> whileGroupKept(String groupId, String organizationId, Supplier<Future<T>> change) {
+        return relationships.exclusively(AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId),
+                                         () -> requireGroup(groupId, organizationId).compose(row -> change.get()));
     }
 
     @Override
@@ -218,9 +226,8 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(groupId, "groupId cannot be blank");
         Validate.notBlank(userId, "userId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
-        return requireGroup(groupId, organizationId)
-                .compose(row -> requireMember(userId, organizationId))
-                .compose(v -> relationships.ensure(SYSTEM, List.of(membership(AuthzGraphUtil.authzUser(userId), groupId))));
+        return whileGroupKept(groupId, organizationId, () -> requireMember(userId, organizationId)
+                .compose(v -> relationships.ensure(SYSTEM, List.of(membership(AuthzGraphUtil.authzUser(userId), groupId)))));
     }
 
     @Override
@@ -241,17 +248,21 @@ public class DefaultPermissionService implements PermissionService {
         return requireGrantable(roleId, resource.type(), organizationId)
                 .compose(v -> requireSubject(subject, organizationId))
                 .compose(stored -> requireInOrganization(resource, organizationId)
-                        .compose(lineage -> whileUnedited(roleId, () -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored),
-                                                                                           AuthzGraphUtil.authzObject(organizationId, resource)))))
+                        .compose(lineage -> whileRoleKept(roleId, organizationId, () -> {
+                            Supplier<Future<String>> bind = () -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored),
+                                                                                    AuthzGraphUtil.authzObject(organizationId, resource));
+                            return stored.type() == SubjectType.GROUP ? whileGroupKept(stored.id(), organizationId, bind) : bind.get();
+                        })))
                 .map(bindingId -> new Grant(bindingId, roleId, subject, resource));
     }
 
-    // A role of the organization's own is granted while no edit of it is under way, so saveRole finds every machine
-    // the role is granted to before it takes a permission away. A built-in role never changes
-    private <T> Future<T> whileUnedited(String roleId, Supplier<Future<T>> grant) {
+    // A role of the organization's own is granted while no edit or deletion of it is under way, so saveRole finds
+    // every machine the role is granted to before it takes a permission away, and deleteRole every grant of it. The
+    // role is read once the lock is held. A built-in role never changes
+    private <T> Future<T> whileRoleKept(String roleId, String organizationId, Supplier<Future<T>> grant) {
         return model().compose(model -> model.roles().containsKey(roleId)
                 ? grant.get()
-                : relationships.exclusively(AuthzUtil.roleObject(roleId), grant));
+                : relationships.exclusively(AuthzUtil.roleObject(roleId), () -> requireRole(roleId, organizationId).compose(row -> grant.get())));
     }
 
     @Override
