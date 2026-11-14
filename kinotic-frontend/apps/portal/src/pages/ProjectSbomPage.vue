@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
@@ -93,11 +93,10 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
-import type { PageState } from 'primevue/paginator'
 import SelectButton from 'primevue/selectbutton'
 import Tag from 'primevue/tag'
 import { GitCommitHorizontal, ListTree, Package, Server, ShieldAlert, Wrench } from '@lucide/vue'
-import { DashboardSection, errorMessage, PageHeader, shortSha, StatCard, TablePaginator, TINTS, EmptyChartCharacter } from '@kinotic-ai/frontend-common'
+import { DashboardSection, errorMessage, PageHeader, shortSha, StatCard, TablePaginator, TINTS, EmptyChartCharacter, usePagedList } from '@kinotic-ai/frontend-common'
 import { countSevere, packageOf, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 import { Kinotic } from '@kinotic-ai/core'
 import type { ProjectDependencies, ProjectDeployment, VulnerabilityAlert } from '@kinotic-ai/management-api'
@@ -141,8 +140,6 @@ const alerts = ref<VulnerabilityAlert[]>([])
 const alertsError = ref<string | null>(null)
 const search = ref('')
 const scope = ref<string>(ALL_SCOPES)
-const first = ref(0)
-const pageSize = ref(50)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -190,12 +187,7 @@ const visibleRows = computed(() => {
     && (!needle || row.name.toLowerCase().includes(needle)))
 })
 
-const pageRows = computed(() => visibleRows.value.slice(first.value, first.value + pageSize.value))
-
-// a new search or filter starts over at its first page
-watch([search, scope], () => {
-  first.value = 0
-})
+const { first, pageSize, pageItems: pageRows, onPage } = usePagedList(visibleRows, 50, [search, scope])
 
 async function load(): Promise<void> {
   try {
@@ -218,11 +210,6 @@ async function load(): Promise<void> {
 
 function countOf(packageScope: PackageScope): number {
   return rows.value.filter(row => row.scope === packageScope).length
-}
-
-function onPage(state: PageState): void {
-  first.value = state.first
-  pageSize.value = state.rows
 }
 
 // CycloneDX has no development scope: a development package is excluded, the scope of what is not

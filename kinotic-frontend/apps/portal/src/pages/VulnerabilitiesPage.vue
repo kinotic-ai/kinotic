@@ -56,10 +56,9 @@ import { RouterLink } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import Message from 'primevue/message'
-import type { PageState } from 'primevue/paginator'
 import Tag from 'primevue/tag'
 import { BellDot, ShieldAlert } from '@lucide/vue'
-import { DashboardSection, errorMessage, PageHeader, StatCard, TablePaginator, TimePill, TINTS } from '@kinotic-ai/frontend-common'
+import { DashboardSection, errorMessage, PageHeader, StatCard, TablePaginator, TimePill, TINTS, usePaging } from '@kinotic-ai/frontend-common'
 import { VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
 import type { VulnerabilityAlert } from '@kinotic-ai/management-api'
@@ -81,8 +80,7 @@ const total = ref<number | null>(null)
 const unacknowledged = ref<number | null>(null)
 // the alerts the paginator offers pages for
 const paged = computed(() => Math.min(total.value ?? 0, DEEPEST_PAGED))
-const first = ref(0)
-const pageSize = ref(25)
+const { first, pageSize, page: pageShown, onPage } = usePaging(25, () => void load())
 const loading = ref(true)
 const acknowledging = ref<string | null>(null)
 const error = ref<string | null>(null)
@@ -96,7 +94,7 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     const [page] = await Promise.all([
-      Kinotic.vulnerabilityAlerts.findAll(Pageable.create(Math.floor(first.value / pageSize.value), pageSize.value, NEWEST_FIRST)),
+      Kinotic.vulnerabilityAlerts.findAll(Pageable.create(pageShown.value, pageSize.value, NEWEST_FIRST)),
       loadUnacknowledged(),
     ])
     if (current === latestLoad) {
@@ -140,12 +138,6 @@ async function acknowledge(alert: VulnerabilityAlert): Promise<void> {
   } catch (err) {
     error.value = errorMessage(err, 'The unacknowledged alerts could not be counted')
   }
-}
-
-function onPage(state: PageState): void {
-  first.value = state.first
-  pageSize.value = state.rows
-  void load()
 }
 
 void load()

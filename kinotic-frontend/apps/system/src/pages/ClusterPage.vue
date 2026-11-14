@@ -202,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, markRaw, onMounted, ref, watch, type Component } from 'vue'
+import { computed, markRaw, onMounted, ref, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
@@ -211,14 +211,13 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
-import type { PageState } from 'primevue/paginator'
 import Tag from 'primevue/tag'
 import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, ShieldAlert, Tag as TagIcon } from '@lucide/vue'
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL, usePagedList } from '@kinotic-ai/frontend-common'
 import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
@@ -287,8 +286,6 @@ const NODE_PAGE_SIZES = [10, 25, 50, 100]
 /** The server, by name, whose nodes the node list shows, or null while no server is selected. */
 const serverFilter = ref<string | null>(null)
 const nodeSearch = ref('')
-const nodeFirst = ref(0)
-const nodePageSize = ref(NODE_PAGE_SIZES[0])
 
 /** The cluster's nodes grouped by the server they run, in the order each server's first node joined. */
 const serverGroups = computed(() => {
@@ -314,18 +311,8 @@ const visibleNodes = computed(() => {
     && (!needle || [nodeTitle(node), node.nodeId, ...node.addresses, ...node.hostNames].some(text => text.toLowerCase().includes(needle))))
 })
 
-const pageNodes = computed(() => visibleNodes.value.slice(nodeFirst.value, nodeFirst.value + nodePageSize.value))
-
-watch([nodeSearch, serverFilter], () => {
-  nodeFirst.value = 0
-})
-
-// a refresh can leave fewer nodes than the current page starts at
-watch(() => visibleNodes.value.length, length => {
-  if (nodeFirst.value >= length) {
-    nodeFirst.value = 0
-  }
-})
+const { first: nodeFirst, pageSize: nodePageSize, pageItems: pageNodes, onPage: onNodePage } =
+  usePagedList(visibleNodes, NODE_PAGE_SIZES[0], [nodeSearch, serverFilter])
 
 /** The system's own workloads, null until they load or when they fail to. */
 const systemWorkloads = ref<Workload[] | null>(null)
@@ -394,11 +381,6 @@ function serverOf(node: KinoticNodeInfo): string {
 
 function toggleServerFilter(name: string): void {
   serverFilter.value = serverFilter.value === name ? null : name
-}
-
-function onNodePage(state: PageState): void {
-  nodeFirst.value = state.first
-  nodePageSize.value = state.rows
 }
 
 function shortId(id: string): string {

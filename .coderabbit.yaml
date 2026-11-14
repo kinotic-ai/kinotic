@@ -7,5 +7,6 @@ reviews:
     - "!CLAUDE.md"
     - "!.coderabbit.yaml"
     - "!gradle.properties"
+    - "!**/*.gradle"
     - "!**/package.json"
     - "!**/pnpm-workspace.yaml"

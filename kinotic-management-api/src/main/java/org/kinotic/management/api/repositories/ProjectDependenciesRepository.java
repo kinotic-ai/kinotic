@@ -75,13 +75,7 @@ public class ProjectDependenciesRepository extends AbstractApplicationScopedRepo
         projectIdsByOrganization.forEach((orgId, ids) -> ids.forEach(id -> operations.add(MultiGetOperation.of(op -> op.index(indexName)
                                                                                                                         .id(composeDocumentId(id, orgId))
                                                                                                                         .routing(orgId)))));
-        Future<List<ProjectDependencies>> ret;
-        if (operations.isEmpty()) {
-            ret = Future.succeededFuture(List.of());
-        } else {
-            ret = crudServiceTemplate.multiGet(operations, type, b -> b.sourceIncludes(fields), null);
-        }
-        return ret;
+        return crudServiceTemplate.multiGet(operations, type, b -> b.sourceIncludes(fields), null);
     }
 
     /**

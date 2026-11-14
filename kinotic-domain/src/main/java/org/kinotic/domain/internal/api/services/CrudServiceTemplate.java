@@ -581,13 +581,17 @@ public class CrudServiceTemplate {
      * @param type of the document to return
      * @param builderConsumer to customize the {@link MgetRequest}, or null if no customization is needed
      * @param resultMapper to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link Future} that will complete with the documents requested that exist, or fail when
-     *         any of them could not be read
+     * @return a {@link Future} that will complete with the documents requested that exist, none when the
+     *         list is empty, or fail when any of them could not be read
      */
     public <T, R> Future<List<R>> multiGet(List<MultiGetOperation> getOperations,
                                            Class<T> type,
                                            Consumer<MgetRequest.Builder> builderConsumer,
                                            Function<GetResult<T>, R> resultMapper){
+        if (getOperations.isEmpty()) {
+            // Elasticsearch rejects a multi-get request with no documents
+            return Future.succeededFuture(List.of());
+        }
         @SuppressWarnings("unchecked")
         JsonEndpoint<MgetRequest, MgetResponse<T>, ErrorResponse> endpoint =
                 (JsonEndpoint<MgetRequest, MgetResponse<T>, ErrorResponse>) MgetRequest._ENDPOINT;
