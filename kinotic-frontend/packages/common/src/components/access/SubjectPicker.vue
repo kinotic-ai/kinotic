@@ -1,7 +1,7 @@
 <template>
   <AutoComplete v-model="entered" :input-id="inputId" :suggestions="suggestions" option-label="label"
                 :option-group-label="grouped ? 'label' : undefined" :option-group-children="grouped ? 'options' : undefined"
-                :placeholder="placeholder" :empty-search-message="emptyMessage" dropdown force-selection fluid
+                :placeholder="placeholder" :empty-search-message="emptyMessage" dropdown fluid
                 @complete="complete($event.query)" @keydown.esc="keepEscape">
     <template #option="{ option }">
       <SubjectOptionItem :option="option" />
@@ -36,7 +36,8 @@ const props = withDefaults(defineProps<{
 const picked = defineModel<SubjectOption | null>({ required: true })
 
 const toast = useToast()
-// the input holds the text being typed until a suggestion is chosen, and text names no subject
+// the input holds the text being typed until a suggestion is chosen, and text names no subject: labels are display
+// names, which two subjects may share, so only a suggestion chosen from the list picks one
 const entered = ref<SubjectOption | string | null>(picked.value)
 const suggestions = ref<SubjectOption[] | SubjectSource[]>([])
 const grouped = computed(() => props.sources.length > 1)

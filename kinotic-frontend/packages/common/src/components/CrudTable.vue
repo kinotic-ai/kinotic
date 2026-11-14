@@ -347,7 +347,12 @@ function handleCardClick(item: Identifiable<string>, index: number) {
   onRowClick({ data: item, index });
 }
 
+// a search, a page change and a parent's find() can each start a load before the last one answered, so only the
+// latest load's answer, or refusal, is shown
+let latestFind = 0;
+
 function find() {
+  const thisFind = ++latestFind;
   if (!loading.value && props.dataSource) {
     loading.value = true;
   }
@@ -365,6 +370,9 @@ function find() {
 
   queryPromise
     .then((page: Page<Identifiable<string>>) => {
+      if (thisFind !== latestFind) {
+        return;
+      }
       loading.value = false;
       const content = page.content ?? [];
       // A row deleted a moment ago can still come back while the search index catches up; it stays
@@ -385,6 +393,9 @@ function find() {
 
     .catch((error: unknown) => {
       debug('Error loading data: %O', error);
+      if (thisFind !== latestFind) {
+        return;
+      }
       refused.value = isAuthorizationError(error);
       if (refused.value) {
         // the refusal is shown in place of the rows, so the rows of an earlier load leave with it
