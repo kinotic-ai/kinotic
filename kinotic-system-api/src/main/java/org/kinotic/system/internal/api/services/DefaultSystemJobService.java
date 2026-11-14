@@ -11,9 +11,12 @@ import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.repositories.JobRunRepository;
+import org.kinotic.grind.api.services.JobScheduler;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.system.api.model.SystemJobDescriptor;
 import org.kinotic.system.api.services.SystemJobService;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -29,6 +32,7 @@ public class DefaultSystemJobService implements SystemJobService {
 
     private final List<SystemJob> systemJobs;
     private final JobService jobService;
+    private final JobScheduler jobScheduler;
     private final JobRunRepository jobRunRepository;
     private final Vertx vertx;
     private final Map<String, SystemJob> jobsByName = new HashMap<>();
@@ -47,6 +51,16 @@ public class DefaultSystemJobService implements SystemJobService {
             descriptors.add(new SystemJobDescriptor(definition.getName(), definition.getVersion(), definition.getDescription()));
         }
         descriptors.sort(Comparator.comparing(SystemJobDescriptor::getName));
+    }
+
+    // Every node hosting system-api schedules the jobs, and the cluster starts one run of each a period
+    @EventListener(ApplicationReadyEvent.class)
+    public void scheduleJobs() {
+        for (SystemJob job : systemJobs) {
+            if (job.getPeriod() != null) {
+                jobScheduler.schedule(job::createJobDefinition, JobOwner.system(), job.getPeriod());
+            }
+        }
     }
 
     @Override

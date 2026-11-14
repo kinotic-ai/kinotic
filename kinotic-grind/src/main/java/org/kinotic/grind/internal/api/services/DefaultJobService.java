@@ -209,11 +209,18 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     private static String exclusiveLockName(DefaultJobDefinition definition, JobOwner owner) {
+        return "grind.exclusive:" + ownedJobName(definition.getName(), owner);
+    }
+
+    /**
+     * @return the job's name qualified by the owner, the same for every run of the job for that owner
+     */
+    static String ownedJobName(String jobName, JobOwner owner) {
         // the name comes last: it is the only part free to contain the separator
-        return "grind.exclusive:" + Objects.toString(owner.getOrganizationId(), "")
+        return Objects.toString(owner.getOrganizationId(), "")
                 + ":" + Objects.toString(owner.getApplicationId(), "")
                 + ":" + Objects.toString(owner.getProjectId(), "")
-                + ":" + definition.getName();
+                + ":" + jobName;
     }
 
     private static JobOwner ownerOf(JobRun run) {
