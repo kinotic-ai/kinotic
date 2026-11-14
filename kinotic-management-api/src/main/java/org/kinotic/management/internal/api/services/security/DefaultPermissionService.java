@@ -130,10 +130,10 @@ public class DefaultPermissionService implements PermissionService {
                                     // read before the permissions are written, so an edit whose read failed is made
                                     // again as the same edit
                                     .compose(before -> role.permissions().containsAll(before)
-                                            ? Future.succeededFuture(List.<RelationshipTuple>of())
-                                            : holders(saved.getId(), model.grantableOn(home, ORGANIZATION)))
-                                    .compose(holders -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
-                                                                     .compose(v -> reconnected(holders)))
+                                            ? Future.succeededFuture(List.<String>of())
+                                            : holders(saved.getId(), model.grantableOn(home, ORGANIZATION)).compose(this::machines))
+                                    .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
+                                                                      .compose(v -> reconnected(machines)))
                                     .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
                                                model.grantableOn(home, ORGANIZATION), Set.copyOf(role.permissions())));
@@ -249,12 +249,14 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return requireInOrganization(resource, organizationId)
+                // read before the grant is revoked, after which a failed read could not be made again
                 .compose(lineage -> relationships.read(SYSTEM, AuthzUtil.bindingObject(object, grantId), AuthzConstants.MEMBER_RELATION))
-                .compose(members -> (ORGANIZATION.equals(resource.type())
+                .compose(this::machines)
+                .compose(machines -> (ORGANIZATION.equals(resource.type())
                         ? identities.removeAdministrators(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class,
                                                           () -> relationships.revoke(SYSTEM, grantId, object))
                         : relationships.revoke(SYSTEM, grantId, object))
-                        .compose(v -> reconnected(members)));
+                        .compose(v -> reconnected(machines)));
     }
 
     // The members of every grant of a role, read on each type the role may be granted on
@@ -277,19 +279,30 @@ public class DefaultPermissionService implements PermissionService {
         return ret;
     }
 
-    // The zones a machine hosts services in are read from its grants when it connects and kept for the connection,
-    // so a grant or a role's permission taken from a machine ends its connections and it connects again with the
-    // zones it still holds. A user's requests are each checked as they arrive, so its connections stay
-    private Future<Void> reconnected(List<RelationshipTuple> members) {
-        Future<Void> ret = Future.succeededFuture();
+    // The ids of the machines among the members of grants
+    private Future<List<String>> machines(List<RelationshipTuple> members) {
+        Future<List<String>> ret = Future.succeededFuture(new ArrayList<>());
         for (RelationshipTuple member : members) {
             if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member.user()))) {
                 String id = AuthzUtil.idOf(member.user());
-                ret = ret.compose(v -> identities.findById(id))
-                         .compose(identity -> identity instanceof MachineParticipantIdentity
-                                 ? connectionRevocationService.revoke(id)
-                                 : Future.succeededFuture());
+                ret = ret.compose(found -> identities.findById(id).map(identity -> {
+                    if (identity instanceof MachineParticipantIdentity) {
+                        found.add(id);
+                    }
+                    return found;
+                }));
             }
+        }
+        return ret;
+    }
+
+    // The zones a machine hosts services in are read from its grants when it connects and kept for the connection,
+    // so a grant or a role's permission taken from a machine ends its connections and it connects again with the
+    // zones it still holds. A user's requests are each checked as they arrive, so its connections stay
+    private Future<Void> reconnected(List<String> machines) {
+        Future<Void> ret = Future.succeededFuture();
+        for (String machine : machines) {
+            ret = ret.compose(v -> connectionRevocationService.revoke(machine));
         }
         return ret;
     }
