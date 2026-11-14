@@ -5,40 +5,52 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Created By Navíd Mitchell 🤪on 3/29/25
  */
-public class DefaultJsonStreamProcessor<T, R, C, S extends JsonStreamProcessorState> implements JsonStreamProcessor<T, R, C> {
+public class DefaultJsonStreamProcessor<T, C, S extends JsonStreamProcessorState, E> implements JsonStreamProcessor<T, C, E> {
 
-    private final JsonStreamProcessorStrategy<T, C, S> strategy;
-    private final Map<String, JsonTransformer> transformers = new HashMap<>();
+    private final JsonStreamProcessorStrategy<T, C, S, E> strategy;
+    private final Map<String, JsonTransformer<S>> transformers;
 
-    public DefaultJsonStreamProcessor(JsonStreamProcessorStrategy<T, C, S> strategy) {
+    public DefaultJsonStreamProcessor(JsonStreamProcessorStrategy<T, C, S, E> strategy) {
         this.strategy = strategy;
-        for(JsonTransformer transformer : strategy.getTransformers()){
-            transformers.put(transformer.appliesToJsonPath(), transformer);
-        }
+        this.transformers = strategy.getTransformers();
     }
 
     @Override
-    public R process(T input, C context) {
-        boolean processArray = false;
-        Deque<String> jsonPathStack = new ArrayDeque<>();
-        int objectDepth = 0;
-        int arrayDepth = 0;
+    public E process(T input, C context) {
+        List<E> results = doProcess(input, context, false);
+        if(results.size() != 1){
+            throw new IllegalStateException("Expected exactly one entity to be returned, got " + results.size());
+        }
+        return results.getFirst();
+    }
 
+    @Override
+    public List<E> processArray(T input, C context) {
+        return doProcess(input, context, true);
+    }
+
+    private List<E> doProcess(T input, C context, boolean processArray){
+        Deque<String> jsonPathStack = new ArrayDeque<>();
+        List<E> ret = new ArrayList<>();
+        int arrayDepth = 0;
         S state = strategy.createState(context);
 
-        try(JsonParser jsonParser = strategy.createParser(input, state)) {
-            JsonGenerator jsonGenerator = strategy.createGenerator(input, state);
+        // closing the generator returns its buffers to Jackson's recycler for the next call to reuse
+        try(JsonParser jsonParser = strategy.createParser(input);
+            JsonGenerator jsonGenerator = strategy.createGenerator(state)) {
 
             while (jsonParser.nextToken() != null) {
 
                 JsonToken token = jsonParser.currentToken();
+                int objectDepth = state.getObjectDepth();
 
                 if (token == JsonToken.PROPERTY_NAME) {
 
@@ -52,29 +64,32 @@ public class DefaultJsonStreamProcessor<T, R, C, S extends JsonStreamProcessorSt
                     String currentJsonPath = !jsonPathStack.isEmpty() ? jsonPathStack.peekFirst() + "." + fieldName : fieldName;
                     jsonPathStack.addFirst(currentJsonPath);
 
-                    JsonTransformer transformer = transformers.get(currentJsonPath);
-
-                    // Apply preProcessor if any exist
+                    JsonTransformer<S> transformer = transformers.get(currentJsonPath);
                     if(transformer != null){
-                        transformer.process(jsonGenerator, jsonParser, state);
+                        transformer.transform(jsonParser, jsonGenerator, state);
                     }else{
                         jsonGenerator.copyCurrentEvent(jsonParser);
                     }
 
                 }else{
 
-                    // End of root level object
+                    if(objectDepth == 0){
+                        requireRootToken(token, arrayDepth, processArray);
+                    }
+
                     if(token == JsonToken.END_OBJECT && objectDepth == 1){
-
-
-                    }else{
-                        if(!shouldSkipToken(token, jsonParser.currentValue(), arrayDepth, processArray)){
-                            jsonGenerator.copyCurrentEvent(jsonParser);
-                        }
+                        strategy.onRootObjectEnd(jsonGenerator, state);
+                        jsonGenerator.writeEndObject();
+                        jsonGenerator.flush();
+                        ret.add(strategy.emit(state));
+                    }else if(objectDepth > 0 || token == JsonToken.START_OBJECT){
+                        // outside a root object the only other tokens are the enclosing array's, which is dropped
+                        // so each root object is written on its own
+                        jsonGenerator.copyCurrentEvent(jsonParser);
                     }
 
                     if(token == JsonToken.START_OBJECT){
-                        objectDepth++;
+                        state.setObjectDepth(objectDepth + 1);
                     }else if(token == JsonToken.END_OBJECT){
 
                         // if the stack depth and the object depth are the same, the last field is done so pop the stack
@@ -82,7 +97,7 @@ public class DefaultJsonStreamProcessor<T, R, C, S extends JsonStreamProcessorSt
                             jsonPathStack.removeFirst();
                         }
 
-                        objectDepth--;
+                        state.setObjectDepth(objectDepth - 1);
                     }
 
                     if(token == JsonToken.START_ARRAY){
@@ -92,26 +107,23 @@ public class DefaultJsonStreamProcessor<T, R, C, S extends JsonStreamProcessorSt
                     }
                 }
             }
-
-            return null;
-
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Error processing JSON", e);
         }
-    }
 
-    private boolean shouldSkipToken(JsonToken token, Object currentValue, int arrayDepth, boolean processArray){
-        boolean ret = false;
-        if(processArray) {
-            if (token == JsonToken.START_ARRAY && arrayDepth == 0) {
-                ret = true;
-            } else if (token == JsonToken.END_ARRAY && arrayDepth == 1) {
-                ret = true;
-            } else if (arrayDepth == 1 && (  ",".equals(currentValue) || " ".equals(currentValue) )) {
-                ret = true;
-            }
-        }
+        strategy.onComplete(state);
         return ret;
     }
 
+    // Outside a root object the input may hold only the start of one, and in array mode the array enclosing them
+    private void requireRootToken(JsonToken token, int arrayDepth, boolean processArray){
+        if(processArray){
+            boolean valid = (token == JsonToken.START_ARRAY && arrayDepth == 0)
+                    || (token == JsonToken.START_OBJECT && arrayDepth == 1)
+                    || (token == JsonToken.END_ARRAY && arrayDepth == 1);
+            if(!valid){
+                throw new IllegalArgumentException("Expected a json array of objects");
+            }
+        }else if(token != JsonToken.START_OBJECT){
+            throw new IllegalArgumentException("Expected a json object");
+        }
+    }
 }

@@ -23,9 +23,9 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
-import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
+import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonPointer;
@@ -45,7 +45,7 @@ public class DefaultEntityService implements EntityService {
 
     private final AuthorizationService<EntityOperation> authService;
     private final CrudServiceTemplate crudServiceTemplate;
-    private final DelegatingUpsertPreProcessor delegatingUpsertPreProcessor;
+    private final TokenBufferUpsertPreProcessor upsertPreProcessor;
     private final ElasticsearchAsyncClient esAsyncClient;
     private final NamedQueriesService namedQueriesService;
     private final ObjectMapper objectMapper;
@@ -55,7 +55,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> Future<Void> bulkSave(T entities, EntityContext context) {
+    public Future<Void> bulkSave(TokenBuffer entities, EntityContext context) {
         return doPersistBulk(entities,
                              EntityOperation.BULK_SAVE,
                              context,
@@ -93,7 +93,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> Future<Void> bulkUpdate(T entities, EntityContext context) {
+    public Future<Void> bulkUpdate(TokenBuffer entities, EntityContext context) {
         return doPersistBulk(entities,
                              EntityOperation.BULK_UPDATE,
                              context,
@@ -308,7 +308,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> Future<T> save(T entity, EntityContext context) {
+    public Future<TokenBuffer> save(TokenBuffer entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.SAVE,
                          context,
@@ -337,8 +337,7 @@ public class DefaultEntityService implements EntityService {
                              }
 
                              return i;
-                         })).map(indexResponse -> postProcessSaveOrUpdate(entity,
-                                                                          entityHolder,
+                         })).map(indexResponse -> postProcessSaveOrUpdate(entityHolder,
                                                                           indexResponse.primaryTerm(),
                                                                           indexResponse.seqNo())));
     }
@@ -414,7 +413,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> Future<T> update(T entity, EntityContext context) {
+    public Future<TokenBuffer> update(TokenBuffer entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.UPDATE,
                          context,
@@ -444,8 +443,7 @@ public class DefaultEntityService implements EntityService {
 
                              return KinoticUtil.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
                                                        .map(updateResponse ->
-                                                                    postProcessSaveOrUpdate(entity,
-                                                                                            entityHolder,
+                                                                    postProcessSaveOrUpdate(entityHolder,
                                                                                             updateResponse.primaryTerm(),
                                                                                             updateResponse.seqNo()));
                          });
@@ -567,16 +565,16 @@ public class DefaultEntityService implements EntityService {
         }
     }
 
-    private <T> Future<T> doPersist(T entity,
-                                    EntityOperation operation,
-                                    EntityContext context,
-                                    Function<EntityHolder<?>, Future<T>> persistLogic){
+    private Future<TokenBuffer> doPersist(TokenBuffer entity,
+                                          EntityOperation operation,
+                                          EntityContext context,
+                                          Function<EntityHolder<RawJson>, Future<TokenBuffer>> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access the data names the tenants, so they must be
         // extracted before the context is validated and authorized
         if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
-            return delegatingUpsertPreProcessor.process(entity, context)
+            return upsertPreProcessor.process(entity, context)
                     .compose(entityHolder ->
                                          PersistenceUtil.validateEntityContext(entityDescriptor, context)
                                                  .compose(un -> authService.authorize(operation, context))
@@ -584,21 +582,21 @@ public class DefaultEntityService implements EntityService {
         }else{
             return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                     .compose(un -> authService.authorize(operation, context))
-                    .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
+                    .compose(un -> upsertPreProcessor.process(entity, context))
                     .compose(persistLogic);
         }
     }
 
-    private <T> Future<Void> doPersistBulk(T entities,
-                                           EntityOperation operation,
-                                           EntityContext context,
-                                           Function<EntityHolder<?>, BulkOperation> persistLogic){
+    private Future<Void> doPersistBulk(TokenBuffer entities,
+                                       EntityOperation operation,
+                                       EntityContext context,
+                                       Function<EntityHolder<RawJson>, BulkOperation> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access the data names the tenants, so they must be
         // extracted before the context is validated and authorized
         if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
-            return delegatingUpsertPreProcessor.processArray(entities, context)
+            return upsertPreProcessor.processArray(entities, context)
                     .compose(entityList ->
                                          PersistenceUtil.validateEntityContext(entityDescriptor, context)
                                                  .compose(un -> authService.authorize(operation, context))
@@ -607,19 +605,19 @@ public class DefaultEntityService implements EntityService {
         }else {
             return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                     .compose(un -> authService.authorize(operation, context))
-                    .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
+                    .compose(un -> upsertPreProcessor.processArray(entities, context))
                     .compose(list -> doPersistBulkLogic(list, persistLogic))
                     .mapEmpty();
         }
     }
 
-    private Future<BulkResponse> doPersistBulkLogic(List<EntityHolder<Object>> list,
-                                                    Function<EntityHolder<?>, BulkOperation> persistLogic) {
+    private Future<BulkResponse> doPersistBulkLogic(List<EntityHolder<RawJson>> list,
+                                                    Function<EntityHolder<RawJson>, BulkOperation> persistLogic) {
 
         BulkRequest.Builder br = new BulkRequest.Builder();
 
         List<BulkOperation> bulkOperations = new ArrayList<>(list.size());
-        for(EntityHolder<?> entityHolder : list){
+        for(EntityHolder<RawJson> entityHolder : list){
             bulkOperations.add(persistLogic.apply(entityHolder));
         }
 
@@ -646,33 +644,23 @@ public class DefaultEntityService implements EntityService {
         });
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> T postProcessSaveOrUpdate(T entity, EntityHolder<?> entityHolder, Long primaryTerm, Long seqNo) {
-        // All token buffers received will be converted to RawJson in the upsert preprocessor
-        // This is done since it uses less memory for bulk operations
-        // So we convert those cases back to a TokenBuffer before returning
+    private TokenBuffer postProcessSaveOrUpdate(EntityHolder<RawJson> entityHolder, Long primaryTerm, Long seqNo) {
+        // The upsert pre-processor holds each entity as RawJson, which uses less memory for bulk operations,
+        // so it is converted back to the TokenBuffer a save or update returns
+        TokenBuffer ret;
         if(entityDescriptor.isOptimisticLockingEnabled()){
-            return (T) updateVersionForEntity(entityHolder.entity(),
-                                              primaryTerm,
-                                              seqNo,
-                                              entity instanceof TokenBuffer
-                                                      && entityHolder.entity() instanceof RawJson
-            );
+            Object versioned = updateVersionForEntity((Object) entityHolder.entity(), primaryTerm, seqNo, true);
+            ret = (TokenBuffer) versioned;
         }else{
-            if(entity instanceof TokenBuffer
-                    && entityHolder.entity() instanceof RawJson json){
-                try {
-                    ObjectNode node = (ObjectNode) objectMapper.readTree(json.data());
-                    TokenBuffer buffer = new TokenBuffer(objectMapper._serializationContext(), false);
-                    objectMapper.writeValue(buffer, node);
-                    return (T) buffer;
-                } catch (JacksonException e) {
-                    throw new IllegalStateException(e);
-                }
-            }else {
-                return (T) entityHolder.entity();
+            try {
+                ObjectNode node = (ObjectNode) objectMapper.readTree(entityHolder.entity().data());
+                ret = new TokenBuffer(objectMapper._serializationContext(), false);
+                objectMapper.writeValue(ret, node);
+            } catch (JacksonException e) {
+                throw new IllegalStateException(e);
             }
         }
+        return ret;
     }
 
     private <T> T updateVersionForEntity(T entity, Long primaryTerm, Long seqNo){

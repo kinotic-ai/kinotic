@@ -17,15 +17,16 @@ import org.kinotic.domain.api.model.security.participant.DefaultOrganizationPart
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
-import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
+import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
 import org.kinotic.persistence.internal.api.services.ElasticVersion;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +56,7 @@ public class TokenBufferUpsertPreProcessorTest {
                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                List.of("ADMIN"));
 
-    private final JsonMapper jsonMapper = JsonMapper.builder().build();
+    private final JsonMapper jsonMapper = JsonMapper.builder().disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     private final DomainPersistenceProperties properties = new DomainPersistenceProperties();
 
     @Test
@@ -151,7 +152,10 @@ public class TokenBufferUpsertPreProcessorTest {
         assertEquals("tenant1", matching.tenantId());
 
         EntityHolder<RawJson> nullValued = process(processor, "{\"id\":\"car-1\",\"tenantId\":null,\"make\":\"Audi\"}", context(TENANT1));
-        assertEquals("tenant1", json(nullValued.entity()).get("tenantId").asString(), "A null tenant is replaced by the participant's");
+        // compared as text, since parsing would hide a tenant field written twice
+        assertEquals("{\"id\":\"car-1\",\"tenantId\":\"tenant1\",\"make\":\"Audi\"}",
+                     new String(nullValued.entity().data(), StandardCharsets.UTF_8),
+                     "A null tenant is replaced by the participant's, in place");
         assertEquals("tenant1", nullValued.tenantId());
 
         assertInstanceOf(IllegalArgumentException.class,
@@ -253,9 +257,29 @@ public class TokenBufferUpsertPreProcessorTest {
                          fail(processor, "[{\"id\":\"a\"},{\"id\":\"\"}]", context(TENANT1)),
                          "One bad element fails the whole array");
 
-        Future<EntityHolder<RawJson>> single = processor.process(buffer("[{\"id\":\"a\"},{\"id\":\"b\"}]"), context(TENANT1));
-        assertTrue(single.failed(), "An array is not a single entity");
-        assertInstanceOf(IllegalStateException.class, single.cause());
+    }
+
+    @Test
+    public void inputOfTheWrongShapeIsRejected() {
+        TokenBufferUpsertPreProcessor processor = processor(descriptor(MultiTenancyType.NONE),
+                                                            Map.of("id", new IdDecorator()));
+
+        for (String notAnObject : List.of("[{\"id\":\"a\"}]", "[{\"id\":\"a\"},{\"id\":\"b\"}]", "[]", "\"a\"", "5", "null")) {
+            Future<EntityHolder<RawJson>> single = processor.process(buffer(notAnObject), context(TENANT1));
+            assertTrue(single.failed(), () -> "A single entity must be a json object, but this was accepted: " + notAnObject);
+            assertInstanceOf(IllegalArgumentException.class, single.cause(), notAnObject);
+        }
+
+        for (String notAnArrayOfObjects : List.of("{\"id\":\"a\",\"tags\":[\"x\"]}",
+                                                  "[[{\"id\":\"a\"}]]",
+                                                  "[{\"id\":\"a\"},5]",
+                                                  "[\"a\"]",
+                                                  "[null]",
+                                                  "\"a\"")) {
+            Future<List<EntityHolder<RawJson>>> array = processor.processArray(buffer(notAnArrayOfObjects), context(TENANT1));
+            assertTrue(array.failed(), () -> "Entities must be a json array of objects, but this was accepted: " + notAnArrayOfObjects);
+            assertInstanceOf(IllegalArgumentException.class, array.cause(), notAnArrayOfObjects);
+        }
     }
 
     // ---- fixtures ----
@@ -291,23 +315,21 @@ public class TokenBufferUpsertPreProcessorTest {
     }
 
     /**
-     * Wires each decorated json path to the real field processor that handles its decorator, as
+     * Wires each decorated json path to the real field transformer that handles its decorator, as
      * {@code EntityServiceCache} does from an {@code EntityDefinition}'s decorated properties.
      */
-    @SuppressWarnings("unchecked")
     private TokenBufferUpsertPreProcessor processor(EntityDescriptor descriptor, Map<String, C3Decorator> decoratedPaths) {
-        Map<String, UpsertFieldPreProcessor<?, ?, ?>> fieldProcessors = new LinkedHashMap<>();
-        for (UpsertFieldPreProcessor<?, ?, ?> fieldProcessor : List.of(new IdUpsertFieldPreProcessor(),
-                                                                         new AutoGeneratedIdUpsertFieldPreProcessor(),
-                                                                         new VersionUpsertFieldPreProcessor(),
-                                                                         new TenantIdUpsertFieldPreProcessor(),
-                                                                         new TimeRefUpsertFieldPreProcessor())) {
-            fieldProcessors.put(fieldProcessor.implementsDecorator().getName(), fieldProcessor);
+        Map<String, UpsertFieldTransformer> transformersByDecorator = new LinkedHashMap<>();
+        for (UpsertFieldTransformer transformer : List.of(new IdUpsertFieldTransformer(),
+                                                          new AutoGeneratedIdUpsertFieldTransformer(),
+                                                          new VersionUpsertFieldTransformer(),
+                                                          new TenantIdUpsertFieldTransformer(),
+                                                          new TimeReferenceUpsertFieldTransformer())) {
+            transformersByDecorator.put(transformer.implementsDecorator().getName(), transformer);
         }
-        Map<String, DecoratorLogic> logic = new LinkedHashMap<>();
-        decoratedPaths.forEach((path, decorator) -> logic.put(path, new DecoratorLogic(decorator,
-                                                                                       (UpsertFieldPreProcessor<C3Decorator, Object, Object>) fieldProcessors.get(decorator.getClass().getName()))));
-        return new TokenBufferUpsertPreProcessor(properties, jsonMapper, descriptor, logic);
+        Map<String, UpsertFieldTransformer> fieldTransformers = new LinkedHashMap<>();
+        decoratedPaths.forEach((path, decorator) -> fieldTransformers.put(path, transformersByDecorator.get(decorator.getClass().getName())));
+        return new TokenBufferUpsertPreProcessor(properties, jsonMapper, descriptor, fieldTransformers);
     }
 
     private TokenBuffer buffer(String json) {
