@@ -152,7 +152,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
-    Future<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
+    Future<RawJson> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@code Pageable} object.
@@ -185,6 +185,6 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
-    Future<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
+    Future<RawJson> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
 }

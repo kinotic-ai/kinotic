@@ -9,6 +9,7 @@ import co.elastic.clients.elasticsearch.core.UpdateRequest;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
+import co.elastic.clients.json.JsonpDeserializer;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,6 @@ import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
-import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import tools.jackson.databind.util.TokenBuffer;
 
@@ -46,8 +46,8 @@ public class DefaultEntityService implements EntityService {
     private final NamedQueriesService namedQueriesService;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
-    private final JsonStreamProcessor<RawJson, ElasticVersion, RawJson> readResultProcessor;
-    private final JsonStreamProcessor<RawJson, ElasticVersion, TokenBuffer> writeResultProcessor;
+    private final JsonpDeserializer<EntityDocument> documentDeserializer;
+    private final EntityVersionWriter versionWriter;
     private final EntityDescriptor entityDescriptor;
 
     @WithSpan
@@ -192,10 +192,11 @@ public class DefaultEntityService implements EntityService {
                 .compose(un -> crudServiceTemplate
                         .search(entityDescriptor.itemIndex(),
                                 pageable,
-                                sourceType(type),
+                                sourceDeserializer(type),
                                 builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
-                                hit -> toResult(hit.source(), hit.primaryTerm(), hit.seqNo(), type)))
-                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"));
+                                hit -> withVersion(hit.source(), hit.primaryTerm(), hit.seqNo())))
+                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "FindAll"))
+                .map(page -> page.map(source -> toResult(source, type)));
     }
 
     @WithSpan
@@ -269,7 +270,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public Future<TokenBuffer> save(TokenBuffer entity, EntityContext context) {
+    public Future<RawJson> save(TokenBuffer entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.SAVE,
                          context,
@@ -298,9 +299,9 @@ public class DefaultEntityService implements EntityService {
                              }
 
                              return i;
-                         })).map(indexResponse -> toWriteResult(entityHolder,
-                                                                          indexResponse.primaryTerm(),
-                                                                          indexResponse.seqNo())));
+                         })).map(indexResponse -> versionWriter.write(entityHolder.entity(),
+                                                                      indexResponse.primaryTerm(),
+                                                                      indexResponse.seqNo())));
     }
 
     @WithSpan
@@ -311,10 +312,11 @@ public class DefaultEntityService implements EntityService {
                 .compose(un -> crudServiceTemplate
                         .search(entityDescriptor.itemIndex(),
                                 pageable,
-                                sourceType(type),
+                                sourceDeserializer(type),
                                 builder -> readPreProcessor.beforeSearch(entityDescriptor, searchText, builder, context),
-                                hit -> toResult(hit.source(), hit.primaryTerm(), hit.seqNo(), type)))
-                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"));
+                                hit -> withVersion(hit.source(), hit.primaryTerm(), hit.seqNo())))
+                .map(readPostProcessor.paranoidCheck(entityDescriptor, context, "Search"))
+                .map(page -> page.map(source -> toResult(source, type)));
     }
 
     @WithSpan
@@ -326,7 +328,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public Future<TokenBuffer> update(TokenBuffer entity, EntityContext context) {
+    public Future<RawJson> update(TokenBuffer entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.UPDATE,
                          context,
@@ -356,8 +358,8 @@ public class DefaultEntityService implements EntityService {
 
                              return KinoticUtil.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
                                                        .map(updateResponse ->
-                                                                    toWriteResult(entityHolder,
-                                                                                            updateResponse.primaryTerm(),
+                                                                    versionWriter.write(entityHolder.entity(),
+                                                                                        updateResponse.primaryTerm(),
                                                                                             updateResponse.seqNo()));
                          });
     }
@@ -399,9 +401,9 @@ public class DefaultEntityService implements EntityService {
         return crudServiceTemplate
                 .findById(entityDescriptor.itemIndex(),
                           id,
-                          sourceType(type),
+                          sourceDeserializer(type),
                           builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
-                          result -> toResult(result.source(), result.primaryTerm(), result.seqNo(), type));
+                          result -> toResult(withVersion(result.source(), result.primaryTerm(), result.seqNo()), type));
     }
 
     private <T> Future<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
@@ -409,49 +411,43 @@ public class DefaultEntityService implements EntityService {
                                             EntityContext context) {
         return crudServiceTemplate
                 .multiGet(composedIds,
-                          sourceType(type),
+                          sourceDeserializer(type),
                           builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
-                          result -> toResult(result.source(), result.primaryTerm(), result.seqNo(), type));
+                          result -> toResult(withVersion(result.source(), result.primaryTerm(), result.seqNo()), type));
     }
 
-    // A FastestType is read as whichever type goes back out to the caller with the least work: RawJson, which is
-    // written out as it is, or for an entity with a version field a Map, which takes the version without the
-    // document being parsed a second time
-    private Class<?> sourceType(Class<?> type) {
-        Class<?> ret;
-        if(!FastestType.class.isAssignableFrom(type)){
-            ret = type;
-        }else if(entityDescriptor.isOptimisticLockingEnabled()){
-            ret = Map.class;
-        }else{
-            ret = RawJson.class;
-        }
-        return ret;
-    }
-
-    private <T> T toResult(Object source, Long primaryTerm, Long seqNo, Class<T> type) {
-        Object entity = entityDescriptor.isOptimisticLockingEnabled() ? withVersion(source, primaryTerm, seqNo) : source;
-        return type.cast(FastestType.class.isAssignableFrom(type) ? new FastestType(entity) : entity);
+    // A FastestType is read as the document's json, which goes back out to the caller without being converted
+    private JsonpDeserializer<?> sourceDeserializer(Class<?> type) {
+        return FastestType.class.isAssignableFrom(type) || RawJson.class.isAssignableFrom(type)
+                ? documentDeserializer
+                : crudServiceTemplate.sourceDeserializer(type);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private Object withVersion(Object source, Long primaryTerm, Long seqNo) {
         Object ret;
-        switch (source) {
-            case RawJson rawJson -> ret = readResultProcessor.process(rawJson, new ElasticVersion(primaryTerm, seqNo));
-            case Map map -> {
-                map.put(entityDescriptor.versionFieldName(), primaryTerm + ":" + seqNo);
-                ret = map;
-            }
-            case null, default -> throw new IllegalArgumentException("Pojo Not Supported for Version");
+        if(source instanceof EntityDocument document){
+            ret = versionWriter.write(document, primaryTerm, seqNo);
+        }else if(!entityDescriptor.isOptimisticLockingEnabled()){
+            ret = source;
+        }else if(source instanceof Map map){
+            map.put(entityDescriptor.versionFieldName(), primaryTerm + ":" + seqNo);
+            ret = map;
+        }else{
+            throw new IllegalArgumentException("Pojo Not Supported for Version");
         }
         return ret;
     }
 
-    private Future<TokenBuffer> doPersist(TokenBuffer entity,
-                                          EntityOperation operation,
-                                          EntityContext context,
-                                          Function<EntityHolder<RawJson>, Future<TokenBuffer>> persistLogic){
+    private <T> T toResult(Object source, Class<T> type) {
+        Object entity = source instanceof EntityDocument document ? document.json() : source;
+        return type.cast(FastestType.class.isAssignableFrom(type) ? new FastestType(entity) : entity);
+    }
+
+    private Future<RawJson> doPersist(TokenBuffer entity,
+                                      EntityOperation operation,
+                                      EntityContext context,
+                                      Function<EntityHolder<RawJson>, Future<RawJson>> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access the data names the tenants, so they must be
         // extracted before the context is validated and authorized
@@ -525,13 +521,6 @@ public class DefaultEntityService implements EntityService {
                 return Future.succeededFuture(bulkResponse);
             }
         });
-    }
-
-    // The upsert pre-processor holds each entity as RawJson, which uses less memory for bulk operations, so it is
-    // written back out as the TokenBuffer a save or update returns
-    private TokenBuffer toWriteResult(EntityHolder<RawJson> entityHolder, Long primaryTerm, Long seqNo) {
-        ElasticVersion version = entityDescriptor.isOptimisticLockingEnabled() ? new ElasticVersion(primaryTerm, seqNo) : null;
-        return writeResultProcessor.process(entityHolder.entity(), version);
     }
 
     private Future<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){

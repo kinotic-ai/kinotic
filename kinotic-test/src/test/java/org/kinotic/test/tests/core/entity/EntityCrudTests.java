@@ -681,7 +681,7 @@ public class EntityCrudTests extends KinoticTestBase {
         tokenBuffer.writePOJO(person);
 
         StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext)).toCompletionStage()))
-                    .expectNextMatches(saved -> "tenant1".equals(objectMapper.readTree(saved.asParser()).get("tenantId").asString()))
+                    .expectNextMatches(saved -> "tenant1".equals(objectMapper.readTree(saved.data()).get("tenantId").asString()))
                     .as("A null tenant field is saved as the participant's tenant")
                     .verifyComplete();
 

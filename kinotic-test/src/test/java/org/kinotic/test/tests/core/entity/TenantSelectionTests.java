@@ -272,7 +272,7 @@ public class TenantSelectionTests extends KinoticTestBase {
         try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
             tokenBuffer.writePOJO(person(tenantId, lastName));
             return runAsOrganization(() -> entitiesService.save(definition.getId(), tokenBuffer, context))
-                    .map(saved -> objectMapper.readTree(saved.asParser()));
+                    .map(saved -> objectMapper.readTree(saved.data()));
         }
     }
 

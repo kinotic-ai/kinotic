@@ -5,17 +5,15 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
-import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
+import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
-import org.kinotic.persistence.internal.api.hooks.impl.EntityResultStrategy;
 import org.kinotic.persistence.internal.api.hooks.impl.TokenBufferUpsertPreProcessor;
-import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.persistence.internal.api.hooks.ReadPostProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
@@ -23,11 +21,11 @@ import org.kinotic.persistence.internal.api.hooks.UpsertFieldTransformer;
 import org.kinotic.domain.api.model.persistence.DecoratedProperty;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
+import org.kinotic.persistence.internal.serializer.EntityDocumentDeserializer;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.util.TokenBuffer;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -51,8 +49,7 @@ public class EntityServiceCache {
     private final NamedQueriesService namedQueriesService;
     private final JsonMapper jsonMapper;
     private final JsonMapper upsertJsonMapper;
-    private final JsonStreamProcessor<RawJson, ElasticVersion, RawJson> unversionedReadResultProcessor;
-    private final JsonStreamProcessor<RawJson, ElasticVersion, TokenBuffer> unversionedWriteResultProcessor;
+    private final EntityVersionWriter unversionedVersionWriter;
     private final ReadPreProcessor readPreProcessor;
     private final ReadPostProcessor readPostProcessor;
     private final EntityDefinitionRepository entityDefinitionRepository;
@@ -88,8 +85,7 @@ public class EntityServiceCache {
         this.entityDefinitionRepository = entityDefinitionRepository;
         this.domainPersistenceProperties = domainPersistenceProperties;
 
-        this.unversionedReadResultProcessor = JsonStreamProcessor.create(EntityResultStrategy.toRawJson(jsonMapper, null));
-        this.unversionedWriteResultProcessor = JsonStreamProcessor.create(EntityResultStrategy.toTokenBuffer(jsonMapper, null));
+        this.unversionedVersionWriter = new EntityVersionWriter(jsonMapper, null);
 
         this.upsertFieldTransformers = PersistenceUtil.listToMap(upsertFieldTransformers,
                                                                 t -> t.implementsDecorator().getName());
@@ -152,14 +148,14 @@ public class EntityServiceCache {
 
         EntityDescriptor entityDescriptor = entityDefinition.toDescriptor();
 
-        // an entity without a version field has nothing of its own to write, so every such entity shares one processor
         String versionFieldName = entityDescriptor.versionFieldName();
-        JsonStreamProcessor<RawJson, ElasticVersion, RawJson> readResultProcessor = versionFieldName != null
-                ? JsonStreamProcessor.create(EntityResultStrategy.toRawJson(jsonMapper, versionFieldName))
-                : unversionedReadResultProcessor;
-        JsonStreamProcessor<RawJson, ElasticVersion, TokenBuffer> writeResultProcessor = versionFieldName != null
-                ? JsonStreamProcessor.create(EntityResultStrategy.toTokenBuffer(jsonMapper, versionFieldName))
-                : unversionedWriteResultProcessor;
+        String tenantFieldName = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
+                ? entityDescriptor.tenantFieldName(domainPersistenceProperties.getTenantIdFieldName())
+                : null;
+        EntityDocumentDeserializer documentDeserializer = new EntityDocumentDeserializer(jsonMapper, versionFieldName, tenantFieldName);
+        // an entity without a version field has no version to write, so every such entity shares one writer
+        EntityVersionWriter versionWriter = versionFieldName != null ? new EntityVersionWriter(jsonMapper, versionFieldName)
+                                                                     : unversionedVersionWriter;
 
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
                                  .map(authService -> new DefaultEntityService(
@@ -173,8 +169,8 @@ public class EntityServiceCache {
                                          namedQueriesService,
                                          readPreProcessor,
                                          readPostProcessor,
-                                         readResultProcessor,
-                                         writeResultProcessor,
+                                         documentDeserializer,
+                                         versionWriter,
                                          entityDescriptor));
     }
 

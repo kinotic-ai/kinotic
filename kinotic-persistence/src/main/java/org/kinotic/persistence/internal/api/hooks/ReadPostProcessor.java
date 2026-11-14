@@ -11,8 +11,11 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.FastestType;
+import org.kinotic.persistence.internal.api.services.EntityDocument;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -104,13 +107,11 @@ public class ReadPostProcessor {
 
     private String extractTenant(Object object, String tenantIdFieldName){
         Object data = (object instanceof FastestType ? ((FastestType) object).data() : object);
-        if(data instanceof RawJson rawJson){
-            try {
-                Map<?,?> converted = jsonMapper.readValue(rawJson.data(), Map.class);
-                return (String) converted.get(tenantIdFieldName);
-            } catch (JacksonException e) {
-                throw new IllegalStateException("RawJson could not be deserialized for sanity check",e);
-            }
+        if(data instanceof EntityDocument document){
+            return document.tenantId();
+
+        } else if(data instanceof RawJson rawJson){
+            return readTenant(rawJson, tenantIdFieldName);
 
         } else if (data instanceof Map<?,?> map) {
             return (String) map.get(tenantIdFieldName);
@@ -119,11 +120,38 @@ public class ReadPostProcessor {
         }
     }
 
+    // Reads the top-level fields without binding the document to objects, since this runs for every item of a page
+    private String readTenant(RawJson rawJson, String tenantIdFieldName){
+        String ret = null;
+        try (JsonParser parser = jsonMapper.createParser(rawJson.data())) {
+            if(parser.nextToken() == JsonToken.START_OBJECT){
+                while(parser.nextToken() == JsonToken.PROPERTY_NAME){
+                    boolean tenantField = tenantIdFieldName.equals(parser.currentName());
+                    JsonToken value = parser.nextToken();
+                    if(!tenantField){
+                        parser.skipChildren();
+                    }else if(value == JsonToken.VALUE_STRING){
+                        ret = parser.getString();
+                    }else if(value == JsonToken.VALUE_NULL){
+                        ret = null;
+                    }else{
+                        throw new IllegalStateException("The tenant field " + tenantIdFieldName + " does not hold a string");
+                    }
+                }
+            }
+        } catch (JacksonException e) {
+            throw new IllegalStateException("RawJson could not be deserialized for sanity check",e);
+        }
+        return ret;
+    }
+
     private String formatToPrintJson(Object object){
         Object data = (object instanceof FastestType ? ((FastestType) object).data() : object);
         try {
             if(data instanceof Map<?,?> map){
                 return jsonMapper.convertValue(map, ObjectNode.class).toPrettyString();
+            }else if(data instanceof EntityDocument document){
+                return jsonMapper.readValue(document.json().data(), ObjectNode.class).toPrettyString();
             }else if(data instanceof RawJson rawJson){
                 return jsonMapper.readValue(rawJson.data(), ObjectNode.class).toPrettyString();
             }else{
