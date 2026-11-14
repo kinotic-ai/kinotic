@@ -392,6 +392,44 @@ CREATE TABLE IF NOT EXISTS kinotic_llm_configuration (
     updated DATE
 );
 
+-- Billing plan: what an organization pays for Kinotic Cloud (BillingPlanService); a flat fee, metered usage or both,
+-- each component a Stripe Price of the plan's Stripe Product. Written only where kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_billing_plan (
+    id KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    organizationId KEYWORD,
+    currency KEYWORD NOT INDEXED,
+    interval KEYWORD NOT INDEXED,
+    components OBJECT (
+        type KEYWORD,
+        amount LONG NOT INDEXED,
+        meter KEYWORD,
+        unitAmount DECIMAL NOT INDEXED,
+        includedQuantity LONG NOT INDEXED,
+        stripePriceId KEYWORD NOT INDEXED
+    ),
+    archived BOOLEAN,
+    stripeProductId KEYWORD NOT INDEXED,
+    created DATE,
+    updated DATE
+);
+
+-- Billing account: an organization's trial, subscription and whether payment is due, under the organization's id.
+-- Written only where kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_billing_account (
+    id KEYWORD,
+    status KEYWORD,
+    trialEndsAt DATE,
+    planId KEYWORD,
+    currentPeriodEnd DATE NOT INDEXED,
+    pastDueSince DATE,
+    stripeCustomerId KEYWORD NOT INDEXED,
+    stripeSubscriptionId KEYWORD,
+    created DATE,
+    updated DATE
+);
+
 -- Installed license key: the one Kinotic Enterprise License key the whole cluster runs on (EntitlementService),
 -- under the id 'installed', which a system user installs on the system console's License page.
 CREATE TABLE IF NOT EXISTS kinotic_installed_license_key (

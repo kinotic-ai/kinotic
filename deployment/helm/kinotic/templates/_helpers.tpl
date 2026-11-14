@@ -42,7 +42,8 @@ The files a server's system-secrets volume holds, as a YAML list of the Key Vaul
 comes from and the file name it is mounted as: the server's own JWT key set, and
 the properties Spring imports from the directory as a config tree, each file named after the
 property it sets. The GitHub App's secrets go only to a server with githubApp set, the Turnstile
-site's secret only to one with turnstile set.
+site's secret only to one with turnstile set, and the Stripe secrets only to one with stripeBilling
+set while billing is enabled.
 Takes (dict "name" <server key> "server" <server values> "root" $).
 */}}
 {{- define "kinotic.systemSecretFiles" -}}
@@ -64,6 +65,12 @@ Takes (dict "name" <server key> "server" <server values> "root" $).
 {{- if .server.turnstile }}
 - object: {{ $objects.turnstileSecretKey }}
   path: kinotic.managementServer.turnstile.secretKey
+{{- end }}
+{{- if and .server.stripeBilling .root.Values.kinotic.managementApi.billing.enabled }}
+- object: {{ $objects.stripeSecretKey }}
+  path: kinotic.managementApi.billing.stripeSecretKey
+- object: {{ $objects.stripeWebhookSecret }}
+  path: kinotic.managementApi.billing.stripeWebhookSecret
 {{- end }}
 {{- end -}}
 
@@ -119,6 +126,10 @@ KINOTIC_MANAGEMENTAPI_APIBASEURL: "{{ $root.Values.kinotic.managementApi.apiBase
 KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ $root.Values.kinotic.managementApi.lokiUrl }}"
 KINOTIC_MANAGEMENTAPI_TEMPOURL: "{{ $root.Values.kinotic.managementApi.tempoUrl }}"
 KINOTIC_MANAGEMENTAPI_MIMIRURL: "{{ $root.Values.kinotic.managementApi.mimirUrl }}"
+
+# ── Billing (Kinotic Cloud only) ──────────────────────────
+KINOTIC_MANAGEMENTAPI_BILLING_ENABLED: "{{ $root.Values.kinotic.managementApi.billing.enabled }}"
+KINOTIC_MANAGEMENTAPI_BILLING_TRIALDAYS: "{{ $root.Values.kinotic.managementApi.billing.trialDays }}"
 # The agent's service name, and the service_name label Alloy gives this server's logs from the
 # pods' app label
 OTEL_SERVICE_NAME: "{{ .name }}"

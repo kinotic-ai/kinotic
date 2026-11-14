@@ -108,6 +108,8 @@ dependencyManagement {
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
+        dependency "com.stripe:stripe-java:${stripeJavaVersion}"
+
         dependency "commons-io:commons-io:${commonsIoVersion}"
 
         // JWT and OIDC dependencies

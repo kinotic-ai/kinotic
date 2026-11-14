@@ -15,7 +15,11 @@ dependencies {
     implementation 'com.azure:azure-storage-file-datalake'
 
     implementation 'io.vertx:vertx-core'
+    implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'
+
+    // bills organizations, where kinotic.managementApi.billing.enabled
+    implementation 'com.stripe:stripe-java'
 
     implementation 'co.elastic.clients:elasticsearch-java'
     implementation 'co.elastic.clients:elasticsearch-rest5-client'

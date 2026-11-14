@@ -10,6 +10,12 @@ kinotic:
       appPrivateKey: "-"
       webhookSecret: "-"
       repoTemplate: "-"
+    # billing on, against StripeStandIn; the keys are placeholders the stand-in never checks
+    billing:
+      enabled: true
+      trialDays: 30
+      stripeSecretKey: sk_test_placeholder
+      stripeWebhookSecret: whsec_placeholder
     # the bases of the callback URLs OwnedOidcConfigurationService gives and of the URL a UI build is
     # handed (appApiBaseUrl below); no test signs in through one or deploys a UI
     apiBaseUrl: http://localhost:9090

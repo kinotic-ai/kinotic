@@ -43,6 +43,9 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
 	testImplementation 'org.springframework.security:spring-security-oauth2-client'
 
+	// billing's Stripe stand-in serves the client the system bills through
+	testImplementation 'com.stripe:stripe-java'
+
 	testImplementation 'org.testcontainers:testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-elasticsearch'
 }
