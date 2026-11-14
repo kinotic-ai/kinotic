@@ -11,6 +11,7 @@ import org.kinotic.authz.api.model.Subject;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * The relationships held in the stores, and the questions a store answers from them. Every operation names its
@@ -145,6 +146,18 @@ public interface RelationshipService {
      * @return completes when the store holds nothing of the user, at once for a store that does not exist
      */
     Future<Void> removeSubject(String store, String user);
+
+    /**
+     * Runs changes to an object's record and its place in the stores while no other caller of this function is
+     * changing the same object anywhere in the cluster, so a creation and a deletion of one id, each made of
+     * several writes, never interleave.
+     *
+     * @param object  the object, in {@code type:id} form
+     * @param changes the changes to run
+     * @return what the changes complete with; fails when the object is still being changed by another caller
+     *         after thirty seconds
+     */
+    <T> Future<T> exclusively(String object, Supplier<Future<T>> changes);
 
     /**
      * Revokes a grant where it was made: its role, its members and its attachment to the object are removed, once

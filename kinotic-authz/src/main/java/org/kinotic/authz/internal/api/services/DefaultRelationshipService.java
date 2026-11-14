@@ -12,7 +12,9 @@ import dev.openfga.sdk.api.model.TupleKey;
 import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
 import dev.openfga.sdk.errors.ApiException;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.Validate;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
@@ -44,9 +46,12 @@ import java.util.UUID;
 public class DefaultRelationshipService implements RelationshipService {
 
     private static final int HTTP_CONFLICT = 409;
+    private static final String OBJECT_LOCK_PREFIX = "kinotic.authz.object.";
+    private static final long OBJECT_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final OpenFgaService fga;
     private final DefaultAuthzStoreService stores;
+    private final Vertx vertx;
 
     // Adds and removes relationships, in as many requests as the engine's limit per request takes
     private Future<Void> write(String store, List<RelationshipTuple> writes, List<RelationshipTuple> deletes) {
@@ -186,6 +191,13 @@ public class DefaultRelationshipService implements RelationshipService {
             tuples.add(new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
             return remove(store, tuples);
         });
+    }
+
+    @Override
+    public <T> Future<T> exclusively(String object, Supplier<Future<T>> changes) {
+        Validate.notBlank(object, "object cannot be blank");
+        Validate.notNull(changes, "changes cannot be null");
+        return vertx.sharedData().withLock(OBJECT_LOCK_PREFIX + object, OBJECT_LOCK_TIMEOUT_MILLIS, changes);
     }
 
     @Override

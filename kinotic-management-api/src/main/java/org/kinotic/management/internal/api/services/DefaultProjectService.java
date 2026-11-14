@@ -149,11 +149,10 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                     if (existing != null) {
                         ret = placed(requireApplicationOf(project, existing));
                     } else {
-                        // the create refuses an id already held, so of two callers at once only the first places
-                        // the project in the graph, and grants made on it since are kept
+                        // of two callers at once only the first writes the project and places it in the graph, so
+                        // grants made on it since are kept
                         ret = repoProvisioner.provision(project)
-                                             .compose(super::createSync)
-                                             .compose(this::contained)
+                                             .compose(provisioned -> written(provisioned, super::createSync))
                                              .recover(ex -> AlreadyExistsException.isCause(ex)
                                                      ? super.findById(project.getId()).map(found -> requireApplicationOf(project, found))
                                                      : Future.failedFuture(ex));
@@ -193,12 +192,26 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     @Override
     public Future<Void> deleteById(String id) {
-        return super.findById(id).compose(project -> super.deleteById(id).compose(v -> uncontained(project)));
+        return deleted(id, super::deleteById);
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return super.findById(id).compose(project -> super.deleteByIdSync(id).compose(v -> uncontained(project)));
+        return deleted(id, super::deleteByIdSync);
+    }
+
+    // The project leaves the graph with every grant made on it, while no caller creates a project of its id
+    private Future<Void> deleted(String id, Function<String, Future<Void>> delete) {
+        return super.findById(id).compose(project -> {
+            Future<Void> ret;
+            if (project == null) {
+                ret = delete.apply(id);
+            } else {
+                String object = containment(project).object();
+                ret = relationships.exclusively(object, () -> delete.apply(id).compose(v -> relationships.removeObject(AuthzStoreService.SYSTEM, object)));
+            }
+            return ret;
+        });
     }
 
     // A create whose placement failed left the record without its place in the graph, which the record outlives
@@ -213,19 +226,20 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                             .map(existing);
     }
 
-    // The project's place in the graph, written once the record is, so a write that fails leaves a project
-    // nobody can reach rather than one nobody stores. What a deleted project of the same id left behind, when the
-    // removal after its record's deletion failed, is removed first, so the project starts with no grant
-    private Future<Project> contained(Project project) {
+    // Writes the project and its place in the graph while no other caller creates or deletes a project of its id,
+    // which a caller chooses and the graph knows by organization, whichever application it is in. What a deleted
+    // project of the id left behind, when the removal after its record's deletion failed, is removed before the
+    // record is written, so the new project is never reached through a grant made on the old one, and a removal
+    // that cannot be made fails the create. A placement that fails leaves a project nobody can reach rather than
+    // one nobody stores, since its repository exists by then
+    private Future<Project> written(Project project, Function<Project, Future<Project>> write) {
         RelationshipTuple containment = containment(project);
-        return relationships.removeObject(AuthzStoreService.SYSTEM, containment.object())
-                            .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)))
-                            .map(project);
-    }
-
-    // The project leaves the graph with every grant made on it, so one created again under its id starts with none
-    private Future<Void> uncontained(Project project) {
-        return project == null ? Future.succeededFuture() : relationships.removeObject(AuthzStoreService.SYSTEM, containment(project).object());
+        return relationships.exclusively(containment.object(), () -> super.findById(project.getId())
+                .compose(existing -> existing == null
+                        ? relationships.removeObject(AuthzStoreService.SYSTEM, containment.object())
+                        : Future.failedFuture(new AlreadyExistsException("Project for id " + project.getId() + " already exists")))
+                .compose(v -> write.apply(project))
+                .compose(stored -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)).map(stored)));
     }
 
     static RelationshipTuple containment(Project project) {
@@ -351,12 +365,11 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                 "Project for id " + project.getId() + " already exists")));
                     }
                     return repoProvisioner.provision(project)
-                                          .compose(provisioned -> write.apply(provisioned)
+                                          .compose(provisioned -> written(provisioned, write)
                                                   .recover(ex -> AlreadyExistsException.isCause(ex)
                                                           ? Future.failedFuture(new IllegalArgumentException(
                                                                   "Project for id " + project.getId() + " already exists"))
-                                                          : Future.failedFuture(ex)))
-                                          .compose(this::contained);
+                                                          : Future.failedFuture(ex)));
                 });
     }
 

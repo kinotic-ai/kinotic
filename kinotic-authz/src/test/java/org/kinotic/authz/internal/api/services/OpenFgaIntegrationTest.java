@@ -255,7 +255,7 @@ class OpenFgaIntegrationTest {
         AuthzModel model = generator.applicationModel(List.of(), List.of());
         RelationshipTuple bob = new RelationshipTuple("user:bob", "end_user", "application:" + store);
         DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx);
-        DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere);
+        DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere, vertx);
         String storeId = await(storeService.ensureStore(store));
         String modelId = await(storeService.ensureModel(store, model));
         await(relationshipService.ensure(store, List.of(bob)));
@@ -288,7 +288,7 @@ class OpenFgaIntegrationTest {
     void aCheckOnARelationTheKeptVersionLacksIsAnsweredByTheNewest() throws Exception {
         String store = "grown-" + System.nanoTime();
         DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx);
-        DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere);
+        DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere, vertx);
         await(storeService.ensureStore(store));
         String modelId = await(storeService.ensureModel(store, generator.applicationModel(List.of(), List.of())));
         // another node read the store's version before the model grew

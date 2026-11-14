@@ -131,15 +131,21 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        // The base create uses the ES create op-type, so the uniqueness check is atomic at
-        // the shard — a concurrent duplicate fails instead of overwriting.
+        // One caller at a time creates or deletes the definition of an id. Whatever a deleted definition of the id
+        // left in the stores, when the removal after its record's deletion failed, is removed before the record is
+        // written, so the new definition is never reached through a grant made on the old one, and a deletion's
+        // removal never takes the place a creation just wrote
         return requireProject(entityDefinition)
-                .compose(v -> createOp.apply(entityDefinition))
-                .recover(ex -> AlreadyExistsException.isCause(ex)
-                        ? Future.failedFuture(new IllegalArgumentException(
-                        "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                        : Future.failedFuture(ex))
-                .compose(this::contained);
+                .compose(v -> relationships.exclusively(containment(entityDefinition).object(), () -> super.findById(entityDefinition.getId())
+                        .compose(existing -> existing == null
+                                ? removed(entityDefinition)
+                                : Future.failedFuture(new AlreadyExistsException(entityDefinition.getId())))
+                        .compose(w -> createOp.apply(entityDefinition))
+                        .recover(ex -> AlreadyExistsException.isCause(ex)
+                                ? Future.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                                : Future.failedFuture(ex))
+                        .compose(this::contained)));
     }
 
     // Whoever reads a definition reaches the project it names, so its author names a project of the definition's
@@ -161,16 +167,11 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     // The definition's place in the graph, written once the record is: in the system's store, where the
-    // organization's members hold it, and in the application's, where its rows are reached through it. What a
-    // deleted definition of the same id left on itself, when the removal after its record's deletion failed, is
-    // removed first, so the definition starts with no grant made on it. A record whose place could not be
-    // written is removed again, with whatever of its place was written, since nothing places it later and
-    // nobody could reach it, so the create can be made again
+    // organization's members hold it, and in the application's, where its rows are reached through it. A record
+    // whose place could not be written is removed again, with whatever of its place was written, since nothing
+    // places it later and nobody could reach it, so the create can be made again
     private Future<EntityDefinition> contained(EntityDefinition entityDefinition) {
-        String object = containment(entityDefinition).object();
-        return relationships.removeObject(AuthzStoreService.SYSTEM, object)
-                .compose(v -> relationships.removeObject(storeOf(entityDefinition), object))
-                .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(entityDefinition))))
+        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(entityDefinition)))
                 .compose(v -> relationships.ensure(storeOf(entityDefinition), List.of(containment(entityDefinition))))
                 .map(entityDefinition)
                 .recover(err -> deleted(entityDefinition)
@@ -234,7 +235,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
-                    return deleted(entityDefinition);
+                    return relationships.exclusively(containment(entityDefinition).object(), () -> deleted(entityDefinition));
                 });
     }
 

@@ -169,7 +169,9 @@ public class DefaultSignUpService implements SignUpService {
                                                                                                     AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, savedOrg.getId())))
                                                                    .map(DomainUtil.createParticipant(founder))
                                                                    // a founder whose organization could not be completed goes
-                                                                   // too: left behind, it could not sign in
+                                                                   // too. Its deletion asks the engine first, so while the
+                                                                   // engine fails it stays, and is removed before an
+                                                                   // organization is created under the name again
                                                                    .recover(err -> identityService.deleteById(founder.getId())
                                                                                                   .onFailure(deleteErr -> log.warn("Could not delete the founder {} of organization {}: {}",
                                                                                                                                    founder.getId(), savedOrg.getId(), deleteErr.getMessage()))
