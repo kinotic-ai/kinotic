@@ -5,7 +5,6 @@ import { azuriteUp, putBlob, readBlob, siteUrl } from './azurite.ts'
 
 const SUSPEND = join(import.meta.dir, '..', 'src', 'suspend-ui.ts')
 const RESUME = join(import.meta.dir, '..', 'src', 'resume-ui.ts')
-const DEACTIVATED_URL = 'https://portal.kinotic.test/deactivated/acme'
 const COMMIT = 'c'.repeat(40)
 
 const azurite = await azuriteUp()
@@ -20,7 +19,7 @@ async function publish(site: string): Promise<void> {
 
 function suspend(site: string) {
     return spawnSync('bun', [SUSPEND], {
-        env: { ...process.env, KINOTIC_UI_INDEX_URL: siteUrl(site, 'rcwdl'), KINOTIC_UI_DEACTIVATED_URL: DEACTIVATED_URL },
+        env: { ...process.env, KINOTIC_UI_INDEX_URL: siteUrl(site, 'rcwdl') },
         encoding: 'utf-8',
     })
 }
@@ -31,7 +30,7 @@ function resume(site: string) {
 
 describe.skipIf(!azurite)('suspend-ui and resume-ui entrypoints (against Azurite)', () => {
 
-    it('serves a suspended site a redirect to the deactivated page, and its own index again once resumed', async () => {
+    it('serves a suspended site a page saying its organization is deactivated, and its own index again once resumed', async () => {
         const site = `suspended-${crypto.randomUUID()}.apps.kinotic.test`
         await publish(site)
 
@@ -39,7 +38,7 @@ describe.skipIf(!azurite)('suspend-ui and resume-ui entrypoints (against Azurite
         expect(suspended.stderr).toBe('')
         expect(suspended.status).toBe(0)
         const page = await readBlob(`${site}/index.html`)
-        expect(await page.text()).toContain(`<meta http-equiv="refresh" content="0; url=${DEACTIVATED_URL}">`)
+        expect(await page.text()).toContain('This site is offline')
         expect(page.headers.get('cache-control')).toBe('no-cache')
         expect(page.headers.get('x-ms-meta-commit')).toBe(COMMIT)
 
@@ -88,6 +87,24 @@ describe.skipIf(!azurite)('suspend-ui and resume-ui entrypoints (against Azurite
 
         expect(result.status).toBe(0)
         expect(await (await readBlob(`${site}/index.html`)).text()).toBe('<html>republished</html>')
+    }, 60_000)
+
+    it('waits for another workload holding the site\'s index before it suspends the site', async () => {
+        const site = `leased-${crypto.randomUUID()}.apps.kinotic.test`
+        await publish(site)
+        const [directory, query] = siteUrl(site).split('?')
+        const leaseUrl = `${directory}/index.html?${query}&comp=lease`
+        const held = await fetch(leaseUrl, { method: 'PUT', headers: { 'x-ms-lease-action': 'acquire', 'x-ms-lease-duration': '60' } })
+        expect(held.status).toBe(201)
+
+        const suspension = Bun.spawn(['bun', SUSPEND], { env: { ...process.env, KINOTIC_UI_INDEX_URL: siteUrl(site) }, stderr: 'pipe' })
+        await Bun.sleep(3_000)
+        expect(await (await readBlob(`${site}/index.html`)).text()).toBe('<html>published</html>')
+        await fetch(leaseUrl, { method: 'PUT', headers: { 'x-ms-lease-action': 'release', 'x-ms-lease-id': held.headers.get('x-ms-lease-id')! } })
+
+        expect(await suspension.exited).toBe(0)
+        expect(await (await readBlob(`${site}/index.html`)).text()).toContain('This site is offline')
+        expect(await (await readBlob(`${site}/.kinotic/index.html`)).text()).toBe('<html>published</html>')
     }, 60_000)
 
     it('fails to resume a suspended site whose kept index is gone', async () => {

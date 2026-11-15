@@ -1,3 +1,5 @@
+import { log } from './log.ts'
+
 /**
  * What the publish, removal, suspension and resumption entrypoints do with one site's directory in the platform's
  * sites storage account, through a URL that names the directory and carries a SAS scoped to
@@ -76,9 +78,47 @@ export async function readFile(site: SiteTarget, name: string): Promise<Response
     return response
 }
 
-/** The precondition headers under which a write succeeds only while a file is still as {@code file} read it, or still absent. */
-export function unchangedSince(file: Response | null): Record<string, string> {
-    return file === null ? { 'If-None-Match': '*' } : { 'If-Match': file.headers.get('etag')! }
+/** How long a lease on a site's index lasts; it is released as soon as the work under it ends. */
+const INDEX_LEASE_SECONDS = 60
+/** How often an index leased by another workload is tried again, until that lease would have expired. */
+const INDEX_LEASE_RETRY_MS = 2_000
+
+/**
+ * Runs work holding a lease on the site's index, so no other workload that leases the index reads or writes the
+ * index or the kept index until the work ends, and no write to the index without the lease succeeds meanwhile.
+ * An index another workload holds is waited for. work receives the headers that write the index under the lease,
+ * or, when the site has no index, the precondition that writes one only while there is none.
+ */
+export async function withIndexLease(site: SiteTarget, work: (indexHeaders: Record<string, string>) => Promise<void>): Promise<void> {
+    const url = `${blobUrl(site, INDEX_FILE)}&comp=lease`
+    const deadline = Date.now() + (INDEX_LEASE_SECONDS + 10) * 1000
+    let response: Response
+    for (;;) {
+        response = await fetch(url, {
+            method: 'PUT',
+            headers: { 'x-ms-lease-action': 'acquire', 'x-ms-lease-duration': String(INDEX_LEASE_SECONDS) },
+        })
+        if (response.status !== 409 || Date.now() >= deadline) {
+            break
+        }
+        await Bun.sleep(INDEX_LEASE_RETRY_MS)
+    }
+    if (response.status === 404) {
+        await work({ 'If-None-Match': '*' })
+        return
+    }
+    if (!response.ok) {
+        throw new Error(`leasing ${site.directory}/${INDEX_FILE} failed with ${response.status} ${await response.text()}`)
+    }
+    const leaseId = response.headers.get('x-ms-lease-id')!
+    try {
+        await work({ 'x-ms-lease-id': leaseId })
+    } finally {
+        const released = await fetch(url, { method: 'PUT', headers: { 'x-ms-lease-action': 'release', 'x-ms-lease-id': leaseId } })
+        if (!released.ok) {
+            log(`[workload-runner] releasing the lease on ${site.directory}/${INDEX_FILE} failed with ${released.status}; it expires on its own`)
+        }
+    }
 }
 
 /** Writes one file under the site's directory as a block blob, with the given headers and metadata. */
@@ -109,24 +149,43 @@ export async function copyFile(site: SiteTarget, file: Response, to: string, hea
     await writeFile(site, to, await file.blob(), { ...kept, ...headers })
 }
 
-function escapeHtml(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+/** The page a suspended site serves on every route, saying its organization is deactivated. */
+const DEACTIVATED_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site offline</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1rem; box-sizing: border-box;
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: Canvas; color: CanvasText; }
+  main { max-width: 32rem; text-align: center; }
+  h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 1rem; }
+  p { margin: 0 0 0.75rem; line-height: 1.5; opacity: 0.85; }
+</style>
+</head>
+<body>
+<main>
+<h1>This site is offline</h1>
+<p>The organization that runs this site is deactivated because its Kinotic Cloud payment is overdue.
+It comes back as soon as the payment is made.</p>
+<p>If you are a member of the organization, sign in to the Kinotic portal and open Organization settings, Billing, to pay.</p>
+</main>
+</body>
+</html>
+`
 
 /**
- * Writes, as the site's index, the page a suspended site serves on every route: an immediate redirect to
- * deactivatedUrl, with a link for a browser that does not follow it, stamped with the commit the site was
- * published from so a publish's cleanup treats it as that commit's index.
+ * Writes, as the site's index, the page a suspended site serves on every route, saying its organization is
+ * deactivated, stamped with the commit the site was published from so a publish's cleanup treats it as that
+ * commit's index.
  *
  * @param headers further headers of the write, such as a precondition
  */
-export async function writeSuspendedIndex(site: SiteTarget, deactivatedUrl: string, commit: string | null,
+export async function writeSuspendedIndex(site: SiteTarget, commit: string | null,
                                           headers: Record<string, string> = {}): Promise<void> {
-    const url = escapeHtml(deactivatedUrl)
-    const page = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
-        + `<meta http-equiv="refresh" content="0; url=${url}">\n<title>Organization deactivated</title>\n</head>\n`
-        + `<body>\n<p>This organization is deactivated. <a href="${url}">Find out more</a>.</p>\n</body>\n</html>\n`
-    await writeFile(site, INDEX_FILE, new Blob([page]), {
+    await writeFile(site, INDEX_FILE, new Blob([DEACTIVATED_PAGE]), {
         'Content-Type': 'text/html; charset=utf-8',
         'x-ms-blob-cache-control': 'no-cache',
         [SUSPENDED_METADATA_HEADER]: 'true',

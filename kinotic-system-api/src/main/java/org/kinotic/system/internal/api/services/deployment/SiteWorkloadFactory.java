@@ -2,7 +2,6 @@ package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
@@ -23,18 +22,14 @@ import java.util.stream.Stream;
  * Builds the one-shot workloads that act on a site's files in the sites account, which the
  * server itself never touches: the publish that uploads a deploy's built UIs, the removal
  * that deletes a site, and the suspension and resumption that switch a site's index between
- * a redirect to its organization's deactivated page and its own. Each carries nothing but the URLs issued for its run, holds no Kinotic
+ * a page saying its organization is deactivated and its own. Each carries nothing but the URLs issued for its run, holds no Kinotic
  * credentials and no machine identity, and may reach the sites account's host alone.
  */
 @Component
 @RequiredArgsConstructor
 public class SiteWorkloadFactory {
 
-    /** The portal's page saying an organization is deactivated, followed by the organization's id. */
-    private static final String DEACTIVATED_PATH = "/deactivated/";
-
     private final KinoticSystemApiProperties kinoticProperties;
-    private final KinoticDomainProperties domainProperties;
 
     /**
      * The publish workload of a deploy: the checkout read-only at {@code /workspace}, and one
@@ -47,7 +42,7 @@ public class SiteWorkloadFactory {
         workload.setId(target.uiPublishWorkloadId());
         workload.getEnvironment().put("KINOTIC_UI_COMMIT", commitSha);
         if (organizationDeactivated) {
-            workload.getEnvironment().put("KINOTIC_UI_DEACTIVATED_URL", deactivatedUrl(project.getOrganizationId()));
+            workload.getEnvironment().put("KINOTIC_UI_SUSPENDED", "true");
         }
         // each URL is a credential for the run's length, so they travel as a secret
         workload.getSecrets().put("KINOTIC_UI_UPLOAD_URLS", uploadUrls.encode());
@@ -70,13 +65,12 @@ public class SiteWorkloadFactory {
     }
 
     /**
-     * The suspension workload of a site, run on any node with room: the site serves a redirect to the
-     * portal's page saying its organization is deactivated in place of its index.
+     * The suspension workload of a site, run on any node with room: the site serves a page saying its
+     * organization is deactivated in place of its index.
      */
     public Workload suspension(UiDeployment deployment, String indexUrl) {
         Workload workload = ofSite(deployment, "site-suspend-", "Suspension", "src/suspend-ui.ts");
         workload.getSecrets().put("KINOTIC_UI_INDEX_URL", indexUrl);
-        workload.getEnvironment().put("KINOTIC_UI_DEACTIVATED_URL", deactivatedUrl(deployment.getOrganizationId()));
         allowSitesAccount(workload, indexUrl);
         return workload;
     }
@@ -89,10 +83,6 @@ public class SiteWorkloadFactory {
         workload.getSecrets().put("KINOTIC_UI_INDEX_URL", indexUrl);
         allowSitesAccount(workload, indexUrl);
         return workload;
-    }
-
-    private String deactivatedUrl(String organizationId) {
-        return domainProperties.getDomain().getPortalBaseUrl() + DEACTIVATED_PATH + organizationId;
     }
 
     // nothing of a site lives on a node, so a workload acting on its files runs wherever there is room, which

@@ -8,11 +8,9 @@ import {
     deleteFilesOfOtherCommits,
     INDEX_FILE,
     parseSiteUrl,
-    readFile,
     type SiteTarget,
-    unchangedSince,
+    withIndexLease,
     SUSPENDED_INDEX_FILE,
-    writeFile,
     writeSuspendedIndex,
 } from './site-storage.ts'
 
@@ -25,14 +23,14 @@ import {
  * serves an index whose assets are not there yet and the index switch is the atomic publish.
  * Once the index has switched, the files other commits left in the directory are deleted. A site of a
  * deactivated organization is published suspended: its index is kept as the suspension workload keeps it,
- * and the site serves the redirect to the deactivated page in its place.
+ * and the site serves the page saying its organization is deactivated in its place.
  *
  * Environment:
  * - KINOTIC_UI_UPLOAD_URLS  a JSON object of UI name to upload URL: the site's directory in
  *                           the sites account, with a SAS for that directory as its query (required)
  * - KINOTIC_UI_COMMIT       the commit the UIs were built from (required)
  * - KINOTIC_WORKSPACE_DIR   the checkout, mounted read-only (default /workspace)
- * - KINOTIC_UI_DEACTIVATED_URL  where every site redirects, set while the organization is deactivated
+ * - KINOTIC_UI_SUSPENDED    true while the organization is deactivated, to publish every site suspended
  * - KINOTIC_LOG_*           see log.ts
  */
 
@@ -120,7 +118,7 @@ async function uploadAll(tasks: Array<() => Promise<void>>): Promise<void> {
 }
 
 async function publishUi(target: SiteTarget, workspaceDir: string, name: string, dir: string, commitSha: string,
-                         deactivatedUrl: string | undefined): Promise<void> {
+                         suspended: boolean): Promise<void> {
     const dist = join(workspaceDir, dir, 'dist')
     const files = walk(dist)
     if (!files.includes(INDEX_FILE)) {
@@ -138,18 +136,11 @@ async function publishUi(target: SiteTarget, workspaceDir: string, name: string,
     await upload(blobUrl(target, VERSION_FILE), new Blob([JSON.stringify({ commitSha })]),
                  NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
-    if (deactivatedUrl) {
-        // both writes require the files as read before either, so a suspension or resumption that changed them
-        // meanwhile fails this publish instead of leaving the site suspended with no kept index
-        const current = await readFile(target, INDEX_FILE)
-        const kept = await readFile(target, SUSPENDED_INDEX_FILE)
-        await writeFile(target, SUSPENDED_INDEX_FILE, index, {
-            'x-ms-blob-cache-control': NO_CACHE_CONTROL,
-            'Content-Type': index.type || 'text/html',
-            [COMMIT_METADATA_HEADER]: commitSha,
-            ...unchangedSince(kept),
+    if (suspended) {
+        await withIndexLease(target, async indexHeaders => {
+            await upload(blobUrl(target, ...SUSPENDED_INDEX_FILE.split('/')), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+            await writeSuspendedIndex(target, commitSha, indexHeaders)
         })
-        await writeSuspendedIndex(target, deactivatedUrl, commitSha, unchangedSince(current))
     } else {
         await upload(blobUrl(target, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
     }
@@ -162,7 +153,7 @@ async function main(): Promise<void> {
     const targets = parseUploadUrls(require_('KINOTIC_UI_UPLOAD_URLS'))
     const commitSha = require_('KINOTIC_UI_COMMIT')
     const workspaceDir = process.env.KINOTIC_WORKSPACE_DIR ?? '/workspace'
-    const deactivatedUrl = process.env.KINOTIC_UI_DEACTIVATED_URL || undefined
+    const suspended = process.env.KINOTIC_UI_SUSPENDED === 'true'
 
     const uis = findArtifacts(workspaceDir).uis
     log(`[workload-runner] publishing ${uis.length} UI(s) of ${commitSha}`)
@@ -171,7 +162,7 @@ async function main(): Promise<void> {
         if (!target) {
             throw new Error(`UI ${ui.name} has no upload URL; the deploy issued URLs for ${[...targets.keys()].join(', ') || 'no UI'}`)
         }
-        await publishUi(target, workspaceDir, ui.name, ui.dir, commitSha, deactivatedUrl)
+        await publishUi(target, workspaceDir, ui.name, ui.dir, commitSha, suspended)
     }
     log(`[workload-runner] published ${commitSha}`)
 }
