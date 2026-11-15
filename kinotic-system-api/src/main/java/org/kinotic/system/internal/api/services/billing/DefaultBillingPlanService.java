@@ -30,6 +30,8 @@ public class DefaultBillingPlanService implements BillingPlanService {
     private static final Pattern CURRENCY = Pattern.compile("[a-z]{3}");
     // Stripe takes at most 12 decimal places in unit_amount_decimal
     private static final int MAX_UNIT_AMOUNT_SCALE = 12;
+    // Checkout takes at most 20 recurring line items, one for each component
+    private static final int MAX_COMPONENTS = 20;
 
     private final BillingPlanRepository planRepository;
     private final OrganizationService organizationService;
@@ -94,6 +96,7 @@ public class DefaultBillingPlanService implements BillingPlanService {
                         "The plan's currency must be a three-letter lowercase ISO 4217 code, such as usd");
         Validate.notNull(plan.getInterval(), "The plan's interval is required");
         Validate.notEmpty(plan.getComponents(), "The plan needs at least one component");
+        Validate.isTrue(plan.getComponents().size() <= MAX_COMPONENTS, "The plan has more than %d components", MAX_COMPONENTS);
         Set<UsageMeter> metered = EnumSet.noneOf(UsageMeter.class);
         for (PlanComponent component : plan.getComponents()) {
             Validate.notNull(component.getType(), "Every component's type is required");

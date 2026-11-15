@@ -1,7 +1,9 @@
 package org.kinotic.system.internal.api.services.billing;
 
 import com.stripe.StripeClient;
+import com.stripe.exception.InvalidRequestException;
 import com.stripe.exception.SignatureVerificationException;
+import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.Price;
 import com.stripe.model.Product;
@@ -207,37 +209,54 @@ public class StripeBilling {
     private String meterIdOf(UsageMeter meter) throws Exception {
         String ret = meterIds.get(meter);
         if (ret == null) {
-            Meter found = null;
-            for (Meter existing : stripe.v1().billing().meters().list(MeterListParams.builder()
-                                                                                     .setStatus(MeterListParams.Status.ACTIVE)
-                                                                                     .setLimit((long) METERS_PAGE_SIZE)
-                                                                                     .build()).autoPagingIterable()) {
-                if (meter.getEventName().equals(existing.getEventName())) {
-                    found = existing;
-                    break;
-                }
-            }
+            Meter found = findMeter(meter);
             if (found == null) {
-                found = stripe.v1().billing().meters().create(
-                        MeterCreateParams.builder()
-                                         .setDisplayName(meter.getDisplayName())
-                                         .setEventName(meter.getEventName())
-                                         .setDefaultAggregation(MeterCreateParams.DefaultAggregation.builder()
-                                                                                                   .setFormula(MeterCreateParams.DefaultAggregation.Formula.SUM)
-                                                                                                   .build())
-                                         .setCustomerMapping(MeterCreateParams.CustomerMapping.builder()
-                                                                                              .setType(MeterCreateParams.CustomerMapping.Type.BY_ID)
-                                                                                              .setEventPayloadKey(CUSTOMER_PAYLOAD_KEY)
-                                                                                              .build())
-                                         .setValueSettings(MeterCreateParams.ValueSettings.builder()
-                                                                                          .setEventPayloadKey(VALUE_PAYLOAD_KEY)
-                                                                                          .build())
-                                         .build());
+                try {
+                    found = createMeter(meter);
+                } catch (InvalidRequestException e) {
+                    // a meter's event name is unique: another request or node that created it first leaves it to reuse
+                    found = findMeter(meter);
+                    if (found == null) {
+                        throw e;
+                    }
+                }
             }
             ret = found.getId();
             meterIds.put(meter, ret);
         }
         return ret;
+    }
+
+    private Meter findMeter(UsageMeter meter) throws StripeException {
+        Meter ret = null;
+        for (Meter existing : stripe.v1().billing().meters().list(MeterListParams.builder()
+                                                                                 .setStatus(MeterListParams.Status.ACTIVE)
+                                                                                 .setLimit((long) METERS_PAGE_SIZE)
+                                                                                 .build()).autoPagingIterable()) {
+            if (meter.getEventName().equals(existing.getEventName())) {
+                ret = existing;
+                break;
+            }
+        }
+        return ret;
+    }
+
+    private Meter createMeter(UsageMeter meter) throws StripeException {
+        return stripe.v1().billing().meters().create(
+                MeterCreateParams.builder()
+                                 .setDisplayName(meter.getDisplayName())
+                                 .setEventName(meter.getEventName())
+                                 .setDefaultAggregation(MeterCreateParams.DefaultAggregation.builder()
+                                                                                           .setFormula(MeterCreateParams.DefaultAggregation.Formula.SUM)
+                                                                                           .build())
+                                 .setCustomerMapping(MeterCreateParams.CustomerMapping.builder()
+                                                                                      .setType(MeterCreateParams.CustomerMapping.Type.BY_ID)
+                                                                                      .setEventPayloadKey(CUSTOMER_PAYLOAD_KEY)
+                                                                                      .build())
+                                 .setValueSettings(MeterCreateParams.ValueSettings.builder()
+                                                                                  .setEventPayloadKey(VALUE_PAYLOAD_KEY)
+                                                                                  .build())
+                                 .build());
     }
 
     private static PriceCreateParams.Recurring.Interval intervalOf(BillingInterval interval) {

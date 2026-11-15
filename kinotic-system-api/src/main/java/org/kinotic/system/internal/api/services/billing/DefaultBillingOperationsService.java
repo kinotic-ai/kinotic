@@ -75,9 +75,9 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     public Future<String> createCheckoutSession(String organizationId, String planId) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         Validate.notBlank(planId, "planId cannot be blank");
-        return planRepository.findOffered(organizationId).compose(plans -> {
-            BillingPlan plan = plans.stream().filter(offered -> offered.getId().equals(planId)).findFirst().orElse(null);
-            Validate.isTrue(plan != null, "The plan %s is not offered to the organization %s", planId, organizationId);
+        return planRepository.findById(planId).compose(plan -> {
+            Validate.isTrue(plan != null && offeredTo(plan, organizationId),
+                            "The plan %s is not offered to the organization %s", planId, organizationId);
             return change(organizationId, account -> {
                 Validate.validState(account.getStripeSubscriptionId() == null,
                                     "The organization already subscribes to a plan; change it in the Customer Portal");
@@ -131,7 +131,11 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                     log.warn("The Stripe subscription {} names no organization, so no billing account follows it", subscriptionId);
                     synced = Future.succeededFuture();
                 } else {
-                    synced = change(organizationId, account -> Future.succeededFuture(apply(account, subscription))).mapEmpty();
+                    // read again once the account's earlier changes are done, so a slower read of an older state
+                    // cannot overwrite the state a later event already saved
+                    synced = change(organizationId, account -> stripeBilling.findSubscription(subscriptionId)
+                                                                            .map(current -> apply(account, current)))
+                            .mapEmpty();
                 }
                 return synced;
             });
@@ -240,6 +244,11 @@ public class DefaultBillingOperationsService implements BillingOperationsService
             }
             return ret;
         });
+    }
+
+    // the rule BillingPlanRepository.findOffered queries by
+    private static boolean offeredTo(BillingPlan plan, String organizationId) {
+        return !plan.isArchived() && (plan.getOrganizationId() == null || plan.getOrganizationId().equals(organizationId));
     }
 
     // a subscription started with time left in the trial charges first when the trial ends

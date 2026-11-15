@@ -32,8 +32,8 @@ public interface BillingService {
 
     /**
      * Starts a subscription to a plan: a Stripe Checkout page, where the organization enters its payment details,
-     * that returns to the portal's organization settings. A subscription started during the free trial is first
-     * charged when the trial ends.
+     * that returns to the portal's organization settings. A subscription started with more than two days of the free
+     * trial left is first charged when the trial ends; otherwise it is charged at once.
      *
      * @param planId one of the plans {@link #findPlans()} returns
      * @return {@link Future} emitting the URL of the Checkout page; fails when the organization already subscribes

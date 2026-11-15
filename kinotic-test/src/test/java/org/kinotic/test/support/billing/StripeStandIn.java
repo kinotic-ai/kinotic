@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -55,6 +56,12 @@ public class StripeStandIn {
         ret.createContext("/v1/", StripeStandIn::handle);
         ret.start();
         return ret;
+    }
+
+    // HttpServer has no no-argument stop for Spring to infer as its destroy method
+    @Bean
+    DisposableBean stripeStandInServerStop(HttpServer stripeStandInServer) {
+        return () -> stripeStandInServer.stop(0);
     }
 
     @Bean
