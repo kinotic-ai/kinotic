@@ -76,6 +76,11 @@ export async function readFile(site: SiteTarget, name: string): Promise<Response
     return response
 }
 
+/** The precondition headers under which a write succeeds only while a file is still as {@code file} read it, or still absent. */
+export function unchangedSince(file: Response | null): Record<string, string> {
+    return file === null ? { 'If-None-Match': '*' } : { 'If-Match': file.headers.get('etag')! }
+}
+
 /** Writes one file under the site's directory as a block blob, with the given headers and metadata. */
 export async function writeFile(site: SiteTarget, name: string, body: Blob, headers: Record<string, string>): Promise<void> {
     const response = await fetch(blobUrl(site, ...name.split('/')), {

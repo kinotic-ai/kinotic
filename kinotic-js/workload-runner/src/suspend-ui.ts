@@ -7,6 +7,7 @@ import {
     readFile,
     SUSPENDED_INDEX_FILE,
     SUSPENDED_METADATA_HEADER,
+    unchangedSince,
     writeSuspendedIndex,
 } from './site-storage.ts'
 
@@ -42,10 +43,10 @@ async function main(): Promise<void> {
         log(`[workload-runner] site ${site.directory} is suspended already`)
     } else {
         // the index is kept before it is replaced, so a run that stops between the two writes leaves the site served;
-        // the replacement requires the index read, so one a publish switched meanwhile fails the run, which is retried
-        await copyFile(site, index.clone(), SUSPENDED_INDEX_FILE)
-        await writeSuspendedIndex(site, deactivatedUrl, index.headers.get(COMMIT_METADATA_HEADER),
-                                  { 'If-Match': index.headers.get('etag')! })
+        // both writes require the files as read, so a publish that changed either meanwhile fails the run, which is retried
+        const kept = await readFile(site, SUSPENDED_INDEX_FILE)
+        await copyFile(site, index.clone(), SUSPENDED_INDEX_FILE, unchangedSince(kept))
+        await writeSuspendedIndex(site, deactivatedUrl, index.headers.get(COMMIT_METADATA_HEADER), unchangedSince(index))
         log(`[workload-runner] suspended site ${site.directory}`)
     }
 }
