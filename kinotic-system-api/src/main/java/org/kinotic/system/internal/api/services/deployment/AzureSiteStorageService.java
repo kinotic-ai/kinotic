@@ -43,8 +43,7 @@ public class AzureSiteStorageService implements SiteStorageService {
     @Override
     public Future<String> issueUploadUrl(String hostname, Duration ttl) {
         // list and delete within the directory let the workload clear the files of other commits
-        return issue(hostname, ttl, new PathSasPermission().setReadPermission(true)
-                                                           .setCreatePermission(true)
+        return issue(hostname, ttl, new PathSasPermission().setCreatePermission(true)
                                                            .setWritePermission(true)
                                                            .setListPermission(true)
                                                            .setDeletePermission(true));

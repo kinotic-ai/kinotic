@@ -97,7 +97,7 @@ describe.skipIf(!azurite)('suspend-ui and resume-ui entrypoints (against Azurite
         const held = await fetch(leaseUrl, { method: 'PUT', headers: { 'x-ms-lease-action': 'acquire', 'x-ms-lease-duration': '60' } })
         expect(held.status).toBe(201)
 
-        const suspension = Bun.spawn(['bun', SUSPEND], { env: { ...process.env, KINOTIC_UI_INDEX_URL: siteUrl(site) }, stderr: 'pipe' })
+        const suspension = Bun.spawn(['bun', SUSPEND], { env: { ...process.env, KINOTIC_UI_INDEX_URL: siteUrl(site, 'rcwdl') }, stderr: 'pipe' })
         await Bun.sleep(3_000)
         expect(await (await readBlob(`${site}/index.html`)).text()).toBe('<html>published</html>')
         await fetch(leaseUrl, { method: 'PUT', headers: { 'x-ms-lease-action': 'release', 'x-ms-lease-id': held.headers.get('x-ms-lease-id')! } })

@@ -13,8 +13,8 @@ public interface SiteStorageService {
 
     /**
      * Issues the URL a publish workload publishes one site through: the site's directory in
-     * the sites account, with a query carrying a SAS that allows reading, creating, writing,
-     * listing and deleting blobs within that directory alone until {@code ttl} has passed. The
+     * the sites account, with a query carrying a SAS that allows creating, writing, listing
+     * and deleting blobs within that directory alone until {@code ttl} has passed. The
      * workload appends each file's path before the query.
      *
      * @param hostname the site's hostname, which names its directory
