@@ -55,7 +55,7 @@ public class DefaultBillingPlanService implements BillingPlanService {
             .setUpdated(now);
         return requireOrganization(plan.getOrganizationId())
                 .compose(v -> stripeBilling.createProduct(plan))
-                .compose(planRepository::create);
+                .compose(planRepository::createSync);
     }
 
     @Override
@@ -68,7 +68,7 @@ public class DefaultBillingPlanService implements BillingPlanService {
                 ret = Future.succeededFuture(plan);
             } else {
                 ret = stripeBilling.archiveProduct(plan.getStripeProductId())
-                                   .compose(v -> planRepository.save(plan.setArchived(true).setUpdated(new Date())));
+                                   .compose(v -> planRepository.saveSync(plan.setArchived(true).setUpdated(new Date())));
             }
             return ret;
         });
