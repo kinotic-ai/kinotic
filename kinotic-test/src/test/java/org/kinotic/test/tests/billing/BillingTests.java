@@ -287,6 +287,8 @@ public class BillingTests extends KinoticTestBase {
         Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
                                                                                   .setName("Billing " + suffix())
                                                                                   .setCreated(created)));
+        // enforcePayment pages through organizations by search, which sees the new one once the index refreshes
+        await(organizations.syncIndex());
 
         await(webhookHandler.enforcePayment());
         assertNotNull(await(organizations.findById(organization.getId())).getDeactivated());
@@ -304,6 +306,8 @@ public class BillingTests extends KinoticTestBase {
         Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
                                                                                   .setName("Billing " + suffix())
                                                                                   .setCreated(created)));
+        // enforcePayment pages through organizations by search, which sees the new one once the index refreshes
+        await(organizations.syncIndex());
 
         await(webhookHandler.enforcePayment());
 
