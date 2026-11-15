@@ -46,6 +46,12 @@ variable "portal_base_url" {
   type        = string
 }
 
+variable "system_api_base_url" {
+  description = "Where the system server answers whether an organization is deactivated, e.g. https://system-api.kinotic.ai; empty where organizations are never deactivated (billing is off)"
+  type        = string
+  default     = ""
+}
+
 variable "sites_storage_sas" {
   description = "The query string of the read-only SAS on the sites container, which the Worker appends to every read"
   type        = string

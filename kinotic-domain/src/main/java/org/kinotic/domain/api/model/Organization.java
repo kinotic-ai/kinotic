@@ -37,6 +37,11 @@ public class Organization implements Identifiable<String> {
      * User ID of the administrator who created this organization.
      */
     private String createdBy;
+    /**
+     * When the organization was deactivated, or {@code null} while it is active. A deactivated organization's
+     * microservices are stopped and its sites show that it is deactivated.
+     */
+    private Date deactivated;
 
     private Date created;
 

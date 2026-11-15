@@ -118,6 +118,7 @@ resource "cloudflare_workers_script" "sites" {
     { name = "SITES_STORAGE_SAS", type = "secret_text", text = var.sites_storage_sas },
     { name = "PORTAL_BASE_URL", type = "plain_text", text = var.portal_base_url },
     { name = "UI_HOSTS", type = "plain_text", text = join(",", var.ui_hostnames) },
+    { name = "SYSTEM_API_BASE_URL", type = "plain_text", text = var.system_api_base_url },
   ]
 }
 

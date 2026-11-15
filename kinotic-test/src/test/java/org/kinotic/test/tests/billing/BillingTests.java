@@ -28,6 +28,7 @@ import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.billing.BillingService;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.api.services.billing.BillingPlanService;
+import org.kinotic.system.internal.api.repositories.UsageRecordRepository;
 import org.kinotic.system.internal.api.services.billing.DefaultBillingOperationsService;
 import org.kinotic.system.internal.api.services.billing.UsageMetering;
 import org.kinotic.test.support.billing.StripeRequest;
@@ -79,6 +80,8 @@ public class BillingTests extends KinoticTestBase {
     private UsageMetering metering;
     @Autowired
     private WorkloadRepository workloads;
+    @Autowired
+    private UsageRecordRepository usageRecords;
 
     @Test
     public void aPlanCreatesItsProductAndAPricePerComponent() throws Exception {
@@ -208,6 +211,7 @@ public class BillingTests extends KinoticTestBase {
         } finally {
             await(workloads.deleteByIdSync(workload.getId()));
         }
+        await(usageRecords.syncIndex());
 
         List<UsageRecord> usage = await(operations.findUsage(organization.getId(), hour, Date.from(hour.toInstant().plus(Duration.ofHours(1)))));
         assertEquals(1, usage.size());
@@ -224,8 +228,7 @@ public class BillingTests extends KinoticTestBase {
         assertFalse(reports.isEmpty());
         assertEquals(customerId, reports.getFirst().params().get("payload[stripe_customer_id]"));
         assertEquals(UsageMeter.VCPU_HOURS.getEventName(), reports.getFirst().params().get("event_name"));
-        assertNotNull(await(operations.findUsage(organization.getId(), hour, Date.from(hour.toInstant().plus(Duration.ofHours(1)))))
-                              .getFirst().getSettled());
+        assertNotNull(await(usageRecords.findById(usage.getFirst().getId())).getSettled());
     }
 
     @Test
@@ -240,6 +243,7 @@ public class BillingTests extends KinoticTestBase {
         } finally {
             await(workloads.deleteByIdSync(workload.getId()));
         }
+        await(usageRecords.syncIndex());
 
         BillingForecast forecast = await(operations.findForecast(organization.getId()));
         assertEquals(plan.getId(), forecast.getPlanId());
@@ -260,6 +264,36 @@ public class BillingTests extends KinoticTestBase {
         assertEquals(1, invoices.size());
         assertEquals(InvoiceStatus.PAID, invoices.getFirst().getStatus());
         assertEquals(4900, invoices.getFirst().getTotal());
+    }
+
+    @Test
+    public void anOrganizationUnpaidPastTheGracePeriodIsDeactivatedUntilItPays() throws Exception {
+        Date created = Date.from(Instant.now().minus(Duration.ofDays(TRIAL_DAYS + 15)));
+        Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
+                                                                                  .setName("Billing " + suffix())
+                                                                                  .setCreated(created)));
+
+        await(webhookHandler.enforcePayment());
+        assertNotNull(await(organizations.findById(organization.getId())).getDeactivated());
+
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+        await(operations.createCheckoutSession(organization.getId(), plan.getId()));
+        long periodEnd = Instant.now().plus(Duration.ofDays(30)).getEpochSecond();
+        await(webhookHandler.handleEvent(subscriptionEvent(subscription("sub_" + suffix(), organization, plan, "active", periodEnd))));
+        assertNull(await(organizations.findById(organization.getId())).getDeactivated());
+    }
+
+    @Test
+    public void anOrganizationWithinTheGracePeriodStaysActive() throws Exception {
+        Date created = Date.from(Instant.now().minus(Duration.ofDays(TRIAL_DAYS + 13)));
+        Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
+                                                                                  .setName("Billing " + suffix())
+                                                                                  .setCreated(created)));
+
+        await(webhookHandler.enforcePayment());
+
+        assertEquals(BillingStatus.PAST_DUE, await(operations.findAccount(organization.getId())).getStatus());
+        assertNull(await(organizations.findById(organization.getId())).getDeactivated());
     }
 
     @Test

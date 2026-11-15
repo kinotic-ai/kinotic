@@ -3,7 +3,6 @@ package org.kinotic.system.internal.api.services.billing;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.ignite.Ignite;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.management.api.model.billing.BillingAccount;
@@ -14,8 +13,6 @@ import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.internal.api.repositories.BillingAccountRepository;
 import org.kinotic.system.internal.api.repositories.UsageRecordRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -54,13 +51,6 @@ public class UsageMetering {
     private final UsageRecordRepository usageRepository;
     private final BillingAccountRepository accountRepository;
     private final StripeBilling stripeBilling;
-    private final Ignite ignite;
-
-    // Every node requests the deployment; Ignite elects a single host for it
-    @EventListener(ApplicationReadyEvent.class)
-    public void deployScheduler() {
-        UsageMeteringScheduler.deploy(ignite);
-    }
 
     /**
      * Measures the slot {@code now} falls in: adds the vCPUs and memory of each organization's running workload VMs,

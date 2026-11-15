@@ -12,8 +12,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.apache.ignite.Ignite;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.utils.CursorPaging;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.model.billing.BillingAccount;
 import org.kinotic.management.api.model.billing.BillingForecast;
@@ -25,11 +30,14 @@ import org.kinotic.management.api.model.billing.InvoiceStatus;
 import org.kinotic.management.api.model.billing.PlanComponent;
 import org.kinotic.management.api.model.billing.PlanComponentType;
 import org.kinotic.management.api.model.billing.UsageRecord;
+import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.internal.api.repositories.BillingAccountRepository;
 import org.kinotic.system.internal.api.repositories.BillingPlanRepository;
 import org.kinotic.system.internal.api.repositories.UsageRecordRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -62,6 +70,9 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private static final Duration MIN_CHECKOUT_TRIAL = Duration.ofDays(2);
     private static final Duration MAX_USAGE_RANGE = Duration.ofDays(93);
     private static final int MAX_INVOICES = 24;
+    // how long payment may be due before the organization is deactivated
+    private static final Duration GRACE_PERIOD = Duration.ofDays(14);
+    private static final int PAGE_SIZE = 200;
 
     private final BillingAccountRepository accountRepository;
     private final BillingPlanRepository planRepository;
@@ -70,6 +81,14 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private final StripeBilling stripeBilling;
     private final KinoticManagementApiProperties managementApiProperties;
     private final KinoticDomainProperties domainProperties;
+    private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final Ignite ignite;
+
+    // Every node requests the deployment; Ignite elects a single host for it
+    @EventListener(ApplicationReadyEvent.class)
+    public void deployScheduler() {
+        BillingScheduler.deploy(ignite);
+    }
 
     @Override
     public Future<BillingAccount> findAccount(String organizationId) {
@@ -287,6 +306,71 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         return ret;
     }
 
+    /**
+     * Deactivates every organization whose payment has been due for longer than the 14-day grace period, and
+     * reactivates every deactivated organization whose payment is no longer due. Every organization's account is read,
+     * so a trial that ended with no one reading the account starts its grace period. The system organization is never
+     * deactivated.
+     */
+    public Future<Void> enforcePayment() {
+        return CursorPaging.forEachPage(organizationService::findAll, PAGE_SIZE, Sort.by("id"),
+                                        organizations -> Future.all(organizations.stream()
+                                                                                 .filter(organization -> !DomainUtil.SYSTEM_ID.equals(organization.getId()))
+                                                                                 .map(this::enforcePayment)
+                                                                                 .toList())
+                                                               .mapEmpty());
+    }
+
+    private Future<Void> enforcePayment(Organization organization) {
+        return findAccount(organization.getId()).compose(account -> {
+            Future<Void> ret;
+            if (overdue(account)) {
+                ret = organization.getDeactivated() == null ? deactivate(organization.getId()) : Future.succeededFuture();
+            } else {
+                ret = organization.getDeactivated() != null ? reactivate(organization.getId()) : Future.succeededFuture();
+            }
+            return ret;
+        });
+    }
+
+    private static boolean overdue(BillingAccount account) {
+        return account.getStatus() == BillingStatus.PAST_DUE
+                && account.getPastDueSince().toInstant().plus(GRACE_PERIOD).isBefore(Instant.now());
+    }
+
+    private Future<Void> deactivate(String organizationId) {
+        return organizationService.deactivate(organizationId).compose(changed -> {
+            Future<Void> ret = Future.succeededFuture();
+            if (changed) {
+                log.info("Deactivated organization {}, whose payment has been due for longer than {} days", organizationId, GRACE_PERIOD.toDays());
+                ret = renewMicroservices(organizationId, "organization deactivated");
+            }
+            return ret;
+        });
+    }
+
+    private Future<Void> reactivate(String organizationId) {
+        return organizationService.reactivate(organizationId).compose(changed -> {
+            Future<Void> ret = Future.succeededFuture();
+            if (changed) {
+                log.info("Reactivated organization {}, whose payment is no longer due", organizationId);
+                ret = renewMicroservices(organizationId, "organization reactivated");
+            }
+            return ret;
+        });
+    }
+
+    // the renewed intent has each deployment's worker stop or start its VM as the organization now is
+    private Future<Void> renewMicroservices(String organizationId, String source) {
+        return CursorPaging.forEachPage(pageable -> microserviceDeploymentRepository.findAllForOrganization(organizationId, pageable),
+                                        PAGE_SIZE,
+                                        Sort.by("id"),
+                                        deployments -> Future.all(deployments.stream()
+                                                                             .map(deployment -> microserviceDeploymentRepository.renewDesired(deployment.getId(), source))
+                                                                             .toList())
+                                                             .mapEmpty());
+    }
+
     private Future<Void> sync(String subscriptionId) {
         Future<Void> ret;
         if (subscriptionId == null) {
@@ -303,7 +387,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                     // cannot overwrite the state a later event already saved
                     synced = change(organizationId, account -> stripeBilling.findSubscription(subscriptionId)
                                                                             .map(current -> apply(account, current)))
-                            .mapEmpty();
+                            .compose(account -> overdue(account) ? Future.succeededFuture() : reactivate(organizationId));
                 }
                 return synced;
             });

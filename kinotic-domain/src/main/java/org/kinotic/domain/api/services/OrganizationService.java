@@ -27,4 +27,21 @@ public interface OrganizationService extends IdentifiableCrudService<Organizatio
      */
     Future<List<OrganizationLoginLink>> sendOrganizationsEmail(String email);
 
+    /**
+     * Deactivates the organization: its microservices are stopped and its sites show that it is deactivated, until
+     * {@link #reactivate(String)}.
+     *
+     * @param organizationId the organization
+     * @return a future emitting true when this call deactivated it, false when it was deactivated already
+     */
+    Future<Boolean> deactivate(String organizationId);
+
+    /**
+     * Reactivates a deactivated organization, whose microservices start again and whose sites are served again.
+     *
+     * @param organizationId the organization
+     * @return a future emitting true when this call reactivated it, false when it was active already
+     */
+    Future<Boolean> reactivate(String organizationId);
+
 }

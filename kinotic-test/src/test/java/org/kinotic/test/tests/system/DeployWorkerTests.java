@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.Requeue;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.Project;
@@ -106,6 +108,9 @@ public class DeployWorkerTests extends KinoticTestBase {
     @Autowired
     private ServiceRegistry serviceRegistry;
 
+    @Autowired
+    private OrganizationService organizationService;
+
     private final List<String> microserviceIds = new ArrayList<>();
     private final List<String> uiIds = new ArrayList<>();
     private final List<String> projectIds = new ArrayList<>();
@@ -179,6 +184,34 @@ public class DeployWorkerTests extends KinoticTestBase {
         assertEquals(Duration.ofSeconds(10), requeue.after());
         MicroserviceDeployment waiting = await(microservices.findById(deployment.getId()));
         assertNull(waiting.getState().getObserved(), "nothing is answered while the artifacts are behind");
+    }
+
+    @Test
+    public void aDeactivatedOrganizationsMicroserviceIsSuspendedUntilItIsReactivated() throws Exception {
+        Organization organization = await(organizationService.create(new Organization().setName("worker-deactivated-" + suffix())));
+        await(organizationService.deactivate(organization.getId()));
+        String id = "worker-deactivated-api-" + suffix();
+        microserviceIds.add(id);
+        DeploymentState desired = new DeploymentState(DeploymentStatusType.RUNNING, COMMIT);
+        MicroserviceDeployment deployment = await(microservices.updateDesired(id, desired,
+                                                                              new MicroserviceDeployment().setId(id)
+                                                                                                          .setOrganizationId(organization.getId())
+                                                                                                          .setApplicationId(TEST_APP_ID)
+                                                                                                          .setProjectId("worker-deactivated")
+                                                                                                          .setName("api")
+                                                                                                          .setCreated(new Date())
+                                                                                                          .setUpdated(new Date()),
+                                                                              "push of " + COMMIT));
+
+        assertEquals(Requeue.NONE, await(microserviceWorker.reconcile(deployment)));
+        MicroserviceDeployment suspended = await(microservices.findById(id));
+        assertEquals(DeploymentStatusType.SUSPENDED, suspended.getState().getObserved().phase());
+
+        await(organizationService.reactivate(organization.getId()));
+        await(microserviceWorker.reconcile(await(microservices.findById(id))));
+        MicroserviceDeployment reactivated = await(microservices.findById(id));
+        assertEquals(DeploymentStatusType.FAILED, reactivated.getState().getObserved().phase(), "deploying again, to a project never deployed");
+        assertTrue(reactivated.getFailureMessage().contains("no deployment target"), reactivated.getFailureMessage());
     }
 
     @Test

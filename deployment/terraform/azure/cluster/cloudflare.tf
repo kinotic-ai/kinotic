@@ -27,6 +27,7 @@ module "cloudflare_sites" {
   sites_storage_blob_endpoint = module.sites.storage_blob_endpoint
   sites_storage_sas           = module.sites.sites_read_sas
   portal_base_url             = "https://portal.${local.global.dns_zone_name}"
+  system_api_base_url         = "https://system-api.${local.global.dns_zone_name}"
   platform_zone_id            = local.global.dns_zone_id
   ui_hostnames                = ["portal.${local.global.dns_zone_name}", "console.${local.global.dns_zone_name}"]
 }

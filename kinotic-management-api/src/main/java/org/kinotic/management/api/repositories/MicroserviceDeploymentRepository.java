@@ -2,6 +2,7 @@ package org.kinotic.management.api.repositories;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
@@ -62,6 +63,15 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
                 .map(page -> page.getContent().stream()
                                  .sorted(Comparator.comparing(MicroserviceDeployment::getName))
                                  .toList());
+    }
+
+    /**
+     * Lists the deployments of every microservice of the organization's projects, in the order the pageable sorts
+     * them.
+     */
+    public Future<Page<MicroserviceDeployment>> findAllForOrganization(String organizationId, Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findAll(pageable, b -> b.query(termFilter("organizationId", organizationId)));
     }
 
     /**

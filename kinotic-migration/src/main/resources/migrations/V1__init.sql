@@ -458,6 +458,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     name KEYWORD,
     description TEXT,
     createdBy KEYWORD,
+    deactivated DATE,
     created DATE,
     updated DATE
 );
