@@ -35,7 +35,7 @@ public class BillingScheduler extends PeriodicSystemApiSingleton {
     private static final Duration HOUR = Duration.ofHours(1);
 
     /** How far back a newly started host settles hours from, and how long an hour that fails to settle is retried. */
-    static final Duration CATCH_UP = Duration.ofDays(3);
+    private static final Duration CATCH_UP = Duration.ofDays(3);
 
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = UsageMetering.class)

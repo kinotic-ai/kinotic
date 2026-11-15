@@ -297,6 +297,41 @@ public class BillingTests extends KinoticTestBase {
     }
 
     @Test
+    public void anHourASubscriptionCoveredIsReportedAfterAReplacementStartsLaterInTheHour() throws Exception {
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+        Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
+                                                                                  .setName("Billing " + suffix())
+                                                                                  .setCreated(Date.from(Instant.now().minus(Duration.ofDays(TRIAL_DAYS * 2))))));
+        await(operations.createCheckoutSession(organization.getId(), plan.getId()));
+        String cancelledId = "sub_" + suffix();
+        long periodEnd = Instant.now().plus(Duration.ofDays(15)).getEpochSecond();
+        await(webhookHandler.handleEvent(subscriptionEvent(subscription(cancelledId, organization, plan, "active", periodEnd))));
+        Date hour = settledHour();
+        Workload workload = await(workloads.createSync(runningWorkload(organization, hour)));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
+        try {
+            await(microserviceBilling.track(deployment));
+            await(resources.syncIndex());
+            // the first subscription ends 55 minutes into the hour and its replacement starts 65 minutes in
+            await(webhookHandler.handleEvent(subscriptionEvent(subscription(cancelledId, organization, plan, "canceled", periodEnd)
+                                                                       .put("ended_at", hour.toInstant().plus(Duration.ofMinutes(55)).getEpochSecond()))));
+            await(webhookHandler.handleEvent(subscriptionEvent(subscription("sub_" + suffix(), organization, plan, "active", periodEnd)
+                                                                       .put("start_date", hour.toInstant().plus(Duration.ofMinutes(65)).getEpochSecond()))));
+
+            await(metering.settle(hour));
+        } finally {
+            await(endRun(workload, deployment));
+        }
+
+        BillingAccount account = await(operations.findAccount(organization.getId()));
+        assertEquals(2, account.getSubscriptionPeriods().size());
+        String identifier = UsageRecordRepository.idOf(organization.getId(), hour) + ":" + UsageMeter.VCPU_HOURS.name();
+        assertEquals(1, StripeStandIn.requests("POST", "/v1/billing/meter_events").stream()
+                                     .filter(request -> identifier.equals(request.params().get("identifier")))
+                                     .count());
+    }
+
+    @Test
     public void anHourBeforeTheSubscriptionStartedIsNotReported() throws Exception {
         BillingPlan plan = await(plans.create(teamPlan(null)));
         Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())

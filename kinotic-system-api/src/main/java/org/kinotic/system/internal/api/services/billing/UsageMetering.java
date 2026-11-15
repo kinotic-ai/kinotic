@@ -172,17 +172,15 @@ public class UsageMetering {
                                 .compose(account -> billable(account, record) ? report(account, record) : Future.succeededFuture());
     }
 
-    // an hour is billed when it is after the trial and overlaps the current subscription, or the last one, which may
-    // since have ended
+    // an hour is billed when it is after the trial and overlaps the time of a subscription, which may since have ended
     private static boolean billable(BillingAccount account, UsageRecord record) {
-        Instant hour = record.getHour().toInstant();
+        Date hour = record.getHour();
+        Date end = Date.from(hour.toInstant().plus(HOUR));
         return account != null
                 && account.getStripeCustomerId() != null
-                && account.getSubscriptionStarted() != null
-                && !hour.isBefore(account.getTrialEndsAt().toInstant())
-                && hour.plus(HOUR).isAfter(account.getSubscriptionStarted().toInstant())
-                && (account.getStripeSubscriptionId() != null
-                    || (account.getSubscriptionEnded() != null && hour.isBefore(account.getSubscriptionEnded().toInstant())));
+                && !hour.before(account.getTrialEndsAt())
+                && account.getSubscriptionPeriods().stream()
+                          .anyMatch(period -> period.getStarted().before(end) && (period.getEnded() == null || hour.before(period.getEnded())));
     }
 
     // Each meter's report is recorded as soon as Stripe accepts it, so a retry reports only the meters not yet

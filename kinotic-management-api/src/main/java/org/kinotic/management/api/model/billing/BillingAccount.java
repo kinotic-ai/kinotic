@@ -6,7 +6,9 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * An organization's standing with paying for Kinotic Cloud: its trial, the plan it subscribes to, and whether
@@ -35,14 +37,11 @@ public class BillingAccount implements Identifiable<String> {
     /** When the current billing interval of the subscription ends, or {@code null} without a subscription. */
     private Date currentPeriodEnd;
 
-    /** When the organization's current or last subscription started, or {@code null} when it has had none. */
-    private Date subscriptionStarted;
-
     /**
-     * When the organization's last subscription ended, or {@code null} when none has. Usage before then is billed to
-     * that subscription.
+     * The times the organization's subscriptions cover, the current one's and those of any that ended in the last
+     * three days, whose usage may still be billed to them.
      */
-    private Date subscriptionEnded;
+    private List<SubscriptionPeriod> subscriptionPeriods = new ArrayList<>();
 
     /** Since when payment is due, while the account is {@link BillingStatus#PAST_DUE}. */
     private Date pastDueSince;

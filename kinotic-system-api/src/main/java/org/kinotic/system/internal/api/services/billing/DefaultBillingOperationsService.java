@@ -28,6 +28,7 @@ import org.kinotic.management.api.model.billing.BillingStatus;
 import org.kinotic.management.api.model.billing.InvoiceStatus;
 import org.kinotic.management.api.model.billing.PlanComponent;
 import org.kinotic.management.api.model.billing.PlanComponentType;
+import org.kinotic.management.api.model.billing.SubscriptionPeriod;
 import org.kinotic.management.api.model.billing.UsageLine;
 import org.kinotic.management.api.model.billing.UsageMeasurementType;
 import org.kinotic.management.api.model.billing.UsageMeter;
@@ -80,6 +81,8 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private static final int MAX_INVOICES = 24;
     // how long payment may be due before the organization is deactivated
     private static final Duration GRACE_PERIOD = Duration.ofDays(14);
+    // how long an ended subscription's period is kept; longer than BillingScheduler.CATCH_UP, so every hour it covers settles first
+    private static final Duration ENDED_PERIOD_RETENTION = Duration.ofDays(7);
     private static final int PAGE_SIZE = 200;
 
     private final BillingAccountRepository accountRepository;
@@ -455,19 +458,17 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private BillingAccount apply(BillingAccount account, Subscription subscription) {
         Instant now = Instant.now();
         switch (subscription.getStatus()) {
-            case "active", "trialing" -> account.setStatus(BillingStatus.ACTIVE)
+            case "active", "trialing" -> recordPeriod(account, subscription, null).setStatus(BillingStatus.ACTIVE)
                                                 .setStripeSubscriptionId(subscription.getId())
                                                 .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
-                                                .setSubscriptionStarted(dateOf(subscription.getStartDate()))
                                                 .setCurrentPeriodStart(periodBound(subscription, SubscriptionItem::getCurrentPeriodStart))
                                                 .setCurrentPeriodEnd(periodBound(subscription, SubscriptionItem::getCurrentPeriodEnd))
                                                 .setPastDueSince(null);
-            case "past_due", "unpaid" -> account.setStatus(BillingStatus.PAST_DUE)
+            case "past_due", "unpaid" -> recordPeriod(account, subscription, null).setStatus(BillingStatus.PAST_DUE)
                                                 .setStripeSubscriptionId(subscription.getId())
                                                 .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
-                                                .setSubscriptionStarted(dateOf(subscription.getStartDate()))
                                                 .setCurrentPeriodStart(periodBound(subscription, SubscriptionItem::getCurrentPeriodStart))
                                                 .setCurrentPeriodEnd(periodBound(subscription, SubscriptionItem::getCurrentPeriodEnd))
                                                 .setPastDueSince(account.getPastDueSince() != null
@@ -482,14 +483,14 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     }
 
     private void endSubscription(BillingAccount account, Subscription subscription, Instant now) {
-        // an event about a subscription the account has since replaced leaves the account alone
+        Instant ended = subscription.getEndedAt() != null ? Instant.ofEpochSecond(subscription.getEndedAt()) : now;
+        recordPeriod(account, subscription, Date.from(ended));
+        // an event about a subscription the account has since replaced leaves the rest of the account alone
         if (account.getStripeSubscriptionId() == null || account.getStripeSubscriptionId().equals(subscription.getId())) {
-            Instant ended = subscription.getEndedAt() != null ? Instant.ofEpochSecond(subscription.getEndedAt()) : now;
             account.setStripeSubscriptionId(null)
                    .setPlanId(null)
                    .setCurrentPeriodStart(null)
-                   .setCurrentPeriodEnd(null)
-                   .setSubscriptionEnded(Date.from(ended));
+                   .setCurrentPeriodEnd(null);
             if (account.getTrialEndsAt().toInstant().isAfter(now)) {
                 account.setStatus(BillingStatus.TRIALING).setPastDueSince(null);
             } else {
@@ -569,6 +570,23 @@ public class DefaultBillingOperationsService implements BillingOperationsService
 
     private String returnUrl() {
         return domainProperties.getDomain().getPortalBaseUrl() + RETURN_PATH;
+    }
+
+    // records the time the subscription covers, keeping the periods of the others until no hour they cover is left to settle
+    private static BillingAccount recordPeriod(BillingAccount account, Subscription subscription, Date ended) {
+        List<SubscriptionPeriod> periods = account.getSubscriptionPeriods();
+        SubscriptionPeriod period = periods.stream()
+                                           .filter(candidate -> subscription.getId().equals(candidate.getStripeSubscriptionId()))
+                                           .findFirst()
+                                           .orElseGet(() -> {
+                                               SubscriptionPeriod added = new SubscriptionPeriod().setStripeSubscriptionId(subscription.getId());
+                                               periods.add(added);
+                                               return added;
+                                           });
+        period.setStarted(dateOf(subscription.getStartDate())).setEnded(ended);
+        Date expired = Date.from(Instant.now().minus(ENDED_PERIOD_RETENTION));
+        periods.removeIf(candidate -> candidate.getEnded() != null && candidate.getEnded().before(expired));
+        return account;
     }
 
     // a bound of the current period of the subscription's first item, which every item of a plan's subscription shares
