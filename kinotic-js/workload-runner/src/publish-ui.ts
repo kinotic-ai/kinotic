@@ -8,6 +8,7 @@ import {
     deleteFilesOfOtherCommits,
     INDEX_FILE,
     parseSiteUrl,
+    readFile,
     type SiteTarget,
     SUSPENDED_INDEX_FILE,
     writeSuspendedIndex,
@@ -136,8 +137,12 @@ async function publishUi(target: SiteTarget, workspaceDir: string, name: string,
                  NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
     if (deactivatedUrl) {
+        // the suspended page requires the index read before the kept index is written, so a resumption that put
+        // the kept index back meanwhile fails this publish instead of leaving the site suspended with nothing kept
+        const current = await readFile(target, INDEX_FILE)
+        const precondition: Record<string, string> = current === null ? { 'If-None-Match': '*' } : { 'If-Match': current.headers.get('etag')! }
         await upload(blobUrl(target, ...SUSPENDED_INDEX_FILE.split('/')), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
-        await writeSuspendedIndex(target, deactivatedUrl, commitSha)
+        await writeSuspendedIndex(target, deactivatedUrl, commitSha, precondition)
     } else {
         await upload(blobUrl(target, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
     }

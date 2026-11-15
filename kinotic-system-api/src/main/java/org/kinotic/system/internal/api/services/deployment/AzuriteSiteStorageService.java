@@ -38,7 +38,8 @@ public class AzuriteSiteStorageService implements SiteStorageService {
     @Override
     public Future<String> issueUploadUrl(String hostname, Duration ttl) {
         // list and delete let the workload clear the files of other commits
-        return issue(hostname, ttl, new BlobContainerSasPermission().setCreatePermission(true)
+        return issue(hostname, ttl, new BlobContainerSasPermission().setReadPermission(true)
+                                                                    .setCreatePermission(true)
                                                                     .setWritePermission(true)
                                                                     .setListPermission(true)
                                                                     .setDeletePermission(true));

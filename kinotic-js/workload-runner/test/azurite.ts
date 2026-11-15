@@ -24,7 +24,7 @@ function containerSas(permissions: string, expiry: Date = new Date(Date.now() + 
 }
 
 /** The URL of a site's directory with a SAS, the shape of the upload and removal URLs the system issues. */
-export function siteUrl(directory: string, permissions: string = 'cwdl', expiry?: Date): string {
+export function siteUrl(directory: string, permissions: string = 'rcwdl', expiry?: Date): string {
     return `${ENDPOINT}/${CONTAINER}/${directory}?${containerSas(permissions, expiry)}`
 }
 
