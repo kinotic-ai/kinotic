@@ -18,12 +18,11 @@ public interface AuthzStoreService {
     String SYSTEM = "system";
 
     /**
-     * Makes the store exist in the engine. The system's store is created ahead of the servers and never by
-     * one, so for it this is a lookup that fails when there is none; an application's store is created when
-     * the engine has none of its name. A store found or created is kept, and a lookup that fails, because the
-     * engine is unreachable, fails the caller and is made again by the next one.
+     * Makes an application's store exist in the engine, creating it when the engine has none of its name. A
+     * store found or created is kept, and a lookup that fails, because the engine is unreachable, fails the
+     * caller and is made again by the next one.
      *
-     * @param store the store, named as its record is
+     * @param store the application's store, named as its record is
      * @return the engine's id of the store
      */
     Future<String> ensureStore(String store);

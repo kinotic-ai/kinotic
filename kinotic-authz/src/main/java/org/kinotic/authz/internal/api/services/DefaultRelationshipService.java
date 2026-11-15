@@ -173,8 +173,8 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     // A write the engine refuses as a conflict was raced by another node bringing the same tuples to the same
-    // state, as the provisioner and the reconciler do for a new application's roles, so it is made again; a second
-    // conflict is reported
+    // state, as the seed job and a caller creating the application do when the job reaches an application still
+    // being provisioned, so it is made again; a second conflict is reported
     private static Future<Void> converging(Supplier<Future<Void>> attempt) {
         return attempt.get().recover(e -> isConflict(e) ? attempt.get() : Future.failedFuture(e));
     }

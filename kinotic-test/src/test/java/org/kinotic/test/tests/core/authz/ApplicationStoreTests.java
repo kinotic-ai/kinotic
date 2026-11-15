@@ -339,8 +339,8 @@ public class ApplicationStoreTests extends KinoticTestBase {
         RelationshipTuple placed = new RelationshipTuple(AuthzConstants.EVERYONE, AuthzConstants.PLACED_RELATION, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store));
         await(runAsOrganization(() -> applicationService.deleteById(application.getId())));
 
-        // a reconcile of the store's record that runs while the application is deleted creates the store again,
-        // running the application's model and holding nothing
+        // a create of the id whose provisioning failed and whose rollback could not delete the store left it,
+        // running a model and holding nothing
         AuthzModel model = await(directory.findSystemDefinitions().map(system -> generator.applicationModel(system, List.of())));
         await(storeService.ensureStore(store).compose(id -> relationships.ensureModelWithRoles(store, model)));
         assertFalse(await(relationships.holds(store, placed)));
