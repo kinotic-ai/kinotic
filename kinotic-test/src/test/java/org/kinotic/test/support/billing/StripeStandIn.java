@@ -33,7 +33,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class StripeStandIn {
 
     private static final String SUBSCRIPTIONS_PATH = "/v1/subscriptions/";
+    private static final String CHECKOUT_SESSIONS_PATH = "/v1/checkout/sessions";
+    private static final String EXPIRE = "/expire";
     private static final Map<String, JsonObject> SUBSCRIPTIONS = new ConcurrentHashMap<>();
+    private static final Map<String, JsonObject> CHECKOUT_SESSIONS = new ConcurrentHashMap<>();
     private static final List<JsonObject> METERS = Collections.synchronizedList(new ArrayList<>());
     private static final List<StripeRequest> REQUESTS = Collections.synchronizedList(new ArrayList<>());
 
@@ -96,10 +99,18 @@ public class StripeStandIn {
             response = new JsonObject().put("id", "price_" + id()).put("object", "price");
         } else if (path.equals("/v1/customers")) {
             response = new JsonObject().put("id", "cus_" + id()).put("object", "customer");
-        } else if (path.equals("/v1/checkout/sessions")) {
+        } else if (path.equals(CHECKOUT_SESSIONS_PATH)) {
             String sessionId = "cs_test_" + id();
-            response = new JsonObject().put("id", sessionId).put("object", "checkout.session")
+            response = new JsonObject().put("id", sessionId).put("object", "checkout.session").put("status", "open")
                                        .put("url", "https://checkout.stripe.test/" + sessionId);
+            CHECKOUT_SESSIONS.put(sessionId, response);
+        } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/") && path.endsWith(EXPIRE)) {
+            response = CHECKOUT_SESSIONS.get(path.substring(CHECKOUT_SESSIONS_PATH.length() + 1, path.length() - EXPIRE.length()));
+            if (response != null) {
+                response.put("status", "expired");
+            }
+        } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/")) {
+            response = CHECKOUT_SESSIONS.get(path.substring(CHECKOUT_SESSIONS_PATH.length() + 1));
         } else if (path.equals("/v1/billing_portal/sessions")) {
             String sessionId = "bps_" + id();
             response = new JsonObject().put("id", sessionId).put("object", "billing_portal.session")

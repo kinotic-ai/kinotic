@@ -41,6 +41,9 @@ public class BillingAccount implements Identifiable<String> {
     /** The id of the organization's Stripe Subscription, once it has subscribed. */
     private String stripeSubscriptionId;
 
+    /** The id of the Checkout Session the organization last opened, until a subscription starts. */
+    private String stripeCheckoutSessionId;
+
     private Date created;
 
     private Date updated;

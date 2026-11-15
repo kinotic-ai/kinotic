@@ -9,6 +9,7 @@ import com.stripe.model.Price;
 import com.stripe.model.Product;
 import com.stripe.model.Subscription;
 import com.stripe.model.billing.Meter;
+import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.PriceCreateParams;
@@ -47,6 +48,10 @@ public class StripeBilling {
     public static final String ORGANIZATION_ID_METADATA = "kinotic_organization_id";
     /** The metadata key of the plan a Stripe Product, Price or Subscription belongs to. */
     public static final String PLAN_ID_METADATA = "kinotic_plan_id";
+
+    // a Checkout Session's status values
+    private static final String CHECKOUT_OPEN = "open";
+    private static final String CHECKOUT_COMPLETE = "complete";
 
     // a meter event names the Stripe Customer, and carries the usage, under these payload keys
     private static final String CUSTOMER_PAYLOAD_KEY = "stripe_customer_id";
@@ -108,9 +113,9 @@ public class StripeBilling {
      * Subscription's metadata.
      *
      * @param trialEnd when the Subscription's first charge is, or {@code null} to charge at once
-     * @return the Checkout page's URL
+     * @return the Checkout Session, whose URL is the Checkout page
      */
-    public Future<String> createCheckoutSession(String organizationId,
+    public Future<Session> createCheckoutSession(String organizationId,
                                                 String customerId,
                                                 BillingPlan plan,
                                                 Instant trialEnd,
@@ -140,7 +145,23 @@ public class StripeBilling {
                 }
                 params.addLineItem(item.build());
             }
-            return stripe.v1().checkout().sessions().create(params.build()).getUrl();
+            return stripe.v1().checkout().sessions().create(params.build());
+        });
+    }
+
+    /**
+     * Makes the Checkout Session unable to subscribe anyone: an open Session is expired, and one already expired is
+     * left as it is.
+     *
+     * @return {@code true} when the Session was already completed, so its Subscription exists or is being created
+     */
+    public Future<Boolean> expireCheckoutSession(String sessionId) {
+        return blocking(() -> {
+            String status = stripe.v1().checkout().sessions().retrieve(sessionId).getStatus();
+            if (CHECKOUT_OPEN.equals(status)) {
+                status = stripe.v1().checkout().sessions().expire(sessionId).getStatus();
+            }
+            return CHECKOUT_COMPLETE.equals(status);
         });
     }
 

@@ -7,6 +7,7 @@ import com.stripe.model.Subscription;
 import com.stripe.model.SubscriptionItem;
 import com.stripe.model.checkout.Session;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -78,16 +79,38 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         return planRepository.findById(planId).compose(plan -> {
             Validate.isTrue(plan != null && offeredTo(plan, organizationId),
                             "The plan %s is not offered to the organization %s", planId, organizationId);
+            Promise<String> url = Promise.promise();
             return change(organizationId, account -> {
                 Validate.validState(account.getStripeSubscriptionId() == null,
                                     "The organization already subscribes to a plan; change it in the Customer Portal");
-                return ensureCustomer(account);
-            }).compose(account -> stripeBilling.createCheckoutSession(organizationId,
-                                                                        account.getStripeCustomerId(),
-                                                                        plan,
-                                                                        checkoutTrialEnd(account),
-                                                                        returnUrl()));
+                return ensureCustomer(account)
+                        .compose(this::expireCheckout)
+                        .compose(started -> stripeBilling.createCheckoutSession(organizationId,
+                                                                                started.getStripeCustomerId(),
+                                                                                plan,
+                                                                                checkoutTrialEnd(started),
+                                                                                returnUrl()))
+                        .map(session -> {
+                            url.complete(session.getUrl());
+                            return account.setStripeCheckoutSessionId(session.getId());
+                        });
+            }).compose(account -> url.future());
         });
+    }
+
+    // only the Checkout Session opened last can subscribe the organization, so two Checkout pages never start two subscriptions
+    private Future<BillingAccount> expireCheckout(BillingAccount account) {
+        Future<BillingAccount> ret;
+        if (account.getStripeCheckoutSessionId() == null) {
+            ret = Future.succeededFuture(account);
+        } else {
+            ret = stripeBilling.expireCheckoutSession(account.getStripeCheckoutSessionId()).map(completed -> {
+                Validate.validState(!completed,
+                                    "The organization's subscription is being set up and shows here once Stripe confirms it");
+                return account.setStripeCheckoutSessionId(null);
+            });
+        }
+        return ret;
     }
 
     @Override
@@ -149,11 +172,13 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         switch (subscription.getStatus()) {
             case "active", "trialing" -> account.setStatus(BillingStatus.ACTIVE)
                                                 .setStripeSubscriptionId(subscription.getId())
+                                                .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
                                                 .setCurrentPeriodEnd(currentPeriodEnd(subscription))
                                                 .setPastDueSince(null);
             case "past_due", "unpaid" -> account.setStatus(BillingStatus.PAST_DUE)
                                                 .setStripeSubscriptionId(subscription.getId())
+                                                .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
                                                 .setCurrentPeriodEnd(currentPeriodEnd(subscription))
                                                 .setPastDueSince(account.getPastDueSince() != null
@@ -171,6 +196,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         // an event about a subscription the account has since replaced leaves the account alone
         if (account.getStripeSubscriptionId() == null || account.getStripeSubscriptionId().equals(subscription.getId())) {
             account.setStripeSubscriptionId(null)
+                   .setStripeCheckoutSessionId(null)
                    .setPlanId(null)
                    .setCurrentPeriodEnd(null);
             if (account.getTrialEndsAt().toInstant().isAfter(now)) {

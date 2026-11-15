@@ -426,6 +426,7 @@ CREATE TABLE IF NOT EXISTS kinotic_billing_account (
     pastDueSince DATE,
     stripeCustomerId KEYWORD NOT INDEXED,
     stripeSubscriptionId KEYWORD,
+    stripeCheckoutSessionId KEYWORD NOT INDEXED,
     created DATE,
     updated DATE
 );

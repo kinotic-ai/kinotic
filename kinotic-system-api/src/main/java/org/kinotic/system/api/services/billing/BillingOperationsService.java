@@ -35,12 +35,13 @@ public interface BillingOperationsService {
     /**
      * Opens a Stripe Checkout page that subscribes the organization to the plan and returns to the portal's
      * organization settings. A subscription started more than two days before the free trial ends is first charged
-     * when the trial ends.
+     * when the trial ends. Only the page opened last can subscribe the organization: opening one expires the page
+     * opened before it.
      *
      * @param organizationId the organization
      * @param planId         one of the plans {@link #findPlans(String)} returns for the organization
-     * @return the URL of the Checkout page; fails when the organization subscribes already, or the plan is not one it
-     *         may subscribe to
+     * @return the URL of the Checkout page; fails when the organization subscribes already, when a page it completed
+     *         is still being confirmed by Stripe, or when the plan is not one it may subscribe to
      */
     Future<String> createCheckoutSession(String organizationId, String planId);
 
