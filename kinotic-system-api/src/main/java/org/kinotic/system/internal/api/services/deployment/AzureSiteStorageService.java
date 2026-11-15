@@ -54,6 +54,14 @@ public class AzureSiteStorageService implements SiteStorageService {
         return issue(hostname, ttl, new PathSasPermission().setListPermission(true).setDeletePermission(true));
     }
 
+    @Override
+    public Future<String> issueIndexUrl(String hostname, Duration ttl) {
+        return issue(hostname, ttl, new PathSasPermission().setReadPermission(true)
+                                                           .setCreatePermission(true)
+                                                           .setWritePermission(true)
+                                                           .setDeletePermission(true));
+    }
+
     private Future<String> issue(String hostname, Duration ttl, PathSasPermission permission) {
         Validate.notBlank(hostname, "hostname cannot be blank");
         Validate.notNull(ttl, "ttl is required");

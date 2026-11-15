@@ -289,6 +289,33 @@ public class DeployWorkerTests extends KinoticTestBase {
     }
 
     @Test
+    public void aDeactivatedOrganizationsSiteIsSuspendedUntilItIsReactivated() throws Exception {
+        Organization organization = await(organizationService.create(new Organization().setName("worker-ui-deactivated-" + suffix())));
+        await(organizationService.deactivate(organization.getId()));
+        String id = "worker-ui-deactivated-site-" + suffix();
+        uiIds.add(id);
+        DeploymentState orphaned = new DeploymentState(DeploymentStatusType.ORPHANED, COMMIT);
+        UiDeployment deployment = await(uis.updateDesired(id, orphaned,
+                                                          new UiDeployment().setId(id)
+                                                                            .setOrganizationId(organization.getId())
+                                                                            .setApplicationId(TEST_APP_ID)
+                                                                            .setProjectId("worker-ui-deactivated")
+                                                                            .setName("site")
+                                                                            .setCreated(new Date())
+                                                                            .setUpdated(new Date()),
+                                                          "push of " + COMMIT));
+
+        assertEquals(Requeue.NONE, await(uiWorker.reconcile(deployment)));
+        UiDeployment suspended = await(uis.findById(id));
+        assertEquals(new DeploymentState(DeploymentStatusType.SUSPENDED, null), suspended.getState().getObserved());
+
+        await(organizationService.reactivate(organization.getId()));
+        await(uis.renewDesired(id, "organization reactivated"));
+        assertEquals(Requeue.NONE, await(uiWorker.reconcile(await(uis.findById(id)))));
+        assertEquals(orphaned, await(uis.findById(id)).getState().getObserved(), "served again, as the commit left it");
+    }
+
+    @Test
     public void aUiWhoseRemovalWasAskedForIsFinalizedByItsWorker() throws Exception {
         // its project was never deployed, so there is no node to delete files through: the record goes on its own
         UiDeployment deployment = ui("worker-ui-removed", "site", new DeploymentState(DeploymentStatusType.ORPHANED, COMMIT));

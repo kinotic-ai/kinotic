@@ -16,6 +16,8 @@ import org.apache.ignite.Ignite;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.model.OrganizationScoped;
+import org.kinotic.domain.api.model.Reconcilable;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -35,8 +37,9 @@ import org.kinotic.management.api.model.billing.UsageMeter;
 import org.kinotic.management.api.model.billing.UsageRecord;
 import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.management.api.model.deployment.DeploymentStatusType;
-import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
+import org.kinotic.management.api.repositories.AbstractDeploymentRepository;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
+import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.internal.api.model.BillableResource;
 import org.kinotic.system.internal.api.repositories.BillableResourceRepository;
@@ -94,6 +97,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private final KinoticManagementApiProperties managementApiProperties;
     private final KinoticDomainProperties domainProperties;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final UiDeploymentRepository uiDeploymentRepository;
     private final Ignite ignite;
 
     // Every node requests the deployment; Ignite elects a single host for it
@@ -346,8 +350,9 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     /**
      * Deactivates every organization whose payment has been due for longer than the 14-day grace period, and
      * reactivates every deactivated organization whose payment is no longer due. Every organization's account is read,
-     * so a trial that ended with no one reading the account starts its grace period. Each pass also stops the
-     * microservices of a deactivated organization still running, and starts the stopped ones of an active organization.
+     * so a trial that ended with no one reading the account starts its grace period. Each pass also suspends the
+     * microservices and sites of a deactivated organization still served, and resumes the suspended ones of an active
+     * organization.
      * The system organization is never deactivated.
      */
     public Future<Void> enforcePayment() {
@@ -357,7 +362,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                                                                  .map(this::enforcePayment)
                                                                                  .toList())
                                                                .mapEmpty())
-                           .compose(v -> resumeMicroservices());
+                           .compose(v -> resumeDeployments());
     }
 
     private Future<Void> enforcePayment(Organization organization) {
@@ -377,13 +382,13 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                 && account.getPastDueSince().toInstant().plus(GRACE_PERIOD).isBefore(Instant.now());
     }
 
-    // suspends the microservices of an organization deactivated already too, so a suspension that failed is retried
+    // suspends the microservices and sites of an organization deactivated already too, so a suspension that failed is retried
     private Future<Void> deactivate(String organizationId) {
         return organizationService.deactivate(organizationId).compose(changed -> {
             if (changed) {
                 log.info("Deactivated organization {}, whose payment has been due for longer than {} days", organizationId, GRACE_PERIOD.toDays());
             }
-            return renewMicroservices(organizationId, deployment -> !suspended(deployment), "organization deactivated");
+            return renewDeployments(organizationId, deployment -> !suspended(deployment), "organization deactivated");
         });
     }
 
@@ -392,40 +397,54 @@ public class DefaultBillingOperationsService implements BillingOperationsService
             Future<Void> ret = Future.succeededFuture();
             if (changed) {
                 log.info("Reactivated organization {}, whose payment is no longer due", organizationId);
-                ret = renewMicroservices(organizationId, DefaultBillingOperationsService::suspended, "organization reactivated");
+                ret = renewDeployments(organizationId, DefaultBillingOperationsService::suspended, "organization reactivated");
             }
             return ret;
         });
     }
 
-    // the renewed intent has each deployment's worker stop or start its VM as the organization now is
-    private Future<Void> renewMicroservices(String organizationId, Predicate<MicroserviceDeployment> renewed, String source) {
-        return CursorPaging.forEachPage(pageable -> microserviceDeploymentRepository.findAllForOrganization(organizationId, pageable),
+    // the renewed intent has each deployment's worker suspend or resume its VM or site as the organization now is
+    private Future<Void> renewDeployments(String organizationId, Predicate<Reconcilable<DeploymentState>> renewed, String source) {
+        return Future.all(renew(microserviceDeploymentRepository, organizationId, renewed, source),
+                          renew(uiDeploymentRepository, organizationId, renewed, source))
+                     .mapEmpty();
+    }
+
+    private <T extends Reconcilable<DeploymentState> & OrganizationScoped<String>> Future<Void> renew(AbstractDeploymentRepository<T> repository,
+                                                                                                    String organizationId,
+                                                                                                    Predicate<Reconcilable<DeploymentState>> renewed,
+                                                                                                    String source) {
+        return CursorPaging.forEachPage(pageable -> repository.findAllForOrganization(organizationId, pageable),
                                         PAGE_SIZE,
                                         Sort.by("id"),
                                         deployments -> Future.all(deployments.stream()
                                                                              .filter(deployment -> deployment.getState().getDesired() != null && renewed.test(deployment))
-                                                                             .map(deployment -> microserviceDeploymentRepository.renewDesired(deployment.getId(), source))
+                                                                             .map(deployment -> repository.renewDesired(deployment.getId(), source))
                                                                              .toList())
                                                              .mapEmpty());
     }
 
-    // starts the microservices left suspended by a reactivation whose renewal failed
-    private Future<Void> resumeMicroservices() {
+    // resumes the microservices and sites left suspended by a reactivation whose renewal failed
+    private Future<Void> resumeDeployments() {
         Map<String, Future<Organization>> organizations = new HashMap<>();
-        return CursorPaging.forEachPage(microserviceDeploymentRepository::findSuspended, PAGE_SIZE, Sort.by("id"),
+        return resume(microserviceDeploymentRepository, organizations).compose(v -> resume(uiDeploymentRepository, organizations));
+    }
+
+    private <T extends Reconcilable<DeploymentState> & OrganizationScoped<String>> Future<Void> resume(AbstractDeploymentRepository<T> repository,
+                                                                                                     Map<String, Future<Organization>> organizations) {
+        return CursorPaging.forEachPage(repository::findSuspended, PAGE_SIZE, Sort.by("id"),
                                         deployments -> Future.all(deployments.stream().map(deployment -> organizations
                                                 .computeIfAbsent(deployment.getOrganizationId(), organizationService::findById)
                                                 .compose(organization -> deployment.getState().getDesired() != null
                                                                          && organization != null
                                                                          && organization.getDeactivated() == null
-                                                        ? microserviceDeploymentRepository.renewDesired(deployment.getId(), "organization reactivated")
+                                                        ? repository.renewDesired(deployment.getId(), "organization reactivated")
                                                         : Future.succeededFuture()))
                                                 .toList())
                                                              .mapEmpty());
     }
 
-    private static boolean suspended(MicroserviceDeployment deployment) {
+    private static boolean suspended(Reconcilable<DeploymentState> deployment) {
         DeploymentState observed = deployment.getState().getObserved();
         return observed != null && observed.phase() == DeploymentStatusType.SUSPENDED;
     }

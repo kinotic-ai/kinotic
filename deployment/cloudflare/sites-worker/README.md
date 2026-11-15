@@ -10,9 +10,6 @@ which reach the app server directly.
   assets under `assets/` are cached for a year, everything else for a minute.
 - `<tenant>--<app>--<ui>.<org>.<sites domain>` serves the same application site.
 - `<org>.<sites domain>` redirects to the portal's login for the organization.
-- When `SYSTEM_API_BASE_URL` is bound, a site of an organization the system server answers is deactivated
-  (`GET /api/billing/organizations/<org>/deactivated`, kept at the edge for a minute) redirects to the portal's
-  `/deactivated/<org>` page; a site is served when the system server cannot answer within two seconds.
 - A host `UI_HOSTS` names, `portal.<platform zone>` or `console.<platform zone>` (`dev-portal` and
   `dev-console` on the development server), serves `sites/<that host>/` the same way; the platform's
   UIs are never under the sites domain, so no site is same-site with them.

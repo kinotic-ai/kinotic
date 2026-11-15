@@ -1,10 +1,22 @@
 /**
- * What the publish and removal entrypoints do with one site's directory in the platform's
+ * What the publish, removal, suspension and resumption entrypoints do with one site's directory in the platform's
  * sites storage account, through a URL that names the directory and carries a SAS scoped to
  * it: `<container URL>/<directory>?<sas>`, the directory being the URL's last path segment.
  * Files are listed and deleted through the account's blob endpoint, and a directory is deleted
  * through its Data Lake endpoint, which removes it and everything under it in one request.
  */
+
+/** The blob metadata naming the commit a file was published by, which a publish's cleanup reads. */
+export const COMMIT_METADATA_HEADER = 'x-ms-meta-commit'
+
+/** The site's index, which every route of the single-page application is served. */
+export const INDEX_FILE = 'index.html'
+
+/** Where a suspended site keeps the index it was published with, until it is resumed. */
+export const SUSPENDED_INDEX_FILE = '.kinotic/index.html'
+
+/** The blob metadata marking an index as the page a suspended site is served in place of its own. */
+export const SUSPENDED_METADATA_HEADER = 'x-ms-meta-suspended'
 
 /** One site's directory and the credential that acts on it. */
 export interface SiteTarget {
@@ -50,6 +62,46 @@ export function parseSiteUrl(name: string, url: string): SiteTarget {
 /** The URL of one file under the site's directory, for a PUT or DELETE through the blob endpoint. */
 export function blobUrl(site: SiteTarget, ...segments: string[]): string {
     return `${site.containerUrl}/${site.directory}/${segments.map(encodeURIComponent).join('/')}?${site.query}`
+}
+
+/** Reads one file under the site's directory, resolving with null when there is none. */
+export async function readFile(site: SiteTarget, name: string): Promise<Response | null> {
+    const response = await fetch(blobUrl(site, ...name.split('/')))
+    if (response.status === 404) {
+        return null
+    }
+    if (!response.ok) {
+        throw new Error(`reading ${site.directory}/${name} failed with ${response.status} ${await response.text()}`)
+    }
+    return response
+}
+
+/** Writes one file under the site's directory as a block blob, with the given headers and metadata. */
+export async function writeFile(site: SiteTarget, name: string, body: Blob, headers: Record<string, string>): Promise<void> {
+    const response = await fetch(blobUrl(site, ...name.split('/')), {
+        method: 'PUT',
+        headers: { 'x-ms-blob-type': 'BlockBlob', ...headers },
+        body,
+    })
+    if (!response.ok) {
+        throw new Error(`writing ${site.directory}/${name} failed with ${response.status} ${await response.text()}`)
+    }
+}
+
+/**
+ * Copies a file read from the site to another name under its directory, with its type, cache policy and commit, and
+ * the headers given.
+ */
+export async function copyFile(site: SiteTarget, file: Response, to: string, headers: Record<string, string> = {}): Promise<void> {
+    const kept: Record<string, string> = {}
+    for (const [header, name] of [['content-type', 'Content-Type'], ['cache-control', 'x-ms-blob-cache-control'],
+                                  [COMMIT_METADATA_HEADER, COMMIT_METADATA_HEADER]] as const) {
+        const value = file.headers.get(header)
+        if (value) {
+            kept[name] = value
+        }
+    }
+    await writeFile(site, to, await file.blob(), { ...kept, ...headers })
 }
 
 /** Every blob under the site's directory, with the commit that published it. */

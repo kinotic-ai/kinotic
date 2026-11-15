@@ -20,8 +20,9 @@ import java.util.stream.Stream;
 
 /**
  * Builds the one-shot workloads that act on a site's files in the sites account, which the
- * server itself never touches: the publish that uploads a deploy's built UIs, and the removal
- * that deletes a site. Each carries nothing but the URLs issued for its run, holds no Kinotic
+ * server itself never touches: the publish that uploads a deploy's built UIs, the removal
+ * that deletes a site, and the suspension and resumption that switch a site's index between
+ * a redirect to its organization's deactivated page and its own. Each carries nothing but the URLs issued for its run, holds no Kinotic
  * credentials and no machine identity, and may reach the sites account's host alone.
  */
 @Component
@@ -51,17 +52,43 @@ public class SiteWorkloadFactory {
     }
 
     /**
-     * The removal workload of a site, run on the node its project deploys to.
+     * The removal workload of a site, run on any node with room.
      */
     public Workload removal(UiDeployment deployment, String removalUrl) {
-        // nothing of the site lives on a node, so the removal runs wherever there is room, which outlives the
-        // node the site was published from
-        Workload workload = siteWorkload("site-remove-" + deployment.getId(), "Removal of site " + deployment.getId(),
-                                         new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getOrganizationId(), deployment.getId()),
-                                         null, new ApplicationKey(deployment.getOrganizationId(), deployment.getApplicationId()), "src/remove-ui.ts");
+        Workload workload = ofSite(deployment, "site-remove-", "Removal", "src/remove-ui.ts");
         workload.getSecrets().put("KINOTIC_UI_REMOVAL_URL", removalUrl);
         allowSitesAccount(workload, removalUrl);
         return workload;
+    }
+
+    /**
+     * The suspension workload of a site, run on any node with room: the site serves a redirect to
+     * {@code deactivatedUrl} in place of its index.
+     */
+    public Workload suspension(UiDeployment deployment, String indexUrl, String deactivatedUrl) {
+        Workload workload = ofSite(deployment, "site-suspend-", "Suspension", "src/suspend-ui.ts");
+        workload.getSecrets().put("KINOTIC_UI_INDEX_URL", indexUrl);
+        workload.getEnvironment().put("KINOTIC_UI_DEACTIVATED_URL", deactivatedUrl);
+        allowSitesAccount(workload, indexUrl);
+        return workload;
+    }
+
+    /**
+     * The resumption workload of a site, run on any node with room: the site serves its own index again.
+     */
+    public Workload resumption(UiDeployment deployment, String indexUrl) {
+        Workload workload = ofSite(deployment, "site-resume-", "Resumption", "src/resume-ui.ts");
+        workload.getSecrets().put("KINOTIC_UI_INDEX_URL", indexUrl);
+        allowSitesAccount(workload, indexUrl);
+        return workload;
+    }
+
+    // nothing of a site lives on a node, so a workload acting on its files runs wherever there is room, which
+    // outlives the node the site was published from
+    private Workload ofSite(UiDeployment deployment, String namePrefix, String action, String entrypoint) {
+        return siteWorkload(namePrefix + deployment.getId(), action + " of site " + deployment.getId(),
+                            new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getOrganizationId(), deployment.getId()),
+                            null, new ApplicationKey(deployment.getOrganizationId(), deployment.getApplicationId()), entrypoint);
     }
 
     private Workload siteWorkload(String name, String description, WatchedParent parent, String nodeId,

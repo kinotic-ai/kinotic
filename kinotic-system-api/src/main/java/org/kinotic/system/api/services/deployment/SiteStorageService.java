@@ -34,4 +34,15 @@ public interface SiteStorageService {
      */
     Future<String> issueRemovalUrl(String hostname, Duration ttl);
 
+    /**
+     * Issues the URL a suspension or resumption workload switches one site's index through: the site's
+     * directory in the sites account, with a query carrying a SAS that allows reading, creating, writing
+     * and deleting blobs within that directory alone until {@code ttl} has passed.
+     *
+     * @param hostname the site's hostname, which names its directory
+     * @param ttl      how long the SAS stays valid
+     * @return a future emitting the index URL
+     */
+    Future<String> issueIndexUrl(String hostname, Duration ttl);
+
 }

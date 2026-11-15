@@ -2,7 +2,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { findArtifacts } from './artifacts.ts'
 import { log, logError } from './log.ts'
-import { blobUrl, deleteFilesOfOtherCommits, parseSiteUrl, type SiteTarget } from './site-storage.ts'
+import { blobUrl, COMMIT_METADATA_HEADER, deleteFilesOfOtherCommits, INDEX_FILE, parseSiteUrl, type SiteTarget } from './site-storage.ts'
 
 /**
  * One-shot entrypoint of the UI publish workload: uploads every built UI of the checkout to
@@ -28,9 +28,6 @@ const NO_CACHE_CONTROL = 'no-cache'
 const UPLOAD_CONCURRENCY = 4
 const ASSETS_DIR = 'assets/'
 const VERSION_FILE = 'version.json'
-const INDEX_FILE = 'index.html'
-/** The blob metadata naming the commit a file was published by, which the deploy's cleanup reads. */
-const COMMIT_METADATA_HEADER = 'x-ms-meta-commit'
 
 function require_(name: string): string {
     const value = process.env[name]

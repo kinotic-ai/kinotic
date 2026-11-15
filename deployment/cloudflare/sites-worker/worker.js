@@ -11,10 +11,6 @@
  * The platform's own UIs, the portal and the console, are the hosts UI_HOSTS names, each served from sites/<host>/
  * the same way; they are in the platform zone, never under the sites domain, so no site is same-site with them.
  *
- * When SYSTEM_API_BASE_URL is set, a site of a deactivated organization redirects to <PORTAL_BASE_URL>/deactivated/<org>,
- * which says the organization is deactivated; the system server answers whether it is, and the edge keeps the answer
- * for a minute. A site is served when the system server cannot answer.
- *
  * The Worker is bound to the site hosts only: the application API hosts, <org>--<app>.apps-api.<zone>, go to
  * the app server directly, so no API call or WebSocket passes through here.
  *
@@ -24,8 +20,6 @@
  *   SITES_STORAGE_SAS   the query string of the read-only SAS on the sites container, a secret, which signs every read
  *   PORTAL_BASE_URL     where an organization's host sends the browser, e.g. https://portal.kinotic.ai
  *   UI_HOSTS            the platform's own UIs' hostnames, comma-separated, e.g. portal.kinotic.ai,console.kinotic.ai
- *   SYSTEM_API_BASE_URL where the system server answers whether an organization is deactivated, e.g.
- *                       https://system-api.kinotic.ai; unset or empty where organizations are never deactivated
  */
 
 const LABEL_SEPARATOR = '--'
@@ -125,39 +119,6 @@ export function cacheControl(file) {
             : 'no-cache'
 }
 
-/** How long the edge keeps the system server's answer of whether an organization is deactivated. */
-const DEACTIVATED_TTL_SECONDS = 60
-
-/** How long a request waits for the system server to answer whether an organization is deactivated. */
-const DEACTIVATED_TIMEOUT_MS = 2000
-
-/**
- * Whether the organization is deactivated, as the system server answers; false when no system server is bound or it
- * cannot answer within two seconds, so its sites are served.
- *
- * @param {string} organizationId the organization
- * @param {string | undefined} systemApiBaseUrl the SYSTEM_API_BASE_URL binding
- * @returns {Promise<boolean>} whether the organization's sites redirect to the deactivated page
- */
-export async function isDeactivated(organizationId, systemApiBaseUrl) {
-    let ret = false
-    if (systemApiBaseUrl) {
-        try {
-            // the signal aborts reading the body too, so a server that stalls part way through is cut off as well
-            const signal = AbortSignal.timeout(DEACTIVATED_TIMEOUT_MS)
-            const answer = await fetch(systemApiBaseUrl.replace(/\/$/, '') + '/api/billing/organizations/'
-                                               + encodeURIComponent(organizationId) + '/deactivated', {
-                cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': DEACTIVATED_TTL_SECONDS, '404': DEACTIVATED_TTL_SECONDS, '500-599': 0 } },
-                signal,
-            })
-            ret = answer.ok && (await answer.json()).deactivated === true
-        } catch (error) {
-            console.warn('Could not read whether organization ' + organizationId + ' is deactivated', error)
-        }
-    }
-    return ret
-}
-
 export default {
     async fetch(request, env) {
         const url = new URL(request.url)
@@ -172,9 +133,6 @@ export default {
             }
             if (resolved.site === null) {
                 return Response.redirect(env.PORTAL_BASE_URL + '/login/' + encodeURIComponent(resolved.organizationId), 302)
-            }
-            if (await isDeactivated(resolved.organizationId, env.SYSTEM_API_BASE_URL)) {
-                return Response.redirect(env.PORTAL_BASE_URL + '/deactivated/' + encodeURIComponent(resolved.organizationId), 302)
             }
             site = resolved.site
         }

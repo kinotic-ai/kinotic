@@ -2,15 +2,10 @@ package org.kinotic.management.api.repositories;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.management.api.model.deployment.DeploymentState;
-import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.domain.api.model.WatchedType;
-import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
 import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
-import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -29,7 +24,7 @@ import java.util.Map;
  * platform keeps on a record is never written back from a read copy.
  */
 @Component
-public class MicroserviceDeploymentRepository extends AbstractReconcilableRepository<MicroserviceDeployment, DeploymentState> {
+public class MicroserviceDeploymentRepository extends AbstractDeploymentRepository<MicroserviceDeployment> {
 
     private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.MICROSERVICE_DEPLOYMENT, "kinotic_microservice_deployment");
 
@@ -41,11 +36,6 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
                                             WatchEventRepository watchEventRepository,
                                             ReconcileStateRepository reconcileStateRepository) {
         super(WATCHED, MicroserviceDeployment.class, crudServiceTemplate, watchedStateRepository, watchEventRepository, reconcileStateRepository);
-    }
-
-    @Override
-    public String scopeOf(MicroserviceDeployment record) {
-        return record.getOrganizationId();
     }
 
     /**
@@ -64,30 +54,6 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
                 .map(page -> page.getContent().stream()
                                  .sorted(Comparator.comparing(MicroserviceDeployment::getName))
                                  .toList());
-    }
-
-    /**
-     * Lists the deployments of every microservice of the organization's projects, in the order the pageable sorts
-     * them.
-     */
-    public Future<Page<MicroserviceDeployment>> findAllForOrganization(String organizationId, Pageable pageable) {
-        Validate.notBlank(organizationId, "organizationId cannot be blank");
-        return findAll(pageable, b -> b.query(termFilter("organizationId", organizationId)));
-    }
-
-    /**
-     * Lists the deployments, of every organization, last observed suspended, in the order the pageable sorts them.
-     */
-    public Future<Page<MicroserviceDeployment>> findSuspended(Pageable pageable) {
-        return findAll(pageable, b -> b.query(termFilter("state.observed.phase", DeploymentStatusType.SUSPENDED.name())));
-    }
-
-    /**
-     * @see ReconcileStateRepository#renewDesired(WatchedDocument, String)
-     */
-    public Future<Void> renewDesired(String id, String source) {
-        Validate.notBlank(id, "id cannot be blank");
-        return reconcileStateRepository.renewDesired(document(id), source).mapEmpty();
     }
 
     /**
