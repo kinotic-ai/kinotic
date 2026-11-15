@@ -1,0 +1,1 @@
+{"id":"6adea10884ebf3f08185c5e3780d70ae.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenColumnNamedTwice_thenRejected","name":"whenColumnNamedTwice_thenRejected()","status":"passed","testResultsByEnv":{"default":"1e90f48cb34f1eeb84768dafa9cf9b1f"}}
