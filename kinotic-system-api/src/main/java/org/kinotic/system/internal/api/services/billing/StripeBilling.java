@@ -173,7 +173,16 @@ public class StripeBilling {
         return blocking(() -> {
             Session session = stripe.v1().checkout().sessions().retrieve(sessionId);
             if (CHECKOUT_OPEN.equals(session.getStatus())) {
-                session = stripe.v1().checkout().sessions().expire(sessionId);
+                try {
+                    session = stripe.v1().checkout().sessions().expire(sessionId);
+                } catch (InvalidRequestException e) {
+                    // Stripe refuses to expire a Session that left the open state after the retrieve above: a
+                    // concurrent request expired it, or the customer completed it
+                    session = stripe.v1().checkout().sessions().retrieve(sessionId);
+                    if (CHECKOUT_OPEN.equals(session.getStatus())) {
+                        throw e;
+                    }
+                }
             }
             boolean ret = false;
             if (CHECKOUT_COMPLETE.equals(session.getStatus())) {

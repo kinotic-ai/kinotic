@@ -126,9 +126,12 @@ public class StripeStandIn {
                                        .put("url", "https://checkout.stripe.test/" + sessionId);
             CHECKOUT_SESSIONS.put(sessionId, response);
         } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/") && path.endsWith(EXPIRE)) {
+            // Stripe refuses to expire a Session that is not open
             response = CHECKOUT_SESSIONS.get(path.substring(CHECKOUT_SESSIONS_PATH.length() + 1, path.length() - EXPIRE.length()));
-            if (response != null) {
+            if (response != null && "open".equals(response.getString("status"))) {
                 response.put("status", "expired");
+            } else {
+                response = null;
             }
         } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/")) {
             response = CHECKOUT_SESSIONS.get(path.substring(CHECKOUT_SESSIONS_PATH.length() + 1));
