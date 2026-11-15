@@ -99,4 +99,25 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         expect(result.stderr).toContain('..\\evil')
         expect((await readBlob('backslash.apps.kinotic.test/index.html')).status).toBe(404)
     }, 60_000)
+
+    it('publishes a deactivated organization\'s site suspended, keeping its index for the resumption', async () => {
+        const sha = 'd'.repeat(40)
+        const site = `deactivated-${crypto.randomUUID()}.apps.kinotic.test`
+
+        const result = spawnSync('bun', [PUBLISH], {
+            env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: JSON.stringify({ admin: siteUrl(site) }), KINOTIC_UI_COMMIT: sha,
+                   KINOTIC_WORKSPACE_DIR: workspaceDir, KINOTIC_UI_DEACTIVATED_URL: 'https://portal.kinotic.test/deactivated/acme' },
+            encoding: 'utf-8',
+        })
+
+        expect(result.stderr).toBe('')
+        expect(result.status).toBe(0)
+        const index = await readBlob(`${site}/index.html`)
+        expect(await index.text()).toContain('url=https://portal.kinotic.test/deactivated/acme')
+        expect(index.headers.get('x-ms-meta-suspended')).toBe('true')
+        expect(index.headers.get('x-ms-meta-commit')).toBe(sha)
+        const kept = await readBlob(`${site}/.kinotic/index.html`)
+        expect(await kept.text()).toBe('<html>admin</html>')
+        expect(kept.headers.get('x-ms-meta-commit')).toBe(sha)
+    }, 60_000)
 })

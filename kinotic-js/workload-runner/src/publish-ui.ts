@@ -2,7 +2,16 @@ import { readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { findArtifacts } from './artifacts.ts'
 import { log, logError } from './log.ts'
-import { blobUrl, COMMIT_METADATA_HEADER, deleteFilesOfOtherCommits, INDEX_FILE, parseSiteUrl, type SiteTarget } from './site-storage.ts'
+import {
+    blobUrl,
+    COMMIT_METADATA_HEADER,
+    deleteFilesOfOtherCommits,
+    INDEX_FILE,
+    parseSiteUrl,
+    type SiteTarget,
+    SUSPENDED_INDEX_FILE,
+    writeSuspendedIndex,
+} from './site-storage.ts'
 
 /**
  * One-shot entrypoint of the UI publish workload: uploads every built UI of the checkout to
@@ -11,13 +20,16 @@ import { blobUrl, COMMIT_METADATA_HEADER, deleteFilesOfOtherCommits, INDEX_FILE,
  * commit it belongs to: the hashed files under {@code assets/} first, marked immutable, then
  * the rest uncached, then {@code version.json}, then {@code index.html} last, so a site never
  * serves an index whose assets are not there yet and the index switch is the atomic publish.
- * Once the index has switched, the files other commits left in the directory are deleted.
+ * Once the index has switched, the files other commits left in the directory are deleted. A site of a
+ * deactivated organization is published suspended: its index is kept as the suspension workload keeps it,
+ * and the site serves the redirect to the deactivated page in its place.
  *
  * Environment:
  * - KINOTIC_UI_UPLOAD_URLS  a JSON object of UI name to upload URL: the site's directory in
  *                           the sites account, with a SAS for that directory as its query (required)
  * - KINOTIC_UI_COMMIT       the commit the UIs were built from (required)
  * - KINOTIC_WORKSPACE_DIR   the checkout, mounted read-only (default /workspace)
+ * - KINOTIC_UI_DEACTIVATED_URL  where every site redirects, set while the organization is deactivated
  * - KINOTIC_LOG_*           see log.ts
  */
 
@@ -104,7 +116,8 @@ async function uploadAll(tasks: Array<() => Promise<void>>): Promise<void> {
     await Promise.all(workers)
 }
 
-async function publishUi(target: SiteTarget, workspaceDir: string, name: string, dir: string, commitSha: string): Promise<void> {
+async function publishUi(target: SiteTarget, workspaceDir: string, name: string, dir: string, commitSha: string,
+                         deactivatedUrl: string | undefined): Promise<void> {
     const dist = join(workspaceDir, dir, 'dist')
     const files = walk(dist)
     if (!files.includes(INDEX_FILE)) {
@@ -122,7 +135,12 @@ async function publishUi(target: SiteTarget, workspaceDir: string, name: string,
     await upload(blobUrl(target, VERSION_FILE), new Blob([JSON.stringify({ commitSha })]),
                  NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
-    await upload(blobUrl(target, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+    if (deactivatedUrl) {
+        await upload(blobUrl(target, ...SUSPENDED_INDEX_FILE.split('/')), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+        await writeSuspendedIndex(target, deactivatedUrl, commitSha)
+    } else {
+        await upload(blobUrl(target, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+    }
     // the index switched to this commit, so nothing reaches another commit's files
     const stale = await deleteFilesOfOtherCommits(target, commitSha)
     log(`[workload-runner] published UI ${name}; deleted ${stale} file(s) of other commits`)
@@ -132,6 +150,7 @@ async function main(): Promise<void> {
     const targets = parseUploadUrls(require_('KINOTIC_UI_UPLOAD_URLS'))
     const commitSha = require_('KINOTIC_UI_COMMIT')
     const workspaceDir = process.env.KINOTIC_WORKSPACE_DIR ?? '/workspace'
+    const deactivatedUrl = process.env.KINOTIC_UI_DEACTIVATED_URL || undefined
 
     const uis = findArtifacts(workspaceDir).uis
     log(`[workload-runner] publishing ${uis.length} UI(s) of ${commitSha}`)
@@ -140,7 +159,7 @@ async function main(): Promise<void> {
         if (!target) {
             throw new Error(`UI ${ui.name} has no upload URL; the deploy issued URLs for ${[...targets.keys()].join(', ') || 'no UI'}`)
         }
-        await publishUi(target, workspaceDir, ui.name, ui.dir, commitSha)
+        await publishUi(target, workspaceDir, ui.name, ui.dir, commitSha, deactivatedUrl)
     }
     log(`[workload-runner] published ${commitSha}`)
 }

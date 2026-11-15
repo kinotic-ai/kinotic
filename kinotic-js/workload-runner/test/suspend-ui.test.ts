@@ -78,6 +78,19 @@ describe.skipIf(!azurite)('suspend-ui and resume-ui entrypoints (against Azurite
         expect((await readBlob(`${unpublished}/index.html`)).status).toBe(404)
     }, 60_000)
 
+    it('leaves the index a publish wrote while suspended, and drops the index kept before it', async () => {
+        const site = `republished-${crypto.randomUUID()}.apps.kinotic.test`
+        await publish(site)
+        expect(suspend(site).status).toBe(0)
+        expect((await putBlob(`${site}/index.html`, '<html>republished</html>', { 'x-ms-meta-commit': 'e'.repeat(40) })).status).toBe(201)
+
+        const result = resume(site)
+
+        expect(result.status).toBe(0)
+        expect(await (await readBlob(`${site}/index.html`)).text()).toBe('<html>republished</html>')
+        expect((await readBlob(`${site}/.kinotic/index.html`)).status).toBe(404)
+    }, 60_000)
+
     it('fails to resume a suspended site whose kept index is gone', async () => {
         const site = `lost-${crypto.randomUUID()}.apps.kinotic.test`
         expect((await putBlob(`${site}/index.html`, '<html>deactivated</html>', { 'x-ms-meta-suspended': 'true' })).status).toBe(201)

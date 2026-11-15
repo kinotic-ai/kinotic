@@ -104,6 +104,32 @@ export async function copyFile(site: SiteTarget, file: Response, to: string, hea
     await writeFile(site, to, await file.blob(), { ...kept, ...headers })
 }
 
+function escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+/**
+ * Writes, as the site's index, the page a suspended site serves on every route: an immediate redirect to
+ * deactivatedUrl, with a link for a browser that does not follow it, stamped with the commit the site was
+ * published from so a publish's cleanup treats it as that commit's index.
+ *
+ * @param headers further headers of the write, such as a precondition
+ */
+export async function writeSuspendedIndex(site: SiteTarget, deactivatedUrl: string, commit: string | null,
+                                          headers: Record<string, string> = {}): Promise<void> {
+    const url = escapeHtml(deactivatedUrl)
+    const page = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        + `<meta http-equiv="refresh" content="0; url=${url}">\n<title>Organization deactivated</title>\n</head>\n`
+        + `<body>\n<p>This organization is deactivated. <a href="${url}">Find out more</a>.</p>\n</body>\n</html>\n`
+    await writeFile(site, INDEX_FILE, new Blob([page]), {
+        'Content-Type': 'text/html; charset=utf-8',
+        'x-ms-blob-cache-control': 'no-cache',
+        [SUSPENDED_METADATA_HEADER]: 'true',
+        ...(commit ? { [COMMIT_METADATA_HEADER]: commit } : {}),
+        ...headers,
+    })
+}
+
 /** Every blob under the site's directory, with the commit that published it. */
 export async function listBlobs(site: SiteTarget): Promise<SiteBlob[]> {
     const blobs: SiteBlob[] = []

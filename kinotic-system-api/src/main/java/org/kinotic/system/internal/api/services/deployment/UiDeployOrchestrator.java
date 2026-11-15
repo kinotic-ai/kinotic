@@ -49,9 +49,6 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
     /** Longer than deleting a site, or switching its index, takes, and short enough that a leaked URL is soon worthless. */
     private static final Duration SITE_URL_TTL = Duration.ofMinutes(15);
 
-    /** The portal's page saying an organization is deactivated, followed by the organization's id. */
-    private static final String DEACTIVATED_PATH = "/deactivated/";
-
     private final UiDeploymentRepository uiDeploymentRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final UiDeploymentProvisioner uiDeploymentProvisioner;
@@ -103,16 +100,15 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
         return ret;
     }
 
-    // a publish while the organization is deactivated serves the site's own index again, and is a new generation,
-    // so the site is suspended once more
+    // a publish while the organization is deactivated publishes the site suspended, and is a new generation, so the
+    // site is suspended again, which finds it suspended already
     private Future<Requeue> suspend(UiDeployment current) {
         ReconcileState<DeploymentState> state = current.getState();
         Future<Requeue> ret;
         if (suspended(current) && state.getObservedGeneration() >= state.getGeneration()) {
             ret = Future.succeededFuture(Requeue.NONE);
         } else {
-            String deactivatedUrl = domainProperties.getDomain().getPortalBaseUrl() + DEACTIVATED_PATH + current.getOrganizationId();
-            ret = onSiteFiles(current, url -> siteWorkloadFactory.suspension(current, url, deactivatedUrl))
+            ret = onSiteFiles(current, url -> siteWorkloadFactory.suspension(current, url))
                     .compose(v -> uiDeploymentRepository.reportObserved(current.getId(),
                                                                         new DeploymentState(DeploymentStatusType.SUSPENDED,
                                                                                             DeploymentState.commitOf(state.getObserved())),
