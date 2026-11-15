@@ -10,6 +10,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     ApplicationProjectsLink: typeof import('./src/components/ApplicationProjectsLink.vue')['default']
     ApplicationSidebar: typeof import('./src/components/ApplicationSidebar.vue')['default']
+    BillingPanel: typeof import('./src/components/BillingPanel.vue')['default']
     Button: typeof import('primevue/button')['default']
     CascadeSelect: typeof import('primevue/cascadeselect')['default']
     CopyableUrl: typeof import('./src/components/CopyableUrl.vue')['default']

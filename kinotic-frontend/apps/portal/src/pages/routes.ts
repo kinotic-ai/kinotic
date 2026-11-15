@@ -276,6 +276,12 @@ const pageRoutes: RouteRecordRaw[] = [
     meta: { authenticationRequired: false } as RouteMeta
   },
   {
+    path: '/deactivated/:organizationId',
+    component: () => import('@/pages/DeactivatedPage.vue'),
+    props: true,
+    meta: { authenticationRequired: false } as RouteMeta
+  },
+  {
     path: '/signup',
     component: () => import('@/pages/signup/GithubSignup.vue'),
     beforeEnter: toOfferedSignUp,

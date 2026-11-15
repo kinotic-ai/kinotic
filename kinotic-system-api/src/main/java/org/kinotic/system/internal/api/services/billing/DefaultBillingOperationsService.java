@@ -64,8 +64,8 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class DefaultBillingOperationsService implements BillingOperationsService {
 
-    // the portal's organization settings, where Checkout and the Customer Portal return to
-    private static final String RETURN_PATH = "/organization-settings";
+    // the Billing tab of the portal's organization settings, where Checkout and the Customer Portal return to
+    private static final String RETURN_PATH = "/organization-settings?tab=billing";
     // Stripe refuses a Checkout trial that ends sooner than this
     private static final Duration MIN_CHECKOUT_TRIAL = Duration.ofDays(2);
     private static final Duration MAX_USAGE_RANGE = Duration.ofDays(93);

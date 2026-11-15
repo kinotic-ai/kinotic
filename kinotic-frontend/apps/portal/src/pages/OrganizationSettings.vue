@@ -24,6 +24,9 @@
         <TabPanel value="authentication">
           <SignInProvidersPanel :application-id="null" />
         </TabPanel>
+        <TabPanel value="billing">
+          <BillingPanel />
+        </TabPanel>
         <TabPanel v-for="tab in upcomingTabs" :key="tab.id" :value="tab.id">
           <FeatureEmptyState badge="coming-soon" :icon="tab.icon" :tint="tab.upcoming.tint" :title="tab.upcoming.title"
                            :description="tab.upcoming.description" :points="tab.upcoming.points"
@@ -54,28 +57,6 @@
                 </div>
               </div>
 
-              <div v-else :class="PREVIEW_CARD">
-                <div class="flex items-start justify-between">
-                  <div>
-                    <div class="text-[10px] font-semibold uppercase tracking-wider text-surface-400">Current plan</div>
-                    <div class="mt-2 h-4 w-24 rounded bg-surface-200 dark:bg-surface-700" />
-                  </div>
-                  <span class="rounded-md bg-surface-950 px-2 py-1 text-[11px] font-medium text-surface-0 dark:bg-surface-0 dark:text-surface-950">Manage plan</span>
-                </div>
-                <div class="mt-5 text-[10px] font-semibold uppercase tracking-wider text-surface-400">Usage this month</div>
-                <div v-for="(width, index) in USAGE_BARS" :key="index" class="mt-2.5 flex items-center gap-3">
-                  <div class="h-2.5 w-16 rounded bg-surface-200 dark:bg-surface-700" />
-                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700">
-                    <div class="h-full rounded-full bg-orange-400" :style="{ width }" />
-                  </div>
-                </div>
-                <div class="mt-5 text-[10px] font-semibold uppercase tracking-wider text-surface-400">Invoices</div>
-                <div v-for="row in 3" :key="row" class="mt-2.5 flex items-center gap-3">
-                  <CreditCard :size="14" :stroke-width="1.75" class="text-surface-400" />
-                  <div class="h-2.5 flex-1 rounded bg-surface-200 dark:bg-surface-700" />
-                  <div class="h-2.5 w-10 rounded bg-surface-200 dark:bg-surface-700" />
-                </div>
-              </div>
             </template>
           </FeatureEmptyState>
         </TabPanel>
@@ -100,8 +81,8 @@ import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
 import { RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
 import { repositoryHost } from '@/util/repositoryHost'
 import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
+import BillingPanel from '@/components/BillingPanel.vue'
 import { useQueryTab } from '@/composables/useQueryTab'
-import { DOCUMENTATION_URL } from '@/util/externalLinks'
 
 /** What the empty state of a tab that is not built yet says about it. */
 interface UpcomingFeature {
@@ -152,20 +133,7 @@ const TABS: SettingsTab[] = [
       meanwhile: { label: 'review your members', to: '/members' }
     }
   },
-  {
-    id: 'billing', label: 'Billing & plan', icon: markRaw(CreditCard),
-    upcoming: {
-      tint: TINTS.orange,
-      title: 'Your plan and usage, in one place',
-      description: 'Review your subscription, what it includes, and how your organization uses it.',
-      points: [
-        'See your plan and what it includes',
-        'Follow usage across your applications',
-        'Manage payment details and download invoices'
-      ],
-      meanwhile: { label: 'read the documentation', href: DOCUMENTATION_URL }
-    }
-  }
+  { id: 'billing', label: 'Billing & plan', icon: markRaw(CreditCard) }
 ]
 
 // The previews are illustrations of the screens to come, drawn from these placeholders
@@ -183,7 +151,6 @@ const PERMISSIONS = [
   { name: 'Invite members', grants: [true, false, false] },
   { name: 'View dashboards', grants: [true, true, true] }
 ]
-const USAGE_BARS = ['72%', '45%', '28%']
 
 const upcomingTabs = TABS.filter((tab): tab is SettingsTab & { upcoming: UpcomingFeature } => tab.upcoming !== undefined)
 
