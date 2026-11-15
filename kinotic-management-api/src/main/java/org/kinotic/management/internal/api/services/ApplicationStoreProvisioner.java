@@ -125,9 +125,9 @@ public class ApplicationStoreProvisioner {
                                                                   .setApplicationId(application.getId());
                              // the kernel model and its roles admit the membership tuples written at user creation
                              // and the grants made before any service of the application registers. It is written
-                             // over whatever model the store runs: a reconcile that ran while an application of the
-                             // same id was deleted creates the store again, and may leave it running the bridge
-                             // version ensureModelWithRoles writes first, which has no application type.
+                             // over whatever model the store runs: a store left by a server that stopped while
+                             // provisioning it may run the bridge version ensureModelWithRoles writes first, which
+                             // has no application type.
                              // The record is created with the kernel model as its intent, so a service registered
                              // before the worker's first run stamps a record that exists, and the master reconciles
                              // the record to the model the services imply on its next look. It is created once the

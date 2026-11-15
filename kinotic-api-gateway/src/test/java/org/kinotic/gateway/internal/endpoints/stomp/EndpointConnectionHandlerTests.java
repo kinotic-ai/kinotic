@@ -39,7 +39,6 @@ import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -59,7 +58,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.endsWith;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -388,45 +386,18 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
-    public void testCancelWaitsForTheRequestItCancels() throws Exception {
-        Promise<Void> authorization = Promise.promise();
-        when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(authorization.future());
-        EndpointConnectionHandler handler = connect(Map.of());
-        String replyTo = subscribeReplies(handler);
-        Future<Void> requested = handler.send(request(replyTo, "inv-9"));
-
-        Metadata metadata = Metadata.create(Map.of(EventConstants.REPLY_TO_HEADER, replyTo,
-                                                   EventConstants.CORRELATION_ID_HEADER, "inv-9",
-                                                   EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL));
-        Future<Void> cancelled = handler.send(Event.create(CRI.create(SERVICE_DESTINATION), metadata, null));
-        // the request is still being authorized, so neither it nor its cancel has left the gateway
-        verify(eventBusService, never()).sendWithAck(any());
-        verify(eventBusService, never()).publish(any());
-
-        authorization.complete();
-        requested.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-        cancelled.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-        InOrder order = inOrder(eventBusService);
-        order.verify(eventBusService).sendWithAck(any());
-        order.verify(eventBusService).publish(any());
-    }
-
-    @Test
     public void testCancelOfARefusedRequestIsDropped() throws Exception {
-        Promise<Void> authorization = Promise.promise();
-        when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(authorization.future());
+        when(services.requestAuthorizer.authorize(any(), any(), any(), any()))
+                .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized")));
         EndpointConnectionHandler handler = connect(Map.of());
         String replyTo = subscribeReplies(handler);
-        Future<Void> requested = handler.send(request(replyTo, "inv-11"));
+        handler.send(request(replyTo, "inv-11")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         Metadata metadata = Metadata.create(Map.of(EventConstants.REPLY_TO_HEADER, replyTo,
                                                    EventConstants.CORRELATION_ID_HEADER, "inv-11",
                                                    EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL));
-        Future<Void> cancelled = handler.send(Event.create(CRI.create(SERVICE_DESTINATION), metadata, null));
+        handler.send(Event.create(CRI.create(SERVICE_DESTINATION), metadata, null)).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
-        authorization.fail(new AuthorizationException("Not authorized"));
-        requested.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-        cancelled.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         // the services never received the request, so they are sent no cancel of it
         verify(eventBusService, never()).sendWithAck(any());
         verify(eventBusService, never()).publish(any());

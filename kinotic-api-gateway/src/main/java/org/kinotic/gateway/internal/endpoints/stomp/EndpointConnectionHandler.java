@@ -7,7 +7,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Promise;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
@@ -68,9 +67,6 @@ public class EndpointConnectionHandler {
     private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private boolean sessionCreatedHere;
     private long sessionTimer = -1;
-    // completes once every service request and control event received so far has been handed to the event bus
-    // or refused, so each one waits for those before it and they leave in the order they arrived
-    private Future<Void> dispatched = Future.succeededFuture();
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
         this.services = services;
@@ -242,59 +238,45 @@ public class EndpointConnectionHandler {
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
 
                 // A control event names a stream by correlation id and is published: the instance producing
-                // the stream is whichever one took the request, and the others ignore an id they do not hold.
-                // It is published in turn, so a cancel never reaches the services before the request it cancels
+                // the stream is whichever one took the request, and the others ignore an id they do not hold
                 if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
-                    Future<Void> ret = dispatched.transform(previous -> {
-                        if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
-                            // the cancel goes to the destination the request was sent to, not one the client names, so
-                            // the stream it ends is the one it forgets; a cancel for a request this connection does not
-                            // hold is dropped
-                            CRI destination = incomingInvocationTracker.cancel(correlationId);
-                            if (destination != null) {
-                                services.eventBusService.publish(Event.create(destination, incomingEvent.metadata(),
-                                                                              incomingEvent.data(), incomingEvent.sender()));
-                            } else {
-                                log.debug("Dropping a cancel of {}, which this connection does not hold", correlationId);
-                            }
+                    if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
+                        // the cancel goes to the destination the request was sent to, not one the client names, so
+                        // the stream it ends is the one it forgets; a cancel for a request this connection does not
+                        // hold is dropped
+                        CRI destination = incomingInvocationTracker.cancel(correlationId);
+                        if (destination != null) {
+                            services.eventBusService.publish(Event.create(destination, incomingEvent.metadata(),
+                                                                          incomingEvent.data(), incomingEvent.sender()));
                         } else {
-                            services.eventBusService.publish(incomingEvent);
+                            log.debug("Dropping a cancel of {}, which this connection does not hold", correlationId);
                         }
-                        return Future.<Void>succeededFuture();
-                    });
-                    dispatched = ret;
-                    return ret;
+                    } else {
+                        services.eventBusService.publish(incomingEvent);
+                    }
+                    return Future.succeededFuture();
                 }
 
                 incomingInvocationTracker.requestSent(incomingEvent);
-                // the zone admitted the destination; the function's own check decides the caller may invoke it.
-                // The check starts at once, and the request is sent once it passes and every earlier request
-                // has been sent
-                Future<Void> authorized = services.requestAuthorizer
+                // the zone admitted the destination; the function's own check decides the caller may invoke it
+                return services.requestAuthorizer
                         .authorize(incomingEvent.cri(),
                                    connectedInfo.getParticipant(),
                                    incomingEvent.metadata().get(EventConstants.CONTENT_TYPE_HEADER),
-                                   incomingEvent.data());
-                Promise<Void> handedOff = Promise.promise();
-                Future<Void> earlier = dispatched;
-                dispatched = handedOff.future();
-                return earlier.transform(previous -> authorized)
+                                   incomingEvent.data())
                         .compose(v -> {
                             Future<String> accepted;
-                            // the connection closed while the request waited for its check or an earlier request
+                            // the connection closed while the request waited for its check
                             if (connectedInfo == null) {
                                 accepted = Future.failedFuture(new IllegalStateException("The connection closed before the request to "
                                                                                                  + incomingEvent.cri() + " was sent"));
                             } else {
                                 accepted = services.eventBusService.sendWithAck(incomingEvent);
                             }
-                            handedOff.complete();
                             return accepted;
                         })
-                        // no reply will come for a request that never left. It is forgotten before the next event is
-                        // let through, so a cancel waiting behind a refused request finds nothing to cancel
+                        // no reply will come for a request that never left
                         .onFailure(throwable -> incomingInvocationTracker.requestFinished(correlationId))
-                        .andThen(result -> handedOff.tryComplete())
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             throwable = KinoticUtil.mapSendFailure(throwable,

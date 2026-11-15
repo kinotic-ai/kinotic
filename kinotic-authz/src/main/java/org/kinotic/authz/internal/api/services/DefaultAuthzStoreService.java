@@ -68,24 +68,18 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
 
     @Override
     public Future<String> ensureStore(String store) {
-        Future<String> ret;
-        if (SYSTEM.equals(store)) {
-            ret = storeIdOf(store);
-        } else {
-            // asked by name every time, so a store deleted and re-created under its name since this node last
-            // resolved it is created again rather than answered with the id the engine no longer knows
-            String name = storeNameOf(store);
-            ret = findStore(name)
-                    .compose(found -> found != null ? Future.succeededFuture(found) : createStore(store, name))
-                    .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
-        }
-        return ret;
+        // asked by name every time, so a store deleted and re-created under its name since this node last
+        // resolved it is created again rather than answered with the id the engine no longer knows
+        String name = storeNameOf(store);
+        return findStore(name)
+                .compose(found -> found != null ? Future.succeededFuture(found) : createStore(store, name))
+                .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
     }
 
-    // Nodes creating a store together, as the provisioner and the reconciler do for a new application, hold the
-    // name's cluster lock in turn, so the first creates the store and the others find it. A listing shows a store
-    // only once its creation commits, so creators that each listed before the other's commit would otherwise each
-    // keep a store of their own
+    // Nodes creating a store together, as the seed job and a caller creating the application do when the job
+    // reaches an application still being provisioned, hold the name's cluster lock in turn, so the first creates
+    // the store and the others find it. A listing shows a store only once its creation commits, so creators that
+    // each listed before the other's commit would otherwise each keep a store of their own
     private Future<String> createStore(String store, String name) {
         return vertx.sharedData().withLock(STORE_LOCK_PREFIX + name, STORE_LOCK_TIMEOUT_MILLIS, () -> findStore(name).compose(
                 found -> found != null
@@ -371,7 +365,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
             if (id == null) {
                 throw new IllegalStateException(SYSTEM.equals(store)
                         ? "No store is named '" + name + "'; the system store is created before the servers start"
-                        : "No store is named '" + name + "'; the application's store is created when its record is reconciled");
+                        : "No store is named '" + name + "'; the application's store is created when the application is");
             }
             return id;
         }).onSuccess(id -> log.info("Using authorization store {} for '{}'", id, store))

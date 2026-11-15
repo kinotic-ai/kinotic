@@ -57,6 +57,8 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     public void send(Frame frame) {
         // FIXME: this is probably the wrong way to  do this, We are not really providing guaranteed delivery below so this kinda just creates a bottle neck for no reason.
         // We pause the client to effectively make all client requests block until the previous request is handled asynchronously
+        // The pause is also what keeps a connection's requests and cancels in the order they arrived: a request leaves
+        // once its authorization passes, so without the pause a cancel would reach the services before the request it cancels
         stompServerConnection.pause();
 
         if(log.isTraceEnabled()){
