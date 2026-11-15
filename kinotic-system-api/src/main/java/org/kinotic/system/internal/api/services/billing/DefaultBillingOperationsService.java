@@ -104,8 +104,8 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         if (account.getStripeCheckoutSessionId() == null) {
             ret = Future.succeededFuture(account);
         } else {
-            ret = stripeBilling.expireCheckoutSession(account.getStripeCheckoutSessionId()).map(completed -> {
-                Validate.validState(!completed,
+            ret = stripeBilling.expireCheckoutSession(account.getStripeCheckoutSessionId()).map(subscribing -> {
+                Validate.validState(!subscribing,
                                     "The organization's subscription is being set up and shows here once Stripe confirms it");
                 return account.setStripeCheckoutSessionId(null);
             });
@@ -196,7 +196,6 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         // an event about a subscription the account has since replaced leaves the account alone
         if (account.getStripeSubscriptionId() == null || account.getStripeSubscriptionId().equals(subscription.getId())) {
             account.setStripeSubscriptionId(null)
-                   .setStripeCheckoutSessionId(null)
                    .setPlanId(null)
                    .setCurrentPeriodEnd(null);
             if (account.getTrialEndsAt().toInstant().isAfter(now)) {

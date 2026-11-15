@@ -32,6 +32,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -52,6 +53,7 @@ public class StripeBilling {
     // a Checkout Session's status values
     private static final String CHECKOUT_OPEN = "open";
     private static final String CHECKOUT_COMPLETE = "complete";
+    private static final Set<String> ENDED_SUBSCRIPTION_STATUSES = Set.of("canceled", "incomplete_expired");
 
     // a meter event names the Stripe Customer, and carries the usage, under these payload keys
     private static final String CUSTOMER_PAYLOAD_KEY = "stripe_customer_id";
@@ -153,15 +155,21 @@ public class StripeBilling {
      * Makes the Checkout Session unable to subscribe anyone: an open Session is expired, and one already expired is
      * left as it is.
      *
-     * @return {@code true} when the Session was already completed, so its Subscription exists or is being created
+     * @return {@code true} when the Session was already completed and its Subscription is being created or has not
+     *         ended
      */
     public Future<Boolean> expireCheckoutSession(String sessionId) {
         return blocking(() -> {
-            String status = stripe.v1().checkout().sessions().retrieve(sessionId).getStatus();
-            if (CHECKOUT_OPEN.equals(status)) {
-                status = stripe.v1().checkout().sessions().expire(sessionId).getStatus();
+            Session session = stripe.v1().checkout().sessions().retrieve(sessionId);
+            if (CHECKOUT_OPEN.equals(session.getStatus())) {
+                session = stripe.v1().checkout().sessions().expire(sessionId);
             }
-            return CHECKOUT_COMPLETE.equals(status);
+            boolean ret = false;
+            if (CHECKOUT_COMPLETE.equals(session.getStatus())) {
+                ret = session.getSubscription() == null
+                        || !ENDED_SUBSCRIPTION_STATUSES.contains(stripe.v1().subscriptions().retrieve(session.getSubscription()).getStatus());
+            }
+            return ret;
         });
     }
 
