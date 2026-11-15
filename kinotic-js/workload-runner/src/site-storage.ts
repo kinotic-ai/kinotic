@@ -239,11 +239,14 @@ export async function deleteBlob(site: SiteTarget, name: string, headers: Record
 
 /**
  * Deletes every file of the site that a publish of another commit wrote, then the directories
- * that are empty for it. Files of the given commit stay.
+ * that are empty for it. Files of the given commit, and the kept index of a suspended site, stay.
  */
 export async function deleteFilesOfOtherCommits(site: SiteTarget, commitSha: string): Promise<number> {
     const blobs = await listBlobs(site)
-    const stale = blobs.filter(blob => !blob.isDirectory && blob.commit !== commitSha)
+    const kept = `${site.directory}/${SUSPENDED_INDEX_FILE}`
+    // the kept index is written only under the index lease, which this cleanup does not hold, so it is left to the
+    // suspension, resumption and suspended publish that replace or delete it
+    const stale = blobs.filter(blob => !blob.isDirectory && blob.commit !== commitSha && blob.name !== kept)
     for (const blob of stale) {
         await deleteBlob(site, blob.name)
     }

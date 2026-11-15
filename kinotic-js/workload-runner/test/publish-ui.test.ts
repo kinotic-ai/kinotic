@@ -39,6 +39,8 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         // a file an earlier publish left behind, stamped with its commit
         const stale = await putBlob('admin.apps.kinotic.test/assets/old.js', '// stale', { 'x-ms-meta-commit': 'b'.repeat(40) })
         expect(stale.status).toBe(201)
+        // the index a suspension kept, which only the suspension, resumption and a suspended publish replace
+        expect((await putBlob('admin.apps.kinotic.test/.kinotic/index.html', '<html>kept</html>', { 'x-ms-meta-commit': 'b'.repeat(40) })).status).toBe(201)
 
         const result = spawnSync('bun', [PUBLISH], {
             env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: uploadUrls, KINOTIC_UI_COMMIT: sha, KINOTIC_WORKSPACE_DIR: workspaceDir },
@@ -70,6 +72,7 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         expect(index.headers.get('x-ms-meta-commit')).toBe(sha)
 
         expect((await readBlob('admin.apps.kinotic.test/assets/old.js')).status).toBe(404)
+        expect(await (await readBlob('admin.apps.kinotic.test/.kinotic/index.html')).text()).toBe('<html>kept</html>')
     }, 60_000)
 
     it('fails when a UI was not built', async () => {
