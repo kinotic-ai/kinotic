@@ -175,6 +175,21 @@ public class BillingTests extends KinoticTestBase {
     }
 
     @Test
+    public void openingCheckoutAgainSucceedsWhenAnotherRequestExpiredTheEarlierPage() throws Exception {
+        Organization organization = await(organizations.create(new Organization().setName("billing-" + suffix())));
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+
+        String first = await(runAs(memberOf(organization), () -> billingService.createCheckoutSession(plan.getId())));
+        String firstId = first.substring(first.lastIndexOf('/') + 1);
+        StripeStandIn.expireAfterNextRetrieve(firstId);
+        String second = await(runAs(memberOf(organization), () -> billingService.createCheckoutSession(plan.getId())));
+
+        String secondId = second.substring(second.lastIndexOf('/') + 1);
+        assertEquals(1, StripeStandIn.requests("POST", "/v1/checkout/sessions/" + firstId + "/expire").size());
+        assertEquals(secondId, await(operations.findAccount(organization.getId())).getStripeCheckoutSessionId());
+    }
+
+    @Test
     public void concurrentCheckoutsLeaveOneOpenPage() throws Exception {
         Organization organization = await(organizations.create(new Organization().setName("billing-" + suffix())));
         BillingPlan plan = await(plans.create(teamPlan(null)));

@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,6 +40,7 @@ public class StripeStandIn {
     private static final Map<String, JsonObject> SUBSCRIPTIONS = new ConcurrentHashMap<>();
     private static final Map<String, JsonObject> CHECKOUT_SESSIONS = new ConcurrentHashMap<>();
     private static final List<JsonObject> METERS = Collections.synchronizedList(new ArrayList<>());
+    private static final Set<String> EXPIRED_AFTER_RETRIEVE = ConcurrentHashMap.newKeySet();
     private static final Map<String, JsonObject> IDEMPOTENT_RESPONSES = new ConcurrentHashMap<>();
     private static final List<StripeRequest> REQUESTS = Collections.synchronizedList(new ArrayList<>());
 
@@ -60,6 +62,14 @@ public class StripeStandIn {
         return CHECKOUT_SESSIONS.values().stream()
                                 .filter(session -> clientReferenceId.equals(session.getString("client_reference_id")))
                                 .toList();
+    }
+
+    /**
+     * The next retrieve of the Checkout Session finds it open, and the Session is expired right after it, as a
+     * concurrent request would expire it.
+     */
+    public static void expireAfterNextRetrieve(String sessionId) {
+        EXPIRED_AFTER_RETRIEVE.add(sessionId);
     }
 
     @Bean
@@ -134,7 +144,13 @@ public class StripeStandIn {
                 response = null;
             }
         } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/")) {
-            response = CHECKOUT_SESSIONS.get(path.substring(CHECKOUT_SESSIONS_PATH.length() + 1));
+            String sessionId = path.substring(CHECKOUT_SESSIONS_PATH.length() + 1);
+            response = CHECKOUT_SESSIONS.get(sessionId);
+            if (response != null && EXPIRED_AFTER_RETRIEVE.remove(sessionId)) {
+                JsonObject retrieved = response.copy();
+                response.put("status", "expired");
+                response = retrieved;
+            }
         } else if (path.equals("/v1/billing/meter_events")) {
             response = new JsonObject().put("object", "billing.meter_event")
                                        .put("event_name", params.get("event_name"))
