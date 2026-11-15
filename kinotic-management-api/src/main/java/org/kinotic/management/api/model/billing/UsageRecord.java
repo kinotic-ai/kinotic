@@ -31,6 +31,8 @@ public class UsageRecord implements Identifiable<String> {
      * left unbilled otherwise. {@code null} until then.
      */
     private Date settled;
+    /** The meters whose usage of the hour Stripe has accepted. */
+    private List<UsageMeter> reported = new ArrayList<>();
     private Date created;
     private Date updated;
 }

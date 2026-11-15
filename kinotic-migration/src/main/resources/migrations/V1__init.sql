@@ -422,7 +422,9 @@ CREATE TABLE IF NOT EXISTS kinotic_billing_account (
     status KEYWORD,
     trialEndsAt DATE,
     planId KEYWORD,
+    currentPeriodStart DATE NOT INDEXED,
     currentPeriodEnd DATE NOT INDEXED,
+    subscriptionEnded DATE NOT INDEXED,
     pastDueSince DATE,
     stripeCustomerId KEYWORD NOT INDEXED,
     stripeSubscriptionId KEYWORD,
@@ -444,6 +446,7 @@ CREATE TABLE IF NOT EXISTS kinotic_usage_record (
         quantity DOUBLE NOT INDEXED
     ),
     settled DATE,
+    reported KEYWORD NOT INDEXED,
     created DATE,
     updated DATE
 );

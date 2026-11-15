@@ -17,6 +17,7 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Bills an organization for its microservices while they run: each run of a microservice's VM is a
@@ -39,15 +40,7 @@ public class MicroserviceBilling {
      * started, and the run of one that has stopped is billed until it stopped.
      */
     public Future<Void> track(MicroserviceDeployment deployment) {
-        return resourceRepository.findOpenForSubject(deployment.getId()).compose(open -> {
-            Set<String> workloadIds = new LinkedHashSet<>();
-            open.forEach(resource -> workloadIds.add(resource.getId()));
-            if (deployment.getWorkloadId() != null) {
-                workloadIds.add(deployment.getWorkloadId());
-            }
-            List<Future<Void>> tracking = workloadIds.stream().map(workloadId -> track(deployment, workloadId)).toList();
-            return Future.all(tracking).mapEmpty();
-        });
+        return forEachRun(deployment, workloadId -> track(deployment, workloadId));
     }
 
     /**
@@ -55,9 +48,19 @@ public class MicroserviceBilling {
      * known to have stopped until now.
      */
     public Future<Void> untrack(MicroserviceDeployment deployment) {
-        return track(deployment)
-                .compose(v -> resourceRepository.findOpenForSubject(deployment.getId()))
-                .compose(open -> Future.all(open.stream().map(resource -> end(resource.getId(), new Date())).toList()).mapEmpty());
+        return forEachRun(deployment, workloadId -> track(deployment, workloadId).compose(v -> end(workloadId, new Date())));
+    }
+
+    // the runs found open, and the deployment's current one, which may be too new for search to find
+    private Future<Void> forEachRun(MicroserviceDeployment deployment, Function<String, Future<Void>> action) {
+        return resourceRepository.findOpenForSubject(deployment.getId()).compose(open -> {
+            Set<String> workloadIds = new LinkedHashSet<>();
+            open.forEach(resource -> workloadIds.add(resource.getId()));
+            if (deployment.getWorkloadId() != null) {
+                workloadIds.add(deployment.getWorkloadId());
+            }
+            return Future.all(workloadIds.stream().map(action).toList()).mapEmpty();
+        });
     }
 
     private Future<Void> track(MicroserviceDeployment deployment, String workloadId) {

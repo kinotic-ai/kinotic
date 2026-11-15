@@ -33,9 +33,17 @@ public class UsageRecordRepository extends AbstractRepository<UsageRecord> {
      * The organization's records of the hours starting from {@code from} up to {@code to}, oldest first.
      */
     public Future<List<UsageRecord>> findForOrganization(String organizationId, Date from, Date to) {
-        return findAll(Pageable.create(0, MAX_RECORDS, Sort.by("hour")),
-                       b -> b.query(composeFilter(termFilter("organizationId", organizationId), hourRange(from, to))))
+        return findAll(Pageable.create(0, MAX_RECORDS, Sort.by("hour")), b -> b.query(ofOrganization(organizationId, from, to)))
                 .map(Page::getContent);
+    }
+
+    /** A page of the organization's records of the hours starting from {@code from} up to {@code to}, of any number. */
+    public Future<Page<UsageRecord>> findPageForOrganization(String organizationId, Date from, Date to, CursorPageable pageable) {
+        return findAll(pageable, b -> b.query(ofOrganization(organizationId, from, to)));
+    }
+
+    private Query ofOrganization(String organizationId, Date from, Date to) {
+        return composeFilter(termFilter("organizationId", organizationId), hourRange(from, to));
     }
 
     /** The records not yet settled of the hour starting at {@code hour}, in the order of their ids. */

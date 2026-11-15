@@ -33,7 +33,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
-import java.util.function.BiFunction;
 
 /**
  * Keeps each microservice of a deployed project running as its deployment says it should: the worker
@@ -86,9 +85,9 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
         if (state.getDeletionRequested() != null) {
             ret = finalizeRemoval(current);
         } else if (desired == null) {
-            ret = bill(current, MicroserviceBilling::track).map(Requeue.NONE);
+            ret = bill(current).map(Requeue.NONE);
         } else {
-            ret = bill(current, MicroserviceBilling::track)
+            ret = bill(current)
                     .compose(v -> organizationService.findById(current.getOrganizationId()))
                     .compose(organization -> organization != null && organization.getDeactivated() != null
                             ? suspend(current)
@@ -98,8 +97,8 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     }
 
     // a deployment is billed from its own state each time it is reconciled, so billing that fails is caught up the next time
-    private Future<Void> bill(MicroserviceDeployment current, BiFunction<MicroserviceBilling, MicroserviceDeployment, Future<Void>> step) {
-        return microserviceBilling.map(billing -> step.apply(billing, current).recover(error -> {
+    private Future<Void> bill(MicroserviceDeployment current) {
+        return microserviceBilling.map(billing -> billing.track(current).recover(error -> {
                                       log.warn("Could not bring the billing of microservice {} of project {} up to date",
                                                current.getName(), current.getProjectId(), error);
                                       return Future.<Void>succeededFuture();
@@ -107,10 +106,16 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
                                   .orElseGet(Future::succeededFuture);
     }
 
+    // a failure fails the removal, so the record is kept and the removal retried until its runs are ended
+    private Future<Void> endBilling(MicroserviceDeployment current) {
+        return microserviceBilling.map(billing -> billing.untrack(current)).orElseGet(Future::succeededFuture);
+    }
+
     private Future<Requeue> reconcileIntent(MicroserviceDeployment current, DeploymentState desired) {
         Future<Requeue> ret;
         if (desired.phase() == DeploymentStatusType.ORPHANED) {
-            // the commit dropped the microservice: whatever runs keeps running until the deployment is removed
+            // the commit dropped the microservice: whatever runs keeps running until the deployment is removed, and one
+            // stopped while its organization was deactivated stays stopped, since the commit has no artifact to start
             ret = microserviceDeploymentRepository.reportObserved(current.getId(), desired, current.getState().getGeneration(), "orphaned by the commit")
                                                   .map(Requeue.NONE);
         } else {
@@ -121,7 +126,8 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
         return ret;
     }
 
-    // a deactivated organization's VM is stopped; reactivating the organization renews the intent, which deploys it again
+    // a deactivated organization's VM is stopped, and a stop that fails is retried before the deployment is reported
+    // suspended; reactivating the organization renews the intent, which deploys it again
     private Future<Requeue> suspend(MicroserviceDeployment current) {
         return stopWorkloadOf(current)
                 .compose(v -> microserviceDeploymentRepository.reportObserved(current.getId(),
@@ -306,7 +312,12 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private Future<Requeue> finalizeRemoval(MicroserviceDeployment current) {
         log.info("Removing microservice {} of project {}", current.getName(), current.getProjectId());
         return stopWorkloadOf(current)
-                .compose(v -> bill(current, MicroserviceBilling::untrack))
+                .recover(error -> {
+                    log.warn("Workload {} of microservice {} could not be stopped: {}",
+                             current.getWorkloadId(), current.getName(), error.getMessage());
+                    return Future.succeededFuture();
+                })
+                .compose(v -> endBilling(current))
                 .compose(v -> removeMachine(current))
                 .compose(v -> microserviceDeploymentRepository.deleteByIdSync(current.getId()))
                 .map(Requeue.NONE);
@@ -316,11 +327,6 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
         return workloadOf(current)
                 .compose(workload -> workload != null
                         ? workloadOrchestrationService.stopWorkload(workload.getId())
-                                                      .recover(error -> {
-                                                          log.warn("Workload {} of microservice {} could not be stopped: {}",
-                                                                   workload.getId(), current.getName(), error.getMessage());
-                                                          return Future.succeededFuture();
-                                                      })
                         : Future.succeededFuture());
     }
 

@@ -128,9 +128,12 @@ export function cacheControl(file) {
 /** How long the edge keeps the system server's answer of whether an organization is deactivated. */
 const DEACTIVATED_TTL_SECONDS = 60
 
+/** How long a request waits for the system server to answer whether an organization is deactivated. */
+const DEACTIVATED_TIMEOUT_MS = 2000
+
 /**
  * Whether the organization is deactivated, as the system server answers; false when no system server is bound or it
- * cannot answer, so its sites are served.
+ * cannot answer within two seconds, so its sites are served.
  *
  * @param {string} organizationId the organization
  * @param {string | undefined} systemApiBaseUrl the SYSTEM_API_BASE_URL binding
@@ -140,9 +143,12 @@ export async function isDeactivated(organizationId, systemApiBaseUrl) {
     let ret = false
     if (systemApiBaseUrl) {
         try {
+            // the signal aborts reading the body too, so a server that stalls part way through is cut off as well
+            const signal = AbortSignal.timeout(DEACTIVATED_TIMEOUT_MS)
             const answer = await fetch(systemApiBaseUrl.replace(/\/$/, '') + '/api/billing/organizations/'
                                                + encodeURIComponent(organizationId) + '/deactivated', {
                 cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': DEACTIVATED_TTL_SECONDS, '404': DEACTIVATED_TTL_SECONDS, '500-599': 0 } },
+                signal,
             })
             ret = answer.ok && (await answer.json()).deactivated === true
         } catch (error) {

@@ -29,8 +29,17 @@ public class BillingAccount implements Identifiable<String> {
     /** The plan the organization subscribes to, or {@code null} when it has no subscription. */
     private String planId;
 
+    /** When the current billing interval of the subscription started, or {@code null} without a subscription. */
+    private Date currentPeriodStart;
+
     /** When the current billing interval of the subscription ends, or {@code null} without a subscription. */
     private Date currentPeriodEnd;
+
+    /**
+     * When the organization's last subscription ended, or {@code null} when none has. Usage before then is billed to
+     * that subscription.
+     */
+    private Date subscriptionEnded;
 
     /** Since when payment is due, while the account is {@link BillingStatus#PAST_DUE}. */
     private Date pastDueSince;

@@ -130,4 +130,11 @@ describe('deactivated organizations', () => {
         }
         expect(await isDeactivated('acme', env.SYSTEM_API_BASE_URL)).toBe(false)
     })
+
+    test('a site is served when the system server does not answer in time', async () => {
+        globalThis.fetch = (url, init) => new Promise((resolve, reject) => {
+            init.signal.addEventListener('abort', () => reject(init.signal.reason))
+        })
+        expect(await isDeactivated('acme', env.SYSTEM_API_BASE_URL)).toBe(false)
+    }, 5000)
 })

@@ -22,7 +22,6 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.model.billing.BillingAccount;
 import org.kinotic.management.api.model.billing.BillingForecast;
-import org.kinotic.management.api.model.billing.BillingInterval;
 import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
 import org.kinotic.management.api.model.billing.BillingStatus;
@@ -33,6 +32,9 @@ import org.kinotic.management.api.model.billing.UsageLine;
 import org.kinotic.management.api.model.billing.UsageMeasurementType;
 import org.kinotic.management.api.model.billing.UsageMeter;
 import org.kinotic.management.api.model.billing.UsageRecord;
+import org.kinotic.management.api.model.deployment.DeploymentState;
+import org.kinotic.management.api.model.deployment.DeploymentStatusType;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.internal.api.model.BillableResource;
@@ -49,15 +51,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Keeps each organization's {@link BillingAccount} as Stripe has its subscription. A webhook event only names the
@@ -200,17 +202,23 @@ public class DefaultBillingOperationsService implements BillingOperationsService
             Future<BillingForecast> ret;
             if (account.getStripeSubscriptionId() == null
                     || account.getPlanId() == null
+                    || account.getCurrentPeriodStart() == null
                     || account.getCurrentPeriodEnd() == null
                     || account.getTrialEndsAt().toInstant().isAfter(now)) {
                 ret = Future.succeededFuture();
             } else {
                 ret = planRepository.findById(account.getPlanId()).compose(plan -> {
                     Validate.validState(plan != null, "The plan %s the organization subscribes to does not exist", account.getPlanId());
+                    Instant periodStart = account.getCurrentPeriodStart().toInstant();
                     Instant periodEnd = account.getCurrentPeriodEnd().toInstant();
-                    Instant periodStart = periodStart(periodEnd, plan.getInterval());
                     // usage before the trial ended is not billed, so the period's billed usage starts when it ended
                     Instant measuredFrom = latest(periodStart, account.getTrialEndsAt().toInstant());
-                    return Future.all(usageRepository.findForOrganization(organizationId, Date.from(measuredFrom), Date.from(now)),
+                    return Future.all(CursorPaging.readAll(pageable -> usageRepository.findPageForOrganization(organizationId,
+                                                                                                               Date.from(measuredFrom),
+                                                                                                               Date.from(now),
+                                                                                                               pageable),
+                                                           PAGE_SIZE,
+                                                           Sort.by("id")),
                                       resourceRepository.findOpenForOrganization(organizationId))
                                  .map(found -> forecast(plan, periodStart, periodEnd, measuredFrom, found.resultAt(0), found.resultAt(1)));
                 });
@@ -250,8 +258,8 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                 settledThrough = end;
             }
         }
-        double runningHours = hoursBetween(settledThrough, periodEnd);
         for (BillableResource resource : running) {
+            double runningHours = hoursBetween(latest(settledThrough, resource.getStarted().toInstant()), periodEnd);
             resource.getAmounts().forEach(amount -> ret.getProjectedUsage().merge(amount.getMeter(), amount.getPerHour() * runningHours, Double::sum));
         }
         // each polled level stays at its last reading to the period's end, from the end of the hour of that reading
@@ -284,15 +292,6 @@ public class DefaultBillingOperationsService implements BillingOperationsService
 
     private static double hoursBetween(Instant from, Instant to) {
         return Math.max(Duration.between(from, to).toMillis(), 0) / (double) Duration.ofHours(1).toMillis();
-    }
-
-    private static Instant periodStart(Instant periodEnd, BillingInterval interval) {
-        ZonedDateTime end = periodEnd.atZone(ZoneOffset.UTC);
-        ZonedDateTime ret = switch (interval) {
-            case MONTH -> end.minusMonths(1);
-            case YEAR -> end.minusYears(1);
-        };
-        return ret.toInstant();
     }
 
     private static Instant latest(Instant a, Instant b) {
@@ -344,8 +343,9 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     /**
      * Deactivates every organization whose payment has been due for longer than the 14-day grace period, and
      * reactivates every deactivated organization whose payment is no longer due. Every organization's account is read,
-     * so a trial that ended with no one reading the account starts its grace period. The system organization is never
-     * deactivated.
+     * so a trial that ended with no one reading the account starts its grace period. Each pass also stops the
+     * microservices of a deactivated organization still running, and starts the stopped ones of an active organization.
+     * The system organization is never deactivated.
      */
     public Future<Void> enforcePayment() {
         return CursorPaging.forEachPage(organizationService::findAll, PAGE_SIZE, Sort.by("id"),
@@ -353,14 +353,15 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                                                                  .filter(organization -> !DomainUtil.SYSTEM_ID.equals(organization.getId()))
                                                                                  .map(this::enforcePayment)
                                                                                  .toList())
-                                                               .mapEmpty());
+                                                               .mapEmpty())
+                           .compose(v -> resumeMicroservices());
     }
 
     private Future<Void> enforcePayment(Organization organization) {
         return findAccount(organization.getId()).compose(account -> {
             Future<Void> ret;
             if (overdue(account)) {
-                ret = organization.getDeactivated() == null ? deactivate(organization.getId()) : Future.succeededFuture();
+                ret = deactivate(organization.getId());
             } else {
                 ret = organization.getDeactivated() != null ? reactivate(organization.getId()) : Future.succeededFuture();
             }
@@ -373,14 +374,13 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                 && account.getPastDueSince().toInstant().plus(GRACE_PERIOD).isBefore(Instant.now());
     }
 
+    // suspends the microservices of an organization deactivated already too, so a suspension that failed is retried
     private Future<Void> deactivate(String organizationId) {
         return organizationService.deactivate(organizationId).compose(changed -> {
-            Future<Void> ret = Future.succeededFuture();
             if (changed) {
                 log.info("Deactivated organization {}, whose payment has been due for longer than {} days", organizationId, GRACE_PERIOD.toDays());
-                ret = renewMicroservices(organizationId, "organization deactivated");
             }
-            return ret;
+            return renewMicroservices(organizationId, deployment -> !suspended(deployment), "organization deactivated");
         });
     }
 
@@ -389,21 +389,42 @@ public class DefaultBillingOperationsService implements BillingOperationsService
             Future<Void> ret = Future.succeededFuture();
             if (changed) {
                 log.info("Reactivated organization {}, whose payment is no longer due", organizationId);
-                ret = renewMicroservices(organizationId, "organization reactivated");
+                ret = renewMicroservices(organizationId, DefaultBillingOperationsService::suspended, "organization reactivated");
             }
             return ret;
         });
     }
 
     // the renewed intent has each deployment's worker stop or start its VM as the organization now is
-    private Future<Void> renewMicroservices(String organizationId, String source) {
+    private Future<Void> renewMicroservices(String organizationId, Predicate<MicroserviceDeployment> renewed, String source) {
         return CursorPaging.forEachPage(pageable -> microserviceDeploymentRepository.findAllForOrganization(organizationId, pageable),
                                         PAGE_SIZE,
                                         Sort.by("id"),
                                         deployments -> Future.all(deployments.stream()
+                                                                             .filter(deployment -> deployment.getState().getDesired() != null && renewed.test(deployment))
                                                                              .map(deployment -> microserviceDeploymentRepository.renewDesired(deployment.getId(), source))
                                                                              .toList())
                                                              .mapEmpty());
+    }
+
+    // starts the microservices left suspended by a reactivation whose renewal failed
+    private Future<Void> resumeMicroservices() {
+        Map<String, Future<Organization>> organizations = new HashMap<>();
+        return CursorPaging.forEachPage(microserviceDeploymentRepository::findSuspended, PAGE_SIZE, Sort.by("id"),
+                                        deployments -> Future.all(deployments.stream().map(deployment -> organizations
+                                                .computeIfAbsent(deployment.getOrganizationId(), organizationService::findById)
+                                                .compose(organization -> deployment.getState().getDesired() != null
+                                                                         && organization != null
+                                                                         && organization.getDeactivated() == null
+                                                        ? microserviceDeploymentRepository.renewDesired(deployment.getId(), "organization reactivated")
+                                                        : Future.succeededFuture()))
+                                                .toList())
+                                                             .mapEmpty());
+    }
+
+    private static boolean suspended(MicroserviceDeployment deployment) {
+        DeploymentState observed = deployment.getState().getObserved();
+        return observed != null && observed.phase() == DeploymentStatusType.SUSPENDED;
     }
 
     private Future<Void> sync(String subscriptionId) {
@@ -438,13 +459,15 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                                 .setStripeSubscriptionId(subscription.getId())
                                                 .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
-                                                .setCurrentPeriodEnd(currentPeriodEnd(subscription))
+                                                .setCurrentPeriodStart(periodBound(subscription, SubscriptionItem::getCurrentPeriodStart))
+                                                .setCurrentPeriodEnd(periodBound(subscription, SubscriptionItem::getCurrentPeriodEnd))
                                                 .setPastDueSince(null);
             case "past_due", "unpaid" -> account.setStatus(BillingStatus.PAST_DUE)
                                                 .setStripeSubscriptionId(subscription.getId())
                                                 .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
-                                                .setCurrentPeriodEnd(currentPeriodEnd(subscription))
+                                                .setCurrentPeriodStart(periodBound(subscription, SubscriptionItem::getCurrentPeriodStart))
+                                                .setCurrentPeriodEnd(periodBound(subscription, SubscriptionItem::getCurrentPeriodEnd))
                                                 .setPastDueSince(account.getPastDueSince() != null
                                                                          ? account.getPastDueSince()
                                                                          : Date.from(now));
@@ -459,13 +482,15 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private void endSubscription(BillingAccount account, Subscription subscription, Instant now) {
         // an event about a subscription the account has since replaced leaves the account alone
         if (account.getStripeSubscriptionId() == null || account.getStripeSubscriptionId().equals(subscription.getId())) {
+            Instant ended = subscription.getEndedAt() != null ? Instant.ofEpochSecond(subscription.getEndedAt()) : now;
             account.setStripeSubscriptionId(null)
                    .setPlanId(null)
-                   .setCurrentPeriodEnd(null);
+                   .setCurrentPeriodStart(null)
+                   .setCurrentPeriodEnd(null)
+                   .setSubscriptionEnded(Date.from(ended));
             if (account.getTrialEndsAt().toInstant().isAfter(now)) {
                 account.setStatus(BillingStatus.TRIALING).setPastDueSince(null);
             } else {
-                Instant ended = subscription.getEndedAt() != null ? Instant.ofEpochSecond(subscription.getEndedAt()) : now;
                 account.setStatus(BillingStatus.PAST_DUE)
                        .setPastDueSince(account.getPastDueSince() != null ? account.getPastDueSince() : Date.from(ended));
             }
@@ -544,11 +569,11 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         return domainProperties.getDomain().getPortalBaseUrl() + RETURN_PATH;
     }
 
-    private static Date currentPeriodEnd(Subscription subscription) {
+    // a bound of the current period of the subscription's first item, which every item of a plan's subscription shares
+    private static Date periodBound(Subscription subscription, Function<SubscriptionItem, Long> bound) {
         Date ret = null;
         if (subscription.getItems() != null && !subscription.getItems().getData().isEmpty()) {
-            SubscriptionItem item = subscription.getItems().getData().getFirst();
-            ret = item.getCurrentPeriodEnd() != null ? Date.from(Instant.ofEpochSecond(item.getCurrentPeriodEnd())) : null;
+            ret = dateOf(bound.apply(subscription.getItems().getData().getFirst()));
         }
         return ret;
     }

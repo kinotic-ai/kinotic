@@ -260,6 +260,52 @@ public class BillingTests extends KinoticTestBase {
         assertEquals(1, reports.size());
         assertEquals(customerId, reports.getFirst().params().get("payload[stripe_customer_id]"));
         assertEquals(UsageMeter.VCPU_HOURS.getEventName(), reports.getFirst().params().get("event_name"));
+        assertEquals(2 * 40 / 60.0, Double.parseDouble(reports.getFirst().params().get("payload[value]")), 1e-9);
+        assertEquals(Set.of(UsageMeter.VCPU_HOURS, UsageMeter.MEMORY_GB_HOURS), Set.copyOf(usage.getFirst().getReported()));
+    }
+
+    @Test
+    public void anHourASubscriptionCoveredIsReportedAfterTheSubscriptionIsCancelled() throws Exception {
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+        Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
+                                                                                  .setName("Billing " + suffix())
+                                                                                  .setCreated(Date.from(Instant.now().minus(Duration.ofDays(TRIAL_DAYS * 2))))));
+        await(operations.createCheckoutSession(organization.getId(), plan.getId()));
+        String subscriptionId = "sub_" + suffix();
+        long periodEnd = Instant.now().plus(Duration.ofDays(15)).getEpochSecond();
+        await(webhookHandler.handleEvent(subscriptionEvent(subscription(subscriptionId, organization, plan, "active", periodEnd))));
+        Date hour = settledHour();
+        Workload workload = await(workloads.createSync(runningWorkload(organization, hour)));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
+        try {
+            await(microserviceBilling.track(deployment));
+            await(resources.syncIndex());
+            await(webhookHandler.handleEvent(subscriptionEvent(subscription(subscriptionId, organization, plan, "canceled", periodEnd)
+                                                                       .put("ended_at", Instant.now().getEpochSecond()))));
+
+            await(metering.settle(hour));
+        } finally {
+            await(endRun(workload, deployment));
+        }
+
+        BillingAccount account = await(operations.findAccount(organization.getId()));
+        assertNull(account.getStripeSubscriptionId());
+        String identifier = UsageRecordRepository.idOf(organization.getId(), hour) + ":" + UsageMeter.VCPU_HOURS.name();
+        assertEquals(1, StripeStandIn.requests("POST", "/v1/billing/meter_events").stream()
+                                     .filter(request -> identifier.equals(request.params().get("identifier")))
+                                     .count());
+    }
+
+    @Test
+    public void removingAMicroserviceEndsTheRunOfAVmNotYetBilled() throws Exception {
+        Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
+        Workload workload = await(workloads.createSync(runningWorkload(organization, settledHour())));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
+
+        await(microserviceBilling.untrack(deployment));
+
+        assertNotNull(await(resources.findById(workload.getId())).getEnded());
+        await(workloads.saveSync(workload.setStatus(WorkloadStatus.STOPPED)));
     }
 
     @Test
@@ -320,6 +366,7 @@ public class BillingTests extends KinoticTestBase {
         }
 
         assertEquals(plan.getId(), forecast.getPlanId());
+        assertEquals(forecast.getPeriodEnd().toInstant().minus(Duration.ofDays(30)), forecast.getPeriodStart().toInstant());
         double toDate = 2 * 40 / 60.0;
         assertEquals(toDate, forecast.getUsageToDate().get(UsageMeter.VCPU_HOURS), 1e-9);
         // the VM goes on running at 2 vCPUs from the end of the hour settled to the end of the period
@@ -490,6 +537,7 @@ public class BillingTests extends KinoticTestBase {
                                                                                   .put("data", new JsonArray().add(
                                                                                           new JsonObject().put("id", "si_" + suffix())
                                                                                                           .put("object", "subscription_item")
+                                                                                                          .put("current_period_start", periodEnd - Duration.ofDays(30).toSeconds())
                                                                                                           .put("current_period_end", periodEnd)))));
     }
 

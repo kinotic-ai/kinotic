@@ -17,14 +17,15 @@
           <div class="flex items-center gap-2">
             <Tag :value="STATUS_LABELS[account.status]" :severity="STATUS_SEVERITY[account.status]" />
             <Button v-if="account.stripeCustomerId" label="Manage billing" size="small" outlined
-                    :loading="opening === 'portal'" @click="openPortal" />
+                    :loading="opening === 'portal'" :disabled="opening !== null && opening !== 'portal'" @click="openPortal" />
           </div>
         </div>
       </section>
 
       <section v-if="!account.stripeSubscriptionId">
         <h3 :class="HEADING">Choose a plan</h3>
-        <p v-if="plans.length === 0" class="text-sm text-surface-600 dark:text-surface-300">No plans are offered yet.</p>
+        <p v-if="failed.has('plans')" :class="FAILED">Could not load the plans. Reload the page to try again.</p>
+        <p v-else-if="plans.length === 0" class="text-sm text-surface-600 dark:text-surface-300">No plans are offered yet.</p>
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div v-for="plan in plans" :key="plan.id!" :class="[CARD, 'flex flex-col gap-3']">
             <div>
@@ -35,12 +36,13 @@
               <li v-for="(component, index) in plan.components" :key="index">{{ describeComponent(plan, component) }}</li>
             </ul>
             <Button label="Subscribe" size="small" class="mt-auto self-start"
-                    :loading="opening === plan.id" @click="subscribe(plan)" />
+                    :loading="opening === plan.id" :disabled="opening !== null && opening !== plan.id" @click="subscribe(plan)" />
           </div>
         </div>
       </section>
 
-      <section v-if="forecast" :class="CARD">
+      <p v-if="failed.has('forecast')" :class="FAILED">Could not load the forecast for this billing period. Reload the page to try again.</p>
+      <section v-else-if="forecast" :class="CARD">
         <div :class="LABEL">This billing period</div>
         <div class="mt-1 text-sm text-surface-600 dark:text-surface-300">
           {{ formatDate(forecast.periodStart) }} to {{ formatDate(forecast.periodEnd) }}
@@ -67,7 +69,8 @@
           <div :class="LABEL">Usage, last {{ USAGE_DAYS }} days</div>
           <SelectButton v-if="chartMeter" v-model="chartMeter" :options="meters" option-label="displayName" :allow-empty="false" size="small" />
         </div>
-        <div v-if="chartMeter" class="mt-4 flex h-32 items-end gap-[3px]" role="img"
+        <p v-if="failed.has('usage') || failed.has('meters')" :class="[FAILED, 'mt-4']">Could not load your usage. Reload the page to try again.</p>
+        <div v-else-if="chartMeter" class="mt-4 flex h-32 items-end gap-[3px]" role="img"
              :aria-label="`Daily ${chartMeter.displayName} for the last ${USAGE_DAYS} days`">
           <div v-for="day in dailyUsage" :key="day.label" class="flex h-full flex-1 items-end"
                :title="`${day.label}: ${formatQuantity(day.quantities[chartMeter.meter])} ${chartMeter.unit}s`">
@@ -97,7 +100,8 @@
 
       <section>
         <h3 :class="HEADING">Invoices</h3>
-        <p v-if="invoices.length === 0" class="text-sm text-surface-600 dark:text-surface-300">No invoices yet.</p>
+        <p v-if="failed.has('invoices')" :class="FAILED">Could not load the invoices. Reload the page to try again.</p>
+        <p v-else-if="invoices.length === 0" class="text-sm text-surface-600 dark:text-surface-300">No invoices yet.</p>
         <DataTable v-else :value="invoices" size="small">
           <Column header="Invoice">
             <template #body="{ data }">{{ data.number ?? 'Draft' }}</template>
@@ -142,6 +146,7 @@ import {
 const CARD = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:border-surface-700 dark:bg-surface-900'
 const LABEL = 'text-[11px] font-semibold uppercase tracking-wider text-surface-500'
 const HEADING = 'mb-3 text-base font-semibold text-surface-950 dark:text-surface-0'
+const FAILED = 'text-sm text-red-600 dark:text-red-400'
 const USAGE_DAYS = 30
 const DAY_MS = 86_400_000
 // how long payment may be due before the organization is deactivated, as the system server enforces it
@@ -180,6 +185,8 @@ const usage = ref<UsageRecord[]>([])
 const meters = ref<UsageMeterDescriptor[]>([])
 const chartMeter = ref<UsageMeterDescriptor | null>(null)
 const opening = ref<string | null>(null)
+// the sections that could not be loaded, which show that in place of their content
+const failed = ref(new Set<string>())
 
 const meterOf = computed(() => new Map(meters.value.map(descriptor => [descriptor.meter, descriptor])))
 
@@ -200,18 +207,19 @@ const standing = computed(() => {
   return ret
 })
 
-// one bar per day, oldest first, summing that day's hourly records
+// one bar per local calendar day, oldest first, summing that day's hourly records
 const dailyUsage = computed(() => {
-  const today = startOfDay(new Date())
+  const first = firstUsageDay(new Date())
   const days = Array.from({ length: USAGE_DAYS }, (_, index) => {
-    const start = new Date(today.getTime() - (USAGE_DAYS - 1 - index) * DAY_MS)
+    const start = new Date(first.getFullYear(), first.getMonth(), first.getDate() + index)
     return { start, label: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), quantities: {} as Partial<Record<UsageMeter, number>> }
   })
+  const byDay = new Map(days.map(day => [dayKey(day.start), day]))
   for (const record of usage.value) {
-    const index = Math.floor((startOfDay(new Date(record.hour)).getTime() - days[0].start.getTime()) / DAY_MS)
-    if (index >= 0 && index < days.length) {
+    const day = byDay.get(dayKey(new Date(record.hour)))
+    if (day) {
       for (const line of record.lines) {
-        days[index].quantities[line.meter] = (days[index].quantities[line.meter] ?? 0) + line.quantity
+        day.quantities[line.meter] = (day.quantities[line.meter] ?? 0) + line.quantity
       }
     }
   }
@@ -254,21 +262,27 @@ onMounted(async () => {
     return
   }
   const to = new Date()
-  const from = new Date(startOfDay(to).getTime() - (USAGE_DAYS - 1) * DAY_MS)
-  const [described, offered, forecasted, listed, used] = await Promise.all([
-    Kinotic.billing.findMeters(),
-    Kinotic.billing.findPlans(),
-    Kinotic.billing.findForecast(),
-    Kinotic.billing.findInvoices(),
-    Kinotic.billing.findUsage(from, to)
+  await Promise.all([
+    load('meters', Kinotic.billing.findMeters(), described => {
+      meters.value = described
+      chartMeter.value = described[0] ?? null
+    }),
+    load('plans', Kinotic.billing.findPlans(), offered => { plans.value = offered }),
+    load('forecast', Kinotic.billing.findForecast(), forecasted => { forecast.value = forecasted }),
+    load('invoices', Kinotic.billing.findInvoices(), listed => { invoices.value = listed }),
+    load('usage', Kinotic.billing.findUsage(firstUsageDay(to), to), used => { usage.value = used })
   ])
-  meters.value = described
-  chartMeter.value = described[0] ?? null
-  plans.value = offered
-  forecast.value = forecasted
-  invoices.value = listed
-  usage.value = used
 })
+
+// shows a section's content once it loads, or that it could not be loaded, independently of the other sections
+async function load<T>(section: string, loading: Promise<T>, show: (loaded: T) => void): Promise<void> {
+  try {
+    show(await loading)
+  } catch (error) {
+    console.error(`Could not load the billing ${section}`, error)
+    failed.value = new Set([...failed.value, section])
+  }
+}
 
 async function subscribe(plan: BillingPlan): Promise<void> {
   await redirect(plan.id!, () => Kinotic.billing.createCheckoutSession(plan.id!))
@@ -278,8 +292,11 @@ async function openPortal(): Promise<void> {
   await redirect('portal', () => Kinotic.billing.createPortalSession())
 }
 
-// opens a Stripe page; the button stays loading while the browser leaves
+// opens a Stripe page; the button stays loading, and the others disabled, while the browser leaves
 async function redirect(key: string, open: () => Promise<string>): Promise<void> {
+  if (opening.value !== null) {
+    return
+  }
   opening.value = key
   try {
     window.location.assign(await open())
@@ -306,8 +323,13 @@ function barHeight(quantity: number | undefined): string {
   return chartMax.value > 0 ? `${Math.max(((quantity ?? 0) / chartMax.value) * 100, quantity ? 2 : 0)}%` : '0%'
 }
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+// local midnight of the first of the chart's days, counted in calendar days so a daylight saving change shifts no day
+function firstUsageDay(today: Date): Date {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() - (USAGE_DAYS - 1))
+}
+
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 }
 
 function formatDate(value: string | null | undefined): string {

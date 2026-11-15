@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  * an hour runs, {@link #poll(Instant)} adds what each {@link UsageSource} reads; once it is over,
  * {@link #settle(Date)} adds what each {@link BillableResource} used during it, reports the hour's usage to
  * Stripe, and marks the record settled. Polling or settling the same hour again, from any server, changes nothing
- * once the hour is settled, and each hour is reported to Stripe once.
+ * once the hour is settled, and each meter's usage of an hour is reported to Stripe until Stripe accepts it.
  */
 @Slf4j
 @Component
@@ -108,7 +108,8 @@ public class UsageMetering {
                                                            records.forEach(record -> usage.computeIfAbsent(record.getOrganizationId(), id -> new ArrayList<>()));
                                                            return Future.succeededFuture();
                                                        }))
-                .compose(v -> Future.all(usage.entrySet().stream()
+                // every organization is settled however many fail, and the hour fails if any of them does
+                .compose(v -> Future.join(usage.entrySet().stream()
                                               .map(entry -> settle(entry.getKey(), hour, merged(entry.getValue())))
                                               .toList())
                                     .mapEmpty());
@@ -171,25 +172,38 @@ public class UsageMetering {
                                 .compose(account -> billable(account, record) ? report(account, record) : Future.succeededFuture());
     }
 
+    // an hour is billed when it is after the trial and a subscription covered it, including one that has since ended
     private static boolean billable(BillingAccount account, UsageRecord record) {
+        Instant hour = record.getHour().toInstant();
         return account != null
-                && account.getStripeSubscriptionId() != null
                 && account.getStripeCustomerId() != null
-                && !record.getHour().toInstant().isBefore(account.getTrialEndsAt().toInstant());
+                && !hour.isBefore(account.getTrialEndsAt().toInstant())
+                && (account.getStripeSubscriptionId() != null
+                    || (account.getSubscriptionEnded() != null && hour.isBefore(account.getSubscriptionEnded().toInstant())));
     }
 
-    // the identifier names the hour and meter, so Stripe counts the usage once however many times it is reported
+    // Each meter's report is recorded as soon as Stripe accepts it, so a retry reports only the meters not yet
+    // accepted. The identifier names the hour and meter, so Stripe also drops a report repeated within its 24-hour
+    // deduplication window, which covers a retry after the record of an accepted report failed to save.
     private Future<Void> report(BillingAccount account, UsageRecord record) {
         Instant midHour = record.getHour().toInstant().plus(Duration.ofMinutes(30));
         Map<UsageMeter, Double> totals = new EnumMap<>(UsageMeter.class);
         record.getLines().forEach(line -> totals.merge(line.getMeter(), line.getQuantity(), Double::sum));
         List<Future<Void>> reporting = totals.entrySet().stream()
-                .filter(entry -> entry.getValue() > 0)
+                .filter(entry -> entry.getValue() > 0 && !record.getReported().contains(entry.getKey()))
                 .map(entry -> stripeBilling.reportUsage(account.getStripeCustomerId(),
                                                         entry.getKey(),
                                                         record.getId() + ":" + entry.getKey().name(),
                                                         entry.getValue(),
-                                                        midHour))
+                                                        midHour)
+                                           .compose(v -> usageRepository.update(record.getId(), stored -> {
+                                               if (!stored.getReported().contains(entry.getKey())) {
+                                                   stored.getReported().add(entry.getKey());
+                                                   stored.setUpdated(new Date());
+                                               }
+                                               return Future.succeededFuture(stored);
+                                           }))
+                                           .<Void>mapEmpty())
                 .toList();
         return Future.all(reporting).mapEmpty();
     }

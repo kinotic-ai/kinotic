@@ -5,6 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.deployment.DeploymentState;
+import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
@@ -72,6 +73,13 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
     public Future<Page<MicroserviceDeployment>> findAllForOrganization(String organizationId, Pageable pageable) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         return findAll(pageable, b -> b.query(termFilter("organizationId", organizationId)));
+    }
+
+    /**
+     * Lists the deployments, of every organization, last observed suspended, in the order the pageable sorts them.
+     */
+    public Future<Page<MicroserviceDeployment>> findSuspended(Pageable pageable) {
+        return findAll(pageable, b -> b.query(termFilter("state.observed.phase", DeploymentStatusType.SUSPENDED.name())));
     }
 
     /**
