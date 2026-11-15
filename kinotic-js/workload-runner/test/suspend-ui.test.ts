@@ -107,6 +107,26 @@ describe.skipIf(!azurite)('suspend-ui and resume-ui entrypoints (against Azurite
         expect(await (await readBlob(`${site}/.kinotic/index.html`)).text()).toBe('<html>published</html>')
     }, 60_000)
 
+    it('leaves a kept index another workload holds as it is until that workload is done', async () => {
+        const site = `kept-leased-${crypto.randomUUID()}.apps.kinotic.test`
+        await publish(site)
+        expect((await putBlob(`${site}/.kinotic/index.html`, '<html>kept by another</html>')).status).toBe(201)
+        const [directory, query] = siteUrl(site).split('?')
+        const leaseUrl = `${directory}/.kinotic/index.html?${query}&comp=lease`
+        const held = await fetch(leaseUrl, { method: 'PUT', headers: { 'x-ms-lease-action': 'acquire', 'x-ms-lease-duration': '60' } })
+        expect(held.status).toBe(201)
+
+        const suspension = Bun.spawn(['bun', SUSPEND], { env: { ...process.env, KINOTIC_UI_INDEX_URL: siteUrl(site, 'rcwdl') }, stderr: 'pipe' })
+        await Bun.sleep(3_000)
+        expect(await (await readBlob(`${site}/.kinotic/index.html`)).text()).toBe('<html>kept by another</html>')
+        expect(await (await readBlob(`${site}/index.html`)).text()).toBe('<html>published</html>')
+        await fetch(leaseUrl, { method: 'PUT', headers: { 'x-ms-lease-action': 'release', 'x-ms-lease-id': held.headers.get('x-ms-lease-id')! } })
+
+        expect(await suspension.exited).toBe(0)
+        expect(await (await readBlob(`${site}/.kinotic/index.html`)).text()).toBe('<html>published</html>')
+        expect(await (await readBlob(`${site}/index.html`)).text()).toContain('This site is offline')
+    }, 60_000)
+
     it('fails to resume a suspended site whose kept index is gone', async () => {
         const site = `lost-${crypto.randomUUID()}.apps.kinotic.test`
         expect((await putBlob(`${site}/index.html`, '<html>deactivated</html>', { 'x-ms-meta-suspended': 'true' })).status).toBe(201)

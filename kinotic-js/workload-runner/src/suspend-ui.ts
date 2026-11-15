@@ -34,7 +34,7 @@ function require_(name: string): string {
 
 async function main(): Promise<void> {
     const site = parseSiteUrl('KINOTIC_UI_INDEX_URL', require_('KINOTIC_UI_INDEX_URL'))
-    await withIndexLease(site, async (indexHeaders, holdLease) => {
+    await withIndexLease(site, async (indexHeaders, keptHeaders) => {
         const index = await readFile(site, INDEX_FILE)
         if (index === null) {
             log(`[workload-runner] site ${site.directory} has no index, so there is nothing to suspend`)
@@ -42,8 +42,7 @@ async function main(): Promise<void> {
             log(`[workload-runner] site ${site.directory} is suspended already`)
         } else {
             // the index is kept before it is replaced, so a run that stops between the two writes leaves the site served
-            await holdLease()
-            await copyFile(site, index.clone(), SUSPENDED_INDEX_FILE)
+            await copyFile(site, index.clone(), SUSPENDED_INDEX_FILE, keptHeaders)
             await writeSuspendedIndex(site, index.headers.get(COMMIT_METADATA_HEADER), indexHeaders)
             log(`[workload-runner] suspended site ${site.directory}`)
         }

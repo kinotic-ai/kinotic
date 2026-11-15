@@ -10,6 +10,7 @@ import {
     parseSiteUrl,
     type SiteTarget,
     withIndexLease,
+    writeFile,
     SUSPENDED_INDEX_FILE,
     writeSuspendedIndex,
 } from './site-storage.ts'
@@ -137,9 +138,13 @@ async function publishUi(target: SiteTarget, workspaceDir: string, name: string,
                  NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
     if (suspended) {
-        await withIndexLease(target, async (indexHeaders, holdLease) => {
-            await holdLease()
-            await upload(blobUrl(target, ...SUSPENDED_INDEX_FILE.split('/')), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+        await withIndexLease(target, async (indexHeaders, keptHeaders) => {
+            await writeFile(target, SUSPENDED_INDEX_FILE, index, {
+                'x-ms-blob-cache-control': NO_CACHE_CONTROL,
+                'Content-Type': index.type || 'text/html',
+                [COMMIT_METADATA_HEADER]: commitSha,
+                ...keptHeaders,
+            })
             await writeSuspendedIndex(target, commitSha, indexHeaders)
         })
     } else {

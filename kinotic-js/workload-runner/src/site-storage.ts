@@ -78,54 +78,53 @@ export async function readFile(site: SiteTarget, name: string): Promise<Response
     return response
 }
 
-/** How long a lease on a site's index lasts; it is released as soon as the work under it ends. */
-const INDEX_LEASE_SECONDS = 60
-/** How often an index leased by another workload is tried again, until that lease would have expired. */
-const INDEX_LEASE_RETRY_MS = 2_000
+/** How long a lease on a site's file lasts; it is released as soon as the work under it ends. */
+const LEASE_SECONDS = 60
+/** How often a file leased by another workload is tried again, until that lease would have expired. */
+const LEASE_RETRY_MS = 2_000
 
 /**
- * Runs work holding a lease on the site's index, so no other workload that leases the index reads or writes the
- * index or the kept index until the work ends, and no write to the index without the lease succeeds meanwhile.
- * An index another workload holds is waited for. work receives the headers that write the index under the lease,
- * or, when the site has no index, the precondition that writes one only while there is none, and a function that
- * fails unless the lease is still held, to call before each write to the kept index.
+ * Runs work holding leases on the site's index and on its kept index, so no other workload that leases them
+ * reads or writes either until the work ends, and no write to either without its lease succeeds meanwhile, even
+ * once a lease has expired and another workload holds it. Files another workload holds are waited for. work
+ * receives, for the index and for the kept index, the headers that write or delete the file under its lease, or,
+ * for a file the site does not have, the precondition that writes one only while there is none.
  */
 export async function withIndexLease(site: SiteTarget,
-                                     work: (indexHeaders: Record<string, string>, holdLease: () => Promise<void>) => Promise<void>): Promise<void> {
-    const url = `${blobUrl(site, INDEX_FILE)}&comp=lease`
-    const deadline = Date.now() + (INDEX_LEASE_SECONDS + 10) * 1000
+                                     work: (indexHeaders: Record<string, string>, keptHeaders: Record<string, string>) => Promise<void>): Promise<void> {
+    // always the index first, so two workloads never each hold the lease the other waits for
+    await withLease(site, INDEX_FILE, indexHeaders => withLease(site, SUSPENDED_INDEX_FILE, keptHeaders => work(indexHeaders, keptHeaders)))
+}
+
+async function withLease(site: SiteTarget, name: string, work: (headers: Record<string, string>) => Promise<void>): Promise<void> {
+    const url = `${blobUrl(site, ...name.split('/'))}&comp=lease`
+    const deadline = Date.now() + (LEASE_SECONDS + 10) * 1000
     let response: Response
     for (;;) {
         response = await fetch(url, {
             method: 'PUT',
-            headers: { 'x-ms-lease-action': 'acquire', 'x-ms-lease-duration': String(INDEX_LEASE_SECONDS) },
+            headers: { 'x-ms-lease-action': 'acquire', 'x-ms-lease-duration': String(LEASE_SECONDS) },
         })
         if (response.status !== 409 || Date.now() >= deadline) {
             break
         }
-        await Bun.sleep(INDEX_LEASE_RETRY_MS)
+        await Bun.sleep(LEASE_RETRY_MS)
     }
     if (response.status === 404) {
-        await work({ 'If-None-Match': '*' }, async () => {})
+        await work({ 'If-None-Match': '*' })
         return
     }
     if (!response.ok) {
-        throw new Error(`leasing ${site.directory}/${INDEX_FILE} failed with ${response.status} ${await response.text()}`)
+        throw new Error(`leasing ${site.directory}/${name} failed with ${response.status} ${await response.text()}`)
     }
     const leaseId = response.headers.get('x-ms-lease-id')!
     try {
-        // the kept index is a second blob the lease cannot cover, so each write to it first renews the lease, which
-        // fails once the lease expired and another workload took it
-        await work({ 'x-ms-lease-id': leaseId }, async () => {
-            const renewed = await fetch(url, { method: 'PUT', headers: { 'x-ms-lease-action': 'renew', 'x-ms-lease-id': leaseId } })
-            if (!renewed.ok) {
-                throw new Error(`the lease on ${site.directory}/${INDEX_FILE} was lost (${renewed.status}), so the kept index is left as it is`)
-            }
-        })
+        await work({ 'x-ms-lease-id': leaseId })
     } finally {
         const released = await fetch(url, { method: 'PUT', headers: { 'x-ms-lease-action': 'release', 'x-ms-lease-id': leaseId } })
-        if (!released.ok) {
-            log(`[workload-runner] releasing the lease on ${site.directory}/${INDEX_FILE} failed with ${released.status}; it expires on its own`)
+        // a file the work deleted has no lease left to release
+        if (!released.ok && released.status !== 404) {
+            log(`[workload-runner] releasing the lease on ${site.directory}/${name} failed with ${released.status}; it expires on its own`)
         }
     }
 }
