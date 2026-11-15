@@ -10,6 +10,7 @@ import com.stripe.model.Product;
 import com.stripe.model.Subscription;
 import com.stripe.model.billing.Meter;
 import com.stripe.model.checkout.Session;
+import com.stripe.net.RequestOptions;
 import com.stripe.net.Webhook;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.PriceCreateParams;
@@ -50,6 +51,7 @@ public class StripeBilling {
     /** The metadata key of the plan a Stripe Product, Price or Subscription belongs to. */
     public static final String PLAN_ID_METADATA = "kinotic_plan_id";
 
+    private static final String CUSTOMER_IDEMPOTENCY_PREFIX = "kinotic-customer-";
     // a Checkout Session's status values
     private static final String CHECKOUT_OPEN = "open";
     private static final String CHECKOUT_COMPLETE = "complete";
@@ -99,15 +101,20 @@ public class StripeBilling {
     }
 
     /**
-     * Creates the Stripe Customer of an organization.
+     * Creates the Stripe Customer of an organization. Calls for the same organization within a day of each other
+     * return the same Customer.
      *
      * @return the Customer's id
      */
     public Future<String> createCustomer(String organizationId, String organizationName) {
+        // the idempotency key lets every system server that races to create the organization's Customer get the one Stripe made
         return blocking(() -> stripe.v1().customers().create(CustomerCreateParams.builder()
                                                                                  .setName(organizationName)
                                                                                  .putMetadata(ORGANIZATION_ID_METADATA, organizationId)
-                                                                                 .build()).getId());
+                                                                                 .build(),
+                                                             RequestOptions.builder()
+                                                                           .setIdempotencyKey(CUSTOMER_IDEMPOTENCY_PREFIX + organizationId)
+                                                                           .build()).getId());
     }
 
     /**

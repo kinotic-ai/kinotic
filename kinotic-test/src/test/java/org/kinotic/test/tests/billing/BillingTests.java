@@ -3,6 +3,7 @@ package org.kinotic.test.tests.billing;
 import com.stripe.Stripe;
 import com.stripe.model.Event;
 import com.stripe.net.Webhook;
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -152,6 +155,29 @@ public class BillingTests extends KinoticTestBase {
         String secondId = second.substring(second.lastIndexOf('/') + 1);
         assertEquals(1, StripeStandIn.requests("POST", "/v1/checkout/sessions/" + firstId + "/expire").size());
         assertEquals(secondId, await(operations.findAccount(organization.getId())).getStripeCheckoutSessionId());
+    }
+
+    @Test
+    public void concurrentCheckoutsLeaveOneOpenPage() throws Exception {
+        Organization organization = await(organizations.create(new Organization().setName("billing-" + suffix())));
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+
+        List<Future<String>> checkouts = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            checkouts.add(operations.createCheckoutSession(organization.getId(), plan.getId()));
+        }
+        await(Future.all(checkouts));
+
+        BillingAccount account = await(operations.findAccount(organization.getId()));
+        List<JsonObject> sessions = StripeStandIn.checkoutSessions(organization.getId());
+        List<JsonObject> open = sessions.stream().filter(session -> "open".equals(session.getString("status"))).toList();
+        assertEquals(1, open.size());
+        assertEquals(account.getStripeCheckoutSessionId(), open.getFirst().getString("id"));
+        assertEquals(Set.of(account.getStripeCustomerId()),
+                     StripeStandIn.requests("POST", "/v1/checkout/sessions").stream()
+                                  .filter(request -> organization.getId().equals(request.params().get("client_reference_id")))
+                                  .map(request -> request.params().get("customer"))
+                                  .collect(Collectors.toSet()));
     }
 
     @Test

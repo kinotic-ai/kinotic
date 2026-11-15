@@ -26,7 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A stand-in for the parts of the Stripe API billing calls: a test reports a subscription as Stripe would have it,
- * every object created gets a fresh id, and every request is recorded for a test to read. The system's
+ * every object created gets a fresh id, a request repeating an earlier one's idempotency key gets the earlier
+ * response, and every request is recorded for a test to read. The system's
  * {@link StripeClient} reaches it through the same requests and parsing it makes against Stripe.
  */
 @Configuration
@@ -38,6 +39,7 @@ public class StripeStandIn {
     private static final Map<String, JsonObject> SUBSCRIPTIONS = new ConcurrentHashMap<>();
     private static final Map<String, JsonObject> CHECKOUT_SESSIONS = new ConcurrentHashMap<>();
     private static final List<JsonObject> METERS = Collections.synchronizedList(new ArrayList<>());
+    private static final Map<String, JsonObject> IDEMPOTENT_RESPONSES = new ConcurrentHashMap<>();
     private static final List<StripeRequest> REQUESTS = Collections.synchronizedList(new ArrayList<>());
 
     /** Stripe has the subscription as given from now on. */
@@ -51,6 +53,13 @@ public class StripeStandIn {
         synchronized (REQUESTS) {
             return REQUESTS.stream().filter(r -> r.method().equals(method) && r.path().startsWith(pathPrefix)).toList();
         }
+    }
+
+    /** The Checkout Sessions opened with the client reference id. */
+    public static List<JsonObject> checkoutSessions(String clientReferenceId) {
+        return CHECKOUT_SESSIONS.values().stream()
+                                .filter(session -> clientReferenceId.equals(session.getString("client_reference_id")))
+                                .toList();
     }
 
     @Bean
@@ -82,6 +91,17 @@ public class StripeStandIn {
         String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Map<String, String> params = form(body.isEmpty() ? exchange.getRequestURI().getRawQuery() : body);
         REQUESTS.add(new StripeRequest(method, path, params));
+        String idempotencyKey = exchange.getRequestHeaders().getFirst("Idempotency-Key");
+        JsonObject response;
+        if (method.equals("POST") && idempotencyKey != null) {
+            response = IDEMPOTENT_RESPONSES.computeIfAbsent(idempotencyKey, key -> respond(method, path, params));
+        } else {
+            response = respond(method, path, params);
+        }
+        respond(exchange, response);
+    }
+
+    private static JsonObject respond(String method, String path, Map<String, String> params) {
         JsonObject response;
         if (path.startsWith(SUBSCRIPTIONS_PATH)) {
             response = SUBSCRIPTIONS.get(path.substring(SUBSCRIPTIONS_PATH.length()));
@@ -102,6 +122,7 @@ public class StripeStandIn {
         } else if (path.equals(CHECKOUT_SESSIONS_PATH)) {
             String sessionId = "cs_test_" + id();
             response = new JsonObject().put("id", sessionId).put("object", "checkout.session").put("status", "open")
+                                       .put("client_reference_id", params.get("client_reference_id"))
                                        .put("url", "https://checkout.stripe.test/" + sessionId);
             CHECKOUT_SESSIONS.put(sessionId, response);
         } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/") && path.endsWith(EXPIRE)) {
@@ -118,7 +139,7 @@ public class StripeStandIn {
         } else {
             response = null;
         }
-        respond(exchange, response);
+        return response;
     }
 
     private static void respond(HttpExchange exchange, JsonObject response) throws IOException {

@@ -7,7 +7,6 @@ import com.stripe.model.Subscription;
 import com.stripe.model.SubscriptionItem;
 import com.stripe.model.checkout.Session;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -29,6 +28,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -47,6 +47,8 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private static final String RETURN_PATH = "/organization-settings";
     // Stripe refuses a Checkout trial that ends sooner than this
     private static final Duration MIN_CHECKOUT_TRIAL = Duration.ofDays(2);
+    // how many times a change to an account is read and applied again after another write lands on the account first
+    private static final int CHANGE_ATTEMPTS = 5;
 
     private final BillingAccountRepository accountRepository;
     private final BillingPlanRepository planRepository;
@@ -54,9 +56,6 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private final StripeBilling stripeBilling;
     private final KinoticManagementApiProperties managementApiProperties;
     private final KinoticDomainProperties domainProperties;
-
-    // the work under way for each organization's account, which the next change to it waits for
-    private final Map<String, Future<BillingAccount>> changing = new ConcurrentHashMap<>();
 
     @Override
     public Future<BillingAccount> findAccount(String organizationId) {
@@ -79,7 +78,8 @@ public class DefaultBillingOperationsService implements BillingOperationsService
         return planRepository.findById(planId).compose(plan -> {
             Validate.isTrue(plan != null && offeredTo(plan, organizationId),
                             "The plan %s is not offered to the organization %s", planId, organizationId);
-            Promise<String> url = Promise.promise();
+            // the URL of each Session an attempt opened, by Session id; only the Session of the attempt saved is handed out
+            Map<String, String> opened = new ConcurrentHashMap<>();
             return change(organizationId, account -> {
                 Validate.validState(account.getStripeSubscriptionId() == null,
                                     "The organization already subscribes to a plan; change it in the Customer Portal");
@@ -91,11 +91,29 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                                                                 checkoutTrialEnd(started),
                                                                                 returnUrl()))
                         .map(session -> {
-                            url.complete(session.getUrl());
+                            opened.put(session.getId(), session.getUrl());
                             return account.setStripeCheckoutSessionId(session.getId());
                         });
-            }).compose(account -> url.future());
+            }).transform(saved -> {
+                String savedSessionId = saved.succeeded() ? saved.result().getStripeCheckoutSessionId() : null;
+                return expireUnsaved(opened.keySet(), savedSessionId)
+                        .compose(v -> saved.succeeded()
+                                ? Future.succeededFuture(opened.get(savedSessionId))
+                                : Future.failedFuture(saved.cause()));
+            });
         });
+    }
+
+    // a Session opened by an attempt that lost to another write was never handed out, and is expired so it cannot subscribe
+    private Future<Void> expireUnsaved(Set<String> sessionIds, String savedSessionId) {
+        List<Future<Boolean>> expiring = sessionIds.stream()
+                .filter(sessionId -> !sessionId.equals(savedSessionId))
+                .map(sessionId -> stripeBilling.expireCheckoutSession(sessionId).recover(error -> {
+                    log.warn("Could not expire the unsaved Checkout Session {}", sessionId, error);
+                    return Future.succeededFuture(false);
+                }))
+                .toList();
+        return Future.join(expiring).mapEmpty();
     }
 
     // only the Checkout Session opened last can subscribe the organization, so two Checkout pages never start two subscriptions
@@ -154,7 +172,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                     log.warn("The Stripe subscription {} names no organization, so no billing account follows it", subscriptionId);
                     synced = Future.succeededFuture();
                 } else {
-                    // read again once the account's earlier changes are done, so a slower read of an older state
+                    // read the subscription again on every attempt, so a slower read of an older state
                     // cannot overwrite the state a later event already saved
                     synced = change(organizationId, account -> stripeBilling.findSubscription(subscriptionId)
                                                                             .map(current -> apply(account, current)))
@@ -232,16 +250,28 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     }
 
     // runs change on the organization's account, created with a free trial if it has none, and saves what it leaves;
-    // the changes to one account run one after another on this node, each reading what the one before it saved
+    // a change that another write, from this system server or another, lands before is applied again to the account as that write left it
     private Future<BillingAccount> change(String organizationId, Function<BillingAccount, Future<BillingAccount>> change) {
-        Future<BillingAccount> ret = changing.compute(organizationId, (id, previous) -> {
-            Future<Void> before = previous != null ? previous.transform(ar -> Future.<Void>succeededFuture()) : Future.succeededFuture();
-            return before.compose(v -> accountOf(organizationId))
-                         .compose(change)
-                         .compose(account -> accountRepository.save(account.setUpdated(new Date())));
-        });
-        ret.onComplete(ar -> changing.remove(organizationId, ret));
-        return ret;
+        return accountOf(organizationId).compose(created -> changeAttempt(organizationId, change, 1));
+    }
+
+    private Future<BillingAccount> changeAttempt(String organizationId,
+                                                 Function<BillingAccount, Future<BillingAccount>> change,
+                                                 int attempt) {
+        return accountRepository.update(organizationId, account -> change.apply(account).map(changed -> changed.setUpdated(new Date())))
+                                .compose(saved -> {
+                                    Future<BillingAccount> ret;
+                                    if (saved != null) {
+                                        ret = Future.succeededFuture(saved);
+                                    } else if (attempt < CHANGE_ATTEMPTS) {
+                                        ret = changeAttempt(organizationId, change, attempt + 1);
+                                    } else {
+                                        ret = Future.failedFuture(new IllegalStateException(
+                                                "The billing account of organization " + organizationId + " kept changing through "
+                                                        + CHANGE_ATTEMPTS + " attempts to update it"));
+                                    }
+                                    return ret;
+                                });
     }
 
     private Future<BillingAccount> accountOf(String organizationId) {
