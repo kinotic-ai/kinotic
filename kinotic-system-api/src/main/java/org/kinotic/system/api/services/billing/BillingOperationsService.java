@@ -59,7 +59,7 @@ public interface BillingOperationsService {
 
     /**
      * The organization's hourly usage records of the hours starting from {@code from} up to {@code to}, oldest first.
-     * An hour in which the organization ran no workload has no record.
+     * An hour in which the organization used nothing has no record.
      *
      * @param organizationId the organization
      * @param from           the start of the range
@@ -69,8 +69,8 @@ public interface BillingOperationsService {
     Future<List<UsageRecord>> findUsage(String organizationId, Date from, Date to);
 
     /**
-     * What the organization's current billing period is expected to cost, projecting its usage so far over the
-     * whole period.
+     * What the organization's current billing period is expected to cost: its usage so far, plus what it runs and
+     * stores now kept up to the period's end.
      *
      * @param organizationId the organization
      * @return the forecast, or {@code null} when the organization has no subscription or its free trial is still

@@ -29,9 +29,14 @@ import org.kinotic.management.api.model.billing.BillingStatus;
 import org.kinotic.management.api.model.billing.InvoiceStatus;
 import org.kinotic.management.api.model.billing.PlanComponent;
 import org.kinotic.management.api.model.billing.PlanComponentType;
+import org.kinotic.management.api.model.billing.UsageLine;
+import org.kinotic.management.api.model.billing.UsageMeasurementType;
+import org.kinotic.management.api.model.billing.UsageMeter;
 import org.kinotic.management.api.model.billing.UsageRecord;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
+import org.kinotic.system.internal.api.model.BillableResource;
+import org.kinotic.system.internal.api.repositories.BillableResourceRepository;
 import org.kinotic.system.internal.api.repositories.BillingAccountRepository;
 import org.kinotic.system.internal.api.repositories.BillingPlanRepository;
 import org.kinotic.system.internal.api.repositories.UsageRecordRepository;
@@ -47,6 +52,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,6 +83,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private final BillingAccountRepository accountRepository;
     private final BillingPlanRepository planRepository;
     private final UsageRecordRepository usageRepository;
+    private final BillableResourceRepository resourceRepository;
     private final OrganizationService organizationService;
     private final StripeBilling stripeBilling;
     private final KinoticManagementApiProperties managementApiProperties;
@@ -203,8 +210,9 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                     Instant periodStart = periodStart(periodEnd, plan.getInterval());
                     // usage before the trial ended is not billed, so the period's billed usage starts when it ended
                     Instant measuredFrom = latest(periodStart, account.getTrialEndsAt().toInstant());
-                    return usageRepository.findForOrganization(organizationId, Date.from(measuredFrom), Date.from(now))
-                                          .map(records -> forecast(plan, periodStart, periodEnd, measuredFrom, now, records));
+                    return Future.all(usageRepository.findForOrganization(organizationId, Date.from(measuredFrom), Date.from(now)),
+                                      resourceRepository.findOpenForOrganization(organizationId))
+                                 .map(found -> forecast(plan, periodStart, periodEnd, measuredFrom, found.resultAt(0), found.resultAt(1)));
                 });
             }
             return ret;
@@ -224,19 +232,42 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                             Instant periodStart,
                                             Instant periodEnd,
                                             Instant measuredFrom,
-                                            Instant now,
-                                            List<UsageRecord> records) {
+                                            List<UsageRecord> records,
+                                            List<BillableResource> running) {
         BillingForecast ret = new BillingForecast().setPlanId(plan.getId())
                                                    .setCurrency(plan.getCurrency())
                                                    .setPeriodStart(Date.from(periodStart))
                                                    .setPeriodEnd(Date.from(periodEnd));
         for (UsageRecord record : records) {
-            record.getQuantities().forEach((meter, quantity) -> ret.getUsageToDate().merge(meter, quantity, Double::sum));
+            record.getLines().forEach(line -> ret.getUsageToDate().merge(line.getMeter(), line.getQuantity(), Double::sum));
         }
-        // at least an hour elapsed, so the first minutes of a period do not project a moment's usage over all of it
-        double elapsed = Math.max(Duration.between(measuredFrom, now).toMillis(), Duration.ofHours(1).toMillis());
-        double billed = Math.max(Duration.between(measuredFrom, periodEnd).toMillis(), 0);
-        ret.getUsageToDate().forEach((meter, quantity) -> ret.getProjectedUsage().put(meter, quantity * billed / elapsed));
+        ret.getProjectedUsage().putAll(ret.getUsageToDate());
+        // the runs going on now go on to the period's end from the last hour settled, which holds their usage up to then
+        Instant settledThrough = measuredFrom;
+        for (UsageRecord record : records) {
+            Instant end = record.getHour().toInstant().plus(Duration.ofHours(1));
+            if (record.getSettled() != null && end.isAfter(settledThrough)) {
+                settledThrough = end;
+            }
+        }
+        double runningHours = hoursBetween(settledThrough, periodEnd);
+        for (BillableResource resource : running) {
+            resource.getAmounts().forEach(amount -> ret.getProjectedUsage().merge(amount.getMeter(), amount.getPerHour() * runningHours, Double::sum));
+        }
+        // each polled level stays at its last reading to the period's end, from the end of the hour of that reading
+        Map<UsageMeter, UsageRecord> lastPolled = new EnumMap<>(UsageMeter.class);
+        for (UsageRecord record : records) {
+            for (UsageLine line : record.getLines()) {
+                if (line.getMeter().getMeasurementType() == UsageMeasurementType.POLLED_LEVEL) {
+                    lastPolled.merge(line.getMeter(), record, (a, b) -> b.getHour().after(a.getHour()) ? b : a);
+                }
+            }
+        }
+        lastPolled.forEach((meter, record) -> {
+            double level = record.getLines().stream().filter(line -> line.getMeter() == meter).mapToDouble(UsageLine::getQuantity).sum();
+            double hours = hoursBetween(record.getHour().toInstant().plus(Duration.ofHours(1)), periodEnd);
+            ret.getProjectedUsage().merge(meter, level * hours, Double::sum);
+        });
         BigDecimal amount = BigDecimal.ZERO;
         for (PlanComponent component : plan.getComponents()) {
             if (component.getType() == PlanComponentType.FLAT) {
@@ -249,6 +280,10 @@ public class DefaultBillingOperationsService implements BillingOperationsService
             }
         }
         return ret.setProjectedAmount(amount.setScale(0, RoundingMode.HALF_UP).longValueExact());
+    }
+
+    private static double hoursBetween(Instant from, Instant to) {
+        return Math.max(Duration.between(from, to).toMillis(), 0) / (double) Duration.ofHours(1).toMillis();
     }
 
     private static Instant periodStart(Instant periodEnd, BillingInterval interval) {

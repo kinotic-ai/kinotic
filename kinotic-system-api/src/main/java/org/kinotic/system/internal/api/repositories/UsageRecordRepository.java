@@ -38,11 +38,10 @@ public class UsageRecordRepository extends AbstractRepository<UsageRecord> {
                 .map(Page::getContent);
     }
 
-    /**
-     * The records not yet settled of the hours that started before {@code before}, in the order of their ids.
-     */
-    public Future<Page<UsageRecord>> findUnsettledBefore(Date before, CursorPageable pageable) {
-        return findAll(pageable, b -> b.query(composeFilter(missingFilter("settled"), hourRange(null, before))));
+    /** The records not yet settled of the hour starting at {@code hour}, in the order of their ids. */
+    public Future<Page<UsageRecord>> findUnsettledOfHour(Date hour, CursorPageable pageable) {
+        return findAll(pageable, b -> b.query(composeFilter(missingFilter("settled"),
+                                                            Query.of(q -> q.term(t -> t.field("hour").value(hour.toInstant().toString()))))));
     }
 
     private static Query hourRange(Date from, Date to) {

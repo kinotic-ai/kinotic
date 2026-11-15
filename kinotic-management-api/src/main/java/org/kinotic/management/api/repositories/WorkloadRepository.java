@@ -166,14 +166,6 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
     }
 
     /**
-     * The workloads running on behalf of an organization, in the order the pageable sorts them.
-     */
-    public Future<Page<Workload>> findRunningForOrganizations(Pageable pageable) {
-        return findAll(pageable, b -> b.query(composeFilter(existsFilter("organizationId"),
-                                                            termFilter("status", WorkloadStatus.RUNNING.name()))));
-    }
-
-    /**
      * Counts the workloads made by the given record whose run failed since the given time: what a
      * worker's restart backoff counts.
      */

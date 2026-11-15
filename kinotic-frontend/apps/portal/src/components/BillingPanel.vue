@@ -52,12 +52,12 @@
             </div>
             <div class="text-xs text-surface-500">Forecast for the period, before tax</div>
           </div>
-          <div v-for="meter in METERS" :key="meter">
+          <div v-for="descriptor in meters" :key="descriptor.meter">
             <div class="text-lg font-semibold text-surface-950 dark:text-surface-0">
-              {{ formatQuantity(forecast.usageToDate[meter]) }}
-              <span class="text-sm font-normal text-surface-500">of about {{ formatQuantity(forecast.projectedUsage[meter]) }}</span>
+              {{ formatQuantity(forecast.usageToDate[descriptor.meter]) }}
+              <span class="text-sm font-normal text-surface-500">of about {{ formatQuantity(forecast.projectedUsage[descriptor.meter]) }}</span>
             </div>
-            <div class="text-xs text-surface-500">{{ METER_LABELS[meter] }} so far</div>
+            <div class="text-xs text-surface-500">{{ descriptor.displayName }} so far, in {{ descriptor.unit }}s</div>
           </div>
         </div>
       </section>
@@ -65,19 +65,34 @@
       <section :class="CARD">
         <div class="flex items-center justify-between">
           <div :class="LABEL">Usage, last {{ USAGE_DAYS }} days</div>
-          <SelectButton v-model="chartMeter" :options="METERS" :option-label="meterLabel" :allow-empty="false" size="small" />
+          <SelectButton v-if="chartMeter" v-model="chartMeter" :options="meters" option-label="displayName" :allow-empty="false" size="small" />
         </div>
-        <div class="mt-4 flex h-32 items-end gap-[3px]" role="img" :aria-label="`Daily ${METER_LABELS[chartMeter]} for the last ${USAGE_DAYS} days`">
+        <div v-if="chartMeter" class="mt-4 flex h-32 items-end gap-[3px]" role="img"
+             :aria-label="`Daily ${chartMeter.displayName} for the last ${USAGE_DAYS} days`">
           <div v-for="day in dailyUsage" :key="day.label" class="flex h-full flex-1 items-end"
-               :title="`${day.label}: ${formatQuantity(day.quantities[chartMeter])} ${METER_LABELS[chartMeter]}`">
+               :title="`${day.label}: ${formatQuantity(day.quantities[chartMeter.meter])} ${chartMeter.unit}s`">
             <div class="w-full rounded-t bg-orange-400 dark:bg-orange-500"
-                 :style="{ height: barHeight(day.quantities[chartMeter]) }" />
+                 :style="{ height: barHeight(day.quantities[chartMeter.meter]) }" />
           </div>
         </div>
         <div class="mt-1 flex justify-between text-[11px] text-surface-500">
           <span>{{ dailyUsage[0]?.label }}</span>
           <span>{{ dailyUsage[dailyUsage.length - 1]?.label }}</span>
         </div>
+      </section>
+
+      <section v-if="usageItems.length > 0">
+        <h3 :class="HEADING">Usage by item, last {{ USAGE_DAYS }} days</h3>
+        <DataTable :value="usageItems" size="small" row-group-mode="subheader" group-rows-by="category">
+          <template #groupheader="{ data }">
+            <span class="font-semibold">{{ CATEGORY_LABELS[data.category as UsageCategory] }}</span>
+          </template>
+          <Column field="subjectName" header="Item" />
+          <Column field="meterName" header="Meter" />
+          <Column header="Usage">
+            <template #body="{ data }">{{ formatQuantity(data.quantity) }} {{ data.unit }}s</template>
+          </Column>
+        </DataTable>
       </section>
 
       <section>
@@ -119,8 +134,9 @@ import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
 import {
-  BillingStatus, InvoiceStatus, PlanComponentType, UsageMeter,
-  type BillingAccount, type BillingForecast, type BillingInvoice, type BillingPlan, type PlanComponent, type UsageRecord
+  BillingStatus, InvoiceStatus, PlanComponentType, UsageCategory,
+  type BillingAccount, type BillingForecast, type BillingInvoice, type BillingPlan, type PlanComponent, type UsageMeter,
+  type UsageMeterDescriptor, type UsageRecord
 } from '@kinotic-ai/management-api'
 
 const CARD = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:border-surface-700 dark:bg-surface-900'
@@ -131,10 +147,9 @@ const DAY_MS = 86_400_000
 // how long payment may be due before the organization is deactivated, as the system server enforces it
 const GRACE_DAYS = 14
 
-const METERS = [UsageMeter.VCPU_HOURS, UsageMeter.MEMORY_GB_HOURS]
-const METER_LABELS: Record<UsageMeter, string> = {
-  [UsageMeter.VCPU_HOURS]: 'vCPU hours',
-  [UsageMeter.MEMORY_GB_HOURS]: 'memory GB hours'
+const CATEGORY_LABELS: Record<UsageCategory, string> = {
+  [UsageCategory.COMPUTE]: 'Compute',
+  [UsageCategory.STORAGE]: 'Storage'
 }
 const STATUS_LABELS: Record<BillingStatus, string> = {
   [BillingStatus.TRIALING]: 'Free trial',
@@ -162,8 +177,11 @@ const plans = ref<BillingPlan[]>([])
 const forecast = ref<BillingForecast | null>(null)
 const invoices = ref<BillingInvoice[]>([])
 const usage = ref<UsageRecord[]>([])
-const chartMeter = ref<UsageMeter>(UsageMeter.VCPU_HOURS)
+const meters = ref<UsageMeterDescriptor[]>([])
+const chartMeter = ref<UsageMeterDescriptor | null>(null)
 const opening = ref<string | null>(null)
+
+const meterOf = computed(() => new Map(meters.value.map(descriptor => [descriptor.meter, descriptor])))
 
 const currentPlan = computed(() => plans.value.find(plan => plan.id === account.value?.planId) ?? null)
 
@@ -192,15 +210,41 @@ const dailyUsage = computed(() => {
   for (const record of usage.value) {
     const index = Math.floor((startOfDay(new Date(record.hour)).getTime() - days[0].start.getTime()) / DAY_MS)
     if (index >= 0 && index < days.length) {
-      for (const meter of METERS) {
-        days[index].quantities[meter] = (days[index].quantities[meter] ?? 0) + (record.quantities[meter] ?? 0)
+      for (const line of record.lines) {
+        days[index].quantities[line.meter] = (days[index].quantities[line.meter] ?? 0) + line.quantity
       }
     }
   }
   return days
 })
 
-const chartMax = computed(() => Math.max(...dailyUsage.value.map(day => day.quantities[chartMeter.value] ?? 0), 0))
+const chartMax = computed(() => Math.max(...dailyUsage.value.map(day => day.quantities[chartMeter.value?.meter as UsageMeter] ?? 0), 0))
+
+// each thing's total of each meter over the range, grouped by the meters' categories in the order of the meters
+const usageItems = computed(() => {
+  const totals = new Map<string, { category: UsageCategory, subjectName: string, meterName: string, unit: string, quantity: number, order: number }>()
+  for (const record of usage.value) {
+    for (const line of record.lines) {
+      const descriptor = meterOf.value.get(line.meter)
+      if (descriptor) {
+        const key = `${line.meter}:${line.subjectId}`
+        const item = totals.get(key) ?? {
+          category: descriptor.category,
+          subjectName: line.subjectName,
+          meterName: descriptor.displayName,
+          unit: descriptor.unit,
+          quantity: 0,
+          order: meters.value.indexOf(descriptor)
+        }
+        item.quantity += line.quantity
+        totals.set(key, item)
+      }
+    }
+  }
+  const categories = Object.values(UsageCategory)
+  return [...totals.values()].sort((a, b) => categories.indexOf(a.category) - categories.indexOf(b.category)
+      || a.subjectName.localeCompare(b.subjectName) || a.order - b.order)
+})
 
 onMounted(async () => {
   try {
@@ -211,12 +255,15 @@ onMounted(async () => {
   }
   const to = new Date()
   const from = new Date(startOfDay(to).getTime() - (USAGE_DAYS - 1) * DAY_MS)
-  const [offered, forecasted, listed, used] = await Promise.all([
+  const [described, offered, forecasted, listed, used] = await Promise.all([
+    Kinotic.billing.findMeters(),
     Kinotic.billing.findPlans(),
     Kinotic.billing.findForecast(),
     Kinotic.billing.findInvoices(),
     Kinotic.billing.findUsage(from, to)
   ])
+  meters.value = described
+  chartMeter.value = described[0] ?? null
   plans.value = offered
   forecast.value = forecasted
   invoices.value = listed
@@ -247,15 +294,12 @@ function describeComponent(plan: BillingPlan, component: PlanComponent): string 
   if (component.type === PlanComponentType.FLAT) {
     ret = `${formatAmount(component.amount ?? 0, plan.currency)} per ${plan.interval.toLowerCase()}`
   } else {
-    const meter = METER_LABELS[component.meter!]
+    const descriptor = meterOf.value.get(component.meter!)
     const included = component.includedQuantity > 0 ? `, ${component.includedQuantity} included` : ''
-    ret = `${formatAmount(component.unitAmount ?? 0, plan.currency, 4)} per ${meter.replace(/s$/, '')}${included}`
+    ret = `${descriptor?.displayName ?? component.meter}: ${formatAmount(component.unitAmount ?? 0, plan.currency, 4)} `
+        + `per ${descriptor?.unit ?? 'unit'}${included}`
   }
   return ret
-}
-
-function meterLabel(meter: UsageMeter): string {
-  return METER_LABELS[meter]
 }
 
 function barHeight(quantity: number | undefined): string {

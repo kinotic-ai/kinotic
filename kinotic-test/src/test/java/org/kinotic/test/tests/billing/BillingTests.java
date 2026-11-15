@@ -1,5 +1,7 @@
 package org.kinotic.test.tests.billing;
 
+import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.Refresh;
 import com.stripe.Stripe;
 import com.stripe.model.Event;
 import com.stripe.net.Webhook;
@@ -8,6 +10,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.services.OrganizationService;
@@ -20,15 +23,19 @@ import org.kinotic.management.api.model.billing.BillingStatus;
 import org.kinotic.management.api.model.billing.InvoiceStatus;
 import org.kinotic.management.api.model.billing.PlanComponent;
 import org.kinotic.management.api.model.billing.PlanComponentType;
+import org.kinotic.management.api.model.billing.UsageLine;
 import org.kinotic.management.api.model.billing.UsageMeter;
 import org.kinotic.management.api.model.billing.UsageRecord;
+import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.billing.BillingService;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.api.services.billing.BillingPlanService;
+import org.kinotic.system.internal.api.repositories.BillableResourceRepository;
 import org.kinotic.system.internal.api.repositories.UsageRecordRepository;
+import org.kinotic.system.internal.api.services.billing.MicroserviceBilling;
 import org.kinotic.system.internal.api.services.billing.DefaultBillingOperationsService;
 import org.kinotic.system.internal.api.services.billing.UsageMetering;
 import org.kinotic.test.support.billing.StripeRequest;
@@ -38,6 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -82,6 +90,12 @@ public class BillingTests extends KinoticTestBase {
     private WorkloadRepository workloads;
     @Autowired
     private UsageRecordRepository usageRecords;
+    @Autowired
+    private BillableResourceRepository resources;
+    @Autowired
+    private MicroserviceBilling microserviceBilling;
+    @Autowired
+    private ElasticsearchAsyncClient esAsyncClient;
 
     @Test
     public void aPlanCreatesItsProductAndAPricePerComponent() throws Exception {
@@ -213,61 +227,110 @@ public class BillingTests extends KinoticTestBase {
     }
 
     @Test
-    public void usageIsMeasuredOnceASlotAndReportedToStripe() throws Exception {
+    public void aRunningMicroserviceIsBilledForTheTimeItRanAndReportedToStripeOnce() throws Exception {
         Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
-        Instant measured = Instant.now().minus(Duration.ofDays(2)).truncatedTo(ChronoUnit.HOURS).plus(Duration.ofMinutes(12));
-        Date hour = Date.from(measured.truncatedTo(ChronoUnit.HOURS));
-
-        Workload workload = await(workloads.createSync(runningWorkload(organization)));
+        Date hour = settledHour();
+        Workload workload = await(workloads.createSync(runningWorkload(organization, hour)));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
         try {
-            await(metering.measure(measured));
-            await(metering.measure(measured.plus(Duration.ofMinutes(1))));
-            await(metering.measure(measured.plus(Duration.ofMinutes(5))));
+            await(microserviceBilling.track(deployment));
+            await(microserviceBilling.track(deployment));
+            await(resources.syncIndex());
+
+            await(metering.settle(hour));
+            await(metering.settle(hour));
         } finally {
-            await(workloads.deleteByIdSync(workload.getId()));
+            await(endRun(workload, deployment));
         }
         await(usageRecords.syncIndex());
 
         List<UsageRecord> usage = await(operations.findUsage(organization.getId(), hour, Date.from(hour.toInstant().plus(Duration.ofHours(1)))));
         assertEquals(1, usage.size());
-        assertEquals(2 * 2 * 5 / 60.0, usage.getFirst().getQuantities().get(UsageMeter.VCPU_HOURS), 1e-9);
-        assertEquals(2 * 1.5 * 5 / 60.0, usage.getFirst().getQuantities().get(UsageMeter.MEMORY_GB_HOURS), 1e-9);
-
-        await(metering.settle(Instant.now()));
+        // the VM ran the last 40 minutes of the hour
+        assertEquals(2 * 40 / 60.0, quantityOf(usage.getFirst(), UsageMeter.VCPU_HOURS), 1e-9);
+        assertEquals(1.5 * 40 / 60.0, quantityOf(usage.getFirst(), UsageMeter.MEMORY_GB_HOURS), 1e-9);
+        assertEquals(deployment.getId(), usage.getFirst().getLines().getFirst().getSubjectId());
+        assertNotNull(usage.getFirst().getSettled());
 
         String customerId = await(operations.findAccount(organization.getId())).getStripeCustomerId();
         String identifier = usage.getFirst().getId() + ":" + UsageMeter.VCPU_HOURS.name();
         List<StripeRequest> reports = StripeStandIn.requests("POST", "/v1/billing/meter_events").stream()
                                                    .filter(request -> identifier.equals(request.params().get("identifier")))
                                                    .toList();
-        assertFalse(reports.isEmpty());
+        assertEquals(1, reports.size());
         assertEquals(customerId, reports.getFirst().params().get("payload[stripe_customer_id]"));
         assertEquals(UsageMeter.VCPU_HOURS.getEventName(), reports.getFirst().params().get("event_name"));
-        assertNotNull(await(usageRecords.findById(usage.getFirst().getId())).getSettled());
     }
 
     @Test
-    public void theForecastProjectsThePeriodsUsage() throws Exception {
+    public void aMicroserviceIsBilledUntilItsVmStops() throws Exception {
+        Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
+        Workload workload = await(workloads.createSync(runningWorkload(organization, settledHour())));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
+        await(microserviceBilling.track(deployment));
+        assertNull(await(resources.findById(workload.getId())).getEnded());
+
+        await(endRun(workload, deployment));
+
+        Workload stopped = await(workloads.findById(workload.getId()));
+        assertEquals(stopped.getUpdated(), await(resources.findById(workload.getId())).getEnded());
+    }
+
+    @Test
+    public void dataStorageIsPolledIntoTheHoursUsage() throws Exception {
+        Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
+        String index = "kinotic_" + organization.getId() + ".shop.orders";
+        await(KinoticUtil.toFuture(esAsyncClient.indices().create(b -> b.index(index))));
+        try {
+            await(KinoticUtil.toFuture(esAsyncClient.index(b -> b.index(index).document(Map.of("name", "order")).refresh(Refresh.True))));
+
+            Instant now = Instant.now();
+            await(metering.poll(now));
+            await(metering.poll(now));
+        } finally {
+            await(KinoticUtil.toFuture(esAsyncClient.indices().delete(b -> b.index(index))));
+        }
+
+        Date hour = Date.from(Instant.now().truncatedTo(ChronoUnit.HOURS));
+        UsageRecord record = await(usageRecords.findById(UsageRecordRepository.idOf(organization.getId(), hour)));
+        List<UsageLine> storage = record.getLines().stream().filter(line -> line.getMeter() == UsageMeter.DATA_STORAGE_GB_MONTHS).toList();
+        assertEquals(1, storage.size());
+        assertEquals("shop", storage.getFirst().getSubjectId());
+        assertTrue(storage.getFirst().getQuantity() > 0);
+        assertNull(record.getSettled());
+    }
+
+    @Test
+    public void theForecastProjectsWhatRunsNowToThePeriodsEnd() throws Exception {
         BillingPlan plan = await(plans.create(teamPlan(null)));
         Organization organization = subscribedOrganization(plan);
-        Instant measured = Instant.now().minus(Duration.ofDays(2)).truncatedTo(ChronoUnit.HOURS);
-
-        Workload workload = await(workloads.createSync(runningWorkload(organization)));
+        Date hour = settledHour();
+        Workload workload = await(workloads.createSync(runningWorkload(organization, hour)));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
+        BillingForecast forecast;
         try {
-            await(metering.measure(measured));
-        } finally {
-            await(workloads.deleteByIdSync(workload.getId()));
-        }
-        await(usageRecords.syncIndex());
+            await(microserviceBilling.track(deployment));
+            await(resources.syncIndex());
+            await(metering.settle(hour));
+            await(usageRecords.syncIndex());
 
-        BillingForecast forecast = await(operations.findForecast(organization.getId()));
+            forecast = await(operations.findForecast(organization.getId()));
+        } finally {
+            await(endRun(workload, deployment));
+        }
+
         assertEquals(plan.getId(), forecast.getPlanId());
-        double toDate = forecast.getUsageToDate().get(UsageMeter.VCPU_HOURS);
-        // the metering schedule may also measure the workload in the moment it runs
-        assertTrue(toDate >= 2 * 5 / 60.0 - 1e-9);
-        assertTrue(forecast.getProjectedUsage().get(UsageMeter.VCPU_HOURS) > toDate);
-        // the projected vCPU hours stay within the 100 the plan includes, so only the flat fee is charged
-        assertEquals(4900, forecast.getProjectedAmount());
+        double toDate = 2 * 40 / 60.0;
+        assertEquals(toDate, forecast.getUsageToDate().get(UsageMeter.VCPU_HOURS), 1e-9);
+        // the VM goes on running at 2 vCPUs from the end of the hour settled to the end of the period
+        double hoursLeft = Duration.between(hour.toInstant().plus(Duration.ofHours(1)), forecast.getPeriodEnd().toInstant()).toMillis()
+                / (double) Duration.ofHours(1).toMillis();
+        double projected = toDate + 2 * hoursLeft;
+        assertEquals(projected, forecast.getProjectedUsage().get(UsageMeter.VCPU_HOURS), 1e-6);
+        // the flat fee, and the vCPU hours beyond the 100 the plan includes at 2.5 cents each
+        long expected = BigDecimal.valueOf(4900).add(new BigDecimal("2.5").multiply(BigDecimal.valueOf(projected - 100)))
+                                  .setScale(0, RoundingMode.HALF_UP).longValueExact();
+        assertEquals(expected, forecast.getProjectedAmount());
     }
 
     @Test
@@ -378,11 +441,34 @@ public class BillingTests extends KinoticTestBase {
         return organization;
     }
 
-    private static Workload runningWorkload(Organization organization) {
+    // an hour four days ago, before any hour the billing schedule settles on its own, so a test settles it alone
+    private static Date settledHour() {
+        return Date.from(Instant.now().minus(Duration.ofDays(4)).truncatedTo(ChronoUnit.HOURS));
+    }
+
+    // a VM with 2 vCPUs and 1.5 GB of memory, started 20 minutes into the hour
+    private static Workload runningWorkload(Organization organization, Date hour) {
         return new Workload("billing-" + suffix(), "kinoticai/workload-runner:latest").setOrganizationId(organization.getId())
                                                                                       .setStatus(WorkloadStatus.RUNNING)
                                                                                       .setCpus(2)
-                                                                                      .setMemoryMb(1536);
+                                                                                      .setMemoryMb(1536)
+                                                                                      .setCreated(Date.from(hour.toInstant().plus(Duration.ofMinutes(20))));
+    }
+
+    private static MicroserviceDeployment deploymentOf(Organization organization, Workload workload) {
+        return new MicroserviceDeployment().setId("billing-" + suffix())
+                                           .setOrganizationId(organization.getId())
+                                           .setName("orders")
+                                           .setWorkloadId(workload.getId());
+    }
+
+    private Future<Void> endRun(Workload workload, MicroserviceDeployment deployment) {
+        return workloads.saveSync(workload.setStatus(WorkloadStatus.STOPPED))
+                        .compose(v -> microserviceBilling.track(deployment));
+    }
+
+    private static double quantityOf(UsageRecord record, UsageMeter meter) {
+        return record.getLines().stream().filter(line -> line.getMeter() == meter).mapToDouble(UsageLine::getQuantity).sum();
     }
 
     private static DefaultOrganizationParticipant memberOf(Organization organization) {

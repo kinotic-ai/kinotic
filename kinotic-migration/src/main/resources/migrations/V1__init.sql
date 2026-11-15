@@ -431,15 +431,37 @@ CREATE TABLE IF NOT EXISTS kinotic_billing_account (
     updated DATE
 );
 
--- Usage record: an organization's use of Kinotic Cloud during one hour, measured every five minutes from its running
--- workload VMs, under '<organizationId>:<epoch second of the hour>'. Written only where kinotic.managementApi.billing.enabled.
+-- Usage record: an organization's usage of Kinotic Cloud during one hour, a line for each meter and thing that used it,
+-- under '<organizationId>:<epoch second of the hour>'. Written only where kinotic.managementApi.billing.enabled.
 CREATE TABLE IF NOT EXISTS kinotic_usage_record (
     id KEYWORD,
     organizationId KEYWORD,
     hour DATE,
-    quantities OBJECT (VCPU_HOURS DOUBLE NOT INDEXED, MEMORY_GB_HOURS DOUBLE NOT INDEXED),
-    measuredSlots INTEGER NOT INDEXED,
+    lines OBJECT (
+        meter KEYWORD NOT INDEXED,
+        subjectId KEYWORD NOT INDEXED,
+        subjectName KEYWORD NOT INDEXED,
+        quantity DOUBLE NOT INDEXED
+    ),
     settled DATE,
+    created DATE,
+    updated DATE
+);
+
+-- Billable resource: one run of something an organization is billed for while it runs, such as a microservice's VM,
+-- under the id of the run's workload, with what each hour of it uses. Written only where
+-- kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_billable_resource (
+    id KEYWORD,
+    organizationId KEYWORD,
+    subjectId KEYWORD,
+    subjectName KEYWORD NOT INDEXED,
+    amounts OBJECT (
+        meter KEYWORD NOT INDEXED,
+        perHour DOUBLE NOT INDEXED
+    ),
+    started DATE,
+    ended DATE,
     created DATE,
     updated DATE
 );

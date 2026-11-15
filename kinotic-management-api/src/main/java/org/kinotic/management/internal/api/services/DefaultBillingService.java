@@ -8,12 +8,15 @@ import org.kinotic.management.api.model.billing.BillingAccount;
 import org.kinotic.management.api.model.billing.BillingForecast;
 import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
+import org.kinotic.management.api.model.billing.UsageMeter;
+import org.kinotic.management.api.model.billing.UsageMeterDescriptor;
 import org.kinotic.management.api.model.billing.UsageRecord;
 import org.kinotic.management.api.services.billing.BillingOperationsProxy;
 import org.kinotic.management.api.services.billing.BillingService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -43,6 +46,17 @@ public class DefaultBillingService implements BillingService {
     @Override
     public Future<String> createPortalSession() {
         return operations.createPortalSession(requireOrganizationId());
+    }
+
+    @Override
+    public Future<List<UsageMeterDescriptor>> findMeters() {
+        return Future.succeededFuture(Arrays.stream(UsageMeter.values())
+                                            .map(meter -> new UsageMeterDescriptor().setMeter(meter)
+                                                                                    .setDisplayName(meter.getDisplayName())
+                                                                                    .setUnit(meter.getUnit())
+                                                                                    .setCategory(meter.getCategory())
+                                                                                    .setMeasurementType(meter.getMeasurementType()))
+                                            .toList());
     }
 
     @Override

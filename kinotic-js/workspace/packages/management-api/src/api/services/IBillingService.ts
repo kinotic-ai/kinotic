@@ -4,6 +4,7 @@ import type { BillingAccount } from '@/api/model/billing/BillingAccount'
 import type { BillingForecast } from '@/api/model/billing/BillingForecast'
 import type { BillingInvoice } from '@/api/model/billing/BillingInvoice'
 import type { BillingPlan } from '@/api/model/billing/BillingPlan'
+import type { UsageMeterDescriptor } from '@/api/model/billing/UsageMeterDescriptor'
 import type { UsageRecord } from '@/api/model/billing/UsageRecord'
 
 /**
@@ -39,8 +40,13 @@ export interface IBillingService {
     createPortalSession(): Promise<string>
 
     /**
-     * The organization's hourly usage, by meter, for the hours starting from from up to to, oldest first. An hour in
-     * which the organization ran no workload has no record.
+     * Every meter usage is recorded under, in the order to show them.
+     */
+    findMeters(): Promise<UsageMeterDescriptor[]>
+
+    /**
+     * The organization's hourly usage, a line for each meter and thing that used it, for the hours starting from from
+     * up to to, oldest first. An hour in which the organization used nothing has no record.
      * @param from the start of the range
      * @param to the end of the range, at most 93 days after from
      */
@@ -81,6 +87,10 @@ export class BillingService implements IBillingService {
 
     public createPortalSession(): Promise<string> {
         return this.serviceProxy.invoke('createPortalSession', [])
+    }
+
+    public findMeters(): Promise<UsageMeterDescriptor[]> {
+        return this.serviceProxy.invoke('findMeters', [])
     }
 
     public findUsage(from: Date, to: Date): Promise<UsageRecord[]> {

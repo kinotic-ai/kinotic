@@ -26,11 +26,14 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
+import org.kinotic.system.internal.api.services.billing.MicroserviceBilling;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Optional;
+import java.util.function.BiFunction;
 
 /**
  * Keeps each microservice of a deployed project running as its deployment says it should: the worker
@@ -67,6 +70,8 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private final ProjectWorkloadFactory projectWorkloadFactory;
     private final ParticipantIdentityService participantIdentityService;
     private final OrganizationService organizationService;
+    // present where Kinotic Cloud bills organizations
+    private final Optional<MicroserviceBilling> microserviceBilling;
 
     @Override
     public WatchedType type() {
@@ -81,14 +86,25 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
         if (state.getDeletionRequested() != null) {
             ret = finalizeRemoval(current);
         } else if (desired == null) {
-            ret = Future.succeededFuture(Requeue.NONE);
+            ret = bill(current, MicroserviceBilling::track).map(Requeue.NONE);
         } else {
-            ret = organizationService.findById(current.getOrganizationId())
-                                     .compose(organization -> organization != null && organization.getDeactivated() != null
-                                             ? suspend(current)
-                                             : reconcileIntent(current, desired));
+            ret = bill(current, MicroserviceBilling::track)
+                    .compose(v -> organizationService.findById(current.getOrganizationId()))
+                    .compose(organization -> organization != null && organization.getDeactivated() != null
+                            ? suspend(current)
+                            : reconcileIntent(current, desired));
         }
         return ret;
+    }
+
+    // a deployment is billed from its own state each time it is reconciled, so billing that fails is caught up the next time
+    private Future<Void> bill(MicroserviceDeployment current, BiFunction<MicroserviceBilling, MicroserviceDeployment, Future<Void>> step) {
+        return microserviceBilling.map(billing -> step.apply(billing, current).recover(error -> {
+                                      log.warn("Could not bring the billing of microservice {} of project {} up to date",
+                                               current.getName(), current.getProjectId(), error);
+                                      return Future.<Void>succeededFuture();
+                                  }))
+                                  .orElseGet(Future::succeededFuture);
     }
 
     private Future<Requeue> reconcileIntent(MicroserviceDeployment current, DeploymentState desired) {
@@ -290,6 +306,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private Future<Requeue> finalizeRemoval(MicroserviceDeployment current) {
         log.info("Removing microservice {} of project {}", current.getName(), current.getProjectId());
         return stopWorkloadOf(current)
+                .compose(v -> bill(current, MicroserviceBilling::untrack))
                 .compose(v -> removeMachine(current))
                 .compose(v -> microserviceDeploymentRepository.deleteByIdSync(current.getId()))
                 .map(Requeue.NONE);

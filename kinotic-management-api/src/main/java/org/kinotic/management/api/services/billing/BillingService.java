@@ -6,6 +6,7 @@ import org.kinotic.management.api.model.billing.BillingAccount;
 import org.kinotic.management.api.model.billing.BillingForecast;
 import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
+import org.kinotic.management.api.model.billing.UsageMeterDescriptor;
 import org.kinotic.management.api.model.billing.UsageRecord;
 
 import java.util.Date;
@@ -55,8 +56,15 @@ public interface BillingService {
     Future<String> createPortalSession();
 
     /**
-     * The organization's hourly usage of Kinotic Cloud, by meter, for the hours starting from {@code from} up to
-     * {@code to}. An hour in which the organization ran no workload has no record.
+     * Every meter usage is recorded under, in the order the portal shows them.
+     *
+     * @return {@link Future} emitting a descriptor of each meter
+     */
+    Future<List<UsageMeterDescriptor>> findMeters();
+
+    /**
+     * The organization's hourly usage of Kinotic Cloud, a line for each meter and thing that used it, for the hours
+     * starting from {@code from} up to {@code to}. An hour in which the organization used nothing has no record.
      *
      * @param from the start of the range
      * @param to   the end of the range, after {@code from} and at most 93 days after it
@@ -65,8 +73,8 @@ public interface BillingService {
     Future<List<UsageRecord>> findUsage(Date from, Date to);
 
     /**
-     * What the organization's current billing period is expected to cost, projecting its usage so far over the
-     * whole period.
+     * What the organization's current billing period is expected to cost: its usage so far, plus what it runs and
+     * stores now kept up to the period's end.
      *
      * @return {@link Future} emitting the forecast, or {@code null} when the organization has no subscription or its
      *         free trial is still running
