@@ -137,7 +137,8 @@ async function publishUi(target: SiteTarget, workspaceDir: string, name: string,
                  NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
     if (suspended) {
-        await withIndexLease(target, async indexHeaders => {
+        await withIndexLease(target, async (indexHeaders, holdLease) => {
+            await holdLease()
             await upload(blobUrl(target, ...SUSPENDED_INDEX_FILE.split('/')), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
             await writeSuspendedIndex(target, commitSha, indexHeaders)
         })

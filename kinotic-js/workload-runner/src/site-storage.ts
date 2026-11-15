@@ -87,9 +87,11 @@ const INDEX_LEASE_RETRY_MS = 2_000
  * Runs work holding a lease on the site's index, so no other workload that leases the index reads or writes the
  * index or the kept index until the work ends, and no write to the index without the lease succeeds meanwhile.
  * An index another workload holds is waited for. work receives the headers that write the index under the lease,
- * or, when the site has no index, the precondition that writes one only while there is none.
+ * or, when the site has no index, the precondition that writes one only while there is none, and a function that
+ * fails unless the lease is still held, to call before each write to the kept index.
  */
-export async function withIndexLease(site: SiteTarget, work: (indexHeaders: Record<string, string>) => Promise<void>): Promise<void> {
+export async function withIndexLease(site: SiteTarget,
+                                     work: (indexHeaders: Record<string, string>, holdLease: () => Promise<void>) => Promise<void>): Promise<void> {
     const url = `${blobUrl(site, INDEX_FILE)}&comp=lease`
     const deadline = Date.now() + (INDEX_LEASE_SECONDS + 10) * 1000
     let response: Response
@@ -104,7 +106,7 @@ export async function withIndexLease(site: SiteTarget, work: (indexHeaders: Reco
         await Bun.sleep(INDEX_LEASE_RETRY_MS)
     }
     if (response.status === 404) {
-        await work({ 'If-None-Match': '*' })
+        await work({ 'If-None-Match': '*' }, async () => {})
         return
     }
     if (!response.ok) {
@@ -112,7 +114,14 @@ export async function withIndexLease(site: SiteTarget, work: (indexHeaders: Reco
     }
     const leaseId = response.headers.get('x-ms-lease-id')!
     try {
-        await work({ 'x-ms-lease-id': leaseId })
+        // the kept index is a second blob the lease cannot cover, so each write to it first renews the lease, which
+        // fails once the lease expired and another workload took it
+        await work({ 'x-ms-lease-id': leaseId }, async () => {
+            const renewed = await fetch(url, { method: 'PUT', headers: { 'x-ms-lease-action': 'renew', 'x-ms-lease-id': leaseId } })
+            if (!renewed.ok) {
+                throw new Error(`the lease on ${site.directory}/${INDEX_FILE} was lost (${renewed.status}), so the kept index is left as it is`)
+            }
+        })
     } finally {
         const released = await fetch(url, { method: 'PUT', headers: { 'x-ms-lease-action': 'release', 'x-ms-lease-id': leaseId } })
         if (!released.ok) {

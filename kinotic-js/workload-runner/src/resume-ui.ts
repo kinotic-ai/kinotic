@@ -23,7 +23,7 @@ function require_(name: string): string {
 
 async function main(): Promise<void> {
     const site = parseSiteUrl('KINOTIC_UI_INDEX_URL', require_('KINOTIC_UI_INDEX_URL'))
-    await withIndexLease(site, async indexHeaders => {
+    await withIndexLease(site, async (indexHeaders, holdLease) => {
         const index = await readFile(site, INDEX_FILE)
         if (index?.headers.get(SUSPENDED_METADATA_HEADER) === 'true') {
             const kept = await readFile(site, SUSPENDED_INDEX_FILE)
@@ -32,6 +32,7 @@ async function main(): Promise<void> {
             }
             await copyFile(site, kept, INDEX_FILE, indexHeaders)
             // deleted once the index is back, so a run that stops before it is done again from the kept index
+            await holdLease()
             await deleteBlob(site, `${site.directory}/${SUSPENDED_INDEX_FILE}`)
             log(`[workload-runner] resumed site ${site.directory}`)
         } else {
