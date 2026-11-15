@@ -16,6 +16,8 @@ export interface BillingAccount extends Identifiable<string> {
     currentPeriodStart: string | null
     /** When the current billing interval of the subscription ends, or null without a subscription. */
     currentPeriodEnd: string | null
+    /** When the organization's current or last subscription started, or null when it has had none. */
+    subscriptionStarted: string | null
     /** When the organization's last subscription ended, or null when none has. Usage before then is billed to it. */
     subscriptionEnded: string | null
     /** Since when payment is due, while the account is PAST_DUE. */

@@ -35,6 +35,9 @@ public class BillingAccount implements Identifiable<String> {
     /** When the current billing interval of the subscription ends, or {@code null} without a subscription. */
     private Date currentPeriodEnd;
 
+    /** When the organization's current or last subscription started, or {@code null} when it has had none. */
+    private Date subscriptionStarted;
+
     /**
      * When the organization's last subscription ended, or {@code null} when none has. Usage before then is billed to
      * that subscription.

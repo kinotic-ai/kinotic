@@ -297,6 +297,34 @@ public class BillingTests extends KinoticTestBase {
     }
 
     @Test
+    public void anHourBeforeTheSubscriptionStartedIsNotReported() throws Exception {
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+        Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
+                                                                                  .setName("Billing " + suffix())
+                                                                                  .setCreated(Date.from(Instant.now().minus(Duration.ofDays(TRIAL_DAYS * 2))))));
+        await(operations.createCheckoutSession(organization.getId(), plan.getId()));
+        long periodEnd = Instant.now().plus(Duration.ofDays(30)).getEpochSecond();
+        await(webhookHandler.handleEvent(subscriptionEvent(subscription("sub_" + suffix(), organization, plan, "active", periodEnd)
+                                                                   .put("start_date", Instant.now().getEpochSecond()))));
+        Date hour = settledHour();
+        Workload workload = await(workloads.createSync(runningWorkload(organization, hour)));
+        MicroserviceDeployment deployment = deploymentOf(organization, workload);
+        try {
+            await(microserviceBilling.track(deployment));
+            await(resources.syncIndex());
+
+            await(metering.settle(hour));
+        } finally {
+            await(endRun(workload, deployment));
+        }
+
+        String id = UsageRecordRepository.idOf(organization.getId(), hour);
+        assertNotNull(await(usageRecords.findById(id)).getSettled());
+        assertTrue(StripeStandIn.requests("POST", "/v1/billing/meter_events").stream()
+                                .noneMatch(request -> request.params().get("identifier").startsWith(id + ":")));
+    }
+
+    @Test
     public void removingAMicroserviceEndsTheRunOfAVmNotYetBilled() throws Exception {
         Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
         Workload workload = await(workloads.createSync(runningWorkload(organization, settledHour())));
@@ -531,6 +559,7 @@ public class BillingTests extends KinoticTestBase {
         return StripeStandIn.report(new JsonObject().put("id", id)
                                                     .put("object", "subscription")
                                                     .put("status", status)
+                                                    .put("start_date", periodEnd - Duration.ofDays(30).toSeconds())
                                                     .put("metadata", new JsonObject().put("kinotic_organization_id", organization.getId())
                                                                                      .put("kinotic_plan_id", plan.getId()))
                                                     .put("items", new JsonObject().put("object", "list")

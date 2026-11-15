@@ -89,7 +89,7 @@ public class UsageMetering {
 
     /**
      * Settles the hour starting at {@code hour} for every organization that used anything during it: records what each
-     * of its runs used, reports the hour's usage to Stripe when the organization subscribed to a plan for all of it
+     * of its runs used, reports the hour's usage to Stripe when the organization was subscribed to a plan during it
      * after its trial, and marks the record settled.
      *
      * @param hour the start of an hour that ended at least {@link #SETTLE_DELAY} ago
@@ -172,12 +172,15 @@ public class UsageMetering {
                                 .compose(account -> billable(account, record) ? report(account, record) : Future.succeededFuture());
     }
 
-    // an hour is billed when it is after the trial and a subscription covered it, including one that has since ended
+    // an hour is billed when it is after the trial and overlaps the current subscription, or the last one, which may
+    // since have ended
     private static boolean billable(BillingAccount account, UsageRecord record) {
         Instant hour = record.getHour().toInstant();
         return account != null
                 && account.getStripeCustomerId() != null
+                && account.getSubscriptionStarted() != null
                 && !hour.isBefore(account.getTrialEndsAt().toInstant())
+                && hour.plus(HOUR).isAfter(account.getSubscriptionStarted().toInstant())
                 && (account.getStripeSubscriptionId() != null
                     || (account.getSubscriptionEnded() != null && hour.isBefore(account.getSubscriptionEnded().toInstant())));
     }

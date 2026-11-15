@@ -459,6 +459,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                                 .setStripeSubscriptionId(subscription.getId())
                                                 .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
+                                                .setSubscriptionStarted(dateOf(subscription.getStartDate()))
                                                 .setCurrentPeriodStart(periodBound(subscription, SubscriptionItem::getCurrentPeriodStart))
                                                 .setCurrentPeriodEnd(periodBound(subscription, SubscriptionItem::getCurrentPeriodEnd))
                                                 .setPastDueSince(null);
@@ -466,6 +467,7 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                                 .setStripeSubscriptionId(subscription.getId())
                                                 .setStripeCheckoutSessionId(null)
                                                 .setPlanId(subscription.getMetadata().get(StripeBilling.PLAN_ID_METADATA))
+                                                .setSubscriptionStarted(dateOf(subscription.getStartDate()))
                                                 .setCurrentPeriodStart(periodBound(subscription, SubscriptionItem::getCurrentPeriodStart))
                                                 .setCurrentPeriodEnd(periodBound(subscription, SubscriptionItem::getCurrentPeriodEnd))
                                                 .setPastDueSince(account.getPastDueSince() != null
