@@ -1,12 +1,11 @@
 package org.kinotic.domain.api.repositories;
 
 import io.vertx.core.Future;
-import org.kinotic.core.api.crud.CursorPage;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedDocument;
@@ -50,21 +49,15 @@ public class AuthzStoreRepository extends AbstractReconcilableRepository<AuthzSt
      * @see ReconcileStateRepository#renewDesired(WatchedDocument, String)
      */
     public Future<Void> renewAllDesired(String source) {
-        return renewAllDesired(source, null);
-    }
-
-    private Future<Void> renewAllDesired(String source, String cursor) {
-        return findAll(Pageable.create(cursor, PAGE_SIZE, Sort.by("id")),
-                       b -> b.source(sc -> sc.filter(f -> f.includes("id"))))
-                .compose(page -> {
-                    Future<Void> ret = Future.succeededFuture();
-                    for (AuthzStore store : page.getContent()) {
-                        ret = ret.compose(v -> renewDesired(store.getId(), source));
-                    }
-                    String next = page instanceof CursorPage<AuthzStore> cursorPage ? cursorPage.getCursor() : null;
-                    return page.getContent().size() < PAGE_SIZE || next == null
-                            ? ret
-                            : ret.compose(v -> renewAllDesired(source, next));
-                });
+        return CursorPaging.forEachPage(pageable -> findAll(pageable, b -> b.source(sc -> sc.filter(f -> f.includes("id")))),
+                                        PAGE_SIZE,
+                                        Sort.by("id"),
+                                        page -> {
+                                            Future<Void> ret = Future.succeededFuture();
+                                            for (AuthzStore store : page) {
+                                                ret = ret.compose(v -> renewDesired(store.getId(), source));
+                                            }
+                                            return ret;
+                                        });
     }
 }

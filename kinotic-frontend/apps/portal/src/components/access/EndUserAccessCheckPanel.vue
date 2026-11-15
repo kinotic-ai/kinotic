@@ -25,7 +25,8 @@ import { Kinotic } from '@kinotic-ai/core'
 import { type Resource, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { TableChip, permissionLabel, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
 import { AccessCheckPanel, type CheckedAccess, type SubjectOption } from '@kinotic-ai/frontend-common/management'
-import { type DefinitionOption, definitionName, definitionOf, resourceLabel, resourceOf, tenantOf } from './applicationResources'
+import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, definitionName, definitionOf, resourceLabel, resourceOf, tenantOf,
+         whereChoices } from './applicationResources'
 
 /**
  * Explains a user's or a machine's access in the application's own store: whether it holds a permission of one
@@ -53,22 +54,12 @@ const props = defineProps<{
   initialResource: Resource
 }>()
 
-const WHOLE_APPLICATION = ''
-const EVERY_DEFINITION = ''
-
 const initialSubject = props.initialSubjectId ? { type: SubjectType.USER, id: props.initialSubjectId } : undefined
 const where = ref<string>(tenantOf(props.initialResource) ?? WHOLE_APPLICATION)
 const definitionId = ref<string>(definitionOf(props.initialResource) ?? EVERY_DEFINITION)
 
-const whereOptions = computed(() => [
-  { label: 'Whole application', id: WHOLE_APPLICATION },
-  ...props.tenants.map(id => ({ label: `Tenant ${id}`, id }))
-])
-
-const definitionOptions = computed(() => [
-  { label: 'Every definition', id: EVERY_DEFINITION },
-  ...props.definitions.map(definition => ({ label: definition.name, id: definition.id }))
-])
+const whereOptions = computed(() => whereChoices(props.tenants))
+const definitionOptions = computed(() => definitionChoices(props.definitions))
 
 const permissionOptions = computed(() => props.catalog.map(name => {
   const split = splitPermission(name)

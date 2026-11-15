@@ -8,9 +8,8 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.core.api.crud.CursorPage;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.domain.api.model.Application;
@@ -22,6 +21,7 @@ import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.repositories.ProjectRepository;
@@ -170,24 +170,9 @@ public class ApplicationStoreProvisioner {
                                        }));
     }
 
-    private static <T> Future<Void> eachPage(Function<Pageable, Future<Page<T>>> pager, Function<List<T>, Future<Void>> action) {
-        return eachPage(pager, action, null);
-    }
-
-    // Pages by cursor in id order, so every document is read once however many there are, past the offset window
-    private static <T> Future<Void> eachPage(Function<Pageable, Future<Page<T>>> pager, Function<List<T>, Future<Void>> action, String cursor) {
-        return pager.apply(Pageable.create(cursor, PAGE_SIZE, Sort.by("id"))).compose(page -> {
-            Future<Void> ret;
-            if (page.getContent().isEmpty()) {
-                ret = Future.succeededFuture();
-            } else {
-                ret = action.apply(page.getContent());
-                if (page.getContent().size() == PAGE_SIZE && page instanceof CursorPage<T> cursorPage) {
-                    ret = ret.compose(v -> eachPage(pager, action, cursorPage.getCursor()));
-                }
-            }
-            return ret;
-        });
+    // Pages in id order, which orders the documents uniquely
+    private static <T> Future<Void> eachPage(Function<CursorPageable, Future<Page<T>>> listing, Function<List<T>, Future<Void>> action) {
+        return CursorPaging.forEachPage(listing, PAGE_SIZE, Sort.by("id"), action);
     }
 
     // The one tuple the application holds in its own store: everyone is placed on it, which the placement of each

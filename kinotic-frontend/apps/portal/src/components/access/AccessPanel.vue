@@ -12,23 +12,8 @@
       </div>
       <EmptyChartCharacter v-else-if="here.length === 0" class="py-6" title="No grants here yet"
                            :hint="canManageAccess ? 'Grant a member or a group a role to give them access to this and everything inside it.' : 'Access here comes only from grants made above.'" />
-      <DataTable v-else :value="here">
-        <Column header="Who" style="width: 40%">
-          <template #body="{ data, index }">
-            <SubjectCell :subject="data.subject" :label="labelOf(data.subject)" :index="index" />
-          </template>
-        </Column>
-        <Column header="Role" style="width: 40%">
-          <template #body="{ data }"><RoleCell :role="roleOf(data.roleId)" :role-id="data.roleId" /></template>
-        </Column>
-        <Column style="width: 20%">
-          <template #body="{ data }">
-            <div class="flex justify-end">
-              <Button v-if="canManageAccess" label="Revoke" icon="pi pi-times" size="small" severity="danger" text @click="confirmRevoke(data)" />
-            </div>
-          </template>
-        </Column>
-      </DataTable>
+      <GrantsTable v-else :grants="here" :roles="roles" :label-of="labelOf" :revoke="canManageAccess ? revoke : undefined"
+                   :revoke-where="() => 'here'" revoke-consequence="They keep whatever other grants reach them." @revoked="onRevoked" />
     </DashboardSection>
 
     <DashboardSection :icon="ArrowUpFromLine" :tint="tint" title="Inherited from above" :count="loading ? undefined : above.length"
@@ -38,23 +23,13 @@
       </div>
       <EmptyChartCharacter v-else-if="above.length === 0" class="py-6" title="Nothing reaches here from above"
                            hint="A grant on the application or the organization would show here." />
-      <DataTable v-else :value="above">
-        <Column header="Who" style="width: 36%">
-          <template #body="{ data, index }">
-            <SubjectCell :subject="data.subject" :label="labelOf(data.subject)" :index="index" />
-          </template>
-        </Column>
-        <Column header="Role" style="width: 32%">
-          <template #body="{ data }"><RoleCell :role="roleOf(data.roleId)" :role-id="data.roleId" /></template>
-        </Column>
-        <Column header="Granted on" style="width: 32%">
-          <template #body="{ data }">
-            <TableChip :icon="MapPin" :to="accessPath(data.resource, context) ?? undefined">
-              {{ typeLabel(data.resource.type) }} {{ data.resource.id }}
-            </TableChip>
-          </template>
-        </Column>
-      </DataTable>
+      <GrantsTable v-else :grants="above" :roles="roles" :label-of="labelOf" where-header="Granted on">
+        <template #where="{ grant }">
+          <TableChip :icon="MapPin" :to="accessPath(grant.resource, context) ?? undefined">
+            {{ typeLabel(grant.resource.type) }} {{ grant.resource.id }}
+          </TableChip>
+        </template>
+      </GrantsTable>
     </DashboardSection>
 
     <AccessCheckPanel :tint="tint" description="Ask whether someone holds a permission here, and which grants give it."
@@ -78,17 +53,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Button from 'primevue/button'
-import Column from 'primevue/column'
-import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
-import { useConfirm } from 'primevue/useconfirm'
-import { useToast } from 'primevue/usetoast'
 import { ArrowUpFromLine, KeyRound, MapPin } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Grant, Resource, RoleDefinition, Subject } from '@kinotic-ai/management-api'
-import { DashboardSection, EmptyChartCharacter, TableChip, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
-import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectPickerTab } from '@kinotic-ai/frontend-common/management'
+import { DashboardSection, EmptyChartCharacter, TableChip, latestOnly, permissionLabel, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
+import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, GrantsTable, type SubjectPickerTab } from '@kinotic-ai/frontend-common/management'
 import { useAccess } from '@/composables/useAccess'
 import { accessPath, grantsAbove, grantsOn } from '@/util/access'
 import { useSubjects } from './useSubjects'
@@ -107,8 +78,6 @@ const props = defineProps<{
   projectId?: string
 }>()
 
-const toast = useToast()
-const confirm = useConfirm()
 const { canManageAccess } = useAccess()
 const { members, groups, load: loadSubjects, searchMembers, labelOf } = useSubjects()
 
@@ -139,12 +108,12 @@ const grantTabs = computed<SubjectPickerTab[]>(() => [
 // the panel is kept when the header switches the resource in place, so a load may start while an earlier one is
 // in flight; only the latest load's answer, or failure, reaches the panel, and the grants are emptied as a load
 // starts, so a load that fails shows none of another resource's
-let latestLoad = 0
+const startLoad = latestOnly()
 
 watch(() => [props.resource.type, props.resource.id], load, { immediate: true })
 
 async function load(): Promise<void> {
-  const thisLoad = ++latestLoad
+  const isLatest = startLoad()
   loading.value = true
   error.value = null
   grants.value = []
@@ -155,26 +124,22 @@ async function load(): Promise<void> {
       Kinotic.permissions.findPermissions(),
       loadSubjects()
     ])
-    if (thisLoad !== latestLoad) {
+    if (!isLatest()) {
       return
     }
     grants.value = loadedGrants
     roles.value = loadedRoles
     catalog.value = loadedCatalog
   } catch (err) {
-    if (thisLoad !== latestLoad) {
+    if (!isLatest()) {
       return
     }
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
-    if (thisLoad === latestLoad) {
+    if (isLatest()) {
       loading.value = false
     }
   }
-}
-
-function roleOf(roleId: string): RoleDefinition | undefined {
-  return roles.value.find(role => role.id === roleId)
 }
 
 async function explain(subject: Subject, permission: string): Promise<CheckedAccess> {
@@ -191,24 +156,11 @@ function onGranted(grant: Grant): void {
   grants.value = [...grants.value, grant]
 }
 
-function confirmRevoke(grant: Grant): void {
-  confirm.require({
-    header: 'Revoke access',
-    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)} here? They keep whatever other grants reach them.`,
-    icon: 'pi pi-exclamation-triangle',
-    acceptProps: { label: 'Revoke', severity: 'danger' },
-    rejectProps: { label: 'Keep', severity: 'secondary', outlined: true },
-    accept: () => revoke(grant)
-  })
+function revoke(grant: Grant): Promise<void> {
+  return Kinotic.permissions.revoke(props.resource, grant.id)
 }
 
-async function revoke(grant: Grant): Promise<void> {
-  try {
-    await Kinotic.permissions.revoke(props.resource, grant.id)
-    grants.value = grants.value.filter(listed => listed.id !== grant.id)
-    toast.add({ severity: 'success', summary: 'Access revoked', life: 4000 })
-  } catch (err) {
-    showErrorToast(toast, 'Failed to revoke access', err, { life: 8000 })
-  }
+function onRevoked(grant: Grant): void {
+  grants.value = grants.value.filter(listed => listed.id !== grant.id)
 }
 </script>

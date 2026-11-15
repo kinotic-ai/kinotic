@@ -78,24 +78,21 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         return createExclusively(entity, super::createSync);
     }
 
-    // One caller at a time creates or deletes the organization of an id. Whatever a deleted organization of the id
-    // left behind is removed before the record is written, so the new organization is never seen with a member or a
-    // grant of the old one, and a deletion's removal never takes the place a creation just wrote
+    // Whatever a deleted organization of the id left behind is removed before the record is written, so the new
+    // organization is never seen with a member or a grant of the old one
     private Future<Organization> createExclusively(Organization entity, Function<Organization, Future<Organization>> createOp) {
         Validate.notBlank(entity.getName(), "Organization name cannot be null");
         // Force the id to derive from the name; beforeSave mints it from the slug.
         entity.setId(null);
         String id = DomainUtil.slugifyId(entity.getName());
         DomainUtil.validateOrganizationId(id);
-        return relationships.exclusively(objectOf(id), () -> repository.findById(id)
-                .compose(existing -> existing == null
-                        ? cleared(id)
-                        : Future.failedFuture(new AlreadyExistsException(id)))
-                .compose(v -> createOp.apply(entity))
-                .recover(ex -> AlreadyExistsException.isCause(ex)
-                        ? Future.failedFuture(new AlreadyExistsException("An organization named '" + entity.getName() + "' already exists"))
-                        : Future.failedFuture(ex))
-                .compose(this::contained));
+        return relationships.createExclusively(objectOf(id),
+                                               () -> repository.findById(id),
+                                               () -> cleared(id),
+                                               () -> createOp.apply(entity).compose(this::contained))
+                            .recover(ex -> AlreadyExistsException.isCause(ex)
+                                    ? Future.failedFuture(new AlreadyExistsException("An organization named '" + entity.getName() + "' already exists"))
+                                    : Future.failedFuture(ex));
     }
 
     // The record before the graph, so a sign-up rolled back while the engine fails still frees the organization's
@@ -142,8 +139,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     // is removed again, so an engine failure does not leave the name held by an organization nobody can reach; the
     // record alone is removed, since the graph holds nothing of it yet
     private Future<Organization> contained(Organization organization) {
-        return relationships.ensure(AuthzStoreService.SYSTEM,
-                                    List.of(AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, objectOf(organization.getId()))))
+        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(AuthzGraphUtil.organizationContainment(organization.getId())))
                             .map(organization)
                             .recover(err -> super.deleteByIdSync(organization.getId())
                                                  .onFailure(deleteErr -> log.warn("Could not remove organization {} after its graph placement failed: {}",

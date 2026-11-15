@@ -41,7 +41,7 @@ import Skeleton from 'primevue/skeleton'
 import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Group, OrganizationParticipantIdentity } from '@kinotic-ai/management-api'
-import { FormDrawer, InitialsTile, showErrorToast } from '@kinotic-ai/frontend-common'
+import { FormDrawer, InitialsTile, latestOnly, showErrorToast } from '@kinotic-ai/frontend-common'
 import { type SubjectOption, SubjectPicker, type SubjectSource } from '@kinotic-ai/frontend-common/management'
 import { useAccess } from '@/composables/useAccess'
 
@@ -90,24 +90,24 @@ watch(() => [props.visible, props.group?.id], ([visible]) => {
 
 // The drawer may be opened for another group while a read is in flight, so the list is emptied as a read starts
 // and only the latest read's answer, or failure, reaches it
-let latestLoad = 0
+const startLoad = latestOnly()
 
 async function load(): Promise<void> {
-  const thisLoad = ++latestLoad
+  const isLatest = startLoad()
   loading.value = true
   adding.value = null
   members.value = []
   try {
     const found = await Kinotic.permissions.findGroupMembers(props.group!.id!)
-    if (thisLoad === latestLoad) {
+    if (isLatest()) {
       members.value = found
     }
   } catch (err) {
-    if (thisLoad === latestLoad) {
+    if (isLatest()) {
       showErrorToast(toast, 'Failed to load the group\'s members', err, { life: 8000 })
     }
   } finally {
-    if (thisLoad === latestLoad) {
+    if (isLatest()) {
       loading.value = false
     }
   }

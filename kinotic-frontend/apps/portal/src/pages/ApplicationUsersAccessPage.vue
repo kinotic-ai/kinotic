@@ -26,28 +26,13 @@
         </div>
         <EmptyChartCharacter v-else-if="shown.length === 0" class="py-6" :title="subjectFilter ? 'No grants for them yet' : 'No grants here yet'"
                              :hint="canManageAccess ? 'Grant a user or a machine a role to let them read or write the application\'s data here.' : 'Access to the application\'s data comes from grants made here.'" />
-        <DataTable v-else :value="shown">
-          <Column header="Who" style="width: 35%">
-            <template #body="{ data, index }">
-              <SubjectCell :subject="data.subject" :label="labelOf(data.subject)" :detail="detailOf(data.subject)" :index="index" />
-            </template>
-          </Column>
-          <Column header="Role" style="width: 30%">
-            <template #body="{ data }"><RoleCell :role="roleOf(data.roleId)" :role-id="data.roleId" /></template>
-          </Column>
-          <Column header="Where" style="width: 20%">
-            <template #body="{ data }">
-              <TableChip :icon="MapPin">{{ resourceLabel(data.resource, definitions) }}</TableChip>
-            </template>
-          </Column>
-          <Column style="width: 15%">
-            <template #body="{ data }">
-              <div class="flex justify-end">
-                <Button v-if="canManageAccess" label="Revoke" icon="pi pi-times" size="small" severity="danger" text @click="confirmRevoke(data)" />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
+        <GrantsTable v-else :grants="shown" :roles="roles" :label-of="labelOf" :detail-of="detailOf" where-header="Where"
+                     :revoke="canManageAccess ? revoke : undefined" :revoke-where="grant => `on ${resourceLabel(grant.resource, definitions)}`"
+                     revoke-consequence="They keep whatever other grants reach them." @revoked="onRevoked">
+          <template #where="{ grant }">
+            <TableChip :icon="MapPin">{{ resourceLabel(grant.resource, definitions) }}</TableChip>
+          </template>
+        </GrantsTable>
       </DashboardSection>
 
       <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :search-users="searchMembers" :machines="machines" :roles="roles"
@@ -64,22 +49,19 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import Column from 'primevue/column'
-import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Select from 'primevue/select'
 import Skeleton from 'primevue/skeleton'
-import { useConfirm } from 'primevue/useconfirm'
-import { useToast } from 'primevue/usetoast'
 import { KeyRound, MapPin } from '@lucide/vue'
 import { Kinotic, type Page, Pageable } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS, TableChip,
-         errorMessage, isAuthorizationError, showErrorToast } from '@kinotic-ai/frontend-common'
-import { RoleCell, SubjectCell } from '@kinotic-ai/frontend-common/management'
+         errorMessage, isAuthorizationError, latestOnly, permissionsOf } from '@kinotic-ai/frontend-common'
+import { GrantsTable } from '@kinotic-ai/frontend-common/management'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDrawer from '@/components/access/EndUserGrantDrawer.vue'
-import { type DefinitionOption, resourceLabel, resourceOf, reaches, tenantOf } from '@/components/access/applicationResources'
+import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, resourceLabel, resourceOf, reaches, tenantOf,
+         whereChoices } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
 
 /**
@@ -92,16 +74,12 @@ const props = defineProps<{
   applicationId: string
 }>()
 
-const WHOLE_APPLICATION = ''
-const EVERY_DEFINITION = ''
 // the pickers list the first page of the application's published definitions and of its tenants, which covers an
 // application of a few hundred of each; a definition beyond them is shown by its id, and a tenant's id can be typed
 const PICKER_PAGE_SIZE = 500
 
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
-const confirm = useConfirm()
 const { members, machines, load: loadSubjects, searchMembers, labelOf } = useSubjects(() => props.applicationId)
 
 const grants = ref<Grant[]>([])
@@ -169,33 +147,18 @@ const tenants = computed(() => {
   return [...ids].sort()
 })
 
-const whereOptions = computed(() => [
-  { label: 'Whole application', id: WHOLE_APPLICATION },
-  ...tenants.value.map(id => ({ label: `Tenant ${id}`, id }))
-])
-
-const definitionOptions = computed(() => [
-  { label: 'Every definition', id: EVERY_DEFINITION },
-  ...definitions.value.map(option => ({ label: option.name, id: option.id }))
-])
+const whereOptions = computed(() => whereChoices(tenants.value))
+const definitionOptions = computed(() => definitionChoices(definitions.value))
 
 /** The permissions the application's store defines, read from the roles that bundle them. */
-const catalog = computed(() => {
-  const names = new Set<string>()
-  for (const role of roles.value) {
-    for (const permission of role.permissions) {
-      names.add(permission)
-    }
-  }
-  return [...names].sort()
-})
+const catalog = computed(() => permissionsOf(roles.value))
 
 // The page is kept when the header switches the application in place, and the tenant picker is editable, so a
 // keystroke starts a load of the grants while an earlier one is in flight; only the latest load's answer, or
 // failure, reaches the page. The application's context is read apart from its grants, so a keystroke reads the
 // grants alone and the check panel keeps what was chosen in it
-let latestContextLoad = 0
-let latestGrantsLoad = 0
+const startContextLoad = latestOnly()
+const startGrantsLoad = latestOnly()
 
 // the pickers name a tenant and a definition of the application the page showed, which the next one does not have;
 // declared first, so the grants load once, for the reset resource
@@ -207,7 +170,7 @@ watch(() => props.applicationId, loadContext, { immediate: true })
 watch(() => [props.applicationId, resource.value.type, resource.value.id], loadGrants, { immediate: true })
 
 async function loadContext(): Promise<void> {
-  const thisLoad = ++latestContextLoad
+  const isLatest = startContextLoad()
   contextLoaded.value = false
   contextFailure.value = null
   try {
@@ -218,7 +181,7 @@ async function loadContext(): Promise<void> {
       pickable(Kinotic.tenants.findAllForApplication(props.applicationId, Pageable.create(0, PICKER_PAGE_SIZE))),
       loadSubjects()
     ])
-    if (thisLoad !== latestContextLoad) {
+    if (!isLatest()) {
       return
     }
     roles.value = defined
@@ -227,7 +190,7 @@ async function loadContext(): Promise<void> {
     canManageAccess.value = managed.includes(props.applicationId)
     contextLoaded.value = true
   } catch (err) {
-    if (thisLoad === latestContextLoad) {
+    if (isLatest()) {
       contextFailure.value = err
     }
   }
@@ -249,22 +212,22 @@ async function pickable<T>(page: Promise<Page<T>>): Promise<T[]> {
 }
 
 async function loadGrants(): Promise<void> {
-  const thisLoad = ++latestGrantsLoad
+  const isLatest = startGrantsLoad()
   loading.value = true
   grantsFailure.value = null
   try {
     const found = await Kinotic.applicationAccess.findGrants(props.applicationId, resource.value)
-    if (thisLoad !== latestGrantsLoad) {
+    if (!isLatest()) {
       return
     }
     grants.value = found
   } catch (err) {
-    if (thisLoad !== latestGrantsLoad) {
+    if (!isLatest()) {
       return
     }
     grantsFailure.value = err
   } finally {
-    if (thisLoad === latestGrantsLoad) {
+    if (isLatest()) {
       loading.value = false
     }
   }
@@ -273,10 +236,6 @@ async function loadGrants(): Promise<void> {
 // a machine is a user subject to the store, so the row says which of the two it is
 function detailOf(subject: Subject): string {
   return machines.value.some(option => option.subject.id === subject.id) ? 'Machine' : 'User'
-}
-
-function roleOf(roleId: string): RoleDefinition | undefined {
-  return roles.value.find(role => role.id === roleId)
 }
 
 function clearSubject(): void {
@@ -289,22 +248,11 @@ function onGranted(grant: Grant): void {
   }
 }
 
-function confirmRevoke(grant: Grant): void {
-  confirm.require({
-    header: 'Revoke access',
-    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)} on ${resourceLabel(grant.resource, definitions.value)}? They keep whatever other grants reach them.`,
-    icon: 'pi pi-exclamation-triangle',
-    acceptProps: { label: 'Revoke', severity: 'danger' },
-    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    accept: async () => {
-      try {
-        await Kinotic.applicationAccess.revoke(props.applicationId, grant.resource, grant.id)
-        grants.value = grants.value.filter(other => other.id !== grant.id)
-        toast.add({ severity: 'success', summary: 'Access revoked', life: 4000 })
-      } catch (err) {
-        showErrorToast(toast, 'Failed to revoke access', err, { life: 8000 })
-      }
-    }
-  })
+function revoke(grant: Grant): Promise<void> {
+  return Kinotic.applicationAccess.revoke(props.applicationId, grant.resource, grant.id)
+}
+
+function onRevoked(grant: Grant): void {
+  grants.value = grants.value.filter(other => other.id !== grant.id)
 }
 </script>

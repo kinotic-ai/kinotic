@@ -35,6 +35,7 @@ import { isDark as darkMode } from '../composables/useTheme'
 import EmptyChartCharacter from './EmptyChartCharacter.vue'
 import NoAccessState from './NoAccessState.vue'
 import { isAuthorizationError } from '../util/access'
+import { latestOnly } from '../util/latestOnly'
 
 const debug = createDebug('crud-table');
 
@@ -269,7 +270,7 @@ const dataTablePt = computed(() => {
 
 // a search, a page change and a parent's find() can each start a load before the last one answered, so only the
 // latest load's answer, or refusal, is shown
-let latestFind = 0;
+const startFind = latestOnly();
 
 onMounted(() => {
   const urlSearch = (route.query.search as string) || ''
@@ -352,7 +353,7 @@ function handleCardClick(item: Identifiable<string>, index: number) {
 }
 
 function find() {
-  const thisFind = ++latestFind;
+  const isLatest = startFind();
   if (!loading.value && props.dataSource) {
     loading.value = true;
   }
@@ -370,7 +371,7 @@ function find() {
 
   queryPromise
     .then((page: Page<Identifiable<string>>) => {
-      if (thisFind !== latestFind) {
+      if (!isLatest()) {
         return;
       }
       loading.value = false;
@@ -393,7 +394,7 @@ function find() {
 
     .catch((error: unknown) => {
       debug('Error loading data: %O', error);
-      if (thisFind !== latestFind) {
+      if (!isLatest()) {
         return;
       }
       refused.value = isAuthorizationError(error);

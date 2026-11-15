@@ -148,7 +148,7 @@ public abstract class KinoticTestBase {
 
     private boolean systemModelCurrent() throws Exception {
         List<ServiceDefinition> services = await(serviceDirectory.findSystemDefinitions());
-        AuthzStore system = await(authzStores.findById(AuthzStore.SYSTEM));
+        AuthzStore system = await(authzStores.findById(AuthzStoreService.SYSTEM));
         AuthzModelRevision observed = system != null ? system.getState().getObserved() : null;
         return !services.isEmpty() && observed != null && observed.hash().equals(modelGenerator.systemModel(services).hash());
     }

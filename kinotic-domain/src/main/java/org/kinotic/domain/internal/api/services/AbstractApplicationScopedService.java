@@ -37,12 +37,14 @@ public abstract class AbstractApplicationScopedService<T extends ApplicationScop
 
     @Override
     public Future<Long> countForApplication(String applicationId) {
-        return applicationRepository.countForApplication(applicationId, requireOrganizationId());
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> applicationRepository.countForApplication(applicationId, organizationId, ids));
     }
 
     @Override
     public Future<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
-        return applicationRepository.findAllForApplication(applicationId, requireOrganizationId(), pageable);
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> applicationRepository.findAllForApplication(applicationId, organizationId, ids, pageable));
     }
 
 }

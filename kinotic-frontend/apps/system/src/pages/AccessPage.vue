@@ -17,23 +17,9 @@
         </div>
         <EmptyChartCharacter v-else-if="shown.length === 0" class="py-6" :title="subjectFilter ? 'No grants for them yet' : 'No grants yet'"
                              :hint="canManageAccess ? 'Grant a system user or a machine a role to give them access to the system.' : 'Access to the system comes from grants made here.'" />
-        <DataTable v-else :value="shown">
-          <Column header="Who" style="width: 40%">
-            <template #body="{ data, index }">
-              <SubjectCell :subject="data.subject" :label="labelOf(data.subject)" :detail="optionOf(data.subject)?.staff" :index="index" />
-            </template>
-          </Column>
-          <Column header="Role" style="width: 40%">
-            <template #body="{ data }"><RoleCell :role="roleOf(data.roleId)" :role-id="data.roleId" /></template>
-          </Column>
-          <Column style="width: 20%">
-            <template #body="{ data }">
-              <div class="flex justify-end">
-                <Button v-if="canManageAccess" label="Revoke" icon="pi pi-times" size="small" severity="danger" text @click="confirmRevoke(data)" />
-              </div>
-            </template>
-          </Column>
-        </DataTable>
+        <GrantsTable v-else :grants="shown" :roles="roles" :label-of="labelOf" :detail-of="subject => optionOf(subject)?.staff"
+                     :revoke="canManageAccess ? revoke : undefined"
+                     revoke-consequence="They lose every permission the role gave them on the system." @revoked="onRevoked" />
       </DashboardSection>
 
       <AccessCheckPanel :tint="TINTS.ink"
@@ -60,18 +46,14 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import Column from 'primevue/column'
-import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
-import { useConfirm } from 'primevue/useconfirm'
-import { useToast } from 'primevue/usetoast'
 import { KeyRound } from '@lucide/vue'
 import { Kinotic } from '@kinotic-ai/core'
 import { type Grant, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS,
-         errorMessage, isAuthorizationError, permissionLabel, showErrorToast, splitPermission } from '@kinotic-ai/frontend-common'
-import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, RoleCell, SubjectCell, type SubjectPickerTab } from '@kinotic-ai/frontend-common/management'
+         errorMessage, isAuthorizationError, latestOnly, permissionLabel, permissionsOf, splitPermission } from '@kinotic-ai/frontend-common'
+import { AccessCheckPanel, type CheckedAccess, GrantAccessDrawer, GrantsTable, type SubjectPickerTab } from '@kinotic-ai/frontend-common/management'
 import { useSubjects } from '@/components/access/useSubjects'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
@@ -82,8 +64,6 @@ import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
  */
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
-const confirm = useConfirm()
 const { systemUsers, machines, load: loadSubjects, searchSystemUsers, optionOf, labelOf } = useSubjects()
 
 const grants = ref<Grant[]>([])
@@ -105,28 +85,22 @@ const shown = computed(() => subjectFilter.value
     : grants.value)
 
 /** The system's own permissions: what explain answers for, read from the roles that bundle them. */
-const catalog = computed(() => {
-  const names = new Set<string>()
-  for (const role of roles.value) {
-    for (const permission of role.permissions) {
-      if (splitPermission(permission).type === 'system') {
-        names.add(permission)
-      }
-    }
-  }
-  return [...names].sort()
-})
-
-const permissionOptions = computed(() => catalog.value.map(name => ({ name, label: permissionLabel(splitPermission(name).permission) })))
+const permissionOptions = computed(() => permissionsOf(roles.value, 'system')
+    .map(name => ({ name, label: permissionLabel(splitPermission(name).permission) })))
 
 const grantTabs = computed<SubjectPickerTab[]>(() => [
   { label: 'System user', options: systemUsers.value, search: searchSystemUsers, placeholder: 'Name or email of a system user', emptyMessage: 'No system user matches' },
   { label: 'Machine', options: machines.value, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' }
 ])
 
+// the page is kept while another is shown, so a load may start while an earlier one is in flight; only the
+// latest load's answer, or failure, reaches the page
+const startLoad = latestOnly()
+
 watch(() => route.name, name => { if (name === 'system-access') load() }, { immediate: true })
 
 async function load(): Promise<void> {
+  const isLatest = startLoad()
   loading.value = true
   error.value = null
   try {
@@ -136,15 +110,21 @@ async function load(): Promise<void> {
       canManageSelf(),
       loadSubjects()
     ])
-    grants.value = found
-    roles.value = defined
-    canManageAccess.value = managing
-    refused.value = false
+    if (isLatest()) {
+      grants.value = found
+      roles.value = defined
+      canManageAccess.value = managing
+      refused.value = false
+    }
   } catch (err) {
-    refused.value = isAuthorizationError(err)
-    error.value = refused.value ? null : errorMessage(err, 'Failed to load the system\'s access')
+    if (isLatest()) {
+      refused.value = isAuthorizationError(err)
+      error.value = refused.value ? null : errorMessage(err, 'Failed to load the system\'s access')
+    }
   } finally {
-    loading.value = false
+    if (isLatest()) {
+      loading.value = false
+    }
   }
 }
 
@@ -156,10 +136,6 @@ async function canManageSelf(): Promise<boolean> {
     ret = (await Kinotic.systemAccess.explain({ type: SubjectType.USER, id: systemUserId }, 'can_manage_access')).allowed
   }
   return ret
-}
-
-function roleOf(roleId: string): RoleDefinition | undefined {
-  return roles.value.find(role => role.id === roleId)
 }
 
 function clearSubject(): void {
@@ -180,22 +156,11 @@ function onGranted(grant: Grant): void {
   grants.value = [...grants.value, grant]
 }
 
-function confirmRevoke(grant: Grant): void {
-  confirm.require({
-    header: 'Revoke access',
-    message: `Revoke ${roleOf(grant.roleId)?.name ?? grant.roleId} from ${labelOf.value(grant.subject)}? They lose every permission the role gave them on the system.`,
-    icon: 'pi pi-exclamation-triangle',
-    acceptProps: { label: 'Revoke', severity: 'danger' },
-    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    accept: async () => {
-      try {
-        await Kinotic.systemAccess.revoke(grant.id)
-        grants.value = grants.value.filter(other => other.id !== grant.id)
-        toast.add({ severity: 'success', summary: 'Access revoked', life: 4000 })
-      } catch (err) {
-        showErrorToast(toast, 'Failed to revoke access', err, { life: 8000 })
-      }
-    }
-  })
+function revoke(grant: Grant): Promise<void> {
+  return Kinotic.systemAccess.revoke(grant.id)
+}
+
+function onRevoked(grant: Grant): void {
+  grants.value = grants.value.filter(other => other.id !== grant.id)
 }
 </script>

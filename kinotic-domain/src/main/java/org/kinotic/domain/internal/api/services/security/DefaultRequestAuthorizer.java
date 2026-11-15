@@ -58,22 +58,21 @@ import java.util.function.Function;
 import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 
 /**
- * The {@link RequestAuthorizer} over the stores: a function's check is read from its contract in the service
- * directory and kept, the object it names is read from the request, from a client's positional body with a parse
- * that stops once it has read the object, or from a tool call's arguments by name, and the engine answers for the
- * caller. A function is served without the engine only when its contract marks it
- * unchecked; a function no contract covers, of a service the directory holds no definition for or one the
- * definition leaves out, is refused. A check naming a permission resolver is made for the permission the resolver
- * decides from the request, one of the permissions the contract records it may require; a request it decides
- * nothing for, or one reaching a node without the resolver, is refused. The engine answers for the caller, or for the owner a delegate acts for, from the system's store for an
- * organization's members and the system's own staff, and from the application's store for an application's
- * users. A system user or one of the system's machines, whose scope names no organization, is checked
- * on the system itself wherever a check names the caller's scope, an application's user on its tenant, and an
- * application's machine, which belongs to no tenant, on the application. A definition's rows are checked on the
- * definition a request names: an application's user on the definition within its tenant, an application's machine
- * on the definition itself, as is a user for a function its contract declares acting across tenants, and an
- * organization's member on the definition in the system's store. What is
- * kept of a contract is dropped when the directory announces the contract written again. A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
+ * The {@link RequestAuthorizer} over the authorization stores: a request is checked for the permission its function's
+ * contract declares, on the object the contract names in the request, for the caller or the owner a delegate acts for.
+ * <ul>
+ *   <li>A function its contract marks unchecked is served; a function no contract covers is refused.</li>
+ *   <li>A check naming a permission resolver is made for the permission the resolver decides from the request; a
+ *       request it decides nothing for is refused.</li>
+ *   <li>An organization's members and the system's staff are checked in the system's store, an application's users
+ *       and machines in the application's store.</li>
+ *   <li>Where a check names the caller's scope, the caller is checked on the innermost level its scope names: its
+ *       tenant, its application, its organization, or the system itself.</li>
+ *   <li>A definition's rows are checked on the definition within the caller's tenant for an application's user, and
+ *       on the definition itself for every other caller and for a function its contract declares acting across
+ *       tenants.</li>
+ * </ul>
+ * A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
  */
 @Slf4j
 @Component

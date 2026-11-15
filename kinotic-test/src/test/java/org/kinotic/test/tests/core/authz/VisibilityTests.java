@@ -8,6 +8,7 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -351,7 +352,7 @@ public class VisibilityTests extends KinoticTestBase {
 
 
     private boolean reconciledTo(String hash) throws Exception {
-        AuthzStore store = await(stores.findById(AuthzStore.SYSTEM));
+        AuthzStore store = await(stores.findById(AuthzStoreService.SYSTEM));
         ReconcileState<AuthzModelRevision> state = store.getState();
         return state.isReconciled() && state.getObserved() != null && hash.equals(state.getObserved().hash());
     }

@@ -29,6 +29,24 @@ export function splitPermission(name: string): PermissionName {
       : { name, type: name.substring(0, at), permission: name.substring(at + 1) }
 }
 
+/**
+ * The permissions a set of roles bundles, each once, in the order of their model names.
+ *
+ * @param roles the roles
+ * @param type  the resource type whose permissions are wanted, or none for those of every type
+ */
+export function permissionsOf(roles: { permissions: string[] }[], type?: string): string[] {
+  const names = new Set<string>()
+  for (const role of roles) {
+    for (const permission of role.permissions) {
+      if (type === undefined || splitPermission(permission).type === type) {
+        names.add(permission)
+      }
+    }
+  }
+  return [...names].sort()
+}
+
 /** The readable name of a permission's short name: can_read is Read, can_manage_members is Manage members. */
 export function permissionLabel(permission: string): string {
   return humanize(permission.startsWith('can_') ? permission.substring(4) : permission)

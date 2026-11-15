@@ -31,7 +31,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.security.CallerPermissions;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -48,7 +48,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     private final ProjectRepository projectRepository;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final DefaultPermissionService permissions;
+    private final CallerPermissions permissions;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
@@ -56,7 +56,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     public DefaultProjectService(ProjectRepository repository,
                                  EntityDefinitionRepository entityDefinitionRepository,
-                                 DefaultPermissionService permissions,
+                                 CallerPermissions permissions,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
@@ -70,31 +70,6 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
         this.relationships = relationships;
-    }
-
-    @Override
-    public Future<Long> count() {
-        return visibleIds().compose(ids -> projectRepository.count(requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<Project>> findAll(Pageable pageable) {
-        return visibleIds().compose(ids -> projectRepository.findAll(requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Page<Project>> search(String searchText, Pageable pageable) {
-        return visibleIds().compose(ids -> projectRepository.search(searchText, requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Long> countForApplication(String applicationId) {
-        return visibleIds().compose(ids -> projectRepository.countForApplication(applicationId, requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable) {
-        return visibleIds().compose(ids -> projectRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
     }
 
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
@@ -111,7 +86,8 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     // What the caller may see, null for every project of the organization: the projects it reads, and those
     // containing an entity definition it reads, so a grant on an entity definition makes its project reachable
-    private Future<Set<String>> visibleIds() {
+    @Override
+    protected Future<Set<String>> visibleIds() {
         String organizationId = requireOrganizationId();
         return permissions.findAccessibleIds(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ).compose(projects -> projects == null
                 ? Future.succeededFuture(null)
@@ -230,20 +206,20 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                        .map(stored)));
     }
 
-    // Writes the project and its place in the graph while no other caller creates or deletes a project of its id,
-    // which a caller chooses and the graph knows by organization, whichever application it is in. What a deleted
-    // project of the id left behind, when the removal after its record's deletion failed, is removed before the
-    // record is written, so the new project is never reached through a grant made on the old one, and a removal
-    // that cannot be made fails the create. A placement that fails leaves a project nobody can reach rather than
-    // one nobody stores, since its repository exists by then
+    // Writes the project and its place in the graph under the lock of its id, which a caller chooses and the graph
+    // knows by organization, whichever application it is in. A removal of what a deleted project of the id left
+    // behind that cannot be made fails the create. A placement that fails leaves a project nobody can reach rather
+    // than one nobody stores, since its repository exists by then
     private Future<Project> written(Project project, Function<Project, Future<Project>> write) {
         RelationshipTuple containment = containment(project);
-        return relationships.exclusively(containment.object(), () -> super.findById(project.getId())
-                .compose(existing -> existing == null
-                        ? relationships.removeObject(AuthzStoreService.SYSTEM, containment.object())
-                        : Future.failedFuture(new AlreadyExistsException("Project for id " + project.getId() + " already exists")))
-                .compose(v -> write.apply(project))
-                .compose(stored -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)).map(stored)));
+        return relationships.createExclusively(containment.object(),
+                                               () -> super.findById(project.getId()),
+                                               () -> relationships.removeObject(AuthzStoreService.SYSTEM, containment.object()),
+                                               () -> write.apply(project)
+                                                          .compose(stored -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment)).map(stored)))
+                            .recover(ex -> AlreadyExistsException.isCause(ex)
+                                    ? Future.failedFuture(new AlreadyExistsException("Project for id " + project.getId() + " already exists"))
+                                    : Future.failedFuture(ex));
     }
 
     static RelationshipTuple containment(Project project) {

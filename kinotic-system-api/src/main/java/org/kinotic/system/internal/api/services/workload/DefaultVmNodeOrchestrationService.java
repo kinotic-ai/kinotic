@@ -126,16 +126,25 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      * no agent.
      */
     private Future<Void> contained(String nodeId, Participant registrar) {
-        String node = AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId);
-        RelationshipTuple onSystem = AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, node);
+        RelationshipTuple onSystem = containment(nodeId);
         Future<Void> ret = relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem));
         if (registrar != null) {
             // one binding per node and agent, so a node registering again, or on another server, binds nothing twice
             String agent = AuthzGraphUtil.authzUser(registrar);
             String bindingId = nodeId + "-agent-" + AuthzUtil.idOf(agent);
-            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, bindingId, AGENT_ROLE, agent, node));
+            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, bindingId, AGENT_ROLE, agent, onSystem.object()));
         }
         return ret;
+    }
+
+    /**
+     * The tuple placing a node on the system, in the system's store.
+     *
+     * @param nodeId the node
+     * @return the containment tuple
+     */
+    public static RelationshipTuple containment(String nodeId) {
+        return AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId));
     }
 
     /**

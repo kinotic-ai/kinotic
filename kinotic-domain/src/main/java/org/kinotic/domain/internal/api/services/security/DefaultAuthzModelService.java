@@ -5,6 +5,7 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
@@ -43,7 +44,7 @@ public class DefaultAuthzModelService implements AuthzModelService {
     }
 
     private Future<AuthzModel> awaitSystemModel(Collection<String> roleIds, long deadline) {
-        return Future.all(stores.findById(AuthzStore.SYSTEM), findSystemModel())
+        return Future.all(stores.findById(AuthzStoreService.SYSTEM), findSystemModel())
                      // a store or a directory that cannot be read yet is read again, like a store that runs another model
                      .transform(read -> {
                          AuthzModel model = null;

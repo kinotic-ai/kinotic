@@ -28,7 +28,7 @@ import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.security.CallerPermissions;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.core.api.event.EventService;
 import org.kinotic.domain.api.cache.CacheEvictionEvent;
@@ -54,7 +54,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
-    private final DefaultPermissionService permissions;
+    private final CallerPermissions permissions;
     private final ProjectRepository projects;
 
     public DefaultEntityDefinitionService(EventService eventService,
@@ -65,7 +65,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
-                                          DefaultPermissionService permissions,
+                                          CallerPermissions permissions,
                                           ProjectRepository projects) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
@@ -139,21 +139,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             return Future.failedFuture(e);
         }
 
-        // One caller at a time creates or deletes the definition of an id. Whatever a deleted definition of the id
-        // left in the stores, when the removal after its record's deletion failed, is removed before the record is
-        // written, so the new definition is never reached through a grant made on the old one, and a deletion's
-        // removal never takes the place a creation just wrote
         return requireProject(entityDefinition)
-                .compose(v -> relationships.exclusively(containment(entityDefinition).object(), () -> super.findById(entityDefinition.getId())
-                        .compose(existing -> existing == null
-                                ? removed(entityDefinition)
-                                : Future.failedFuture(new AlreadyExistsException(entityDefinition.getId())))
-                        .compose(w -> createOp.apply(entityDefinition))
-                        .recover(ex -> AlreadyExistsException.isCause(ex)
-                                ? Future.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                                : Future.failedFuture(ex))
-                        .compose(this::contained)));
+                .compose(v -> relationships.createExclusively(containment(entityDefinition).object(),
+                                                              () -> super.findById(entityDefinition.getId()),
+                                                              () -> removed(entityDefinition),
+                                                              () -> createOp.apply(entityDefinition).compose(this::contained)))
+                .recover(ex -> AlreadyExistsException.isCause(ex)
+                        ? Future.failedFuture(new IllegalArgumentException(
+                        "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                        : Future.failedFuture(ex));
     }
 
     // Whoever reads a definition reaches the project it names, so its author names a project of the definition's
@@ -196,12 +190,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
                             .compose(v -> relationships.removeObject(store, object))
                             // the rows within a tenant are reached by tenant, so each tenant placed in the store is read
-                            .compose(v -> relationships.readByUser(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
+                            .compose(v -> relationships.findContained(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
                             .compose(placed -> {
                                 Future<Void> ret = Future.succeededFuture();
-                                for (RelationshipTuple tenant : placed) {
+                                for (String tenant : placed) {
                                     String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant.object())));
+                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant)));
                                     ret = ret.compose(w -> relationships.removeObject(store, within));
                                 }
                                 return ret;
@@ -272,44 +266,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                              .map(held -> held ? entityDefinition : null));
     }
 
-    @Override
-    public Future<Long> count() {
-        return readableIds().compose(ids -> entityDefinitionRepository.count(requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<EntityDefinition>> findAll(Pageable pageable) {
-        return readableIds().compose(ids -> entityDefinitionRepository.findAll(requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Page<EntityDefinition>> search(String searchText, Pageable pageable) {
-        return readableIds().compose(ids -> entityDefinitionRepository.search(searchText, requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Long> countForApplication(String applicationId) {
-        return readableIds().compose(ids -> entityDefinitionRepository.countForApplication(applicationId, requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<EntityDefinition>> findAllForApplication(String applicationId, Pageable pageable) {
-        return readableIds().compose(ids -> entityDefinitionRepository.findAllForApplication(applicationId, requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Long> countForProject(String projectId) {
-        return readableIds().compose(ids -> entityDefinitionRepository.countForProject(projectId, requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<EntityDefinition>> findAllForProject(String projectId, Pageable pageable) {
-        return readableIds().compose(ids -> entityDefinitionRepository.findAllForProject(projectId, requireOrganizationId(), ids, pageable));
-    }
-
     // The definitions the caller may read through any grant that reaches them, null for every definition of the
     // organization
-    private Future<List<String>> readableIds() {
+    @Override
+    protected Future<List<String>> visibleIds() {
         return permissions.findAccessibleIds(EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ);
     }
 

@@ -5,8 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationKey;
@@ -28,7 +26,7 @@ import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.security.DefaultPermissionService;
+import org.kinotic.management.internal.api.services.security.CallerPermissions;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.springframework.stereotype.Component;
@@ -50,7 +48,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
 
     private final ProjectRepository projectRepository;
     private final EntityDefinitionRepository entityDefinitionRepository;
-    private final DefaultPermissionService permissions;
+    private final CallerPermissions permissions;
     private final ApplicationSignUpService applicationSignUpService;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final PasswordConfigurationService passwordConfigurationService;
@@ -62,7 +60,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectRepository projectRepository,
                                      EntityDefinitionRepository entityDefinitionRepository,
-                                     DefaultPermissionService permissions,
+                                     CallerPermissions permissions,
                                      ApplicationSignUpService applicationSignUpService,
                                      UiDeploymentRepository uiDeploymentRepository,
                                      PasswordConfigurationService passwordConfigurationService,
@@ -98,25 +96,11 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                              .map(visible -> visible ? application : null));
     }
 
-    @Override
-    public Future<Long> count() {
-        return visibleIds().compose(ids -> scopedRepository.count(requireOrganizationId(), ids));
-    }
-
-    @Override
-    public Future<Page<Application>> findAll(Pageable pageable) {
-        return visibleIds().compose(ids -> scopedRepository.findAll(requireOrganizationId(), ids, pageable));
-    }
-
-    @Override
-    public Future<Page<Application>> search(String searchText, Pageable pageable) {
-        return visibleIds().compose(ids -> scopedRepository.search(searchText, requireOrganizationId(), ids, pageable));
-    }
-
     // What the caller may see, null for every application of the organization: the applications it reads, and
     // those containing a project or an entity definition it reads, so a grant anywhere inside an application makes
     // the application reachable
-    private Future<Set<String>> visibleIds() {
+    @Override
+    protected Future<Set<String>> visibleIds() {
         String organizationId = requireOrganizationId();
         return permissions.findAccessibleIds(AuthzConstants.APPLICATION_TYPE, AuthzConstants.CAN_READ).compose(applications -> applications == null
                 ? Future.succeededFuture(null)

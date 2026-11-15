@@ -6,6 +6,26 @@ export interface DefinitionOption {
   name: string
 }
 
+/** A choice of a tenant or definition picker. */
+export interface ResourceChoice {
+  label: string
+  id: string
+}
+
+/** What the tenant picker holds for the whole application, and the definition picker for every definition. */
+export const WHOLE_APPLICATION = ''
+export const EVERY_DEFINITION = ''
+
+/** The choices of the tenant picker: the whole application, then each tenant. */
+export function whereChoices(tenants: string[]): ResourceChoice[] {
+  return [{ label: 'Whole application', id: WHOLE_APPLICATION }, ...tenants.map(id => ({ label: `Tenant ${id}`, id }))]
+}
+
+/** The choices of the definition picker: every definition, then each one by its name. */
+export function definitionChoices(definitions: DefinitionOption[]): ResourceChoice[] {
+  return [{ label: 'Every definition', id: EVERY_DEFINITION }, ...definitions.map(definition => ({ label: definition.name, id: definition.id }))]
+}
+
 /** The types of the resources a grant in an application's store is made on. */
 const APPLICATION = 'application'
 const TENANT = 'tenant'

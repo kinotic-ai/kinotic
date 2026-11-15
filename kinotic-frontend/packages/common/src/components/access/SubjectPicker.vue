@@ -14,6 +14,7 @@ import { computed, ref, watch } from 'vue'
 import AutoComplete from 'primevue/autocomplete'
 import { useToast } from 'primevue/usetoast'
 import { showErrorToast } from '../../util/helpers'
+import { latestOnly } from '../../util/latestOnly'
 import type { SubjectOption } from './SubjectOption'
 import SubjectOptionItem from './SubjectOptionItem.vue'
 import type { SubjectSource } from './SubjectSource'
@@ -42,7 +43,7 @@ const entered = ref<SubjectOption | string | null>(picked.value)
 const suggestions = ref<SubjectOption[] | SubjectSource[]>([])
 const grouped = computed(() => props.sources.length > 1)
 // a search may answer after a later one was started, so only the latest search's answer, or failure, is shown
-let latestSearch = 0
+const startSearch = latestOnly()
 
 watch(entered, value => { picked.value = optionOf(value) })
 watch(picked, value => {
@@ -53,7 +54,7 @@ watch(picked, value => {
 
 // the suggestions of the sources shown before are none of the sources shown now, such as another tab's
 watch(() => props.sources.map(source => source.label).join('\n'), () => {
-  latestSearch++
+  startSearch()
   suggestions.value = []
 })
 
@@ -70,18 +71,18 @@ function optionOf(value: SubjectOption | string | null): SubjectOption | null {
 }
 
 async function complete(query: string): Promise<void> {
-  const thisSearch = ++latestSearch
+  const isLatest = startSearch()
   const text = query.trim()
   try {
     const found = await Promise.all(props.sources.map(source => matching(source, text)))
-    if (thisSearch === latestSearch) {
+    if (isLatest()) {
       suggestions.value = grouped.value
           ? props.sources.map((source, index) => ({ label: source.label, options: found[index] ?? [] }))
                          .filter(source => source.options.length > 0)
           : [...found[0] ?? []]
     }
   } catch (err) {
-    if (thisSearch === latestSearch) {
+    if (isLatest()) {
       suggestions.value = []
       showErrorToast(toast, 'Failed to search', err, { life: 8000 })
     }
