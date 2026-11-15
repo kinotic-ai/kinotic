@@ -3,8 +3,12 @@ package org.kinotic.management.api.services.billing;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.billing.BillingAccount;
+import org.kinotic.management.api.model.billing.BillingForecast;
+import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
+import org.kinotic.management.api.model.billing.UsageRecord;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -49,4 +53,30 @@ public interface BillingService {
      *         a Checkout
      */
     Future<String> createPortalSession();
+
+    /**
+     * The organization's hourly usage of Kinotic Cloud, by meter, for the hours starting from {@code from} up to
+     * {@code to}. An hour in which the organization ran no workload has no record.
+     *
+     * @param from the start of the range
+     * @param to   the end of the range, after {@code from} and at most 93 days after it
+     * @return {@link Future} emitting the records in the range, oldest first
+     */
+    Future<List<UsageRecord>> findUsage(Date from, Date to);
+
+    /**
+     * What the organization's current billing period is expected to cost, projecting its usage so far over the
+     * whole period.
+     *
+     * @return {@link Future} emitting the forecast, or {@code null} when the organization has no subscription or its
+     *         free trial is still running
+     */
+    Future<BillingForecast> findForecast();
+
+    /**
+     * The organization's invoices, newest first: the last 24 of them, each with a link to view and pay it at Stripe.
+     *
+     * @return {@link Future} emitting the invoices, empty when the organization has never started a Checkout
+     */
+    Future<List<BillingInvoice>> findInvoices();
 }

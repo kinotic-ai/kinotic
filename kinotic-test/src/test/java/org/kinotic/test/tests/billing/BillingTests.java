@@ -12,16 +12,24 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.management.api.model.billing.BillingAccount;
+import org.kinotic.management.api.model.billing.BillingForecast;
+import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingInterval;
 import org.kinotic.management.api.model.billing.BillingPlan;
 import org.kinotic.management.api.model.billing.BillingStatus;
+import org.kinotic.management.api.model.billing.InvoiceStatus;
 import org.kinotic.management.api.model.billing.PlanComponent;
 import org.kinotic.management.api.model.billing.PlanComponentType;
 import org.kinotic.management.api.model.billing.UsageMeter;
+import org.kinotic.management.api.model.billing.UsageRecord;
+import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.billing.BillingService;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.api.services.billing.BillingPlanService;
 import org.kinotic.system.internal.api.services.billing.DefaultBillingOperationsService;
+import org.kinotic.system.internal.api.services.billing.UsageMetering;
 import org.kinotic.test.support.billing.StripeRequest;
 import org.kinotic.test.support.billing.StripeStandIn;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -31,6 +39,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -40,6 +49,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -65,6 +75,10 @@ public class BillingTests extends KinoticTestBase {
     private BillingService billingService;
     @Autowired
     private OrganizationService organizations;
+    @Autowired
+    private UsageMetering metering;
+    @Autowired
+    private WorkloadRepository workloads;
 
     @Test
     public void aPlanCreatesItsProductAndAPricePerComponent() throws Exception {
@@ -181,6 +195,74 @@ public class BillingTests extends KinoticTestBase {
     }
 
     @Test
+    public void usageIsMeasuredOnceASlotAndReportedToStripe() throws Exception {
+        Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
+        Instant measured = Instant.now().minus(Duration.ofDays(2)).truncatedTo(ChronoUnit.HOURS).plus(Duration.ofMinutes(12));
+        Date hour = Date.from(measured.truncatedTo(ChronoUnit.HOURS));
+
+        Workload workload = await(workloads.createSync(runningWorkload(organization)));
+        try {
+            await(metering.measure(measured));
+            await(metering.measure(measured.plus(Duration.ofMinutes(1))));
+            await(metering.measure(measured.plus(Duration.ofMinutes(5))));
+        } finally {
+            await(workloads.deleteByIdSync(workload.getId()));
+        }
+
+        List<UsageRecord> usage = await(operations.findUsage(organization.getId(), hour, Date.from(hour.toInstant().plus(Duration.ofHours(1)))));
+        assertEquals(1, usage.size());
+        assertEquals(2 * 2 * 5 / 60.0, usage.getFirst().getQuantities().get(UsageMeter.VCPU_HOURS), 1e-9);
+        assertEquals(2 * 1.5 * 5 / 60.0, usage.getFirst().getQuantities().get(UsageMeter.MEMORY_GB_HOURS), 1e-9);
+
+        await(metering.settle(Instant.now()));
+
+        String customerId = await(operations.findAccount(organization.getId())).getStripeCustomerId();
+        String identifier = usage.getFirst().getId() + ":" + UsageMeter.VCPU_HOURS.name();
+        List<StripeRequest> reports = StripeStandIn.requests("POST", "/v1/billing/meter_events").stream()
+                                                   .filter(request -> identifier.equals(request.params().get("identifier")))
+                                                   .toList();
+        assertFalse(reports.isEmpty());
+        assertEquals(customerId, reports.getFirst().params().get("payload[stripe_customer_id]"));
+        assertEquals(UsageMeter.VCPU_HOURS.getEventName(), reports.getFirst().params().get("event_name"));
+        assertNotNull(await(operations.findUsage(organization.getId(), hour, Date.from(hour.toInstant().plus(Duration.ofHours(1)))))
+                              .getFirst().getSettled());
+    }
+
+    @Test
+    public void theForecastProjectsThePeriodsUsage() throws Exception {
+        BillingPlan plan = await(plans.create(teamPlan(null)));
+        Organization organization = subscribedOrganization(plan);
+        Instant measured = Instant.now().minus(Duration.ofDays(2)).truncatedTo(ChronoUnit.HOURS);
+
+        Workload workload = await(workloads.createSync(runningWorkload(organization)));
+        try {
+            await(metering.measure(measured));
+        } finally {
+            await(workloads.deleteByIdSync(workload.getId()));
+        }
+
+        BillingForecast forecast = await(operations.findForecast(organization.getId()));
+        assertEquals(plan.getId(), forecast.getPlanId());
+        double toDate = forecast.getUsageToDate().get(UsageMeter.VCPU_HOURS);
+        // the metering schedule may also measure the workload in the moment it runs
+        assertTrue(toDate >= 2 * 5 / 60.0 - 1e-9);
+        assertTrue(forecast.getProjectedUsage().get(UsageMeter.VCPU_HOURS) > toDate);
+        // the projected vCPU hours stay within the 100 the plan includes, so only the flat fee is charged
+        assertEquals(4900, forecast.getProjectedAmount());
+    }
+
+    @Test
+    public void invoicesAreListedFromStripe() throws Exception {
+        Organization organization = subscribedOrganization(await(plans.create(teamPlan(null))));
+
+        List<BillingInvoice> invoices = await(runAs(memberOf(organization), () -> billingService.findInvoices()));
+
+        assertEquals(1, invoices.size());
+        assertEquals(InvoiceStatus.PAID, invoices.getFirst().getStatus());
+        assertEquals(4900, invoices.getFirst().getTotal());
+    }
+
+    @Test
     public void aPlanOfferedToAnotherOrganizationCannotBeBought() throws Exception {
         Organization organization = await(organizations.create(new Organization().setName("billing-" + suffix())));
         Organization other = await(organizations.create(new Organization().setName("billing-" + suffix())));
@@ -230,6 +312,24 @@ public class BillingTests extends KinoticTestBase {
                                                            .setMeter(UsageMeter.VCPU_HOURS)
                                                            .setUnitAmount(new BigDecimal("2.5"))
                                                            .setIncludedQuantity(100))));
+    }
+
+    // an organization whose trial ended, subscribed to the plan through Checkout for the next 15 days of its period
+    private Organization subscribedOrganization(BillingPlan plan) throws Exception {
+        Organization organization = await(organizations.save(new Organization().setId("billing-" + suffix())
+                                                                                  .setName("Billing " + suffix())
+                                                                                  .setCreated(Date.from(Instant.now().minus(Duration.ofDays(TRIAL_DAYS * 2))))));
+        await(operations.createCheckoutSession(organization.getId(), plan.getId()));
+        long periodEnd = Instant.now().plus(Duration.ofDays(15)).getEpochSecond();
+        await(webhookHandler.handleEvent(subscriptionEvent(subscription("sub_" + suffix(), organization, plan, "active", periodEnd))));
+        return organization;
+    }
+
+    private static Workload runningWorkload(Organization organization) {
+        return new Workload("billing-" + suffix(), "kinoticai/workload-runner:latest").setOrganizationId(organization.getId())
+                                                                                      .setStatus(WorkloadStatus.RUNNING)
+                                                                                      .setCpus(2)
+                                                                                      .setMemoryMb(1536);
     }
 
     private static DefaultOrganizationParticipant memberOf(Organization organization) {

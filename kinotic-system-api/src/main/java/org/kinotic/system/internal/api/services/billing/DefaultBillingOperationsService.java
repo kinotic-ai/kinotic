@@ -2,6 +2,7 @@ package org.kinotic.system.internal.api.services.billing;
 
 import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.model.Event;
+import com.stripe.model.Invoice;
 import com.stripe.model.StripeObject;
 import com.stripe.model.Subscription;
 import com.stripe.model.SubscriptionItem;
@@ -15,16 +16,28 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.model.billing.BillingAccount;
+import org.kinotic.management.api.model.billing.BillingForecast;
+import org.kinotic.management.api.model.billing.BillingInterval;
+import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
 import org.kinotic.management.api.model.billing.BillingStatus;
+import org.kinotic.management.api.model.billing.InvoiceStatus;
+import org.kinotic.management.api.model.billing.PlanComponent;
+import org.kinotic.management.api.model.billing.PlanComponentType;
+import org.kinotic.management.api.model.billing.UsageRecord;
 import org.kinotic.system.api.services.billing.BillingOperationsService;
 import org.kinotic.system.internal.api.repositories.BillingAccountRepository;
 import org.kinotic.system.internal.api.repositories.BillingPlanRepository;
+import org.kinotic.system.internal.api.repositories.UsageRecordRepository;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +60,12 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     private static final String RETURN_PATH = "/organization-settings";
     // Stripe refuses a Checkout trial that ends sooner than this
     private static final Duration MIN_CHECKOUT_TRIAL = Duration.ofDays(2);
-    // how many times a change to an account is read and applied again after another write lands on the account first
-    private static final int CHANGE_ATTEMPTS = 5;
+    private static final Duration MAX_USAGE_RANGE = Duration.ofDays(93);
+    private static final int MAX_INVOICES = 24;
 
     private final BillingAccountRepository accountRepository;
     private final BillingPlanRepository planRepository;
+    private final UsageRecordRepository usageRepository;
     private final OrganizationService organizationService;
     private final StripeBilling stripeBilling;
     private final KinoticManagementApiProperties managementApiProperties;
@@ -139,6 +153,119 @@ public class DefaultBillingOperationsService implements BillingOperationsService
                                 "The organization %s has never started a Checkout", organizationId);
             return stripeBilling.createPortalSession(account.getStripeCustomerId(), returnUrl());
         });
+    }
+
+    @Override
+    public Future<List<UsageRecord>> findUsage(String organizationId, Date from, Date to) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notNull(from, "from cannot be null");
+        Validate.notNull(to, "to cannot be null");
+        Validate.isTrue(from.before(to), "from must be before to");
+        Validate.isTrue(!to.toInstant().isAfter(from.toInstant().plus(MAX_USAGE_RANGE)),
+                        "The range cannot be longer than %d days", MAX_USAGE_RANGE.toDays());
+        return usageRepository.findForOrganization(organizationId, from, to);
+    }
+
+    @Override
+    public Future<BillingForecast> findForecast(String organizationId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findAccount(organizationId).compose(account -> {
+            Instant now = Instant.now();
+            Future<BillingForecast> ret;
+            if (account.getStripeSubscriptionId() == null
+                    || account.getPlanId() == null
+                    || account.getCurrentPeriodEnd() == null
+                    || account.getTrialEndsAt().toInstant().isAfter(now)) {
+                ret = Future.succeededFuture();
+            } else {
+                ret = planRepository.findById(account.getPlanId()).compose(plan -> {
+                    Validate.validState(plan != null, "The plan %s the organization subscribes to does not exist", account.getPlanId());
+                    Instant periodEnd = account.getCurrentPeriodEnd().toInstant();
+                    Instant periodStart = periodStart(periodEnd, plan.getInterval());
+                    // usage before the trial ended is not billed, so the period's billed usage starts when it ended
+                    Instant measuredFrom = latest(periodStart, account.getTrialEndsAt().toInstant());
+                    return usageRepository.findForOrganization(organizationId, Date.from(measuredFrom), Date.from(now))
+                                          .map(records -> forecast(plan, periodStart, periodEnd, measuredFrom, now, records));
+                });
+            }
+            return ret;
+        });
+    }
+
+    @Override
+    public Future<List<BillingInvoice>> findInvoices(String organizationId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return accountOf(organizationId).compose(account -> account.getStripeCustomerId() == null
+                ? Future.succeededFuture(List.of())
+                : stripeBilling.findInvoices(account.getStripeCustomerId(), MAX_INVOICES)
+                               .map(invoices -> invoices.stream().map(DefaultBillingOperationsService::invoice).toList()));
+    }
+
+    private static BillingForecast forecast(BillingPlan plan,
+                                            Instant periodStart,
+                                            Instant periodEnd,
+                                            Instant measuredFrom,
+                                            Instant now,
+                                            List<UsageRecord> records) {
+        BillingForecast ret = new BillingForecast().setPlanId(plan.getId())
+                                                   .setCurrency(plan.getCurrency())
+                                                   .setPeriodStart(Date.from(periodStart))
+                                                   .setPeriodEnd(Date.from(periodEnd));
+        for (UsageRecord record : records) {
+            record.getQuantities().forEach((meter, quantity) -> ret.getUsageToDate().merge(meter, quantity, Double::sum));
+        }
+        // at least an hour elapsed, so the first minutes of a period do not project a moment's usage over all of it
+        double elapsed = Math.max(Duration.between(measuredFrom, now).toMillis(), Duration.ofHours(1).toMillis());
+        double billed = Math.max(Duration.between(measuredFrom, periodEnd).toMillis(), 0);
+        ret.getUsageToDate().forEach((meter, quantity) -> ret.getProjectedUsage().put(meter, quantity * billed / elapsed));
+        BigDecimal amount = BigDecimal.ZERO;
+        for (PlanComponent component : plan.getComponents()) {
+            if (component.getType() == PlanComponentType.FLAT) {
+                amount = amount.add(BigDecimal.valueOf(component.getAmount()));
+            } else {
+                double beyondIncluded = ret.getProjectedUsage().getOrDefault(component.getMeter(), 0.0) - component.getIncludedQuantity();
+                if (beyondIncluded > 0) {
+                    amount = amount.add(component.getUnitAmount().multiply(BigDecimal.valueOf(beyondIncluded)));
+                }
+            }
+        }
+        return ret.setProjectedAmount(amount.setScale(0, RoundingMode.HALF_UP).longValueExact());
+    }
+
+    private static Instant periodStart(Instant periodEnd, BillingInterval interval) {
+        ZonedDateTime end = periodEnd.atZone(ZoneOffset.UTC);
+        ZonedDateTime ret = switch (interval) {
+            case MONTH -> end.minusMonths(1);
+            case YEAR -> end.minusYears(1);
+        };
+        return ret.toInstant();
+    }
+
+    private static Instant latest(Instant a, Instant b) {
+        return a.isAfter(b) ? a : b;
+    }
+
+    private static BillingInvoice invoice(Invoice invoice) {
+        return new BillingInvoice().setId(invoice.getId())
+                                   .setNumber(invoice.getNumber())
+                                   .setStatus(invoice.getStatus() != null ? InvoiceStatus.valueOf(invoice.getStatus().toUpperCase()) : null)
+                                   .setCurrency(invoice.getCurrency())
+                                   .setTotal(orZero(invoice.getTotal()))
+                                   .setAmountPaid(orZero(invoice.getAmountPaid()))
+                                   .setAmountDue(orZero(invoice.getAmountDue()))
+                                   .setCreated(dateOf(invoice.getCreated()))
+                                   .setPeriodStart(dateOf(invoice.getPeriodStart()))
+                                   .setPeriodEnd(dateOf(invoice.getPeriodEnd()))
+                                   .setHostedInvoiceUrl(invoice.getHostedInvoiceUrl())
+                                   .setInvoicePdf(invoice.getInvoicePdf());
+    }
+
+    private static long orZero(Long value) {
+        return value != null ? value : 0;
+    }
+
+    private static Date dateOf(Long epochSecond) {
+        return epochSecond != null ? Date.from(Instant.ofEpochSecond(epochSecond)) : null;
     }
 
     /**
@@ -252,26 +379,8 @@ public class DefaultBillingOperationsService implements BillingOperationsService
     // runs change on the organization's account, created with a free trial if it has none, and saves what it leaves;
     // a change that another write, from this system server or another, lands before is applied again to the account as that write left it
     private Future<BillingAccount> change(String organizationId, Function<BillingAccount, Future<BillingAccount>> change) {
-        return accountOf(organizationId).compose(created -> changeAttempt(organizationId, change, 1));
-    }
-
-    private Future<BillingAccount> changeAttempt(String organizationId,
-                                                 Function<BillingAccount, Future<BillingAccount>> change,
-                                                 int attempt) {
-        return accountRepository.update(organizationId, account -> change.apply(account).map(changed -> changed.setUpdated(new Date())))
-                                .compose(saved -> {
-                                    Future<BillingAccount> ret;
-                                    if (saved != null) {
-                                        ret = Future.succeededFuture(saved);
-                                    } else if (attempt < CHANGE_ATTEMPTS) {
-                                        ret = changeAttempt(organizationId, change, attempt + 1);
-                                    } else {
-                                        ret = Future.failedFuture(new IllegalStateException(
-                                                "The billing account of organization " + organizationId + " kept changing through "
-                                                        + CHANGE_ATTEMPTS + " attempts to update it"));
-                                    }
-                                    return ret;
-                                });
+        return accountOf(organizationId).compose(created -> accountRepository.update(
+                organizationId, account -> change.apply(account).map(changed -> changed.setUpdated(new Date()))));
     }
 
     private Future<BillingAccount> accountOf(String organizationId) {

@@ -4,12 +4,14 @@ import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.get.GetResult;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import io.vertx.core.Future;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -17,6 +19,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Pure Elasticsearch CRUD over a single index. Knows nothing about authentication, organization
@@ -31,6 +34,9 @@ import java.util.function.Consumer;
  */
 @RequiredArgsConstructor
 public abstract class AbstractRepository<T extends Identifiable<String>> {
+
+    // how many times update reads and changes an entity that other writes keep landing on first
+    private static final int UPDATE_ATTEMPTS = 5;
 
     protected final String indexName;
     @Getter
@@ -173,6 +179,46 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     protected Future<T> createSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.createSync(indexName, value.getId(), value, builderConsumer)
                                   .map(value);
+    }
+
+    /**
+     * Applies {@code change} to the entity with the given id and stores the entity it returns, provided no other write
+     * landed on the entity since it was read; when one did, the entity is read and changed again. Writers on any
+     * number of servers that change the same entity this way never overwrite one another's changes.
+     *
+     * @param id     the entity's id
+     * @param change the change to the entity as stored, which it is given {@code null} when none is; it may be applied
+     *               more than once
+     * @return the entity stored; fails when other writes kept landing first through every attempt
+     */
+    public Future<T> update(String id, Function<T, Future<T>> change) {
+        return update(id, change, 1);
+    }
+
+    private Future<T> update(String id, Function<T, Future<T>> change, int attempt) {
+        return crudServiceTemplate.findById(indexName, id, type, null, Function.<GetResult<T>>identity())
+                .compose(read -> {
+                    T current = read.found() ? read.source() : null;
+                    return change.apply(current).compose(changed -> {
+                        Future<IndexResponse> written = current != null
+                                ? crudServiceTemplate.save(indexName, id, changed, b -> b.ifSeqNo(read.seqNo())
+                                                                                         .ifPrimaryTerm(read.primaryTerm()))
+                                : crudServiceTemplate.create(indexName, id, changed);
+                        return written.map(changed);
+                    });
+                })
+                .recover(error -> {
+                    Future<T> ret;
+                    if (!CrudServiceTemplate.isVersionConflict(error) && !(error instanceof AlreadyExistsException)) {
+                        ret = Future.failedFuture(error);
+                    } else if (attempt < UPDATE_ATTEMPTS) {
+                        ret = update(id, change, attempt + 1);
+                    } else {
+                        ret = Future.failedFuture(new IllegalStateException(
+                                type.getSimpleName() + " " + id + " kept changing through " + UPDATE_ATTEMPTS + " attempts to update it"));
+                    }
+                    return ret;
+                });
     }
 
     public Future<Page<T>> search(String searchText, Pageable pageable) {

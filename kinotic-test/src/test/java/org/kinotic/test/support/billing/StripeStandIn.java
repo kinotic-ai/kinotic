@@ -132,6 +132,22 @@ public class StripeStandIn {
             }
         } else if (path.startsWith(CHECKOUT_SESSIONS_PATH + "/")) {
             response = CHECKOUT_SESSIONS.get(path.substring(CHECKOUT_SESSIONS_PATH.length() + 1));
+        } else if (path.equals("/v1/billing/meter_events")) {
+            response = new JsonObject().put("object", "billing.meter_event")
+                                       .put("event_name", params.get("event_name"))
+                                       .put("identifier", params.get("identifier"));
+        } else if (path.equals("/v1/invoices")) {
+            response = new JsonObject().put("object", "list").put("url", "/v1/invoices").put("has_more", false)
+                                       .put("data", new JsonArray().add(new JsonObject().put("id", "in_" + id())
+                                                                                        .put("object", "invoice")
+                                                                                        .put("customer", params.get("customer"))
+                                                                                        .put("number", "KIN-0001")
+                                                                                        .put("status", "paid")
+                                                                                        .put("currency", "usd")
+                                                                                        .put("total", 4900)
+                                                                                        .put("amount_paid", 4900)
+                                                                                        .put("amount_due", 0)
+                                                                                        .put("created", 1_790_000_000L)));
         } else if (path.equals("/v1/billing_portal/sessions")) {
             String sessionId = "bps_" + id();
             response = new JsonObject().put("id", sessionId).put("object", "billing_portal.session")

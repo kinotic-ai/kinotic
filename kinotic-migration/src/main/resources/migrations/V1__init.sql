@@ -431,6 +431,19 @@ CREATE TABLE IF NOT EXISTS kinotic_billing_account (
     updated DATE
 );
 
+-- Usage record: an organization's use of Kinotic Cloud during one hour, measured every five minutes from its running
+-- workload VMs, under '<organizationId>:<epoch second of the hour>'. Written only where kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_usage_record (
+    id KEYWORD,
+    organizationId KEYWORD,
+    hour DATE,
+    quantities OBJECT (VCPU_HOURS DOUBLE NOT INDEXED, MEMORY_GB_HOURS DOUBLE NOT INDEXED),
+    measuredSlots INTEGER NOT INDEXED,
+    settled DATE,
+    created DATE,
+    updated DATE
+);
+
 -- Installed license key: the one Kinotic Enterprise License key the whole cluster runs on (EntitlementService),
 -- under the id 'installed', which a system user installs on the system console's License page.
 CREATE TABLE IF NOT EXISTS kinotic_installed_license_key (

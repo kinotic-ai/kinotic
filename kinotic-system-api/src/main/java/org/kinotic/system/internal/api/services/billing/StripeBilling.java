@@ -5,6 +5,7 @@ import com.stripe.exception.InvalidRequestException;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
+import com.stripe.model.Invoice;
 import com.stripe.model.Price;
 import com.stripe.model.Product;
 import com.stripe.model.Subscription;
@@ -13,10 +14,12 @@ import com.stripe.model.checkout.Session;
 import com.stripe.net.RequestOptions;
 import com.stripe.net.Webhook;
 import com.stripe.param.CustomerCreateParams;
+import com.stripe.param.InvoiceListParams;
 import com.stripe.param.PriceCreateParams;
 import com.stripe.param.ProductCreateParams;
 import com.stripe.param.ProductUpdateParams;
 import com.stripe.param.billing.MeterCreateParams;
+import com.stripe.param.billing.MeterEventCreateParams;
 import com.stripe.param.billing.MeterListParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import io.vertx.core.Future;
@@ -32,6 +35,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -196,6 +200,34 @@ public class StripeBilling {
     /** The Subscription {@code subscriptionId} as Stripe has it now. */
     public Future<Subscription> findSubscription(String subscriptionId) {
         return blocking(() -> stripe.v1().subscriptions().retrieve(subscriptionId));
+    }
+
+    /**
+     * Reports usage of a meter by the Customer to Stripe, which bills it on the Customer's subscription to a plan that
+     * meters it. Reports with the same identifier within a day of each other count once.
+     *
+     * @param identifier names the usage, at most 100 characters
+     * @param timestamp  when the usage happened, within the past 35 days
+     */
+    public Future<Void> reportUsage(String customerId, UsageMeter meter, String identifier, double value, Instant timestamp) {
+        return blocking(() -> {
+            stripe.v1().billing().meterEvents().create(MeterEventCreateParams.builder()
+                                                                             .setEventName(meter.getEventName())
+                                                                             .setIdentifier(identifier)
+                                                                             .setTimestamp(timestamp.getEpochSecond())
+                                                                             .putPayload(CUSTOMER_PAYLOAD_KEY, customerId)
+                                                                             .putPayload(VALUE_PAYLOAD_KEY, Double.toString(value))
+                                                                             .build());
+            return null;
+        });
+    }
+
+    /** The Customer's invoices, newest first, at most {@code limit} of them. */
+    public Future<List<Invoice>> findInvoices(String customerId, int limit) {
+        return blocking(() -> stripe.v1().invoices().list(InvoiceListParams.builder()
+                                                                           .setCustomer(customerId)
+                                                                           .setLimit((long) limit)
+                                                                           .build()).getData());
     }
 
     /**

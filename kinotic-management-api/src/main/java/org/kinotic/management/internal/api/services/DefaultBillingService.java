@@ -5,12 +5,16 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.management.api.model.billing.BillingAccount;
+import org.kinotic.management.api.model.billing.BillingForecast;
+import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
+import org.kinotic.management.api.model.billing.UsageRecord;
 import org.kinotic.management.api.services.billing.BillingOperationsProxy;
 import org.kinotic.management.api.services.billing.BillingService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.List;
 
 @Component
@@ -39,6 +43,21 @@ public class DefaultBillingService implements BillingService {
     @Override
     public Future<String> createPortalSession() {
         return operations.createPortalSession(requireOrganizationId());
+    }
+
+    @Override
+    public Future<List<UsageRecord>> findUsage(Date from, Date to) {
+        return operations.findUsage(requireOrganizationId(), from, to);
+    }
+
+    @Override
+    public Future<BillingForecast> findForecast() {
+        return operations.findForecast(requireOrganizationId());
+    }
+
+    @Override
+    public Future<List<BillingInvoice>> findInvoices() {
+        return operations.findInvoices(requireOrganizationId());
     }
 
     private String requireOrganizationId() {

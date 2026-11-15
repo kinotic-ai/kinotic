@@ -5,8 +5,12 @@ import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.billing.BillingAccount;
+import org.kinotic.management.api.model.billing.BillingForecast;
+import org.kinotic.management.api.model.billing.BillingInvoice;
 import org.kinotic.management.api.model.billing.BillingPlan;
+import org.kinotic.management.api.model.billing.UsageRecord;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -25,4 +29,10 @@ public interface BillingOperationsProxy {
     Future<String> createCheckoutSession(String organizationId, String planId);
 
     Future<String> createPortalSession(String organizationId);
+
+    Future<List<UsageRecord>> findUsage(String organizationId, Date from, Date to);
+
+    Future<BillingForecast> findForecast(String organizationId);
+
+    Future<List<BillingInvoice>> findInvoices(String organizationId);
 }
