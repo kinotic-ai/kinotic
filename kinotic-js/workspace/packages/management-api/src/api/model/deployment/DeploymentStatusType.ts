@@ -31,6 +31,11 @@ export enum DeploymentStatusType {
      */
     ORPHANED = 'ORPHANED',
     /**
+     * The microservice's organization is deactivated, so its VM is stopped until the organization is
+     * reactivated.
+     */
+    SUSPENDED = 'SUSPENDED',
+    /**
      * The last attempt failed; the status message says why.
      */
     FAILED = 'FAILED'

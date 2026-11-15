@@ -11,6 +11,11 @@ export class Organization implements Identifiable<string> {
     public name: string = ''
     public description: string | null = null
     public createdBy: string | null = null
+    /**
+     * When the organization was deactivated, or null while it is active. A deactivated organization's microservices
+     * are stopped and its sites show that it is deactivated.
+     */
+    public deactivated: string | null = null
     public created: string | null = null
     public updated: string | null = null
 }
