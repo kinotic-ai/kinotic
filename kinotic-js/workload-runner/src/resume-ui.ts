@@ -30,14 +30,13 @@ async function main(): Promise<void> {
             throw new Error(`site ${site.directory} is suspended but its index is gone; publish the project again to serve it`)
         }
         // the write requires the suspended index read, so an index a publish wrote meanwhile is never replaced
-        await copyFile(site, kept, INDEX_FILE, { 'If-Match': index.headers.get('etag')! })
+        await copyFile(site, kept.clone(), INDEX_FILE, { 'If-Match': index.headers.get('etag')! })
+        // deleted once the index is back, so a run that stops before it is done again from the kept index; the delete
+        // requires the kept index read, so one a publish kept meanwhile stays for the next run to put back
+        await deleteBlob(site, `${site.directory}/${SUSPENDED_INDEX_FILE}`, { 'If-Match': kept.headers.get('etag')! })
         log(`[workload-runner] resumed site ${site.directory}`)
     } else {
         log(`[workload-runner] site ${site.directory} is not suspended`)
-    }
-    // deleted once the index is back, so a run that stops before it is done again from the kept index
-    if (kept !== null) {
-        await deleteBlob(site, `${site.directory}/${SUSPENDED_INDEX_FILE}`)
     }
 }
 

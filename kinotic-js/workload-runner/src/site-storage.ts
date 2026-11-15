@@ -155,10 +155,10 @@ export async function listBlobs(site: SiteTarget): Promise<SiteBlob[]> {
     return blobs
 }
 
-/** Deletes one blob under the site's directory; one already gone is not a failure. */
-export async function deleteBlob(site: SiteTarget, name: string): Promise<void> {
+/** Deletes one blob under the site's directory, with the headers given; one already gone is not a failure. */
+export async function deleteBlob(site: SiteTarget, name: string, headers: Record<string, string> = {}): Promise<void> {
     const response = await fetch(`${site.containerUrl}/${name.split('/').map(encodeURIComponent).join('/')}?${site.query}`,
-                                 { method: 'DELETE' })
+                                 { method: 'DELETE', headers })
     if (!response.ok && response.status !== 404) {
         throw new Error(`deleting ${name} failed with ${response.status} ${await response.text()}`)
     }
