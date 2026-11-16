@@ -1,0 +1,1 @@
+{"id":"b4af5e4c9cef4695d812e58e0b1e73c4.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenNullValue_thenNullInValues","name":"whenNullValue_thenNullInValues()","status":"passed","testResultsByEnv":{"default":"a346cd61f6ce528ce395a7a0b0c6a4aa"}}

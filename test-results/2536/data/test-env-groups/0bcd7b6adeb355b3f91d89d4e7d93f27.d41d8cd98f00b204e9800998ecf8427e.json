@@ -1,0 +1,1 @@
+{"id":"0bcd7b6adeb355b3f91d89d4e7d93f27.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testUnsubscribeCompletesWithTheConsumersUnregistration","name":"testUnsubscribeCompletesWithTheConsumersUnregistration()","status":"passed","testResultsByEnv":{"default":"aae932170d906f6e1151785b331c718e"}}
