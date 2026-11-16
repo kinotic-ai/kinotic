@@ -46,14 +46,14 @@ public class DefaultOidcClientService implements OidcClientService {
     }
 
     @Override
-    public Future<OidcClient> createClient(OidcClientSettings settings) {
+    public Future<OidcClient> createClient(OidcClientSettings settings, String clientSecret) {
         Future<OidcClient> ret;
         OAuth2Options options = new OAuth2Options()
                 .setClientId(settings.getClientId())
                 .setSite(settings.getAuthority())
                 .setHttpClientOptions(new HttpClientOptions().setMaxHeaderSize(MAX_HEADER_SIZE));
-        if (settings.getClientSecret() != null) {
-            options.setClientSecret(settings.getClientSecret());
+        if (clientSecret != null) {
+            options.setClientSecret(clientSecret);
         }
         if (settings.getAuthorizationUri() != null || settings.getTokenUri() != null) {
             if (settings.getAuthorizationUri() == null || settings.getTokenUri() == null) {

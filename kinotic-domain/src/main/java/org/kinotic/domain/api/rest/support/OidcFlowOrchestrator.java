@@ -13,7 +13,6 @@ import org.kinotic.common.api.oidc.InvalidIdTokenException;
 import org.kinotic.common.api.oidc.OidcAuthorization;
 import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientService;
-import org.kinotic.common.api.oidc.OidcClientSettings;
 import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -102,7 +101,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_CALLBACK));
         }
 
-        if (flowSession == null || !flowSession.state().equals(state)
+        if (flowSession == null || !flowSession.authorization().state().equals(state)
                 || !flowSession.configId().equals(pathConfigId)) {
             log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
@@ -116,7 +115,7 @@ public class OidcFlowOrchestrator {
                              return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          }
                          return getOidcClient(config)
-                                 .compose(client -> client.verifiedClaims(code, callbackUrl, flowSession.pkceVerifier(), flowSession.nonce()))
+                                 .compose(client -> client.verifiedClaims(code, callbackUrl, flowSession.authorization()))
                                  .recover(err -> {
                                      Future<Map<String, Object>> failed;
                                      if (err instanceof InvalidIdTokenException) {
@@ -233,38 +232,16 @@ public class OidcFlowOrchestrator {
                 ? List.of(social.getScopes().split(" "))
                 : List.of("openid", "email", "profile");
 
+        OidcAuthorization authorization = OidcAuthorization.create();
         return getOidcClient(config)
-                .map(client -> client.authorize(callbackUrl, scopes))
+                .map(client -> client.authorizationUrl(authorization, callbackUrl, scopes))
                 // stored once the provider is reachable, so a start that fails leaves the session's pending flow intact
-                .onSuccess(authorization -> {
+                .onSuccess(url -> {
                     Session session = ctx.session();
                     session.regenerateId();
-                    session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(authorization.state(), authorization.nonce(),
-                                                                           authorization.pkceVerifier(), config.getId(), purpose, orgId,
-                                                                           applicationId, tenantId, inviteToken, organizationUserId, origin));
-                })
-                .map(OidcAuthorization::url);
-    }
-
-    /**
-     * @param config       the persisted OIDC configuration
-     * @param clientSecret resolved client secret, or null for public-client flows
-     */
-    private static OidcClientSettings clientSettings(OidcConfiguration config, String clientSecret) {
-        OidcClientSettings ret = new OidcClientSettings()
-                .setProvider(config.getProvider())
-                .setAuthority(config.getAuthority())
-                .setClientId(config.getClientId())
-                .setClientSecret(clientSecret)
-                .setAudience(config.getAudience());
-        // only a managed registration may name endpoints in place of discovery and of an id_token
-        if (config instanceof ManagedOidcConfiguration managed) {
-            ret.setAuthorizationUri(managed.getAuthorizationUri())
-               .setTokenUri(managed.getTokenUri())
-               .setUserInfoUri(managed.getUserInfoUri())
-               .setUserEmailsUri(managed.getUserEmailsUri());
-        }
-        return ret;
+                    session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(authorization, config.getId(), purpose, orgId, applicationId,
+                                                                           tenantId, inviteToken, organizationUserId, origin));
+                });
     }
 
     /**
@@ -284,7 +261,7 @@ public class OidcFlowOrchestrator {
         CompletableFuture<OidcClient> cached =
                 oidcClientCache.get(key,
                                     (id, executor) -> clientSecretOf(config)
-                                            .compose(secret -> oidcClientService.createClient(clientSettings(config, secret)))
+                                            .compose(secret -> oidcClientService.createClient(config, secret))
                                             .toCompletionStage()
                                             .toCompletableFuture());
         return Future.fromCompletionStage(cached, vertx.getOrCreateContext())

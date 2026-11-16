@@ -20,9 +20,7 @@ import org.kinotic.common.api.oidc.OidcAuthorization;
 import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientSettings;
 
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +30,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class DefaultOidcClient implements OidcClient {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
     // how far this server's clock may run ahead of the provider's before an id token counts as expired
     private static final long ID_TOKEN_CLOCK_SKEW_SECONDS = 60;
 
@@ -41,27 +38,23 @@ public class DefaultOidcClient implements OidcClient {
     private final OidcClientSettings settings;
 
     @Override
-    public OidcAuthorization authorize(String callbackUrl, List<String> scopes) {
-        String state = token(32);
-        String nonce = token(32);
-        String pkceVerifier = token(64);
-        String url = oauth2.authorizeURL(new OAuth2AuthorizationURL()
-                                                 .setRedirectUri(callbackUrl)
-                                                 .setScopes(scopes)
-                                                 .setState(state)
-                                                 .setCodeChallenge(OAuth2Util.s256Challenge(pkceVerifier))
-                                                 .setCodeChallengeMethod("S256")
-                                                 .putAdditionalParameter("nonce", nonce));
-        return new OidcAuthorization(url, state, nonce, pkceVerifier);
+    public String authorizationUrl(OidcAuthorization authorization, String callbackUrl, List<String> scopes) {
+        return oauth2.authorizeURL(new OAuth2AuthorizationURL()
+                                           .setRedirectUri(callbackUrl)
+                                           .setScopes(scopes)
+                                           .setState(authorization.state())
+                                           .setCodeChallenge(OAuth2Util.s256Challenge(authorization.pkceVerifier()))
+                                           .setCodeChallengeMethod("S256")
+                                           .putAdditionalParameter("nonce", authorization.nonce()));
     }
 
     @Override
-    public Future<Map<String, Object>> verifiedClaims(String code, String callbackUrl, String pkceVerifier, String nonce) {
+    public Future<Map<String, Object>> verifiedClaims(String code, String callbackUrl, OidcAuthorization authorization) {
         return oauth2.authenticate(new Oauth2Credentials()
                                            .setFlow(OAuth2FlowType.AUTH_CODE)
                                            .setCode(code)
                                            .setRedirectUri(callbackUrl)
-                                           .setCodeVerifier(pkceVerifier))
+                                           .setCodeVerifier(authorization.pkceVerifier()))
                      .compose(user -> {
                          Future<Map<String, Object>> ret;
                          if (StringUtils.isNotBlank(settings.getUserInfoUri())) {
@@ -71,7 +64,7 @@ public class DefaultOidcClient implements OidcClient {
                              // the exchanged access token.
                              ret = apiClaims(user);
                          } else {
-                             ret = idTokenClaims(user, nonce);
+                             ret = idTokenClaims(user, authorization.nonce());
                          }
                          return ret;
                      });
@@ -93,7 +86,7 @@ public class DefaultOidcClient implements OidcClient {
             ret = Future.failedFuture(new InvalidIdTokenException("The id token's audience " + claims.get("aud")
                                                                   + " does not name " + settings.getAudience()));
         } else if (!nonce.equals(OAuth2Util.stringClaim(claims, "nonce"))) {
-            // authorize always sends a nonce, so OIDC Core 3.1.3.7 requires the id_token to echo it — an absent
+            // authorizationUrl always sends a nonce, so OIDC Core 3.1.3.7 requires the id_token to echo it — an absent
             // claim fails the equals and is rejected
             ret = Future.failedFuture(new InvalidIdTokenException("The id token's nonce does not match the sign-in"));
         } else if (isIdTokenExpired(user)) {
@@ -265,12 +258,6 @@ public class DefaultOidcClient implements OidcClient {
                             }
                             return ret;
                         });
-    }
-
-    private static String token(int bytes) {
-        byte[] ret = new byte[bytes];
-        RANDOM.nextBytes(ret);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(ret);
     }
 
 }

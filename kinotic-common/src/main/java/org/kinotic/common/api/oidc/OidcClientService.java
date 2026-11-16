@@ -12,9 +12,10 @@ public interface OidcClientService {
      * discovery document at the authority unless the settings name the authorization and token endpoints.
      * The caller owns the client and {@link OidcClient#close closes} it when done with it.
      *
-     * @param settings the registration
+     * @param settings     the registration
+     * @param clientSecret the registration's client secret, or {@code null} for a public client
      * @return the client, or a failure when the settings are incomplete or discovery fails
      */
-    Future<OidcClient> createClient(OidcClientSettings settings);
+    Future<OidcClient> createClient(OidcClientSettings settings, String clientSecret);
 
 }

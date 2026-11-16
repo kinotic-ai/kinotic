@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OidcClientServiceTest {
 
     private static final String CALLBACK_URL = "https://app.example.com/callback";
+    private static final String CLIENT_SECRET = "test-secret";
 
     private static Vertx vertx;
     private static FakeIdentityProvider provider;
@@ -48,18 +49,17 @@ class OidcClientServiceTest {
     @Test
     void discoveredProviderSignsInWithItsIdToken() {
         contextRunner.run(context -> {
-            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings()));
+            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings(), CLIENT_SECRET));
             try {
-                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("openid", "email"));
-                String code = provider.approve(authorization.url());
+                OidcAuthorization authorization = OidcAuthorization.create();
+                String code = provider.approve(client.authorizationUrl(authorization, CALLBACK_URL, List.of("openid", "email")));
 
                 assertEquals(authorization.state(), provider.authorizationParameter("state"));
                 assertEquals(authorization.nonce(), provider.authorizationParameter("nonce"));
                 assertEquals("S256", provider.authorizationParameter("code_challenge_method"));
                 assertEquals("openid email", provider.authorizationParameter("scope"));
 
-                Map<String, Object> claims = await(client.verifiedClaims(code, CALLBACK_URL, authorization.pkceVerifier(),
-                                                                         authorization.nonce()));
+                Map<String, Object> claims = await(client.verifiedClaims(code, CALLBACK_URL, authorization));
                 assertEquals(FakeIdentityProvider.SUBJECT, claims.get("sub"));
                 assertEquals(FakeIdentityProvider.EMAIL, claims.get("email"));
                 assertTrue(OAuth2Util.isEmailVerified(claims, OidcProviderType.OIDC));
@@ -72,13 +72,14 @@ class OidcClientServiceTest {
     @Test
     void idTokenOfAnotherSignInIsRejected() {
         contextRunner.run(context -> {
-            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings()));
+            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings(), CLIENT_SECRET));
             try {
-                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("openid"));
-                String code = provider.approve(authorization.url());
+                OidcAuthorization authorization = OidcAuthorization.create();
+                String code = provider.approve(client.authorizationUrl(authorization, CALLBACK_URL, List.of("openid")));
 
                 ExecutionException failure = assertThrows(ExecutionException.class, () -> await(
-                        client.verifiedClaims(code, CALLBACK_URL, authorization.pkceVerifier(), "the-nonce-of-another-sign-in")));
+                        client.verifiedClaims(code, CALLBACK_URL, new OidcAuthorization(
+                                authorization.state(), "the-nonce-of-another-sign-in", authorization.pkceVerifier()))));
                 assertInstanceOf(InvalidIdTokenException.class, failure.getCause());
             } finally {
                 client.close();
@@ -100,13 +101,14 @@ class OidcClientServiceTest {
     @Test
     void codeIsRedeemedOnlyWithItsPkceVerifier() {
         contextRunner.run(context -> {
-            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings()));
+            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings(), CLIENT_SECRET));
             try {
-                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("openid"));
-                String code = provider.approve(authorization.url());
+                OidcAuthorization authorization = OidcAuthorization.create();
+                String code = provider.approve(client.authorizationUrl(authorization, CALLBACK_URL, List.of("openid")));
 
                 assertThrows(ExecutionException.class, () -> await(
-                        client.verifiedClaims(code, CALLBACK_URL, "another-verifier", authorization.nonce())));
+                        client.verifiedClaims(code, CALLBACK_URL, new OidcAuthorization(
+                                authorization.state(), authorization.nonce(), "another-verifier"))));
             } finally {
                 client.close();
             }
@@ -116,23 +118,22 @@ class OidcClientServiceTest {
     @Test
     void providerWithNoIdTokenSignsInWithItsProfileAndBestEmail() {
         contextRunner.run(context -> {
-            OidcClientSettings settings = new OidcClientSettings()
+            OidcClientSettings settings = new TestOidcClientSettings()
                     .setProvider(OidcProviderType.GITHUB)
                     .setAuthority(provider.baseUrl())
                     .setClientId(FakeIdentityProvider.CLIENT_ID)
-                    .setClientSecret("test-secret")
                     .setAuthorizationUri(provider.baseUrl() + "/login/oauth/authorize")
                     .setTokenUri(provider.baseUrl() + "/login/oauth/access_token")
                     .setUserInfoUri(provider.baseUrl() + "/user")
                     .setUserEmailsUri(provider.baseUrl() + "/user/emails");
-            OidcClient client = await(context.getBean(OidcClientService.class).createClient(settings));
+            OidcClient client = await(context.getBean(OidcClientService.class).createClient(settings, CLIENT_SECRET));
             try {
-                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("read:user", "user:email"));
-                assertTrue(authorization.url().startsWith(provider.baseUrl() + "/login/oauth/authorize?"));
-                String code = provider.approve(authorization.url());
+                OidcAuthorization authorization = OidcAuthorization.create();
+                String url = client.authorizationUrl(authorization, CALLBACK_URL, List.of("read:user", "user:email"));
+                assertTrue(url.startsWith(provider.baseUrl() + "/login/oauth/authorize?"));
+                String code = provider.approve(url);
 
-                Map<String, Object> claims = await(client.verifiedClaims(code, CALLBACK_URL, authorization.pkceVerifier(),
-                                                                         authorization.nonce()));
+                Map<String, Object> claims = await(client.verifiedClaims(code, CALLBACK_URL, authorization));
                 assertEquals("42", claims.get("sub"));
                 assertEquals("The Octocat", claims.get("name"));
                 assertEquals(FakeIdentityProvider.EMAIL, claims.get("email"));
@@ -148,21 +149,21 @@ class OidcClientServiceTest {
         contextRunner.run(context -> {
             OidcClientSettings settings = discoveredSettings().setTokenUri(provider.baseUrl() + "/token");
             ExecutionException failure = assertThrows(ExecutionException.class, () -> await(
-                    context.getBean(OidcClientService.class).createClient(settings)));
+                    context.getBean(OidcClientService.class).createClient(settings, CLIENT_SECRET)));
             assertInstanceOf(IllegalArgumentException.class, failure.getCause());
         });
     }
 
     private void assertIdTokenRejected(Long idTokenLifetimeSeconds) {
         contextRunner.run(context -> {
-            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings()));
+            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings(), CLIENT_SECRET));
             provider.idTokenLifetimeSeconds(idTokenLifetimeSeconds);
             try {
-                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("openid"));
-                String code = provider.approve(authorization.url());
+                OidcAuthorization authorization = OidcAuthorization.create();
+                String code = provider.approve(client.authorizationUrl(authorization, CALLBACK_URL, List.of("openid")));
 
                 ExecutionException failure = assertThrows(ExecutionException.class, () -> await(
-                        client.verifiedClaims(code, CALLBACK_URL, authorization.pkceVerifier(), authorization.nonce())));
+                        client.verifiedClaims(code, CALLBACK_URL, authorization)));
                 assertInstanceOf(InvalidIdTokenException.class, failure.getCause());
             } finally {
                 provider.idTokenLifetimeSeconds(300L);
@@ -171,12 +172,11 @@ class OidcClientServiceTest {
         });
     }
 
-    private static OidcClientSettings discoveredSettings() {
-        return new OidcClientSettings()
+    private static TestOidcClientSettings discoveredSettings() {
+        return new TestOidcClientSettings()
                 .setProvider(OidcProviderType.OIDC)
                 .setAuthority(provider.baseUrl())
-                .setClientId(FakeIdentityProvider.CLIENT_ID)
-                .setClientSecret("test-secret");
+                .setClientId(FakeIdentityProvider.CLIENT_ID);
     }
 
     private static <T> T await(Future<T> future) throws Exception {

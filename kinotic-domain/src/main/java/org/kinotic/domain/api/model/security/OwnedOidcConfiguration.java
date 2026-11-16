@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.model.security;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -33,6 +34,9 @@ import org.kinotic.domain.api.model.OrganizationScoped;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
+// OidcClientSettings answers these as getters; an organization's configuration names no endpoint, so its document
+// carries none
+@JsonIgnoreProperties({"authorizationUri", "tokenUri", "userInfoUri", "userEmailsUri"})
 public abstract sealed class OwnedOidcConfiguration extends OidcConfiguration implements OrganizationScoped<String>
         permits OrganizationOidcConfiguration, ApplicationOidcConfiguration, TenantOidcConfiguration {
 
