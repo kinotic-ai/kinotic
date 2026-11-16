@@ -30,8 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The run's record under failing and competing writes: a run whose record cannot be written is not
- * started, an outcome that cannot be written is written again until it lands, and a run ended as
- * abandoned while it executed keeps that end.
+ * started, and its record is ended when the write landed though it failed; an outcome that cannot be
+ * written is written again until it lands, and a run ended as abandoned while it executed keeps that
+ * end.
  */
 public class LedgerWriteTest extends AbstractGrindTest {
 
@@ -63,8 +64,45 @@ public class LedgerWriteTest extends AbstractGrindTest {
         assertEquals(STORE_DOWN, result.error().getCause().getMessage());
         assertFalse(executed.get());
         assertTrue(unwritable.savedTasks.isEmpty());
-        // the one write that ends the record in case the failed write landed
-        assertEquals(1, outcomeWrites.get());
+        // no record landed, so there is none to end
+        assertEquals(0, outcomeWrites.get());
+    }
+
+    @Test
+    public void aRecordThatLandedThoughItsWriteFailedIsEnded() throws Exception {
+        AtomicInteger reads = new AtomicInteger();
+        // a store that applies the write of the run, fails to acknowledge it, and cannot be read at first
+        InMemoryJobRunRepository unacknowledged = new InMemoryJobRunRepository() {
+            @Override
+            public synchronized Future<JobRun> saveRun(JobRun jobRun) {
+                return super.saveRun(jobRun).compose(saved -> Future.failedFuture(new IllegalStateException(STORE_DOWN)));
+            }
+
+            @Override
+            public synchronized Future<JobRun> findRun(String jobRunId) {
+                Future<JobRun> ret;
+                if (reads.incrementAndGet() == 1) {
+                    ret = Future.failedFuture(new IllegalStateException(STORE_DOWN));
+                } else {
+                    ret = super.findRun(jobRunId);
+                }
+                return ret;
+            }
+        };
+        AtomicBoolean executed = new AtomicBoolean();
+        JobDefinition job = JobDefinition.create("unacknowledged")
+                                         .name("unacknowledged").version("1")
+                                         .task(Tasks.fromRunnable("work", () -> executed.set(true)));
+
+        JobRunHandle handle = jobServiceOn(unacknowledged).run(job, JobOwner.system());
+        RunResult result = await(handle);
+
+        assertInstanceOf(IllegalStateException.class, result.error());
+        assertFalse(executed.get());
+        JobRun run = unacknowledged.savedRuns.get(handle.getJobRunId());
+        assertEquals(ExecutionStatus.FAILED, run.getStatus());
+        assertTrue(run.getError().contains(STORE_DOWN));
+        assertEquals(2, reads.get());
     }
 
     @Test

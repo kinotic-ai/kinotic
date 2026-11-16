@@ -73,7 +73,8 @@ public class JobManager implements Service {
     // The one timer, set to the earliest due time
     private transient Long timerId;
     private transient int turn;
-    private transient boolean cancelled;
+    // Read without the lock where a node is about to be asked for a run
+    private transient volatile boolean cancelled;
 
     @Override
     public void init() {
@@ -139,7 +140,7 @@ public class JobManager implements Service {
                       nextDue = Future.succeededFuture(latest.getStarted().getTime() + period);
                   } else {
                       nextDue = start(name, latest, nodesInTurn(), 0)
-                              .compose(jobRunId -> confirmStarted(name, latest, jobRunId))
+                              .compose(jobRunId -> confirmStarted(name, jobRunId))
                               .map(now + period);
                   }
                   return nextDue;
@@ -147,20 +148,23 @@ public class JobManager implements Service {
               .onComplete(nextDue -> decided(name, nextDue));
     }
 
-    // A refused run stands for the period's run when the job's latest run is the one executing. Any
-    // other refusal is a lock that could not be taken, or a run so new that the latest known was read
-    // before it, and the job is decided again
-    private Future<Void> confirmStarted(String name, JobRun latest, String jobRunId) {
+    // A refused run stands for the period's run when the job's latest run is the one executing, read
+    // again since it may have started after the job was decided. Any other refusal is a lock that
+    // could not be taken, or a run too new to be read, and the job is decided again
+    private Future<Void> confirmStarted(String name, String jobRunId) {
         Future<Void> ret;
         if (jobRunId != null) {
             ret = Future.succeededFuture();
-        } else if (latest != null && latest.getStatus() == ExecutionStatus.RUNNING) {
-            log.warn("System job {} came due while run {} of it was still executing, so no run was started for this period",
-                     name, latest.getId());
-            ret = Future.succeededFuture();
         } else {
-            ret = Future.failedFuture(new IllegalStateException("System job " + name + " was refused its run, and its latest run on record, "
-                                                                        + (latest != null ? latest.getId() : "none") + ", is not executing"));
+            ret = jobRuns.findLatestRun(name, null).map(executing -> {
+                if (executing == null || executing.getStatus() != ExecutionStatus.RUNNING) {
+                    throw new IllegalStateException("System job " + name + " was refused its run, and its latest run on record, "
+                                                            + (executing != null ? executing.getId() : "none") + ", is not executing");
+                }
+                log.warn("System job {} came due while run {} of it was still executing, so no run was started for this period",
+                         name, executing.getId());
+                return null;
+            });
         }
         return ret;
     }
@@ -194,7 +198,10 @@ public class JobManager implements Service {
     // the recorded runs show none newer than the latest known before the first was asked
     private Future<String> start(String name, JobRun latest, List<ClusterNode> nodes, int index) {
         Future<String> ret;
-        if (index == nodes.size()) {
+        if (cancelled) {
+            // the node that hosts the manager from here on decides the job
+            ret = Future.failedFuture(new IllegalStateException("The job manager stopped before a run of system job " + name + " was started"));
+        } else if (index == nodes.size()) {
             ret = Future.failedFuture(new IllegalStateException("None of the " + nodes.size() + " nodes holding system job "
                                                                         + name + " started a run of it"));
         } else {
@@ -217,7 +224,7 @@ public class JobManager implements Service {
     }
 
     private static boolean isNewer(JobRun current, JobRun latest) {
-        return current != null && (latest == null || !current.getId().equals(latest.getId()));
+        return current != null && (latest == null || current.getStarted().after(latest.getStarted()));
     }
 
     // Completes with the id of the run the node started, or null when the node was refused the run

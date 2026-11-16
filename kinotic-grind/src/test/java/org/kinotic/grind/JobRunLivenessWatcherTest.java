@@ -2,6 +2,8 @@ package org.kinotic.grind;
 
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,7 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The runs a departed node leaves behind: on a change to the cluster membership every run still
  * executing on a node that is not a member is ended FAILED with SERVER_NODE_LEFT, however many
  * there are, and the runs of the member nodes keep executing, those of a node that joins while the
- * departed node's runs are being ended among them.
+ * departed node's runs are being ended among them. A search that fails is made again, and a run
+ * the first search did not hold is ended by the second.
  */
 public class JobRunLivenessWatcherTest extends AbstractGrindTest {
 
@@ -51,6 +55,7 @@ public class JobRunLivenessWatcherTest extends AbstractGrindTest {
         try (AnnotationConfigApplicationContext watcherCtx = new AnnotationConfigApplicationContext()) {
             watcherCtx.getBeanFactory().registerSingleton("eventBusService", eventBusReporting(membership.asFlux()));
             watcherCtx.getBeanFactory().registerSingleton("jobRunRepository", repository);
+            watcherCtx.getBeanFactory().registerSingleton("vertx", vertx);
             watcherCtx.register(JobRunLivenessWatcher.class);
             watcherCtx.refresh();
 
@@ -100,6 +105,7 @@ public class JobRunLivenessWatcherTest extends AbstractGrindTest {
         try (AnnotationConfigApplicationContext watcherCtx = new AnnotationConfigApplicationContext()) {
             watcherCtx.getBeanFactory().registerSingleton("eventBusService", eventBusReporting(membership.asFlux()));
             watcherCtx.getBeanFactory().registerSingleton("jobRunRepository", ledger);
+            watcherCtx.getBeanFactory().registerSingleton("vertx", vertx);
             watcherCtx.register(JobRunLivenessWatcher.class);
             watcherCtx.refresh();
 
@@ -115,6 +121,63 @@ public class JobRunLivenessWatcherTest extends AbstractGrindTest {
         JobRun joinedRun = ledger.savedRuns.get("joined");
         assertEquals(ExecutionStatus.RUNNING, joinedRun.getStatus());
         assertNull(joinedRun.getFinished());
+    }
+
+    @Test
+    public void aSearchThatFailsIsMadeAgain() throws Exception {
+        AtomicInteger searches = new AtomicInteger();
+        InMemoryJobRunRepository ledger = new InMemoryJobRunRepository() {
+            @Override
+            public synchronized Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
+                Future<Page<JobRun>> ret;
+                if (searches.incrementAndGet() == 1) {
+                    ret = Future.failedFuture(new IllegalStateException("store is down"));
+                } else {
+                    ret = super.findRunningElsewhere(members, pageable);
+                }
+                return ret;
+            }
+        };
+        ledger.saveRun(executing("departed", DEPARTED_NODE_ID));
+
+        awaitEnded(ledger, "departed");
+    }
+
+    @Test
+    public void aRunTheFirstSearchDidNotHoldIsEndedByTheSecond() throws Exception {
+        AtomicInteger searches = new AtomicInteger();
+        // a store whose search does not hold the run yet, as one made before the index refreshed
+        InMemoryJobRunRepository ledger = new InMemoryJobRunRepository() {
+            @Override
+            public synchronized Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
+                Future<Page<JobRun>> ret;
+                if (searches.incrementAndGet() == 1) {
+                    ret = Future.succeededFuture(new Page<>(List.of(), 0L));
+                } else {
+                    ret = super.findRunningElsewhere(members, pageable);
+                }
+                return ret;
+            }
+        };
+        ledger.saveRun(executing("departed", DEPARTED_NODE_ID));
+
+        awaitEnded(ledger, "departed");
+    }
+
+    // Reports a membership the departed node is not part of to a watcher over the ledger, and waits for the run to be ended
+    private void awaitEnded(InMemoryJobRunRepository ledger, String jobRunId) throws InterruptedException {
+        Sinks.Many<Set<String>> membership = Sinks.many().replay().latest();
+        try (AnnotationConfigApplicationContext watcherCtx = new AnnotationConfigApplicationContext()) {
+            watcherCtx.getBeanFactory().registerSingleton("eventBusService", eventBusReporting(membership.asFlux()));
+            watcherCtx.getBeanFactory().registerSingleton("jobRunRepository", ledger);
+            watcherCtx.getBeanFactory().registerSingleton("vertx", vertx);
+            watcherCtx.register(JobRunLivenessWatcher.class);
+            watcherCtx.refresh();
+
+            membership.tryEmitNext(Set.of(TEST_NODE_ID));
+
+            awaitUntil("the departed node's run to end", () -> ledger.savedRuns.get(jobRunId).getStatus() == ExecutionStatus.FAILED);
+        }
     }
 
     private List<JobRun> departedRuns() {

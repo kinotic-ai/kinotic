@@ -73,6 +73,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
 
     @Test
     public void aStartedJobRunsForTheSystem() throws Exception {
+        awaitScheduledRun(RETENTION_SWEEP);
         JobRun run = await(systemJobs.startSystemJob(RETENTION_SWEEP));
         started.add(run.getId());
 
@@ -91,13 +92,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
 
     @Test
     public void aScheduledJobIsStartedByTheJobManager() throws Exception {
-        // every scheduled job with no run on record is due when the manager starts with this context
-        long deadline = System.currentTimeMillis() + 30_000;
-        JobRun latest = await(jobRuns.findLatestRun(JOB_RUN_RETENTION_SWEEP, null));
-        while (latest == null && System.currentTimeMillis() < deadline) {
-            Thread.sleep(250);
-            latest = await(jobRuns.findLatestRun(JOB_RUN_RETENTION_SWEEP, null));
-        }
+        JobRun latest = awaitScheduledRun(JOB_RUN_RETENTION_SWEEP);
 
         assertNotNull(latest, "the manager never started the job run retention sweep");
         assertNull(latest.getOrganizationId());
@@ -115,6 +110,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
         JobRun recent = saved(new JobRun().setName("retention-test").setStatus(ExecutionStatus.COMPLETED).setStarted(new Date()).setFinished(new Date()));
         JobRun latestOfItsJob = saved(new JobRun().setName("retention-test-idle").setStatus(ExecutionStatus.COMPLETED).setStarted(longAgo).setFinished(longAgo));
 
+        awaitScheduledRun(JOB_RUN_RETENTION_SWEEP);
         JobRun sweep = await(systemJobs.startSystemJob(JOB_RUN_RETENTION_SWEEP));
         started.add(sweep.getId());
         assertEquals(ExecutionStatus.COMPLETED, awaitFinished(sweep.getId()).getStatus());
@@ -138,6 +134,23 @@ public class SystemJobServiceTests extends KinoticTestBase {
         run.setId(UUID.randomUUID().toString()).setNodeId("retention-test-node");
         started.add(run.getId());
         return await(jobRuns.saveSync(run));
+    }
+
+    /**
+     * Waits for the run the job manager starts of the named job to end: every scheduled job with no run
+     * on record is due when the manager starts with this context, and a run a test starts while that
+     * one executes is refused.
+     *
+     * @return the job's latest run, or null when the manager started none in time
+     */
+    private JobRun awaitScheduledRun(String name) throws Exception {
+        long deadline = System.currentTimeMillis() + 30_000;
+        JobRun ret = await(jobRuns.findLatestRun(name, null));
+        while ((ret == null || ret.getStatus() == ExecutionStatus.RUNNING) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(250);
+            ret = await(jobRuns.findLatestRun(name, null));
+        }
+        return ret;
     }
 
     private JobRun awaitFinished(String jobRunId) throws Exception {

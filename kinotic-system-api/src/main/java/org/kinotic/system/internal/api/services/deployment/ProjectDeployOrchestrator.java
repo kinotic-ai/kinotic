@@ -168,10 +168,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
             } else if (run.getStatus() == ExecutionStatus.RUNNING) {
                 ret = Future.succeededFuture();
             } else if (run.getStatus() == ExecutionStatus.COMPLETED) {
-                // a run completes only after it resolved the artifacts of the commit it deployed
-                String commitSha = current.getArtifacts().commitSha();
-                log.debug("Deployed project {} at commit {}", projectId, commitSha);
-                ret = recordOutcome(current, new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null);
+                ret = recordDeployed(current);
             } else {
                 String failure = run.getStatus() == ExecutionStatus.CANCELLED ? "The deployment was cancelled" : run.getError();
                 log.error("Deployment run {} of project {} failed: {}", jobRunId, projectId, failure);
@@ -179,6 +176,25 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                 ret = recordOutcome(current,
                                     new DeploymentState(DeploymentStatusType.FAILED, DeploymentState.commitOf(current.getState().getObserved())),
                                     failure);
+            }
+            return ret;
+        });
+    }
+
+    // A run completes only after it resolved the artifacts of the commit it deployed. It may have
+    // written them since the worker's copy of the record was read, so the commit is read from the
+    // record as it stands.
+    private Future<Void> recordDeployed(ProjectDeployment current) {
+        String projectId = current.getId();
+        return projectDeploymentRepository.find(projectId, current.getOrganizationId()).compose(deployed -> {
+            Future<Void> ret;
+            if (deployed == null) {
+                // removed since the worker was called, so there is no record to report on
+                ret = Future.succeededFuture();
+            } else {
+                String commitSha = deployed.getArtifacts().commitSha();
+                log.debug("Deployed project {} at commit {}", projectId, commitSha);
+                ret = recordOutcome(current, new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null);
             }
             return ret;
         });

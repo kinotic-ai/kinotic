@@ -33,8 +33,9 @@ import java.util.function.Supplier;
  * callback returns only once its writes have been acknowledged by the store, so the run and
  * its PENDING records exist before the first task starts, a task's RUNNING record before its
  * body executes, and every terminal record before the run's event stream terminates. A run whose
- * record cannot be written is not started: {@link #runStarted()} fails it. A run's outcome that
- * cannot be written is written again until it is.
+ * record cannot be written is not started: {@link #runStarted()} fails it, and ends the record
+ * when the write landed after all. A run's outcome that cannot be written is written again until
+ * it is.
  */
 @Slf4j
 public class RunRecorder implements RunListener {
@@ -103,9 +104,14 @@ public class RunRecorder implements RunListener {
         Throwable failure = awaitWrite(this::saveRun);
         if (failure != null) {
             // A write can land though it failed here, and a run left RUNNING on a node that stays a
-            // member is ended by nothing else, so the record is ended in case it exists
-            awaitWrite(() -> repository.recordOutcome(jobRunId, ExecutionStatus.FAILED, failure.toString(), new Date(),
-                                                      "node " + jobRun.getNodeId()));
+            // member is ended by nothing else, so the record is read and ended when it exists
+            Date finished = new Date();
+            awaitOutcome(() -> repository.findRun(jobRunId)
+                                         .compose(landed -> landed == null
+                                                 ? Future.succeededFuture(false)
+                                                 : repository.recordOutcome(jobRunId, ExecutionStatus.FAILED, failure.toString(),
+                                                                            finished, "node " + jobRun.getNodeId())),
+                         ExecutionStatus.FAILED);
             throw new IllegalStateException("Run " + jobRunId + " of job " + jobRun.getName()
                     + " was not started, since its record could not be written", failure);
         }
@@ -248,13 +254,16 @@ public class RunRecorder implements RunListener {
     private void recordOutcome(ExecutionStatus status, String error) {
         if (runRecorded) {
             Date finished = new Date();
-            Supplier<Future<Boolean>> write = () -> repository.recordOutcome(jobRunId, status, error, finished, "node " + jobRun.getNodeId());
-            awaitWrite(() -> {
-                Promise<Void> awaited = Promise.promise();
-                writeOutcome(write, status, 1, awaited);
-                return awaited.future();
-            });
+            awaitOutcome(() -> repository.recordOutcome(jobRunId, status, error, finished, "node " + jobRun.getNodeId()), status);
         }
+    }
+
+    private void awaitOutcome(Supplier<Future<Boolean>> write, ExecutionStatus status) {
+        awaitWrite(() -> {
+            Promise<Void> awaited = Promise.promise();
+            writeOutcome(write, status, 1, awaited);
+            return awaited.future();
+        });
     }
 
     // A run left RUNNING on a node that is still a member is ended by nothing else, so the write is
@@ -264,7 +273,7 @@ public class RunRecorder implements RunListener {
         Future.<Boolean>future(promise -> write.get().onComplete(promise))
               .onSuccess(recorded -> {
                   if (!recorded) {
-                      log.info("Run {} was ended while it executed and keeps that end, its outcome {} is not recorded", jobRunId, status);
+                      log.info("Run {} has no record still executing, so its outcome {} is not recorded", jobRunId, status);
                   }
                   awaited.tryComplete();
               })

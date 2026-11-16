@@ -1,6 +1,8 @@
 package org.kinotic.grind.internal.api.services;
 
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +23,11 @@ import java.util.Set;
 /**
  * Ends the runs a server node leaves behind: on every change to the cluster membership, each run
  * still executing on a node that is not a member is recorded {@link ExecutionStatus#FAILED} with the
- * condition {@link StatusConditionType#SERVER_NODE_LEFT}, since no node will report its end. Every
- * node watches; a run already ended is left as it is, so the first node to see the departure ends
- * the run and the others write nothing.
+ * condition {@link StatusConditionType#SERVER_NODE_LEFT}, since no node will report its end. The
+ * runs are searched for a second time a few seconds later, for a run recorded as its node left, and
+ * a search or a write that fails is made again until it succeeds. Every node watches; a run already
+ * ended is left as it is, so the first node to see the departure ends the run and the others write
+ * nothing.
  */
 @Slf4j
 @Component
@@ -32,9 +36,25 @@ public class JobRunLivenessWatcher {
 
     private static final int PAGE_SIZE = 200;
 
+    // How long after the runs were ended they are searched for again: a run recorded within the
+    // index's refresh interval of its node leaving is in no search made at once
+    private static final long RESCAN_MS = 5_000;
+
+    // How long after a search or a write failed the runs are searched for again, and the longest two attempts are apart
+    private static final long RETRY_MS = 1_000;
+    private static final long RETRY_MAX_MS = 300_000;
+
     private final EventBusService eventBusService;
     private final JobRunRepository jobRunRepository;
+    private final Vertx vertx;
     private Disposable membership;
+
+    // The one timer for the next search, guarded by this with the fields below: the searches made
+    // for two changes to the membership complete on different threads
+    private Long timerId;
+    // Whether the runs are still to be searched for a second time
+    private boolean rescanOwed;
+    private boolean stopped;
 
     // The membership last reported. Ending a departed node's runs takes a write per run, so each page
     // and each run is judged against this rather than the membership the ending started with: a node
@@ -49,14 +69,57 @@ public class JobRunLivenessWatcher {
     }
 
     @PreDestroy
-    void stop() {
+    synchronized void stop() {
         membership.dispose();
+        stopped = true;
+        cancelTimer();
     }
 
     private void membershipChanged(Set<String> current) {
         members = current;
-        endRunsElsewhere()
-                .onFailure(error -> log.error("Runs left by departed nodes could not be ended", error));
+        synchronized (this) {
+            rescanOwed = true;
+        }
+        sweep(RETRY_MS);
+    }
+
+    private void sweep(long retryMs) {
+        endRunsElsewhere().onComplete(swept -> swept(swept, retryMs));
+    }
+
+    // Sets the timer for the search that follows this one: the same search again when it failed, the
+    // second search when it is owed. Either stands in for the search of a timer already set.
+    private synchronized void swept(AsyncResult<Void> swept, long retryMs) {
+        if (!stopped) {
+            if (swept.failed()) {
+                log.error("Runs left by departed nodes could not be ended, next attempt in {}ms", retryMs, swept.cause());
+                setTimer(retryMs, () -> sweep(Math.min(RETRY_MAX_MS, retryMs * 2)));
+            } else if (rescanOwed) {
+                setTimer(RESCAN_MS, this::rescan);
+            }
+        }
+    }
+
+    private void rescan() {
+        // cleared as the search starts, so a change to the membership during it is searched for again
+        synchronized (this) {
+            rescanOwed = false;
+        }
+        sweep(RETRY_MS);
+    }
+
+    // Called holding the lock
+    private void setTimer(long delayMs, Runnable search) {
+        cancelTimer();
+        timerId = vertx.setTimer(delayMs, id -> search.run());
+    }
+
+    // Called holding the lock
+    private void cancelTimer() {
+        if (timerId != null) {
+            vertx.cancelTimer(timerId);
+            timerId = null;
+        }
     }
 
     // An ended run leaves the search, so the first page is read until it holds no run to end. A page
