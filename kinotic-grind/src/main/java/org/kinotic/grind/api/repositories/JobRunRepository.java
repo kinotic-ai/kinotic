@@ -4,8 +4,10 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Order;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.WatchEventType;
 import org.kinotic.domain.api.model.WatchedType;
@@ -189,6 +191,47 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     public Future<List<TaskRecord>> findTasks(String jobRunId) {
         List<TaskRecord> collected = new ArrayList<>();
         return readTaskPage(jobRunId, 0, collected).map(collected);
+    }
+
+    /**
+     * Returns a page of the runs that ended before the given time.
+     *
+     * @param cutoff   the time the runs ended before
+     * @param pageable the page to return
+     */
+    public Future<Page<JobRun>> findEndedBefore(Date cutoff, Pageable pageable) {
+        Validate.notNull(cutoff, "cutoff cannot be null");
+        String before = cutoff.toInstant().toString();
+        return findAll(pageable, b -> b.query(q -> q.range(r -> r.date(d -> d.field("finished").lt(before)))));
+    }
+
+    /**
+     * Deletes the given runs with their task records. Visible to search on completion.
+     *
+     * @param jobRunIds the ids of the runs to delete
+     * @return a future completing once the runs and their task records are gone
+     */
+    public Future<Void> deleteRuns(List<String> jobRunIds) {
+        Validate.notNull(jobRunIds, "jobRunIds cannot be null");
+        // The task records go first: a run left without them is found again by when it ended, and
+        // records left without their run would never be
+        return taskRecordRepository.deleteAllForJobRuns(jobRunIds)
+                                   .compose(v -> Future.all(jobRunIds.stream().map(id -> deleteById(id)).toList()))
+                                   .compose(v -> syncIndex());
+    }
+
+    /**
+     * Finds the run of the named job, made on behalf of the system, that started last.
+     *
+     * @param name the name of the job
+     * @return a future that will complete with the run, or {@code null} when the system has made no
+     *         run of that name
+     */
+    public Future<JobRun> findLatestSystemRun(String name) {
+        Validate.notBlank(name, "name cannot be blank");
+        return findAll(Pageable.create(0, 1, Sort.by(Order.desc("started"))),
+                       b -> b.query(composeFilter(termFilter("name", name), missingFilter("organizationId"))))
+                .map(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     /**

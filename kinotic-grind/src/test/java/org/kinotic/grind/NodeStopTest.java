@@ -16,6 +16,7 @@ import org.kinotic.grind.internal.api.services.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Date;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -50,7 +51,7 @@ public class NodeStopTest extends AbstractGrindTest {
         try (AnnotationConfigApplicationContext nodeCtx = new AnnotationConfigApplicationContext()) {
             nodeCtx.registerBean(DefaultJobService.class,
                                  () -> new DefaultJobService(ledger, new ObjectMapper(), vertx,
-                                                             () -> new ServerInfo(TEST_NODE_ID, "grind test node")));
+                                                             () -> new ServerInfo(TEST_NODE_ID, "grind test node"), List.of()));
             nodeCtx.refresh();
             JobDefinition job = JobDefinition.create("interrupted by a stop")
                                              .name("interrupted").version("1")

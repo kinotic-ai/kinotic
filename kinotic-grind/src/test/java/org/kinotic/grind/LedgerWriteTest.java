@@ -15,6 +15,7 @@ import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.grind.internal.api.services.DefaultJobService;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -126,7 +127,7 @@ public class LedgerWriteTest extends AbstractGrindTest {
 
     private DefaultJobService jobServiceOn(InMemoryJobRunRepository ledger) {
         DefaultJobService ret = new DefaultJobService(ledger, new ObjectMapper(), vertx,
-                                                      () -> new ServerInfo(TEST_NODE_ID, "grind test node"));
+                                                      () -> new ServerInfo(TEST_NODE_ID, "grind test node"), List.of());
         ret.setApplicationContext(appCtx);
         return ret;
     }

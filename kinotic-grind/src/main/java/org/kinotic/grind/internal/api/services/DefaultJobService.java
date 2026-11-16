@@ -2,7 +2,9 @@ package org.kinotic.grind.internal.api.services;
 
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.apache.ignite.cluster.ClusterGroup;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
@@ -18,6 +20,7 @@ import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
+import org.kinotic.grind.api.services.SystemJob;
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.ReplayEntry;
 import org.kinotic.grind.internal.model.RunCancelledException;
@@ -35,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -78,16 +82,26 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final Vertx vertx;
     private final Kinotic kinotic;
 
+    // The node's system jobs by the name of their definition, in name order
+    private final Map<String, SystemJob> systemJobs = new TreeMap<>();
+
     private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
-    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx, Kinotic kinotic) {
+    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx, Kinotic kinotic,
+                             List<SystemJob> systemJobs) {
         this.repository = repository;
         this.stateSerializer = new StateSerializer(objectMapper);
         this.runThreads = new RunThreadFactory(vertx);
         this.vertx = vertx;
         this.kinotic = kinotic;
+        for (SystemJob job : systemJobs) {
+            String name = job.createJobDefinition().getName();
+            Validate.validState(StringUtils.isNotBlank(name), "System job %s builds a definition with no name", job);
+            SystemJob other = this.systemJobs.put(name, job);
+            Validate.validState(other == null, "Two system jobs named %s: %s and %s", name, other, job);
+        }
     }
 
     @Override
@@ -161,6 +175,25 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
             ret = handle.getEvents();
         }
         return ret;
+    }
+
+    @Override
+    public List<JobDefinition> findSystemJobs() {
+        return systemJobs.values().stream().map(SystemJob::createJobDefinition).toList();
+    }
+
+    @Override
+    public JobRunHandle runSystemJob(String name) {
+        Validate.notBlank(name, "name cannot be blank");
+        SystemJob job = systemJobs.get(name);
+        Validate.isTrue(job != null, "No system job named %s", name);
+        return run(job.createJobDefinition(), JobOwner.system());
+    }
+
+    @Override
+    public void deployJobManager(ClusterGroup hosts) {
+        Validate.notNull(hosts, "hosts cannot be null");
+        hosts.ignite().services(hosts).deployClusterSingleton(JobManager.SINGLETON_NAME, new JobManager(hosts.predicate()));
     }
 
     @Override

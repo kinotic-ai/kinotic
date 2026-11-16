@@ -1,9 +1,12 @@
 package org.kinotic.grind.api.services;
 
+import org.apache.ignite.cluster.ClusterGroup;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.grind.api.model.*;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 
 /**
@@ -66,5 +69,30 @@ public interface JobService {
      *         is executing in this process
      */
     Flux<JobRunEvent> watchRun(String jobRunId);
+
+    /**
+     * Lists this node's {@link SystemJob}s.
+     * @return a fresh definition of each system job, ordered by name
+     */
+    List<JobDefinition> findSystemJobs();
+
+    /**
+     * Prepares a recorded execution of the named {@link SystemJob} on behalf of the system, as
+     * {@link #run(JobDefinition, JobOwner)} does for a fresh definition of it.
+     * @param name the name of the system job to run
+     * @return the prepared {@link JobRunHandle}
+     * @throws IllegalArgumentException when this node has no system job of the given name
+     * @throws IllegalStateException when called by a task of a run
+     */
+    JobRunHandle runSystemJob(String name);
+
+    /**
+     * Requests the cluster's job manager: one singleton, hosted by one of the given nodes, that has a
+     * run of each {@link SystemJob} whose definition declares a {@link JobDefinition#getPeriod() period}
+     * started on one of those nodes whenever a period has passed since the job's latest run started.
+     * Every node that holds the system jobs requests it, and the cluster keeps one.
+     * @param hosts the nodes that hold the system jobs
+     */
+    void deployJobManager(ClusterGroup hosts);
 
 }

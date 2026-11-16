@@ -30,6 +30,12 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     public final Map<String, JobRun> savedRuns = new LinkedHashMap<>();
     public final Map<String, TaskRecord> savedTasks = new LinkedHashMap<>();
 
+    /**
+     * The name of a job whose latest run cannot be read, as when the store does not answer; null
+     * when every read succeeds.
+     */
+    public volatile String unreadableJob;
+
     public InMemoryJobRunRepository() {
         super(null, null, null, null);
     }
@@ -77,6 +83,28 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     public synchronized Future<TaskRecord> saveTask(TaskRecord taskRecord) {
         savedTasks.put(taskRecord.getId(), taskRecord);
         return completedOffThread(taskRecord);
+    }
+
+    @Override
+    public synchronized Future<JobRun> findLatestSystemRun(String name) {
+        Future<JobRun> ret;
+        if (name.equals(unreadableJob)) {
+            ret = Future.failedFuture(new IllegalStateException("The runs of " + name + " cannot be read"));
+        } else {
+            List<JobRun> runs = systemRunsOf(name);
+            ret = completedOffThread(runs.isEmpty() ? null : runs.getLast());
+        }
+        return ret;
+    }
+
+    /**
+     * The captured runs of the named job made on behalf of the system, ordered by when they started.
+     */
+    public synchronized List<JobRun> systemRunsOf(String name) {
+        return savedRuns.values().stream()
+                        .filter(run -> name.equals(run.getName()) && run.getOrganizationId() == null)
+                        .sorted(Comparator.comparing(JobRun::getStarted))
+                        .toList();
     }
 
     @Override

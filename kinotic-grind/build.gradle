@@ -12,8 +12,12 @@ dependencies {
 
     implementation 'io.vertx:vertx-core'
 
+    implementation 'org.apache.ignite:ignite-core'
+
     implementation 'org.reactivestreams:reactive-streams'
 
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
+
+    testImplementation 'org.apache.ignite:ignite-spring'
 }
