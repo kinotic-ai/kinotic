@@ -21,6 +21,7 @@ import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientSettings;
 
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +33,8 @@ import java.util.Objects;
 public class DefaultOidcClient implements OidcClient {
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    // how far this server's clock may run ahead of the provider's before an id token counts as expired
+    private static final long ID_TOKEN_CLOCK_SKEW_SECONDS = 60;
 
     private final OAuth2Auth oauth2;
     private final WebClient webClient;
@@ -93,6 +96,11 @@ public class DefaultOidcClient implements OidcClient {
             // authorize always sends a nonce, so OIDC Core 3.1.3.7 requires the id_token to echo it — an absent
             // claim fails the equals and is rejected
             ret = Future.failedFuture(new InvalidIdTokenException("The id token's nonce does not match the sign-in"));
+        } else if (!(claims.get("exp") instanceof Number expiry)
+                || Instant.now().getEpochSecond() - ID_TOKEN_CLOCK_SKEW_SECONDS >= expiry.longValue()) {
+            // Vert.x holds the sign-in to the token response's expires_in and the access token's exp, so the id
+            // token's own exp, which OIDC Core 3.1.3.7 requires, is checked here
+            ret = Future.failedFuture(new InvalidIdTokenException("The id token has expired"));
         } else if (OAuth2Util.stringClaim(claims, "email") != null && !claims.containsKey("email_verified")
                 && !OAuth2Util.issuesOnlyVerifiedEmails(settings.getProvider())) {
             // Okta's id_token from a code exchange leaves email_verified to the userinfo endpoint
