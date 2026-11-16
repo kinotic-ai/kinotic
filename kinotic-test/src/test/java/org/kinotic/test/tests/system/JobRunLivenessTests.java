@@ -101,7 +101,7 @@ public class JobRunLivenessTests extends KinoticTestBase {
         assertTrue(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.SERVER_NODE_LEFT));
     }
 
-    /** A run recorded the way a job's start records it, executing on a node that is not a member. */
+    /** A run as a job's start records it, executing on a node that is not a member, and visible to search. */
     private JobRun executing() throws Exception {
         JobRun run = new JobRun().setId(UUID.randomUUID().toString())
                                  .setName("liveness-run")
@@ -109,7 +109,7 @@ public class JobRunLivenessTests extends KinoticTestBase {
                                  .setNodeId(DEPARTED_NODE_ID)
                                  .setStarted(new Date());
         created.add(run.getId());
-        return await(jobRuns.saveRun(run));
+        return await(jobRuns.saveSync(run));
     }
 
     private boolean foundExecutingElsewhere(JobRun run) throws Exception {
