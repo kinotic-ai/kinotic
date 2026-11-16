@@ -87,8 +87,10 @@ public class JobRunLivenessWatcherTest extends AbstractGrindTest {
                 if (joined.compareAndSet(false, true)) {
                     membership.emitNext(Set.of(TEST_NODE_ID, joinedNodeId), Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(5)));
                 }
+                Future<Boolean> ret = super.recordAbandoned(jobRunId, condition, source);
+                // counted once the write is applied, so a counted write can be read
                 writes.add(jobRunId);
-                return super.recordAbandoned(jobRunId, condition, source);
+                return ret;
             }
         };
         ledger.saveRun(executing("departed-first", DEPARTED_NODE_ID));
