@@ -80,14 +80,14 @@ public class JobManagerTest {
     public void aScheduledJobIsRunWhenTheManagerStartsAndAgainEveryPeriod() throws Exception {
         JobService jobService = startNode("node-a", List.of(job("scheduled", PERIOD), job("unscheduled", null)));
 
+        long deployed = System.currentTimeMillis();
         jobService.deployJobManager(nodes.getFirst().cluster().forServers());
 
         awaitUntil("the scheduled job never ran three times", () -> ledger.systemRunsOf("scheduled").size() >= 3);
         List<JobRun> runs = ledger.systemRunsOf("scheduled");
-        for (int i = 1; i < runs.size(); i++) {
-            long apart = runs.get(i).getStarted().getTime() - runs.get(i - 1).getStarted().getTime();
-            assertTrue(apart >= PERIOD.toMillis() / 2, "runs " + (i - 1) + " and " + i + " started " + apart + "ms apart");
-        }
+        long elapsed = System.currentTimeMillis() - deployed;
+        // one run when the manager starts and one for every period that has passed since
+        assertTrue(runs.size() <= elapsed / PERIOD.toMillis() + 1, runs.size() + " runs in " + elapsed + "ms");
         assertNull(runs.getFirst().getOrganizationId(), "a scheduled run is the system's");
         assertTrue(ledger.systemRunsOf("unscheduled").isEmpty(), "a job with no period is never started by the manager");
     }
@@ -177,14 +177,14 @@ public class JobManagerTest {
                                                          () -> new ServerInfo(name, "grind test node"), systemJobs));
         context.refresh();
 
-        // a discovery port range of the test's own, so the nodes find each other and no other cluster on the host
+        // a discovery port range of the test's own, so the nodes find each other and no other module's test cluster
         IgniteConfiguration configuration = new IgniteConfiguration()
                 .setIgniteInstanceName(name)
                 .setLocalHost("127.0.0.1")
                 .setMetricsLogFrequency(0)
                 .setWorkDirectory(workDirectory.resolve(name).toString())
-                .setDiscoverySpi(new TcpDiscoverySpi().setLocalPort(48500)
-                                                      .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:48500..48509"))));
+                .setDiscoverySpi(new TcpDiscoverySpi().setLocalPort(48700)
+                                                      .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:48700..48709"))));
         nodes.add(IgniteSpring.start(configuration, context));
         return context.getBean(JobService.class);
     }

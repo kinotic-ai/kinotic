@@ -382,8 +382,9 @@ public class DeployWorkerTests extends KinoticTestBase {
                                                  found -> !abandoned.getId().equals(found.getLastJobRunId()));
         assertFalse(abandoned.getId().equals(restarted.getLastJobRunId()), "the worker never started a new run");
         jobRunIds.add(restarted.getLastJobRunId());
-        JobRun next = await(jobRuns.findRun(restarted.getLastJobRunId()));
-        assertNotNull(next, "the new run is recorded by the time the deployment names it and the worker has returned");
+        // the deployment names the run before the run is started, which is what records it
+        JobRun next = awaitUntil(() -> jobRuns.findRun(restarted.getLastJobRunId()), found -> true);
+        assertNotNull(next, "the run the deployment names was never recorded");
         assertEquals(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, TEST_ORG_ID, projectId), next.getState().getParent());
 
         // no node is registered, so the new run fails, and its end reaches the deployment through the master

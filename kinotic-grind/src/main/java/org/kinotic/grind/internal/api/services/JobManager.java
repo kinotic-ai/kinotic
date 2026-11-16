@@ -1,5 +1,6 @@
 package org.kinotic.grind.internal.api.services;
 
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -11,6 +12,7 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
+import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
@@ -21,8 +23,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The cluster's job manager, one HA cluster singleton on the Ignite service grid. It has a run of
@@ -64,6 +68,8 @@ public class JobManager implements Service {
     // each node that comes to host the singleton. Guarded by this with the fields below, since the
     // timer, the reads of the recorded runs and the nodes' answers complete on other threads
     private transient Map<String, Long> dueTimes;
+    // The jobs whose decision is in flight
+    private transient Set<String> deciding;
     // The one timer, set to the earliest due time
     private transient Long timerId;
     private transient int turn;
@@ -75,6 +81,7 @@ public class JobManager implements Service {
         // than in field initializers, which do not run on deserialization
         periods = new HashMap<>();
         dueTimes = new HashMap<>();
+        deciding = new HashSet<>();
         for (JobDefinition job : jobService.findSystemJobs()) {
             if (job.getPeriod() != null) {
                 periods.put(job.getName(), job.getPeriod().toMillis());
@@ -105,9 +112,13 @@ public class JobManager implements Service {
             long now = System.currentTimeMillis();
             for (Map.Entry<String, Long> due : dueTimes.entrySet()) {
                 if (!cancelled && due.getValue() <= now) {
-                    // the job's turn to be tried again, which stands when its decision fails or never completes
+                    // the job's turn to be tried again, which stands when its decision fails
                     due.setValue(now + RETRY_MS);
-                    decide(due.getKey());
+                    // asking every node in turn can outlast the retry, and a second decision made
+                    // meanwhile could start a second run
+                    if (deciding.add(due.getKey())) {
+                        decide(due.getKey());
+                    }
                 }
             }
         } finally {
@@ -127,13 +138,42 @@ public class JobManager implements Service {
                   if (latest != null && latest.getStarted().getTime() + period > now) {
                       nextDue = Future.succeededFuture(latest.getStarted().getTime() + period);
                   } else {
-                      nextDue = start(name, latest, nodesInTurn(), 0).map(now + period);
+                      nextDue = start(name, latest, nodesInTurn(), 0)
+                              .compose(jobRunId -> confirmStarted(name, latest, jobRunId))
+                              .map(now + period);
                   }
                   return nextDue;
               })
-              .onSuccess(nextDue -> dueAt(name, nextDue))
-              .onFailure(error -> log.warn("System job {} is due and no run of it was started; it is tried again in {}s",
-                                           name, RETRY_MS / 1000, error));
+              .onComplete(nextDue -> decided(name, nextDue));
+    }
+
+    // A refused run stands for the period's run when the job's latest run is the one executing. Any
+    // other refusal is a lock that could not be taken, or a run so new that the latest known was read
+    // before it, and the job is decided again
+    private Future<Void> confirmStarted(String name, JobRun latest, String jobRunId) {
+        Future<Void> ret;
+        if (jobRunId != null) {
+            ret = Future.succeededFuture();
+        } else if (latest != null && latest.getStatus() == ExecutionStatus.RUNNING) {
+            log.warn("System job {} came due while run {} of it was still executing, so no run was started for this period",
+                     name, latest.getId());
+            ret = Future.succeededFuture();
+        } else {
+            ret = Future.failedFuture(new IllegalStateException("System job " + name + " was refused its run, and its latest run on record, "
+                                                                        + (latest != null ? latest.getId() : "none") + ", is not executing"));
+        }
+        return ret;
+    }
+
+    private synchronized void decided(String name, AsyncResult<Long> nextDue) {
+        deciding.remove(name);
+        if (nextDue.succeeded()) {
+            dueTimes.put(name, nextDue.result());
+            setTimer();
+        } else {
+            log.warn("System job {} is due and no run of it was started; it is tried again within {}s",
+                     name, RETRY_MS / 1000, nextDue.cause());
+        }
     }
 
     // The nodes that hold the system jobs, starting with the one whose turn it is
@@ -148,11 +188,12 @@ public class JobManager implements Service {
         return ret;
     }
 
-    // Asks the nodes one after another to start a run of the job, until one does. A node that failed
-    // to answer may still have started the run, so the next node is asked only when the recorded runs
-    // show none newer than the latest known before the first was asked
-    private Future<Void> start(String name, JobRun latest, List<ClusterNode> nodes, int index) {
-        Future<Void> ret;
+    // Asks the nodes one after another to start a run of the job, until one answers, and completes
+    // with the id of the run started, or null when the run was refused because one is executing. A
+    // node that failed to answer may still have started the run, so the next node is asked only when
+    // the recorded runs show none newer than the latest known before the first was asked
+    private Future<String> start(String name, JobRun latest, List<ClusterNode> nodes, int index) {
+        Future<String> ret;
         if (index == nodes.size()) {
             ret = Future.failedFuture(new IllegalStateException("None of the " + nodes.size() + " nodes holding system job "
                                                                         + name + " started a run of it"));
@@ -160,19 +201,15 @@ public class JobManager implements Service {
             ClusterNode node = nodes.get(index);
             ret = startOn(node, name)
                     .onSuccess(jobRunId -> {
-                        if (jobRunId == null) {
-                            log.warn("System job {} came due while a run of it was still executing, so no run was started for this "
-                                             + "period. The latest run on record is {}", name, latest != null ? latest.getId() : "none");
-                        } else {
+                        if (jobRunId != null) {
                             log.info("Node {} started scheduled system job {} as run {}", node.id(), name, jobRunId);
                         }
                     })
-                    .<Void>mapEmpty()
                     .recover(error -> {
                         log.warn("Node {} did not answer that it started system job {}", node.id(), name, error);
                         return jobRuns.findLatestRun(name, null)
                                       .compose(current -> isNewer(current, latest)
-                                              ? Future.succeededFuture()
+                                              ? Future.succeededFuture(current.getId())
                                               : start(name, latest, nodes, index + 1));
                     });
         }
@@ -200,11 +237,6 @@ public class JobManager implements Service {
                                                       promise.fail(e);
                                                   }
                                               })));
-    }
-
-    private synchronized void dueAt(String name, long due) {
-        dueTimes.put(name, due);
-        setTimer();
     }
 
     // Replaces the timer with one for the earliest due time; called holding the lock
