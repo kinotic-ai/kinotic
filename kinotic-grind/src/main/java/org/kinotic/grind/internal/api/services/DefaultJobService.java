@@ -1,7 +1,11 @@
 package org.kinotic.grind.internal.api.services;
 
+import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.grind.api.model.ExclusiveJobRunningException;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -25,12 +29,17 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.vertx.core.Future;
@@ -44,14 +53,21 @@ import tools.jackson.databind.ObjectMapper;
  * tasks may block on their results while {@code Vertx.currentContext()} - and the platform
  * services that hang off it - resolve throughout the run. Runs are recorded through the
  * {@link JobRunRepository} and observable through the handle's event stream. Execution begins
- * when the handle's events are first subscribed.
+ * when the handle's events are first subscribed. When the node stops, the runs still executing on it
+ * are ended: each is recorded {@link ExecutionStatus#FAILED} with the condition
+ * {@link StatusConditionType#SERVER_NODE_LEFT} and then cancelled.
  */
+@Slf4j
 @Component
 public class DefaultJobService implements JobService, ApplicationContextAware {
 
     // A run's lock is released just after its event stream terminates, so a run started on the
     // completion of the previous one waits this long for the lock before it is refused
     private static final long EXCLUSIVE_LOCK_TIMEOUT_MS = 1_000;
+
+    // How long a stopping node waits for the end of its runs to be recorded, well inside the time a
+    // stopping pod is given
+    private static final long STOP_TIMEOUT_MS = 10_000;
 
     private static final String STARTED_BY_TASK = "A task cannot start a run. Return the JobDefinition from the task, "
             + "and it executes as a step of the task's own run";
@@ -150,6 +166,34 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = (ConfigurableApplicationContext) applicationContext;
+    }
+
+    @PreDestroy
+    void endActiveRuns() {
+        String nodeId = kinotic.serverInfo().getNodeId();
+        StatusCondition stopped = new StatusCondition(StatusConditionType.SERVER_NODE_LEFT,
+                                                      "Node " + nodeId + " stopped while the run was live",
+                                                      new Date());
+        List<Future<Boolean>> ended = new ArrayList<>();
+        // The end is recorded before the run is cancelled, so the run's own CANCELLED outcome is the
+        // one declined, and whatever made the run reads that it ended with its node
+        activeRuns.forEach((runId, handle) -> ended.add(
+                repository.recordAbandoned(runId, stopped, "node " + nodeId + " stopping")
+                          .onFailure(error -> log.warn("Run {} could not be recorded as ended by this node stopping", runId, error))
+                          .onComplete(recorded -> handle.cancel())));
+        if (!ended.isEmpty()) {
+            log.info("Ending {} run(s) still executing as this node stops", ended.size());
+            try {
+                Future.join(ended).toCompletionStage().toCompletableFuture().get(STOP_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (TimeoutException e) {
+                log.warn("Not every run executing on this node was recorded as ended within {}ms of it stopping; "
+                                 + "the cluster's membership watch ends the rest", STOP_TIMEOUT_MS);
+            } catch (ExecutionException e) {
+                // each write that failed is logged above, and the cluster's membership watch ends those runs
+            }
+        }
     }
 
     /**

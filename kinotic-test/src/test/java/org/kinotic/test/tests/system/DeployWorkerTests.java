@@ -7,8 +7,15 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Requeue;
+import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchedParent;
+import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.grind.api.model.ExecutionStatus;
+import org.kinotic.grind.api.model.JobRun;
+import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.DeployTarget;
 import org.kinotic.management.api.model.deployment.DeploymentState;
@@ -42,6 +49,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -53,16 +61,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The deployment workers against their real repositories: what each answers for an intent it cannot
- * carry out, for a record the commit dropped, and for a removal, and what the microservice worker
- * does with a restart. A worker is called directly where the test asserts its answer, as the
- * reconcile master calls it; a removal and a restart are left to the master running in this
- * context, and the test waits for the record to go or the VM to be replaced.
+ * carry out, for a record the commit dropped, and for a removal, what the microservice worker
+ * does with a restart, and what the project worker reports once its deployment run has ended. A
+ * worker is called directly where the test asserts its answer, as the reconcile master calls it; a
+ * removal, a restart and the end of a run are left to the master running in this context, and the
+ * test waits for the record to go, the VM to be replaced, or the outcome to be reported.
  */
 @SpringBootTest
 public class DeployWorkerTests extends KinoticTestBase {
 
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
     private static final String NODE_ID = "worker-node";
+    private static final String RUN_NODE_ID = "run-node";
 
     @Autowired
     private Reconciler<MicroserviceDeployment> microserviceWorker;
@@ -106,6 +116,10 @@ public class DeployWorkerTests extends KinoticTestBase {
     @Autowired
     private ServiceRegistry serviceRegistry;
 
+    @Autowired
+    private JobRunRepository jobRuns;
+
+    private final List<String> jobRunIds = new ArrayList<>();
     private final List<String> microserviceIds = new ArrayList<>();
     private final List<String> uiIds = new ArrayList<>();
     private final List<String> projectIds = new ArrayList<>();
@@ -144,9 +158,13 @@ public class DeployWorkerTests extends KinoticTestBase {
                 await(projects.deleteByIdSync(id, TEST_ORG_ID));
             }
         }
+        for (String id : jobRunIds) {
+            await(jobRuns.deleteByIdSync(id));
+        }
         microserviceIds.clear();
         uiIds.clear();
         projectIds.clear();
+        jobRunIds.clear();
     }
 
     @Test
@@ -296,6 +314,108 @@ public class DeployWorkerTests extends KinoticTestBase {
         awaitGone(() -> microservices.findById(child.getId()), "microservice deployment " + child.getId());
         awaitGone(() -> uis.findById(site.getId()), "UI deployment " + site.getId());
         awaitGone(() -> projectDeployments.findById(projectId, TEST_ORG_ID), "project deployment " + projectId);
+    }
+
+    @Test
+    public void aDeployingProjectIsLeftDeployingWhileItsRunExecutes() throws Exception {
+        String projectId = "worker-project-run-executing";
+        JobRun run = deploying(projectId);
+
+        assertEquals(Requeue.NONE, await(projectWorker.reconcile(await(projectDeployments.findById(projectId, TEST_ORG_ID)))));
+
+        ProjectDeployment deployment = await(projectDeployments.findById(projectId, TEST_ORG_ID));
+        assertEquals(DeploymentStatusType.DEPLOYING, deployment.getState().getObserved().phase());
+        assertEquals(run.getId(), deployment.getLastJobRunId());
+    }
+
+    @Test
+    public void aDeployingProjectReportsTheCommitOfItsCompletedRun() throws Exception {
+        String projectId = "worker-project-run-completed";
+        JobRun run = deploying(projectId);
+
+        await(jobRuns.recordOutcome(run.getId(), ExecutionStatus.COMPLETED, null, new Date(), "test"));
+
+        ProjectDeployment deployment = awaitUntil(() -> projectDeployments.findById(projectId, TEST_ORG_ID),
+                                                  found -> found.getState().getObserved().phase() != DeploymentStatusType.DEPLOYING);
+        assertEquals(new DeploymentState(DeploymentStatusType.RUNNING, COMMIT), deployment.getState().getObserved());
+        assertEquals(deployment.getState().getGeneration(), deployment.getState().getObservedGeneration());
+        assertNull(deployment.getFailureMessage());
+        assertEquals(run.getId(), deployment.getLastJobRunId());
+    }
+
+    @Test
+    public void aDeployingProjectReportsTheFailureOfItsFailedRun() throws Exception {
+        String projectId = "worker-project-run-failed";
+        JobRun run = deploying(projectId);
+
+        await(jobRuns.recordOutcome(run.getId(), ExecutionStatus.FAILED, "java.lang.IllegalStateException: the build failed", new Date(), "test"));
+
+        ProjectDeployment deployment = awaitUntil(() -> projectDeployments.findById(projectId, TEST_ORG_ID),
+                                                  found -> found.getState().getObserved().phase() != DeploymentStatusType.DEPLOYING);
+        // no commit was live before the run, and none is after it
+        assertEquals(new DeploymentState(DeploymentStatusType.FAILED, null), deployment.getState().getObserved());
+        assertEquals("java.lang.IllegalStateException: the build failed", deployment.getFailureMessage());
+        // the failed intent is answered, so it waits for the next push
+        assertEquals(deployment.getState().getGeneration(), deployment.getState().getObservedGeneration());
+        assertEquals(run.getId(), deployment.getLastJobRunId());
+    }
+
+    @Test
+    public void aDeployingProjectWhoseRunEndedWithItsNodeIsDeployedByANewRun() throws Exception {
+        String projectId = "worker-project-run-abandoned";
+        JobRun abandoned = deploying(projectId);
+        Project project = new Project();
+        project.setId(projectId);
+        project.setOrganizationId(TEST_ORG_ID);
+        project.setApplicationId(TEST_APP_ID);
+        project.setName(projectId);
+        await(projects.createSync(project, TEST_ORG_ID));
+
+        // what the membership watch of another node writes when the node executing the run leaves
+        await(jobRuns.recordAbandoned(abandoned.getId(),
+                                      new StatusCondition(StatusConditionType.SERVER_NODE_LEFT,
+                                                          "Node " + RUN_NODE_ID + " left the cluster while the run was live",
+                                                          new Date()),
+                                      "cluster membership"));
+
+        ProjectDeployment restarted = awaitUntil(() -> projectDeployments.findById(projectId, TEST_ORG_ID),
+                                                 found -> !abandoned.getId().equals(found.getLastJobRunId()));
+        assertFalse(abandoned.getId().equals(restarted.getLastJobRunId()), "the worker never started a new run");
+        jobRunIds.add(restarted.getLastJobRunId());
+        JobRun next = await(jobRuns.findRun(restarted.getLastJobRunId()));
+        assertNotNull(next, "the new run is recorded by the time the deployment names it and the worker has returned");
+        assertEquals(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, TEST_ORG_ID, projectId), next.getState().getParent());
+
+        // no node is registered, so the new run fails, and its end reaches the deployment through the master
+        ProjectDeployment failed = awaitUntil(() -> projectDeployments.findById(projectId, TEST_ORG_ID),
+                                              found -> found.getState().getObserved().phase() == DeploymentStatusType.FAILED);
+        assertEquals(DeploymentStatusType.FAILED, failed.getState().getObserved().phase());
+        assertNotNull(failed.getFailureMessage());
+        assertEquals(ExecutionStatus.FAILED, await(jobRuns.findRun(restarted.getLastJobRunId())).getStatus());
+    }
+
+    /**
+     * A deployment the worker has started a run for, with no project behind it: the run executing as
+     * the job service records it, made by the deployment, which names it and reports DEPLOYING for
+     * the intent of {@link #COMMIT}, whose artifacts the run's sync has reported.
+     */
+    private JobRun deploying(String projectId) throws Exception {
+        ProjectDeployment deployment = projectDeployment(projectId, new DeploymentState(DeploymentStatusType.RUNNING, COMMIT));
+        JobRun run = new JobRun().setId(UUID.randomUUID().toString())
+                                 .setName("project-deploy-" + projectId)
+                                 .setOrganizationId(TEST_ORG_ID)
+                                 .setApplicationId(TEST_APP_ID)
+                                 .setProjectId(projectId)
+                                 .setNodeId(RUN_NODE_ID)
+                                 .setStarted(new Date());
+        run.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, TEST_ORG_ID, projectId));
+        jobRunIds.add(run.getId());
+        await(jobRuns.saveSync(run));
+        await(projectDeployments.recordArtifacts(projectId, TEST_ORG_ID, new ProjectArtifacts(COMMIT, List.of(), List.of(), null), false));
+        await(projectDeployments.recordJobRun(projectId, TEST_ORG_ID, run.getId()));
+        await(projectDeployments.reportObserved(projectId, TEST_ORG_ID, new DeploymentState(DeploymentStatusType.DEPLOYING, null),
+                                                deployment.getState().getGeneration(), "deploy job " + run.getId()));
+        return run;
     }
 
     /**
