@@ -4,6 +4,7 @@ import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.SerializedState;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import org.kinotic.domain.api.model.WatchedParent;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.VertxInternal;
@@ -31,10 +32,18 @@ import java.util.function.Supplier;
  * through the {@link RunListener} callbacks. The ledger is written ahead of execution: every
  * callback returns only once its writes have been acknowledged by the store, so the run and
  * its PENDING records exist before the first task starts, a task's RUNNING record before its
- * body executes, and every terminal record before the run's event stream terminates.
+ * body executes, and every terminal record before the run's event stream terminates. A run whose
+ * record cannot be written is not started: {@link #runStarted()} fails it. A run's outcome that
+ * cannot be written is written again until it is.
  */
 @Slf4j
 public class RunRecorder implements RunListener {
+
+    // How many attempts at writing the run's outcome the run waits for, how long after the first
+    // failure the write is issued again, and the longest two attempts are apart
+    private static final int OUTCOME_ATTEMPTS_AWAITED = 3;
+    private static final long OUTCOME_RETRY_MS = 1_000;
+    private static final long OUTCOME_RETRY_MAX_MS = 300_000;
 
     private final String jobRunId;
     private final JobRun jobRun;
@@ -42,6 +51,9 @@ public class RunRecorder implements RunListener {
     private final Context writeContext;
 
     private final Map<String, TaskRecord> recordsByPath = new ConcurrentHashMap<>();
+
+    // Whether the run's record was written, which a run that fails before or at its start has none of
+    private boolean runRecorded;
 
     public RunRecorder(String jobRunId,
                        DefaultJobDefinition definition,
@@ -88,7 +100,12 @@ public class RunRecorder implements RunListener {
     public void runStarted() {
         jobRun.setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
-        awaitWrite(this::saveRun);
+        Throwable failure = awaitWrite(this::saveRun);
+        if (failure != null) {
+            throw new IllegalStateException("Run " + jobRunId + " of job " + jobRun.getName()
+                    + " was not started, since its record could not be written", failure);
+        }
+        runRecorded = true;
     }
 
     @Override
@@ -184,19 +201,19 @@ public class RunRecorder implements RunListener {
 
     @Override
     public void runCompleted() {
-        awaitWrite(() -> recordOutcome(ExecutionStatus.COMPLETED, null));
+        recordOutcome(ExecutionStatus.COMPLETED, null);
     }
 
     @Override
     public void runFailed(Throwable error) {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
-        awaitWrite(() -> recordOutcome(ExecutionStatus.FAILED, error.toString()));
+        recordOutcome(ExecutionStatus.FAILED, error.toString());
     }
 
     @Override
     public void runCancelled() {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
-        awaitWrite(() -> recordOutcome(ExecutionStatus.CANCELLED, null));
+        recordOutcome(ExecutionStatus.CANCELLED, null);
     }
 
     /**
@@ -223,10 +240,39 @@ public class RunRecorder implements RunListener {
     }
 
     // The terminal write leaves what the platform keeps on the run as it is, since the run's record was
-    // created whole at its start and may have been marked since
-    private Future<Void> recordOutcome(ExecutionStatus status, String error) {
-        return repository.recordOutcome(jobRunId, status, error, new Date(), "node " + jobRun.getNodeId())
-                         .onFailure(failure -> log.error("Failed to persist the outcome of run {}", jobRunId, failure));
+    // created whole at its start and may have been written since
+    private void recordOutcome(ExecutionStatus status, String error) {
+        if (runRecorded) {
+            Date finished = new Date();
+            Supplier<Future<Boolean>> write = () -> repository.recordOutcome(jobRunId, status, error, finished, "node " + jobRun.getNodeId());
+            awaitWrite(() -> {
+                Promise<Void> awaited = Promise.promise();
+                writeOutcome(write, status, 1, awaited);
+                return awaited.future();
+            });
+        }
+    }
+
+    // A run left RUNNING on a node that is still a member is ended by nothing else, so the write is
+    // issued again until it lands or the node stops, which cancels the timer. The run itself waits
+    // for the first attempts only.
+    private void writeOutcome(Supplier<Future<Boolean>> write, ExecutionStatus status, int attempt, Promise<Void> awaited) {
+        Future.<Boolean>future(promise -> write.get().onComplete(promise))
+              .onSuccess(recorded -> {
+                  if (!recorded) {
+                      log.info("Run {} was ended while it executed and keeps that end, its outcome {} is not recorded", jobRunId, status);
+                  }
+                  awaited.tryComplete();
+              })
+              .onFailure(failure -> {
+                  long delay = Math.min(OUTCOME_RETRY_MAX_MS, OUTCOME_RETRY_MS << Math.min(attempt - 1, 10));
+                  log.error("Failed to persist the outcome {} of run {} on attempt {}, next attempt in {}ms",
+                            status, jobRunId, attempt, delay, failure);
+                  if (attempt >= OUTCOME_ATTEMPTS_AWAITED) {
+                      awaited.tryComplete();
+                  }
+                  writeContext.owner().setTimer(delay, id -> writeOutcome(write, status, attempt + 1, awaited));
+              });
     }
 
     private Future<TaskRecord> saveTask(TaskRecord record) {
@@ -242,21 +288,29 @@ public class RunRecorder implements RunListener {
 
     /**
      * Issues the write on the recorder's context and blocks the calling run thread until it
-     * has been acknowledged, failed or not: a write that fails is logged by the issuer and the
-     * run proceeds. The wait holds through cancellation of the run, so the terminal records of
-     * a cancelled run still land before its stream terminates.
+     * has been acknowledged, failed or not: a write that fails is logged by the issuer, and what
+     * the run does about it is the caller's to decide. The wait holds through cancellation of the
+     * run, so the terminal records of a cancelled run still land before its stream terminates.
+     *
+     * @return why the write failed, or null when it was acknowledged
      */
-    private void awaitWrite(Supplier<Future<?>> write) {
-        CompletableFuture<Void> acknowledged = new CompletableFuture<>();
-        // Future.future turns a write that throws while being issued into a failed future, so
-        // the run thread below can never be left waiting on a write that was never sent
-        writeContext.runOnContext(v -> Future.<Void>future(promise -> write.get().onComplete(ar -> promise.complete()))
-                                             .onFailure(error -> log.error("Failed to issue a ledger write for run {}",
-                                                                          jobRunId, error))
-                                             .onComplete(ar -> acknowledged.complete(null)));
+    private Throwable awaitWrite(Supplier<Future<?>> write) {
+        CompletableFuture<Throwable> acknowledged = new CompletableFuture<>();
+        writeContext.runOnContext(v -> {
+            Future<?> issued;
+            try {
+                issued = write.get();
+            } catch (Throwable t) {
+                // a write that throws while being issued completes the wait like one that failed, so
+                // the run thread below can never be left waiting on a write that was never sent
+                log.error("Failed to issue a ledger write for run {}", jobRunId, t);
+                issued = Future.failedFuture(t);
+            }
+            issued.onComplete(ar -> acknowledged.complete(ar.cause()));
+        });
         // join rather than get: an interrupt delivering cancellation must not abandon the write,
         // and join keeps the interrupt status set for the interpreter to act on
-        acknowledged.join();
+        return acknowledged.join();
     }
 
 }

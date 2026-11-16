@@ -9,6 +9,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.springframework.stereotype.Component;
@@ -18,10 +19,11 @@ import java.util.Date;
 import java.util.Set;
 
 /**
- * Marks the runs a server node leaves behind: on every change to the cluster membership, each run
- * still executing on a node that is not a member is marked {@link StatusConditionType#SERVER_NODE_LEFT},
- * since no node will report its end. Every node watches and marks; a mark already in place is left as
- * it is, so the first node to see the departure writes it and the others write nothing.
+ * Ends the runs a server node leaves behind: on every change to the cluster membership, each run
+ * still executing on a node that is not a member is recorded {@link ExecutionStatus#FAILED} with the
+ * condition {@link StatusConditionType#SERVER_NODE_LEFT}, since no node will report its end. Every
+ * node watches; a run already ended is left as it is, so the first node to see the departure ends
+ * the run and the others write nothing.
  */
 @Slf4j
 @Component
@@ -38,7 +40,7 @@ public class JobRunLivenessWatcher {
     void start() {
         membership = eventBusService.monitorClusterNodes()
                                     .subscribe(this::membershipChanged,
-                                               throwable -> log.error("Cluster membership monitoring failed, runs left by a departed node can no longer be marked", throwable));
+                                               throwable -> log.error("Cluster membership monitoring failed, runs left by a departed node can no longer be ended", throwable));
     }
 
     @PreDestroy
@@ -47,27 +49,33 @@ public class JobRunLivenessWatcher {
     }
 
     private void membershipChanged(Set<String> members) {
-        jobRunRepository.findRunningElsewhere(members, Pageable.create(0, PAGE_SIZE, null))
-                        .compose(page -> {
-                            Future<Void> chain = Future.succeededFuture();
-                            for (JobRun run : page.getContent()) {
-                                chain = chain.compose(v -> mark(run));
-                            }
-                            return chain;
-                        })
-                        .onFailure(error -> log.error("Runs left by departed nodes could not be marked", error));
+        endRunsElsewhere(members)
+                .onFailure(error -> log.error("Runs left by departed nodes could not be ended", error));
     }
 
-    private Future<Void> mark(JobRun run) {
+    // An ended run leaves the search, so the first page is read until it holds no run to end. A page
+    // that ended none holds only runs that ended since the search, and is the last one read.
+    private Future<Void> endRunsElsewhere(Set<String> members) {
+        return jobRunRepository.findRunningElsewhere(members, Pageable.create(0, PAGE_SIZE, null))
+                               .compose(page -> {
+                                   Future<Boolean> anyEnded = Future.succeededFuture(false);
+                                   for (JobRun run : page.getContent()) {
+                                       anyEnded = anyEnded.compose(before -> end(run).map(ended -> before || ended));
+                                   }
+                                   return anyEnded;
+                               })
+                               .compose(anyEnded -> anyEnded ? endRunsElsewhere(members) : Future.succeededFuture());
+    }
+
+    private Future<Boolean> end(JobRun run) {
         StatusCondition left = new StatusCondition(StatusConditionType.SERVER_NODE_LEFT,
                                                    "Node " + run.getNodeId() + " left the cluster while the run was live",
                                                    new Date());
-        return jobRunRepository.setCondition(run.getId(), left, "cluster membership")
-                               .onSuccess(set -> {
-                                   if (set) {
-                                       log.warn("Marked run {} ({}): node {} left the cluster while it was live", run.getId(), run.getName(), run.getNodeId());
+        return jobRunRepository.recordAbandoned(run.getId(), left, "cluster membership")
+                               .onSuccess(ended -> {
+                                   if (ended) {
+                                       log.warn("Ended run {} ({}) as failed: node {} left the cluster while it was live", run.getId(), run.getName(), run.getNodeId());
                                    }
-                               })
-                               .mapEmpty();
+                               });
     }
 }

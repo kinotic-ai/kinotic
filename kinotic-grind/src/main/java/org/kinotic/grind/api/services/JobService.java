@@ -23,6 +23,9 @@ public interface JobService {
      * @param owner the hierarchy this run executes on behalf of, {@link JobOwner#system()}
      *              for a system run
      * @return the prepared {@link JobRunHandle}
+     * @throws IllegalStateException when called by a task of a run: a task that has more work
+     *         returns it as a {@link Task} or {@link JobDefinition}, which executes as a step of
+     *         the task's own run
      */
     JobRunHandle run(JobDefinition jobDefinition, JobOwner owner);
 
@@ -33,6 +36,7 @@ public interface JobService {
      * @param owner the hierarchy this run executes on behalf of
      * @param parent the record whose worker made the run
      * @return the prepared {@link JobRunHandle}
+     * @throws IllegalStateException when called by a task of a run
      */
     JobRunHandle run(JobDefinition jobDefinition, JobOwner owner, WatchedParent parent);
 
@@ -48,6 +52,7 @@ public interface JobService {
      * @param jobRunId the id of the FAILED or CANCELLED run to resume
      * @param jobDefinition the freshly built definition to execute
      * @return the prepared {@link JobRunHandle}
+     * @throws IllegalStateException when called by a task of a run
      */
     JobRunHandle resume(String jobRunId, JobDefinition jobDefinition);
 

@@ -53,6 +53,9 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     // completion of the previous one waits this long for the lock before it is refused
     private static final long EXCLUSIVE_LOCK_TIMEOUT_MS = 1_000;
 
+    private static final String STARTED_BY_TASK = "A task cannot start a run. Return the JobDefinition from the task, "
+            + "and it executes as a step of the task's own run";
+
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
     private final RunThreadFactory runThreads;
@@ -81,6 +84,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notNull(jobDefinition, "jobDefinition cannot be null");
         Validate.notNull(owner, "owner cannot be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to run");
+        Validate.validState(!JobInterpreter.calledByTask(), STARTED_BY_TASK);
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
@@ -101,6 +105,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         Validate.notNull(jobDefinition, "jobDefinition cannot be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to resume");
+        Validate.validState(!JobInterpreter.calledByTask(), STARTED_BY_TASK);
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;

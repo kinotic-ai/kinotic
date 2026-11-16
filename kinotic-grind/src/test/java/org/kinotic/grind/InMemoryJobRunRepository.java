@@ -3,7 +3,9 @@ package org.kinotic.grind;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
@@ -14,6 +16,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -38,12 +41,36 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     }
 
     @Override
-    public synchronized Future<Void> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
+    public synchronized Future<Boolean> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
         JobRun run = savedRuns.get(jobRunId);
-        run.setStatus(status).setError(error).setFinished(finished);
-        run.getState().getConditions().removeIf(condition -> condition.type() == StatusConditionType.SERVER_NODE_LEFT);
-        run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
-        return completedOffThread(null);
+        boolean executing = run.getStatus() == ExecutionStatus.RUNNING;
+        if (executing) {
+            run.setStatus(status).setError(error).setFinished(finished);
+            run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+        }
+        return completedOffThread(executing);
+    }
+
+    @Override
+    public synchronized Future<Boolean> recordAbandoned(String jobRunId, StatusCondition condition, String source) {
+        JobRun run = savedRuns.get(jobRunId);
+        boolean executing = run.getStatus() == ExecutionStatus.RUNNING;
+        if (executing) {
+            run.setStatus(ExecutionStatus.FAILED).setError(condition.message()).setFinished(condition.since());
+            run.getState().getConditions().add(condition);
+            run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+        }
+        return completedOffThread(executing);
+    }
+
+    @Override
+    public synchronized Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
+        List<JobRun> elsewhere = savedRuns.values().stream()
+                                          .filter(run -> run.getStatus() == ExecutionStatus.RUNNING)
+                                          .filter(run -> !members.contains(run.getNodeId()))
+                                          .toList();
+        List<JobRun> firstPage = elsewhere.stream().limit(pageable.getPageSize()).toList();
+        return completedOffThread(new Page<>(firstPage, (long) elsewhere.size()));
     }
 
     @Override

@@ -9,8 +9,6 @@ import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.model.Requeue;
-import org.kinotic.domain.api.model.StatusConditionType;
-import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.deployment.DeploymentState;
@@ -173,17 +171,15 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         return ret;
     }
 
-    // A run is dead when its record is gone or ended without the outcome reaching the deployment, or
-    // when the node running it left the cluster; one still executing on a live node is left to finish
+    // A run is dead when its record is gone or ended without the outcome reaching the deployment, as one
+    // whose node left the cluster is; one still executing is left to finish
     private Future<Boolean> runDead(String jobRunId) {
         Future<Boolean> ret;
         if (jobRunId == null) {
             ret = Future.succeededFuture(true);
         } else {
             ret = jobRunRepository.findRun(jobRunId)
-                                  .map(run -> run == null
-                                          || run.getStatus() != ExecutionStatus.RUNNING
-                                          || StatusConditions.has(run.getState().getConditions(), StatusConditionType.SERVER_NODE_LEFT));
+                                  .map(run -> run == null || run.getStatus() != ExecutionStatus.RUNNING);
         }
         return ret;
     }
