@@ -66,7 +66,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
     /**
      * {@code POST /api/auth/org/signup} — start email/password sign-up. Validates the request, stores a
      * pending sign-up, and emails a verification link with the default verification email template.
-     * The org name and password are collected later, at {@link #handleLocalComplete}. When email is disabled
+     * The founder's name, the org name and the password are collected later, at {@link #handleLocalComplete}. When email is disabled
      * ({@code kinotic.domain.email.enabled} is {@code false}) the response carries the verification link as {@code verificationUrl}, for the UI to open at once. Refused with 403 unless
      * {@code kinotic.managementServer.passwordSignUp} is set.
      */
@@ -81,9 +81,8 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         try {
             JsonObject body = ctx.body().asJsonObject();
             String email = body.getString("email");
-            String displayName = body.getString("displayName");
 
-            signUpService.initiateLocalSignUp(email, displayName, null)
+            signUpService.initiateLocalSignUp(email, null)
                     .onSuccess(verificationUrl -> ctx.response()
                             .setStatusCode(200)
                             .putHeader("Content-Type", "application/json")
@@ -109,7 +108,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
 
     /**
      * {@code POST /api/auth/org/signup/complete} — finish email/password sign-up. Called when the user has
-     * clicked the verification link and submitted an org name + password; creates the organization,
+     * clicked the verification link and submitted their name, an org name and a password; creates the organization,
      * its admin user, and the password credential, then establishes the browser session so the
      * user is logged in — same as the social completion at {@link #handleSocialCompleteOrg}.
      */
@@ -117,11 +116,12 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
         try {
             JsonObject body = ctx.body().asJsonObject();
             String token = body.getString("token");
+            String displayName = body.getString("displayName");
             String orgName = body.getString("orgName");
             String orgDescription = body.getString("orgDescription");
             String password = body.getString("password");
 
-            signUpService.completeLocalSignUp(token, orgName, orgDescription, password)
+            signUpService.completeLocalSignUp(token, displayName, orgName, orgDescription, password)
                     .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
                     .onFailure(ex -> {
                         log.warn("Sign-up completion failed: {}", ex.getMessage());

@@ -42,9 +42,8 @@ public class DefaultSignUpService implements SignUpService {
     private final OrganizationDnsRecordProvisioner dnsRecordProvisioner;
 
     @Override
-    public Future<String> initiateLocalSignUp(String email, String displayName, EmailTemplate emailTemplate) {
+    public Future<String> initiateLocalSignUp(String email, EmailTemplate emailTemplate) {
         Validate.notBlank(email, "Email is required");
-        Validate.notBlank(displayName, "Display name is required");
         emailService.validateTemplate(emailTemplate);
 
         String token = UUID.randomUUID().toString();
@@ -52,7 +51,6 @@ public class DefaultSignUpService implements SignUpService {
         PendingSignUp pending = new PendingSignUp()
                 .setId(UUID.randomUUID().toString())
                 .setEmail(email)
-                .setDisplayName(displayName)
                 .setAuthType(AuthType.PASSWORD)
                 .setVerificationToken(token)
                 .setCreated(now)
@@ -68,11 +66,10 @@ public class DefaultSignUpService implements SignUpService {
                         // saveSync: a link the UI shows in place of an email is opened at once, and the record must
                         // be searchable by then, as it must for a repeated request to find it
                         ret = cleared.compose(v -> pendingSignUpRepository.saveSync(pending))
-                                     .compose(saved -> emailService.sendVerificationEmail(email, displayName, token, emailTemplate));
+                                     .compose(saved -> emailService.sendVerificationEmail(email, token, emailTemplate));
                     } else if (existing.getAuthType() == AuthType.PASSWORD && !domainProperties.getDomain().getEmail().isEnabled()) {
                         // no email carries the link, so asking again is the only way back to it
-                        ret = emailService.sendVerificationEmail(existing.getEmail(), existing.getDisplayName(),
-                                                                 existing.getVerificationToken(), emailTemplate);
+                        ret = emailService.sendVerificationEmail(existing.getEmail(), existing.getVerificationToken(), emailTemplate);
                     } else {
                         ret = Future.failedFuture(new IllegalArgumentException(
                                 "A sign-up is already pending for this email. Check your inbox for the verification link."));
@@ -97,13 +94,14 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public Future<Participant> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
+    public Future<Participant> completeLocalSignUp(String token, String displayName, String orgName, String orgDescription, String password) {
         Validate.notBlank(token, "Verification token is required");
+        Validate.notBlank(displayName, "Display name is required");
         Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
 
         return pendingSignUpRepository.findValidByToken(token)
-                .compose(pending -> createOrgWithFounder(orgName, orgDescription, pending, password)
+                .compose(pending -> createOrgWithFounder(orgName, orgDescription, pending.setDisplayName(displayName), password)
                         .compose(founder -> pendingSignUpRepository.deleteById(pending.getId())
                                 .map(founder)));
     }

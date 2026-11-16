@@ -15,21 +15,21 @@ public interface SignUpService {
 
     /**
      * Starts an email/password sign-up: validates and stores a pending record and emails a
-     * verification link. The organization name and password are collected later, at completion. Fails while a
-     * sign-up is already pending for the email; a pending sign-up that has expired is replaced.
+     * verification link. The founder's name, the organization name and the password are collected later, at
+     * completion. Fails while a sign-up is already pending for the email; a pending sign-up that has expired is
+     * replaced.
      * <p>
      * When {@code kinotic.domain.email.enabled} is {@code false}, no email is sent and the verification link is
      * returned for the caller to open, so the address is never proven to be the caller's; an email/password sign-up
      * already pending for the email then returns its link again.
      *
      * @param email           the email to verify
-     * @param displayName     the founder's display name
      * @param emailTemplate   the verification email to send in place of Kinotic's, whose UI's {@code /signup/verify}
      *                        page the link opens, or {@code null} for Kinotic's, which opens the portal's
      * @return a future emitting the verification link when the UI shows it, or {@code null} once it is emailed
      * @throws IllegalArgumentException when {@code emailTemplate} is not valid, as {@link EmailTemplate} describes
      */
-    Future<String> initiateLocalSignUp(String email, String displayName, EmailTemplate emailTemplate);
+    Future<String> initiateLocalSignUp(String email, EmailTemplate emailTemplate);
 
     /**
      * Stores a pending sign-up for an identity already verified by an OIDC provider, returning it
@@ -40,12 +40,12 @@ public interface SignUpService {
 
     /**
      * Completes an email/password sign-up: validates the token, creates the organization with the
-     * given name (failing if it is taken) and the founder as its first user, with its password, then deletes the
-     * pending record.
+     * given name (failing if it is taken) and the founder as its first user, with its display name and password,
+     * then deletes the pending record.
      *
      * @return the founder as the new organization's participant, for the session to sign in
      */
-    Future<Participant> completeLocalSignUp(String token, String orgName, String orgDescription, String password);
+    Future<Participant> completeLocalSignUp(String token, String displayName, String orgName, String orgDescription, String password);
 
     /**
      * Completes an OIDC sign-up by creating a new organization with the given name (failing if it is
