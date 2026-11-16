@@ -6,6 +6,8 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.common.api.oidc.OAuth2Util;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.rest.support.*;
@@ -179,7 +181,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes, OidcFlo
             return;
         }
         // the founder's user is created under the email, so the email is held to the proof its configuration needs
-        if (!OAuth2Util.isEmailProven(claims, config)) {
+        if (!OidcConfigurationService.isEmailProven(claims, config)) {
             authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED, config.getProvider());
             return;
         }

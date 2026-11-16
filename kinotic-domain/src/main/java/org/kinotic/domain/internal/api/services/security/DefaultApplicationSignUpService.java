@@ -20,7 +20,7 @@ import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.model.security.PendingApplicationSignUp;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
-import org.kinotic.domain.api.rest.support.OAuth2Util;
+import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -105,7 +105,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                                          Map<String, Object> verifiedClaims) {
         String email = OAuth2Util.stringClaim(verifiedClaims, "email");
         // an email a stranger's directory can set claims no one, as it signs no one up
-        boolean proven = email != null && OAuth2Util.isEmailProven(verifiedClaims, configuration);
+        boolean proven = email != null && OidcConfigurationService.isEmailProven(verifiedClaims, configuration);
         return proven
                 ? identityService.claimProvisionedApplicationUser(configuration.getId(), subject, email, scope)
                                  .compose(claimed -> claimed != null
@@ -121,7 +121,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         // where every directory at the provider is admitted, the email the provider vouches for may be one a stranger's
         // directory set, and a user created under it would hold the email against its owner; a configuration naming one
         // directory trusts that directory's administrator, as its owner chose to
-        if (!OAuth2Util.isEmailProven(verifiedClaims, configuration)) {
+        if (!OidcConfigurationService.isEmailProven(verifiedClaims, configuration)) {
             return Future.failedFuture(new UnverifiedEmailException("The provider does not prove the email belongs to the person signing in"));
         }
         String email = OAuth2Util.stringClaim(verifiedClaims, "email");

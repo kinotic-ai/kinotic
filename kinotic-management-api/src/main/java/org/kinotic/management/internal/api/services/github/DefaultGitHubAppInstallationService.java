@@ -7,7 +7,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.management.api.config.GithubProperties;

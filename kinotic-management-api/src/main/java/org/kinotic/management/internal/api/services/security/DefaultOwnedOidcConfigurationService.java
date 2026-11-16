@@ -9,7 +9,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;

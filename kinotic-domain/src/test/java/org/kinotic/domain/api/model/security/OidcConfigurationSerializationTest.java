@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Locale;

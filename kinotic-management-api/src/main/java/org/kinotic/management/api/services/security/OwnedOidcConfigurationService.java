@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.idl.api.annotations.McpTool;
 
