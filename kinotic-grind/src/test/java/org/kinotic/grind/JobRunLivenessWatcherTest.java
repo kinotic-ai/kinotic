@@ -1,7 +1,9 @@
 package org.kinotic.grind;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.grind.api.model.ExecutionStatus;
@@ -12,8 +14,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.lang.reflect.Proxy;
+import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -24,7 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * The runs a departed node leaves behind: on a change to the cluster membership every run still
  * executing on a node that is not a member is ended FAILED with SERVER_NODE_LEFT, however many
- * there are, and the runs of the member nodes keep executing.
+ * there are, and the runs of the member nodes keep executing, those of a node that joins while the
+ * departed node's runs are being ended among them.
  */
 public class JobRunLivenessWatcherTest extends AbstractGrindTest {
 
@@ -64,6 +71,48 @@ public class JobRunLivenessWatcherTest extends AbstractGrindTest {
         assertEquals(ExecutionStatus.RUNNING, member.getStatus());
         assertNull(member.getFinished());
         assertFalse(StatusConditions.has(member.getState().getConditions(), StatusConditionType.SERVER_NODE_LEFT));
+    }
+
+    @Test
+    public void aNodeThatJoinsWhileRunsAreBeingEndedKeepsItsRun() throws Exception {
+        String joinedNodeId = "joined-node";
+        // delivers to the watcher inside the emit, so the watcher knows of the join before the write below is made
+        Sinks.Many<Set<String>> membership = Sinks.many().multicast().directBestEffort();
+        List<String> writes = new CopyOnWriteArrayList<>();
+        AtomicBoolean joined = new AtomicBoolean();
+        // a store that sees the node join as the first run is about to be ended
+        InMemoryJobRunRepository ledger = new InMemoryJobRunRepository() {
+            @Override
+            public Future<Boolean> recordAbandoned(String jobRunId, StatusCondition condition, String source) {
+                if (joined.compareAndSet(false, true)) {
+                    membership.emitNext(Set.of(TEST_NODE_ID, joinedNodeId), Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(5)));
+                }
+                writes.add(jobRunId);
+                return super.recordAbandoned(jobRunId, condition, source);
+            }
+        };
+        ledger.saveRun(executing("departed-first", DEPARTED_NODE_ID));
+        ledger.saveRun(executing("joined", joinedNodeId));
+        ledger.saveRun(executing("departed-last", DEPARTED_NODE_ID));
+
+        try (AnnotationConfigApplicationContext watcherCtx = new AnnotationConfigApplicationContext()) {
+            watcherCtx.getBeanFactory().registerSingleton("eventBusService", eventBusReporting(membership.asFlux()));
+            watcherCtx.getBeanFactory().registerSingleton("jobRunRepository", ledger);
+            watcherCtx.register(JobRunLivenessWatcher.class);
+            watcherCtx.refresh();
+
+            membership.emitNext(Set.of(TEST_NODE_ID), Sinks.EmitFailureHandler.FAIL_FAST);
+
+            // the join starts a second pass over the departed node's runs; the pass that searched before
+            // the join comes to the last run only after the joined node's
+            awaitUntil("both passes to reach the last run", () -> Collections.frequency(writes, "departed-last") >= 2);
+        }
+
+        assertEquals(ExecutionStatus.FAILED, ledger.savedRuns.get("departed-first").getStatus());
+        assertEquals(ExecutionStatus.FAILED, ledger.savedRuns.get("departed-last").getStatus());
+        JobRun joinedRun = ledger.savedRuns.get("joined");
+        assertEquals(ExecutionStatus.RUNNING, joinedRun.getStatus());
+        assertNull(joinedRun.getFinished());
     }
 
     private List<JobRun> departedRuns() {

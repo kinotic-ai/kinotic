@@ -36,6 +36,11 @@ public class JobRunLivenessWatcher {
     private final JobRunRepository jobRunRepository;
     private Disposable membership;
 
+    // The membership last reported. Ending a departed node's runs takes a write per run, so each page
+    // and each run is judged against this rather than the membership the ending started with: a node
+    // that joined meanwhile keeps its runs
+    private volatile Set<String> members;
+
     @PostConstruct
     void start() {
         membership = eventBusService.monitorClusterNodes()
@@ -48,14 +53,15 @@ public class JobRunLivenessWatcher {
         membership.dispose();
     }
 
-    private void membershipChanged(Set<String> members) {
-        endRunsElsewhere(members)
+    private void membershipChanged(Set<String> current) {
+        members = current;
+        endRunsElsewhere()
                 .onFailure(error -> log.error("Runs left by departed nodes could not be ended", error));
     }
 
     // An ended run leaves the search, so the first page is read until it holds no run to end. A page
     // that ended none holds only runs that ended since the search, and is the last one read.
-    private Future<Void> endRunsElsewhere(Set<String> members) {
+    private Future<Void> endRunsElsewhere() {
         return jobRunRepository.findRunningElsewhere(members, Pageable.create(0, PAGE_SIZE, null))
                                .compose(page -> {
                                    Future<Boolean> anyEnded = Future.succeededFuture(false);
@@ -64,18 +70,25 @@ public class JobRunLivenessWatcher {
                                    }
                                    return anyEnded;
                                })
-                               .compose(anyEnded -> anyEnded ? endRunsElsewhere(members) : Future.succeededFuture());
+                               .compose(anyEnded -> anyEnded ? endRunsElsewhere() : Future.succeededFuture());
     }
 
     private Future<Boolean> end(JobRun run) {
-        StatusCondition left = new StatusCondition(StatusConditionType.SERVER_NODE_LEFT,
-                                                   "Node " + run.getNodeId() + " left the cluster while the run was live",
-                                                   new Date());
-        return jobRunRepository.recordAbandoned(run.getId(), left, "cluster membership")
-                               .onSuccess(ended -> {
-                                   if (ended) {
-                                       log.warn("Ended run {} ({}) as failed: node {} left the cluster while it was live", run.getId(), run.getName(), run.getNodeId());
-                                   }
-                               });
+        Future<Boolean> ret;
+        if (members.contains(run.getNodeId())) {
+            // its node joined after the page was searched
+            ret = Future.succeededFuture(false);
+        } else {
+            StatusCondition left = new StatusCondition(StatusConditionType.SERVER_NODE_LEFT,
+                                                       "Node " + run.getNodeId() + " left the cluster while the run was live",
+                                                       new Date());
+            ret = jobRunRepository.recordAbandoned(run.getId(), left, "cluster membership")
+                                  .onSuccess(ended -> {
+                                      if (ended) {
+                                          log.warn("Ended run {} ({}) as failed: node {} left the cluster while it was live", run.getId(), run.getName(), run.getNodeId());
+                                      }
+                                  });
+        }
+        return ret;
     }
 }

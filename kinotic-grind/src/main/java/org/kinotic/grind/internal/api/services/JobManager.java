@@ -11,7 +11,6 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
-import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
@@ -31,10 +30,8 @@ import java.util.Map;
  * whenever a period has passed since the job's latest run started, whoever started that run, so a run
  * an operator starts moves the job's schedule. A job with no run on record is due at once. Each run
  * is started on one of the nodes that hold the system jobs, chosen in turn; a node that does not
- * start it is followed by the next. The manager holds the time each job is next due in memory,
- * worked out from the recorded runs by every node that comes to host it, and one timer set to the
- * earliest of those times. A job that comes due while a run of it is still executing is refused its
- * run, as any run of an exclusive job is, and is due again a period later.
+ * start it is followed by the next. A job that comes due while a run of it is still executing is
+ * refused its run, as any run of an exclusive job is, and is due again a period later.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -63,9 +60,11 @@ public class JobManager implements Service {
 
     // The period of each scheduled job in milliseconds, by the job's name; written only in init
     private transient Map<String, Long> periods;
-    // When each scheduled job is next due, in epoch milliseconds. Guarded by this with the fields
-    // below, since the timer, the reads of the recorded runs and the nodes' answers complete on other threads
+    // When each scheduled job is next due, in epoch milliseconds, worked out from the recorded runs by
+    // each node that comes to host the singleton. Guarded by this with the fields below, since the
+    // timer, the reads of the recorded runs and the nodes' answers complete on other threads
     private transient Map<String, Long> dueTimes;
+    // The one timer, set to the earliest due time
     private transient Long timerId;
     private transient int turn;
     private transient boolean cancelled;
@@ -120,7 +119,7 @@ public class JobManager implements Service {
     // period has passed since that one started
     private void decide(String name) {
         Future.succeededFuture()
-              .compose(v -> jobRuns.findLatestSystemRun(name))
+              .compose(v -> jobRuns.findLatestRun(name, null))
               .compose(latest -> {
                   long period = periods.get(name);
                   long now = System.currentTimeMillis();
@@ -128,10 +127,6 @@ public class JobManager implements Service {
                   if (latest != null && latest.getStarted().getTime() + period > now) {
                       nextDue = Future.succeededFuture(latest.getStarted().getTime() + period);
                   } else {
-                      if (latest != null && latest.getStatus() == ExecutionStatus.RUNNING) {
-                          log.warn("System job {} is due while run {} of it, started {} on node {}, is recorded as still executing",
-                                   name, latest.getId(), latest.getStarted().toInstant(), latest.getNodeId());
-                      }
                       nextDue = start(name, latest, nodesInTurn(), 0).map(now + period);
                   }
                   return nextDue;
@@ -164,11 +159,18 @@ public class JobManager implements Service {
         } else {
             ClusterNode node = nodes.get(index);
             ret = startOn(node, name)
-                    .onSuccess(jobRunId -> log.info("Node {} started scheduled system job {} as run {}", node.id(), name, jobRunId))
+                    .onSuccess(jobRunId -> {
+                        if (jobRunId == null) {
+                            log.warn("System job {} came due while a run of it was still executing, so no run was started for this "
+                                             + "period. The latest run on record is {}", name, latest != null ? latest.getId() : "none");
+                        } else {
+                            log.info("Node {} started scheduled system job {} as run {}", node.id(), name, jobRunId);
+                        }
+                    })
                     .<Void>mapEmpty()
                     .recover(error -> {
                         log.warn("Node {} did not answer that it started system job {}", node.id(), name, error);
-                        return jobRuns.findLatestSystemRun(name)
+                        return jobRuns.findLatestRun(name, null)
                                       .compose(current -> isNewer(current, latest)
                                               ? Future.succeededFuture()
                                               : start(name, latest, nodes, index + 1));
@@ -181,7 +183,9 @@ public class JobManager implements Service {
         return current != null && (latest == null || !current.getId().equals(latest.getId()));
     }
 
-    // Future.future fails the future when sending the start throws, as it does for a node that has left
+    // Completes with the id of the run the node started, or null when the node was refused the run
+    // because one is executing. Future.future fails the future when sending the start throws, as it
+    // does for a node that has left
     private Future<String> startOn(ClusterNode node, String name) {
         Context context = vertx.getOrCreateContext();
         return Future.future(promise -> ignite.compute(ignite.cluster().forNodeId(node.id()))

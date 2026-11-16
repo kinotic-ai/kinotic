@@ -16,6 +16,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -49,12 +50,19 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     @Override
     public synchronized Future<Boolean> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
         JobRun run = savedRuns.get(jobRunId);
-        boolean executing = run.getStatus() == ExecutionStatus.RUNNING;
-        if (executing) {
-            run.setStatus(status).setError(error).setFinished(finished);
-            run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+        Future<Boolean> ret;
+        if (run == null) {
+            // the store fails a write to a record it does not hold
+            ret = Future.failedFuture(new IllegalStateException("No run " + jobRunId + " is recorded"));
+        } else {
+            boolean executing = run.getStatus() == ExecutionStatus.RUNNING;
+            if (executing) {
+                run.setStatus(status).setError(error).setFinished(finished);
+                run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+            }
+            ret = completedOffThread(executing);
         }
-        return completedOffThread(executing);
+        return ret;
     }
 
     @Override
@@ -86,12 +94,15 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     }
 
     @Override
-    public synchronized Future<JobRun> findLatestSystemRun(String name) {
+    public synchronized Future<JobRun> findLatestRun(String name, String organizationId) {
         Future<JobRun> ret;
         if (name.equals(unreadableJob)) {
             ret = Future.failedFuture(new IllegalStateException("The runs of " + name + " cannot be read"));
         } else {
-            List<JobRun> runs = systemRunsOf(name);
+            List<JobRun> runs = savedRuns.values().stream()
+                                         .filter(run -> name.equals(run.getName()) && Objects.equals(organizationId, run.getOrganizationId()))
+                                         .sorted(Comparator.comparing(JobRun::getStarted))
+                                         .toList();
             ret = completedOffThread(runs.isEmpty() ? null : runs.getLast());
         }
         return ret;

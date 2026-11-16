@@ -63,7 +63,8 @@ public class LedgerWriteTest extends AbstractGrindTest {
         assertEquals(STORE_DOWN, result.error().getCause().getMessage());
         assertFalse(executed.get());
         assertTrue(unwritable.savedTasks.isEmpty());
-        assertEquals(0, outcomeWrites.get());
+        // the one write that ends the record in case the failed write landed
+        assertEquals(1, outcomeWrites.get());
     }
 
     @Test

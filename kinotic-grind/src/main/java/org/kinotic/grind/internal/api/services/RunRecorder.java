@@ -102,6 +102,10 @@ public class RunRecorder implements RunListener {
               .setStarted(new Date());
         Throwable failure = awaitWrite(this::saveRun);
         if (failure != null) {
+            // A write can land though it failed here, and a run left RUNNING on a node that stays a
+            // member is ended by nothing else, so the record is ended in case it exists
+            awaitWrite(() -> repository.recordOutcome(jobRunId, ExecutionStatus.FAILED, failure.toString(), new Date(),
+                                                      "node " + jobRun.getNodeId()));
             throw new IllegalStateException("Run " + jobRunId + " of job " + jobRun.getName()
                     + " was not started, since its record could not be written", failure);
         }

@@ -93,10 +93,10 @@ public class SystemJobServiceTests extends KinoticTestBase {
     public void aScheduledJobIsStartedByTheJobManager() throws Exception {
         // every scheduled job with no run on record is due when the manager starts with this context
         long deadline = System.currentTimeMillis() + 30_000;
-        JobRun latest = await(jobRuns.findLatestSystemRun(JOB_RUN_RETENTION_SWEEP));
+        JobRun latest = await(jobRuns.findLatestRun(JOB_RUN_RETENTION_SWEEP, null));
         while (latest == null && System.currentTimeMillis() < deadline) {
             Thread.sleep(250);
-            latest = await(jobRuns.findLatestSystemRun(JOB_RUN_RETENTION_SWEEP));
+            latest = await(jobRuns.findLatestRun(JOB_RUN_RETENTION_SWEEP, null));
         }
 
         assertNotNull(latest, "the manager never started the job run retention sweep");
@@ -106,13 +106,14 @@ public class SystemJobServiceTests extends KinoticTestBase {
     @Test
     public void theJobRunRetentionSweepDeletesRunsThatEndedLongAgoWithTheirTaskRecords() throws Exception {
         Date longAgo = new Date(System.currentTimeMillis() - Duration.ofDays(31).toMillis());
-        JobRun expired = saved(new JobRun().setStatus(ExecutionStatus.COMPLETED).setStarted(longAgo).setFinished(longAgo));
+        JobRun expired = saved(new JobRun().setName("retention-test").setStatus(ExecutionStatus.COMPLETED).setStarted(longAgo).setFinished(longAgo));
         await(taskRecords.saveSync(new TaskRecord().setId(expired.getId() + ":0/1")
                                                    .setJobRunId(expired.getId())
                                                    .setTaskPath("0/1")
                                                    .setStatus(ExecutionStatus.COMPLETED)));
-        JobRun stillExecuting = saved(new JobRun().setStarted(longAgo));
-        JobRun recent = saved(new JobRun().setStatus(ExecutionStatus.COMPLETED).setStarted(new Date()).setFinished(new Date()));
+        JobRun stillExecuting = saved(new JobRun().setName("retention-test").setStarted(longAgo));
+        JobRun recent = saved(new JobRun().setName("retention-test").setStatus(ExecutionStatus.COMPLETED).setStarted(new Date()).setFinished(new Date()));
+        JobRun latestOfItsJob = saved(new JobRun().setName("retention-test-idle").setStatus(ExecutionStatus.COMPLETED).setStarted(longAgo).setFinished(longAgo));
 
         JobRun sweep = await(systemJobs.startSystemJob(JOB_RUN_RETENTION_SWEEP));
         started.add(sweep.getId());
@@ -122,6 +123,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
         assertTrue(await(jobRuns.findTasks(expired.getId())).isEmpty(), "its task records go with it");
         assertNotNull(await(jobRuns.findRun(stillExecuting.getId())), "a run still executing is kept however old");
         assertNotNull(await(jobRuns.findRun(recent.getId())), "a run that ended recently is kept");
+        assertNotNull(await(jobRuns.findRun(latestOfItsJob.getId())), "the latest run of a job is kept however old");
     }
 
     @Test
@@ -133,7 +135,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
 
     /** Saves a run of the retention test, visible to search, and removes it after the test. */
     private JobRun saved(JobRun run) throws Exception {
-        run.setId(UUID.randomUUID().toString()).setName("retention-test").setNodeId("retention-test-node");
+        run.setId(UUID.randomUUID().toString()).setNodeId("retention-test-node");
         started.add(run.getId());
         return await(jobRuns.saveSync(run));
     }

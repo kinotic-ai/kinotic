@@ -209,11 +209,12 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                       new Date());
         List<Future<Boolean>> ended = new ArrayList<>();
         // The end is recorded before the run is cancelled, so the run's own CANCELLED outcome is the
-        // one declined, and whatever made the run reads that it ended with its node
+        // one declined, and whatever made the run reads that it ended with its node. A run whose end
+        // could not be recorded is left executing, for the cluster's membership watch to end
         activeRuns.forEach((runId, handle) -> ended.add(
                 repository.recordAbandoned(runId, stopped, "node " + nodeId + " stopping")
                           .onFailure(error -> log.warn("Run {} could not be recorded as ended by this node stopping", runId, error))
-                          .onComplete(recorded -> handle.cancel())));
+                          .onSuccess(recorded -> handle.cancel())));
         if (!ended.isEmpty()) {
             log.info("Ending {} run(s) still executing as this node stops", ended.size());
             try {

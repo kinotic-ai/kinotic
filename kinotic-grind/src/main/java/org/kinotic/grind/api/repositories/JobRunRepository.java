@@ -221,16 +221,18 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     }
 
     /**
-     * Finds the run of the named job, made on behalf of the system, that started last.
+     * Finds the run of the named job that started last, among the runs made for the organization, or
+     * for the system when the organization is null.
      *
-     * @param name the name of the job
-     * @return a future that will complete with the run, or {@code null} when the system has made no
-     *         run of that name
+     * @param name           the name of the job
+     * @param organizationId the organization the runs were made for, or null for the system's
+     * @return a future that will complete with the run, or {@code null} when there is none
      */
-    public Future<JobRun> findLatestSystemRun(String name) {
+    public Future<JobRun> findLatestRun(String name, String organizationId) {
         Validate.notBlank(name, "name cannot be blank");
+        Query owner = organizationId != null ? termFilter("organizationId", organizationId) : missingFilter("organizationId");
         return findAll(Pageable.create(0, 1, Sort.by(Order.desc("started"))),
-                       b -> b.query(composeFilter(termFilter("name", name), missingFilter("organizationId"))))
+                       b -> b.query(composeFilter(termFilter("name", name), owner)))
                 .map(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
