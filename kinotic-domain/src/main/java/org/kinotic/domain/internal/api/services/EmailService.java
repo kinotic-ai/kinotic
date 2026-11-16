@@ -90,35 +90,29 @@ public class EmailService {
      * Sends a verification email to the given address.
      *
      * @param email             the recipient's email address
-     * @param displayName       the recipient's display name for the greeting
      * @param verificationToken the token to include in the verification URL
      * @param template          the email to send in place of Kinotic's, whose UI's verification page the link opens,
      *                          or {@code null} for Kinotic's, which links to the portal's
      * @return a future emitting the verification link when email is disabled, for the UI to open in place of the
      *         email, or {@code null} once the email is sent (failing if ACS rejects it)
      */
-    public Future<String> sendVerificationEmail(String email,
-                                              String displayName,
-                                              String verificationToken,
-                                              EmailTemplate template) {
+    public Future<String> sendVerificationEmail(String email, String verificationToken, EmailTemplate template) {
         String verificationUrl = uiBaseUrl(template) + VERIFICATION_PATH + verificationToken;
 
         if (!properties.getDomain().getEmail().isEnabled()) {
-            log.warn("Email sending is disabled; verification URL for {} <{}>: {}",
-                    displayName, email, verificationUrl);
+            log.warn("Email sending is disabled; verification URL for <{}>: {}", email, verificationUrl);
             return Future.succeededFuture(verificationUrl);
         }
 
-        Map<String, Object> variables = Map.of("displayName", displayName,
-                                               "verificationUrl", verificationUrl);
+        Map<String, Object> variables = Map.of("verificationUrl", verificationUrl);
 
         Future<Void> sent;
         if (template != null) {
-            sent = sendInline(email, displayName, template.getSubject(), template.getHtmlBody(), template.getTextBody(),
+            sent = sendInline(email, email, template.getSubject(), template.getHtmlBody(), template.getTextBody(),
                               variables);
         } else {
             sent = send(email,
-                        displayName,
+                        email,
                         VERIFICATION_SUBJECT,
                         render(VERIFICATION_HTML, variables),
                         render(VERIFICATION_TEXT, variables));
@@ -303,7 +297,6 @@ public class EmailService {
         sample.put("applicationName", "application-id");
         sample.put("acceptUrl", "https://example.invalid/invite/accept?token=sample");
         sample.put("expiresInDays", 7L);
-        sample.put("displayName", "Display Name");
         sample.put("verificationUrl", "https://example.invalid/signup/verify?token=sample");
         try {
             renderInline(TEXT_TEMPLATES, subject, sample);
