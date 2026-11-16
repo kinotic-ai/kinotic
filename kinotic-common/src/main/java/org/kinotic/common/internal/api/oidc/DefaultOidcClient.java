@@ -96,11 +96,8 @@ public class DefaultOidcClient implements OidcClient {
             // authorize always sends a nonce, so OIDC Core 3.1.3.7 requires the id_token to echo it — an absent
             // claim fails the equals and is rejected
             ret = Future.failedFuture(new InvalidIdTokenException("The id token's nonce does not match the sign-in"));
-        } else if (!(claims.get("exp") instanceof Number expiry)
-                || Instant.now().getEpochSecond() - ID_TOKEN_CLOCK_SKEW_SECONDS >= expiry.longValue()) {
-            // Vert.x holds the sign-in to the token response's expires_in and the access token's exp, so the id
-            // token's own exp, which OIDC Core 3.1.3.7 requires, is checked here
-            ret = Future.failedFuture(new InvalidIdTokenException("The id token has expired"));
+        } else if (isIdTokenExpired(user)) {
+            ret = Future.failedFuture(new InvalidIdTokenException("The id token has expired or states no expiry"));
         } else if (OAuth2Util.stringClaim(claims, "email") != null && !claims.containsKey("email_verified")
                 && !OAuth2Util.issuesOnlyVerifiedEmails(settings.getProvider())) {
             // Okta's id_token from a code exchange leaves email_verified to the userinfo endpoint
@@ -109,6 +106,15 @@ public class DefaultOidcClient implements OidcClient {
             ret = Future.succeededFuture(claims);
         }
         return ret;
+    }
+
+    // Vert.x holds the sign-in to the token response's expires_in and the access token's exp, so the id token's own
+    // exp, which OIDC Core 3.1.3.7 requires, is checked here. It is read from the id token itself: flattenClaims
+    // fills a claim the id token leaves out from the token response, whose exp is derived from expires_in.
+    private static boolean isIdTokenExpired(User user) {
+        Object expiry = user.attributes().getJsonObject("idToken", new JsonObject()).getValue("exp");
+        return !(expiry instanceof Number expiresAt)
+                || Instant.now().getEpochSecond() - ID_TOKEN_CLOCK_SKEW_SECONDS >= expiresAt.longValue();
     }
 
     private Future<Map<String, Object>> withUserInfoEmailVerified(User user, Map<String, Object> claims) {

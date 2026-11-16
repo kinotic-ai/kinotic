@@ -88,22 +88,13 @@ class OidcClientServiceTest {
 
     @Test
     void expiredIdTokenIsRejected() {
-        contextRunner.run(context -> {
-            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings()));
-            // the token response still states a valid lifetime, so only the id token's own exp can refuse it
-            provider.idTokenLifetimeSeconds(-600);
-            try {
-                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("openid"));
-                String code = provider.approve(authorization.url());
+        // the token response still states a valid lifetime, so only the id token's own exp can refuse it
+        assertIdTokenRejected(-600L);
+    }
 
-                ExecutionException failure = assertThrows(ExecutionException.class, () -> await(
-                        client.verifiedClaims(code, CALLBACK_URL, authorization.pkceVerifier(), authorization.nonce())));
-                assertInstanceOf(InvalidIdTokenException.class, failure.getCause());
-            } finally {
-                provider.idTokenLifetimeSeconds(300);
-                client.close();
-            }
-        });
+    @Test
+    void idTokenStatingNoExpiryIsRejected() {
+        assertIdTokenRejected(null);
     }
 
     @Test
@@ -159,6 +150,24 @@ class OidcClientServiceTest {
             ExecutionException failure = assertThrows(ExecutionException.class, () -> await(
                     context.getBean(OidcClientService.class).createClient(settings)));
             assertInstanceOf(IllegalArgumentException.class, failure.getCause());
+        });
+    }
+
+    private void assertIdTokenRejected(Long idTokenLifetimeSeconds) {
+        contextRunner.run(context -> {
+            OidcClient client = await(context.getBean(OidcClientService.class).createClient(discoveredSettings()));
+            provider.idTokenLifetimeSeconds(idTokenLifetimeSeconds);
+            try {
+                OidcAuthorization authorization = client.authorize(CALLBACK_URL, List.of("openid"));
+                String code = provider.approve(authorization.url());
+
+                ExecutionException failure = assertThrows(ExecutionException.class, () -> await(
+                        client.verifiedClaims(code, CALLBACK_URL, authorization.pkceVerifier(), authorization.nonce())));
+                assertInstanceOf(InvalidIdTokenException.class, failure.getCause());
+            } finally {
+                provider.idTokenLifetimeSeconds(300L);
+                client.close();
+            }
         });
     }
 

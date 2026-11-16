@@ -42,7 +42,7 @@ class FakeIdentityProvider implements AutoCloseable {
     private final HttpServer server;
     // what the browser's visit to the authorization endpoint carried, as a real provider keeps it for the token endpoint
     private Map<String, String> authorizationRequest = Map.of();
-    private long idTokenLifetimeSeconds = 300;
+    private Long idTokenLifetimeSeconds = 300L;
 
     FakeIdentityProvider(Vertx vertx) throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
@@ -73,8 +73,11 @@ class FakeIdentityProvider implements AutoCloseable {
         return CODE;
     }
 
-    /** Sets how long after it is issued an id token expires; negative for one that is issued expired. */
-    void idTokenLifetimeSeconds(long seconds) {
+    /**
+     * Sets how long after it is issued an id token expires: negative for one that is issued expired, {@code null} for
+     * one that states no expiry.
+     */
+    void idTokenLifetimeSeconds(Long seconds) {
         this.idTokenLifetimeSeconds = seconds;
     }
 
@@ -157,8 +160,10 @@ class FakeIdentityProvider implements AutoCloseable {
                 .put("email", EMAIL)
                 .put("email_verified", true)
                 .put("nonce", authorizationRequest.get("nonce"))
-                .put("iat", now)
-                .put("exp", now + idTokenLifetimeSeconds);
+                .put("iat", now);
+        if (idTokenLifetimeSeconds != null) {
+            claims.put("exp", now + idTokenLifetimeSeconds);
+        }
         String signed = BASE64_URL.encodeToString(header.encode().getBytes(StandardCharsets.UTF_8)) + '.'
                 + BASE64_URL.encodeToString(claims.encode().getBytes(StandardCharsets.UTF_8));
         try {
