@@ -26,6 +26,7 @@ servers:
         siteKey: ""
     # The Secret holding this server's certificate when tls.enabled
     tlsSecretName: kinotic-server-management-tls
+    stripeBilling: false
     # Mounts the system GitHub App's private key and webhook secret, which a server loading
     # management-api requires
     githubApp: true
@@ -59,6 +60,9 @@ servers:
     githubApp: true
     # the system server creates an organization's sites record before its first site is published
     cloudflareDns: true
+    # Mounts the Stripe secret key and webhook secret while kinotic.managementApi.billing.enabled: this
+    # server holds the Stripe integration organizations are billed through
+    stripeBilling: true
     service:
       type: ClusterIP
     resources: {}
@@ -75,6 +79,7 @@ servers:
     turnstile: false
     githubApp: false
     cloudflareDns: false
+    stripeBilling: false
     service:
       type: ClusterIP
     resources: {}
@@ -136,6 +141,12 @@ kinotic:
     # Tempo and Mimir HTTP APIs backing the TelemetryService
     tempoUrl: "http://tempo.observability.svc:3100"
     mimirUrl: "http://mimir.observability.svc:9009"
+    # kinotic.managementApi.billing.*: billing organizations through Minds Ignited's Stripe account, which
+    # only Kinotic Cloud turns on; its Stripe secrets are mounted on a server with stripeBilling set
+    billing:
+      enabled: false
+      # days of free trial a new organization starts on
+      trialDays: 30
   elastic:
     connections:
       - host: "kinotic-es-es-http.elastic.svc"
@@ -186,6 +197,10 @@ systemSecrets:
     # kinotic.managementServer.turnstile.secretKey, on a server with turnstile set: the management server
     # verifies the token the portal's find-my-organizations form earns from the Turnstile site
     turnstileSecretKey: kinotic-turnstile-secret-key
+    # kinotic.managementApi.billing.stripeSecretKey and stripeWebhookSecret, on a server with stripeBilling
+    # set while kinotic.managementApi.billing.enabled
+    stripeSecretKey: kinotic-stripe-secret-key
+    stripeWebhookSecret: kinotic-stripe-webhook-secret
 
 # OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
 # Vault in production (kinotic.domain.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>

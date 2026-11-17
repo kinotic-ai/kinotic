@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.Requeue;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.management.api.model.Project;
@@ -106,6 +108,9 @@ public class DeployWorkerTests extends KinoticTestBase {
     @Autowired
     private ServiceRegistry serviceRegistry;
 
+    @Autowired
+    private OrganizationService organizationService;
+
     private final List<String> microserviceIds = new ArrayList<>();
     private final List<String> uiIds = new ArrayList<>();
     private final List<String> projectIds = new ArrayList<>();
@@ -182,6 +187,34 @@ public class DeployWorkerTests extends KinoticTestBase {
     }
 
     @Test
+    public void aDeactivatedOrganizationsMicroserviceIsSuspendedUntilItIsReactivated() throws Exception {
+        Organization organization = await(organizationService.create(new Organization().setName("worker-deactivated-" + suffix())));
+        await(organizationService.deactivate(organization.getId()));
+        String id = "worker-deactivated-api-" + suffix();
+        microserviceIds.add(id);
+        DeploymentState desired = new DeploymentState(DeploymentStatusType.RUNNING, COMMIT);
+        MicroserviceDeployment deployment = await(microservices.updateDesired(id, desired,
+                                                                              new MicroserviceDeployment().setId(id)
+                                                                                                          .setOrganizationId(organization.getId())
+                                                                                                          .setApplicationId(TEST_APP_ID)
+                                                                                                          .setProjectId("worker-deactivated")
+                                                                                                          .setName("api")
+                                                                                                          .setCreated(new Date())
+                                                                                                          .setUpdated(new Date()),
+                                                                              "push of " + COMMIT));
+
+        assertEquals(Requeue.NONE, await(microserviceWorker.reconcile(deployment)));
+        MicroserviceDeployment suspended = await(microservices.findById(id));
+        assertEquals(DeploymentStatusType.SUSPENDED, suspended.getState().getObserved().phase());
+
+        await(organizationService.reactivate(organization.getId()));
+        await(microserviceWorker.reconcile(await(microservices.findById(id))));
+        MicroserviceDeployment reactivated = await(microservices.findById(id));
+        assertEquals(DeploymentStatusType.FAILED, reactivated.getState().getObserved().phase(), "deploying again, to a project never deployed");
+        assertTrue(reactivated.getFailureMessage().contains("no deployment target"), reactivated.getFailureMessage());
+    }
+
+    @Test
     public void anOrphanedMicroserviceAnswersTheIntentAndIsLeftAsItIs() throws Exception {
         DeploymentState orphaned = new DeploymentState(DeploymentStatusType.ORPHANED, COMMIT);
         MicroserviceDeployment deployment = microservice("worker-orphaned", "api", orphaned);
@@ -253,6 +286,33 @@ public class DeployWorkerTests extends KinoticTestBase {
         UiDeployment answered = await(uis.findById(deployment.getId()));
         assertEquals(orphaned, answered.getState().getObserved());
         assertTrue(answered.getState().isReconciled());
+    }
+
+    @Test
+    public void aDeactivatedOrganizationsSiteIsSuspendedUntilItIsReactivated() throws Exception {
+        Organization organization = await(organizationService.create(new Organization().setName("worker-ui-deactivated-" + suffix())));
+        await(organizationService.deactivate(organization.getId()));
+        String id = "worker-ui-deactivated-site-" + suffix();
+        uiIds.add(id);
+        DeploymentState orphaned = new DeploymentState(DeploymentStatusType.ORPHANED, COMMIT);
+        UiDeployment deployment = await(uis.updateDesired(id, orphaned,
+                                                          new UiDeployment().setId(id)
+                                                                            .setOrganizationId(organization.getId())
+                                                                            .setApplicationId(TEST_APP_ID)
+                                                                            .setProjectId("worker-ui-deactivated")
+                                                                            .setName("site")
+                                                                            .setCreated(new Date())
+                                                                            .setUpdated(new Date()),
+                                                          "push of " + COMMIT));
+
+        assertEquals(Requeue.NONE, await(uiWorker.reconcile(deployment)));
+        UiDeployment suspended = await(uis.findById(id));
+        assertEquals(new DeploymentState(DeploymentStatusType.SUSPENDED, null), suspended.getState().getObserved());
+
+        await(organizationService.reactivate(organization.getId()));
+        await(uis.renewDesired(id, "organization reactivated"));
+        assertEquals(Requeue.NONE, await(uiWorker.reconcile(await(uis.findById(id)))));
+        assertEquals(orphaned, await(uis.findById(id)).getState().getObserved(), "served again, as the commit left it");
     }
 
     @Test

@@ -5,9 +5,7 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ApplicationKey;
-import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
-import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
 import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
@@ -29,7 +27,7 @@ import java.util.Map;
  * a record is never written back from a read copy.
  */
 @Component
-public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDeployment, DeploymentState> {
+public class UiDeploymentRepository extends AbstractDeploymentRepository<UiDeployment> {
 
     private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.UI_DEPLOYMENT, "kinotic_ui_deployment");
 
@@ -41,11 +39,6 @@ public class UiDeploymentRepository extends AbstractReconcilableRepository<UiDep
                                   WatchEventRepository watchEventRepository,
                                   ReconcileStateRepository reconcileStateRepository) {
         super(WATCHED, UiDeployment.class, crudServiceTemplate, watchedStateRepository, watchEventRepository, reconcileStateRepository);
-    }
-
-    @Override
-    public String scopeOf(UiDeployment record) {
-        return record.getOrganizationId();
     }
 
     /**

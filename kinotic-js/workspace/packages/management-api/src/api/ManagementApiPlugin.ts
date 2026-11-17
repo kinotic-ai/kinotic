@@ -20,6 +20,7 @@ import { OwnedPasswordConfigurationService, type IOwnedPasswordConfigurationServ
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
 import { VulnerabilityAlertService, type IVulnerabilityAlertService } from '@/api/services/IVulnerabilityAlertService'
+import { BillingService, type IBillingService } from '@/api/services/IBillingService'
 
 export interface IManagementApiExtension {
     applications: IApplicationService
@@ -43,6 +44,7 @@ export interface IManagementApiExtension {
     machines: IMachineService
     githubAppInstallations: IGitHubAppInstallationService
     vulnerabilityAlerts: IVulnerabilityAlertService
+    billing: IBillingService
 }
 
 export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
@@ -69,6 +71,7 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             machines: new MachineService(kinotic),
             githubAppInstallations: new GitHubAppInstallationService(kinotic),
             vulnerabilityAlerts: new VulnerabilityAlertService(kinotic),
+            billing: new BillingService(kinotic),
         }
     }
 }

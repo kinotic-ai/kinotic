@@ -8,11 +8,12 @@ const SEVERITY_BY_TYPE: Record<string, string> = {
   READY: 'success',
   FAILED: 'danger',
   ORPHANED: 'warn',
+  SUSPENDED: 'warn',
 }
 
 /**
  * Maps a deployment status type to the PrimeVue Tag severity it renders with: success once
- * serving, danger when failed, warn when orphaned, info meanwhile.
+ * serving, danger when failed, warn when orphaned or suspended, info meanwhile.
  */
 export function deploymentStatusSeverity(type: DeploymentStatusType): string {
   return SEVERITY_BY_TYPE[type] ?? 'info'

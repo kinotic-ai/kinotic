@@ -2,7 +2,18 @@ import { readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { findArtifacts } from './artifacts.ts'
 import { log, logError } from './log.ts'
-import { blobUrl, deleteFilesOfOtherCommits, parseSiteUrl, type SiteTarget } from './site-storage.ts'
+import {
+    blobUrl,
+    COMMIT_METADATA_HEADER,
+    deleteFilesOfOtherCommits,
+    INDEX_FILE,
+    parseSiteUrl,
+    type SiteTarget,
+    withIndexLease,
+    writeFile,
+    SUSPENDED_INDEX_FILE,
+    writeSuspendedIndex,
+} from './site-storage.ts'
 
 /**
  * One-shot entrypoint of the UI publish workload: uploads every built UI of the checkout to
@@ -11,13 +22,16 @@ import { blobUrl, deleteFilesOfOtherCommits, parseSiteUrl, type SiteTarget } fro
  * commit it belongs to: the hashed files under {@code assets/} first, marked immutable, then
  * the rest uncached, then {@code version.json}, then {@code index.html} last, so a site never
  * serves an index whose assets are not there yet and the index switch is the atomic publish.
- * Once the index has switched, the files other commits left in the directory are deleted.
+ * Once the index has switched, the files other commits left in the directory are deleted. A site of a
+ * deactivated organization is published suspended: its index is kept as the suspension workload keeps it,
+ * and the site serves the page saying its organization is deactivated in its place.
  *
  * Environment:
  * - KINOTIC_UI_UPLOAD_URLS  a JSON object of UI name to upload URL: the site's directory in
  *                           the sites account, with a SAS for that directory as its query (required)
  * - KINOTIC_UI_COMMIT       the commit the UIs were built from (required)
  * - KINOTIC_WORKSPACE_DIR   the checkout, mounted read-only (default /workspace)
+ * - KINOTIC_UI_SUSPENDED    true while the organization is deactivated, to publish every site suspended
  * - KINOTIC_LOG_*           see log.ts
  */
 
@@ -28,9 +42,6 @@ const NO_CACHE_CONTROL = 'no-cache'
 const UPLOAD_CONCURRENCY = 4
 const ASSETS_DIR = 'assets/'
 const VERSION_FILE = 'version.json'
-const INDEX_FILE = 'index.html'
-/** The blob metadata naming the commit a file was published by, which the deploy's cleanup reads. */
-const COMMIT_METADATA_HEADER = 'x-ms-meta-commit'
 
 function require_(name: string): string {
     const value = process.env[name]
@@ -107,7 +118,8 @@ async function uploadAll(tasks: Array<() => Promise<void>>): Promise<void> {
     await Promise.all(workers)
 }
 
-async function publishUi(target: SiteTarget, workspaceDir: string, name: string, dir: string, commitSha: string): Promise<void> {
+async function publishUi(target: SiteTarget, workspaceDir: string, name: string, dir: string, commitSha: string,
+                         suspended: boolean): Promise<void> {
     const dist = join(workspaceDir, dir, 'dist')
     const files = walk(dist)
     if (!files.includes(INDEX_FILE)) {
@@ -125,7 +137,19 @@ async function publishUi(target: SiteTarget, workspaceDir: string, name: string,
     await upload(blobUrl(target, VERSION_FILE), new Blob([JSON.stringify({ commitSha })]),
                  NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
-    await upload(blobUrl(target, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+    if (suspended) {
+        await withIndexLease(target, async (indexHeaders, keptHeaders) => {
+            await writeFile(target, SUSPENDED_INDEX_FILE, index, {
+                'x-ms-blob-cache-control': NO_CACHE_CONTROL,
+                'Content-Type': index.type || 'text/html',
+                [COMMIT_METADATA_HEADER]: commitSha,
+                ...keptHeaders,
+            })
+            await writeSuspendedIndex(target, commitSha, indexHeaders)
+        })
+    } else {
+        await upload(blobUrl(target, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
+    }
     // the index switched to this commit, so nothing reaches another commit's files
     const stale = await deleteFilesOfOtherCommits(target, commitSha)
     log(`[workload-runner] published UI ${name}; deleted ${stale} file(s) of other commits`)
@@ -135,6 +159,7 @@ async function main(): Promise<void> {
     const targets = parseUploadUrls(require_('KINOTIC_UI_UPLOAD_URLS'))
     const commitSha = require_('KINOTIC_UI_COMMIT')
     const workspaceDir = process.env.KINOTIC_WORKSPACE_DIR ?? '/workspace'
+    const suspended = process.env.KINOTIC_UI_SUSPENDED === 'true'
 
     const uis = findArtifacts(workspaceDir).uis
     log(`[workload-runner] publishing ${uis.length} UI(s) of ${commitSha}`)
@@ -143,7 +168,7 @@ async function main(): Promise<void> {
         if (!target) {
             throw new Error(`UI ${ui.name} has no upload URL; the deploy issued URLs for ${[...targets.keys()].join(', ') || 'no UI'}`)
         }
-        await publishUi(target, workspaceDir, ui.name, ui.dir, commitSha)
+        await publishUi(target, workspaceDir, ui.name, ui.dir, commitSha, suspended)
     }
     log(`[workload-runner] published ${commitSha}`)
 }

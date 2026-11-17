@@ -1,0 +1,61 @@
+package org.kinotic.management.api.model.billing;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+import org.kinotic.core.api.crud.Identifiable;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+/**
+ * An organization's standing with paying for Kinotic Cloud: its trial, the plan it subscribes to, and whether
+ * payment is due. One account per organization, created with a free trial the first time it is read.
+ */
+@Getter
+@Setter
+@Accessors(chain = true)
+@NoArgsConstructor
+public class BillingAccount implements Identifiable<String> {
+
+    /** The id of the organization the account belongs to. */
+    private String id;
+
+    private BillingStatus status;
+
+    /** When the organization's free trial ends, or ended. */
+    private Date trialEndsAt;
+
+    /** The plan the organization subscribes to, or {@code null} when it has no subscription. */
+    private String planId;
+
+    /** When the current billing interval of the subscription started, or {@code null} without a subscription. */
+    private Date currentPeriodStart;
+
+    /** When the current billing interval of the subscription ends, or {@code null} without a subscription. */
+    private Date currentPeriodEnd;
+
+    /**
+     * The times the organization's subscriptions cover, the current one's and those of any that ended in the last
+     * three days, whose usage may still be billed to them.
+     */
+    private List<SubscriptionPeriod> subscriptionPeriods = new ArrayList<>();
+
+    /** Since when payment is due, while the account is {@link BillingStatus#PAST_DUE}. */
+    private Date pastDueSince;
+
+    /** The id of the organization's Stripe Customer, once it has started a Checkout. */
+    private String stripeCustomerId;
+
+    /** The id of the organization's Stripe Subscription, once it has subscribed. */
+    private String stripeSubscriptionId;
+
+    /** The id of the Checkout Session the organization last opened, until a subscription starts. */
+    private String stripeCheckoutSessionId;
+
+    private Date created;
+
+    private Date updated;
+}

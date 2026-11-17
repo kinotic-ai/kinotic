@@ -1,6 +1,7 @@
 # Image for the workloads that deploy and run a customer project on a node.
 #
-# The sync workload runs `bun src/sync.ts`, the UI publish workload `bun src/publish-ui.ts` and
+# The sync workload runs `bun src/sync.ts`, the UI publish workload `bun src/publish-ui.ts`, the site
+# removal, suspension and resumption workloads `bun src/remove-ui.ts`, `src/suspend-ui.ts` and `src/resume-ui.ts`, and
 # the SBOM workload `bun src/generate-sbom.ts` (each set as the workload entrypoint); the runtime
 # workloads run the default supervisor entrypoint.
 #

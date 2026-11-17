@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.ReconcileState;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.Reconciler;
 import org.kinotic.domain.api.model.Requeue;
 import org.kinotic.domain.api.model.WatchedType;
@@ -12,6 +13,7 @@ import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.management.api.model.deployment.DeploymentStatus;
 import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.UiDeployment;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Keeps each UI of a deployed project served as its deployment says it should: the worker the
@@ -30,8 +33,10 @@ import java.util.Objects;
  * in its desired state. The files are uploaded by the deploy job; this worker checks that the site
  * serves the published commit, records what it observed while it does not, and asks to look again
  * shortly. A deployment for which the commit dropped the UI is left as it is, its site serving, and
- * one whose removal was asked for is finalized: its files deleted through a removal workload on the
- * project's node, then its record.
+ * one whose removal was asked for is finalized: its files deleted through a removal workload, then its
+ * record. While the site's organization is deactivated, a suspension workload has the site redirect
+ * every route to the portal's page saying so, and once it is active again a resumption workload has it
+ * serve its own index.
  */
 @Slf4j
 @Component
@@ -41,8 +46,8 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
     /** How long between checks of a site that does not yet serve its commit. */
     static final Duration CHECK_INTERVAL = Duration.ofSeconds(30);
 
-    /** Longer than deleting a site takes, and short enough that a leaked URL is soon worthless. */
-    private static final Duration REMOVAL_URL_TTL = Duration.ofMinutes(15);
+    /** Longer than deleting a site, or switching its index, takes, and short enough that a leaked URL is soon worthless. */
+    private static final Duration SITE_URL_TTL = Duration.ofMinutes(15);
 
     private final UiDeploymentRepository uiDeploymentRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
@@ -50,6 +55,7 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
     private final SiteStorageService siteStorageService;
     private final SiteWorkloadFactory siteWorkloadFactory;
     private final WorkloadOrchestrationService workloadOrchestrationService;
+    private final OrganizationService organizationService;
     private final KinoticSystemApiProperties properties;
     private final KinoticDomainProperties domainProperties;
 
@@ -67,7 +73,19 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
             ret = finalizeRemoval(current);
         } else if (desired == null) {
             ret = Future.succeededFuture(Requeue.NONE);
-        } else if (desired.phase() == DeploymentStatusType.ORPHANED) {
+        } else {
+            ret = organizationService.findById(current.getOrganizationId())
+                                     .compose(organization -> organization != null && organization.getDeactivated() != null
+                                             ? suspend(current)
+                                             : resumeIfSuspended(current).compose(v -> reconcileIntent(current, desired)));
+        }
+        return ret;
+    }
+
+    private Future<Requeue> reconcileIntent(UiDeployment current, DeploymentState desired) {
+        ReconcileState<DeploymentState> state = current.getState();
+        Future<Requeue> ret;
+        if (desired.phase() == DeploymentStatusType.ORPHANED) {
             // the commit dropped the UI: the site keeps serving until the deployment is removed
             ret = uiDeploymentRepository.reportObserved(current.getId(), desired, state.getGeneration(), "orphaned by the commit")
                                         .map(Requeue.NONE);
@@ -78,6 +96,50 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
         } else {
             ret = uiDeploymentProvisioner.check(current, desired.commitSha())
                                          .compose(status -> record(current, desired, status));
+        }
+        return ret;
+    }
+
+    // a publish while the organization is deactivated publishes the site suspended, and is a new generation, so the
+    // site is suspended again, which finds it suspended already
+    private Future<Requeue> suspend(UiDeployment current) {
+        ReconcileState<DeploymentState> state = current.getState();
+        Future<Requeue> ret;
+        if (suspended(current) && state.getObservedGeneration() >= state.getGeneration()) {
+            ret = Future.succeededFuture(Requeue.NONE);
+        } else {
+            ret = onSiteFiles(current, url -> siteWorkloadFactory.suspension(current, url))
+                    .compose(v -> uiDeploymentRepository.reportObserved(current.getId(),
+                                                                        new DeploymentState(DeploymentStatusType.SUSPENDED,
+                                                                                            DeploymentState.commitOf(state.getObserved())),
+                                                                        state.getGeneration(),
+                                                                        "organization deactivated"))
+                    .map(Requeue.NONE);
+        }
+        return ret;
+    }
+
+    // the site's state is observed afresh once it serves its own index again
+    private Future<Void> resumeIfSuspended(UiDeployment current) {
+        return suspended(current)
+                ? onSiteFiles(current, url -> siteWorkloadFactory.resumption(current, url))
+                : Future.succeededFuture();
+    }
+
+    private static boolean suspended(UiDeployment deployment) {
+        DeploymentState observed = deployment.getState().getObserved();
+        return observed != null && observed.phase() == DeploymentStatusType.SUSPENDED;
+    }
+
+    // runs the workload built from an index URL for the site, where site storage is enabled
+    private Future<Void> onSiteFiles(UiDeployment current, Function<String, Workload> workload) {
+        Future<Void> ret;
+        if (properties.getSystemApi().getUiDeployment().storesSites()) {
+            ret = siteStorageService.issueIndexUrl(hostname(current), SITE_URL_TTL)
+                                    .map(workload)
+                                    .compose(this::runToCompletion);
+        } else {
+            ret = Future.succeededFuture();
         }
         return ret;
     }
@@ -119,23 +181,31 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
                     if (project == null || project.getNodeId() == null || !properties.getSystemApi().getUiDeployment().storesSites()) {
                         ret = Future.succeededFuture();
                     } else {
-                        ret = siteStorageService.issueRemovalUrl(domainProperties.getDomain().getPublishedSites().resolveHostname(current.getId()), REMOVAL_URL_TTL)
+                        ret = siteStorageService.issueRemovalUrl(hostname(current), SITE_URL_TTL)
                                 .map(url -> siteWorkloadFactory.removal(current, url))
-                                .compose(workloadOrchestrationService::deployWorkload)
-                                .compose(finished -> {
-                                    Future<Void> removed;
-                                    if (finished.getStatus() == WorkloadStatus.STOPPED && Integer.valueOf(0).equals(finished.getExitCode())) {
-                                        removed = Future.succeededFuture();
-                                    } else {
-                                        removed = Future.failedFuture(new IllegalStateException("Removal workload " + finished.getId()
-                                                + " ended " + finished.getStatus() + " with exit code " + finished.getExitCode()));
-                                    }
-                                    return removed;
-                                });
+                                .compose(this::runToCompletion);
                     }
                     return ret;
                 })
                 .compose(v -> uiDeploymentRepository.deleteByIdSync(current.getId()))
                 .map(Requeue.NONE);
+    }
+
+    // a workload that does not stop with exit code 0 fails the reconcile, which is retried
+    private Future<Void> runToCompletion(Workload workload) {
+        return workloadOrchestrationService.deployWorkload(workload).compose(finished -> {
+            Future<Void> ret;
+            if (finished.getStatus() == WorkloadStatus.STOPPED && Integer.valueOf(0).equals(finished.getExitCode())) {
+                ret = Future.succeededFuture();
+            } else {
+                ret = Future.failedFuture(new IllegalStateException(finished.getDescription() + " (workload " + finished.getId()
+                        + ") ended " + finished.getStatus() + " with exit code " + finished.getExitCode()));
+            }
+            return ret;
+        });
+    }
+
+    private String hostname(UiDeployment deployment) {
+        return domainProperties.getDomain().getPublishedSites().resolveHostname(deployment.getId());
     }
 }

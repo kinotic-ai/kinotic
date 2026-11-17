@@ -392,6 +392,83 @@ CREATE TABLE IF NOT EXISTS kinotic_llm_configuration (
     updated DATE
 );
 
+-- Billing plan: what an organization pays for Kinotic Cloud (BillingPlanService); a flat fee, metered usage or both,
+-- each component a Stripe Price of the plan's Stripe Product. Written only where kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_billing_plan (
+    id KEYWORD,
+    name KEYWORD,
+    description TEXT,
+    organizationId KEYWORD,
+    currency KEYWORD NOT INDEXED,
+    interval KEYWORD NOT INDEXED,
+    components OBJECT (
+        type KEYWORD,
+        amount LONG NOT INDEXED,
+        meter KEYWORD,
+        unitAmount DOUBLE NOT INDEXED,
+        includedQuantity LONG NOT INDEXED,
+        stripePriceId KEYWORD NOT INDEXED
+    ),
+    archived BOOLEAN,
+    stripeProductId KEYWORD NOT INDEXED,
+    created DATE,
+    updated DATE
+);
+
+-- Billing account: an organization's trial, subscription and whether payment is due, under the organization's id.
+-- Written only where kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_billing_account (
+    id KEYWORD,
+    status KEYWORD,
+    trialEndsAt DATE,
+    planId KEYWORD,
+    currentPeriodStart DATE NOT INDEXED,
+    currentPeriodEnd DATE NOT INDEXED,
+    subscriptionPeriods OBJECT (stripeSubscriptionId KEYWORD NOT INDEXED, started DATE NOT INDEXED, ended DATE NOT INDEXED),
+    pastDueSince DATE,
+    stripeCustomerId KEYWORD NOT INDEXED,
+    stripeSubscriptionId KEYWORD,
+    stripeCheckoutSessionId KEYWORD NOT INDEXED,
+    created DATE,
+    updated DATE
+);
+
+-- Usage record: an organization's usage of Kinotic Cloud during one hour, a line for each meter and thing that used it,
+-- under '<organizationId>:<epoch second of the hour>'. Written only where kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_usage_record (
+    id KEYWORD,
+    organizationId KEYWORD,
+    hour DATE,
+    lines OBJECT (
+        meter KEYWORD NOT INDEXED,
+        subjectId KEYWORD NOT INDEXED,
+        subjectName KEYWORD NOT INDEXED,
+        quantity DOUBLE NOT INDEXED
+    ),
+    settled DATE,
+    reported KEYWORD NOT INDEXED,
+    created DATE,
+    updated DATE
+);
+
+-- Billable resource: one run of something an organization is billed for while it runs, such as a microservice's VM,
+-- under the id of the run's workload, with what each hour of it uses. Written only where
+-- kinotic.managementApi.billing.enabled.
+CREATE TABLE IF NOT EXISTS kinotic_billable_resource (
+    id KEYWORD,
+    organizationId KEYWORD,
+    subjectId KEYWORD,
+    subjectName KEYWORD NOT INDEXED,
+    amounts OBJECT (
+        meter KEYWORD NOT INDEXED,
+        perHour DOUBLE NOT INDEXED
+    ),
+    started DATE,
+    ended DATE,
+    created DATE,
+    updated DATE
+);
+
 -- Installed license key: the one Kinotic Enterprise License key the whole cluster runs on (EntitlementService),
 -- under the id 'installed', which a system user installs on the system console's License page.
 CREATE TABLE IF NOT EXISTS kinotic_installed_license_key (
@@ -406,6 +483,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     name KEYWORD,
     description TEXT,
     createdBy KEYWORD,
+    deactivated DATE,
     created DATE,
     updated DATE
 );

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
@@ -71,5 +72,42 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
                                                                     .map(OrganizationParticipantIdentity::getOrganizationId)
                                                                     .toList()))
                                  .compose(organizations -> emailService.sendOrganizationsEmail(email, organizations));
+    }
+
+    @Override
+    public Future<Boolean> deactivate(String organizationId) {
+        return setDeactivated(organizationId, new Date());
+    }
+
+    @Override
+    public Future<Boolean> reactivate(String organizationId) {
+        return setDeactivated(organizationId, null);
+    }
+
+    // emits whether this call moved the organization between active and deactivated
+    private Future<Boolean> setDeactivated(String organizationId, Date deactivated) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return repository.findById(organizationId).compose(found -> {
+            Validate.isTrue(found != null, "No organization has the id %s", organizationId);
+            Future<Boolean> ret;
+            if (isDeactivated(found) == (deactivated != null)) {
+                ret = Future.succeededFuture(false);
+            } else {
+                AtomicBoolean changed = new AtomicBoolean();
+                // read and changed again by update, so a write landing since the read above is kept
+                ret = repository.update(organizationId, organization -> {
+                    changed.set(isDeactivated(organization) != (deactivated != null));
+                    if (changed.get()) {
+                        organization.setDeactivated(deactivated).setUpdated(new Date());
+                    }
+                    return Future.succeededFuture(organization);
+                }).map(organization -> changed.get());
+            }
+            return ret;
+        });
+    }
+
+    private static boolean isDeactivated(Organization organization) {
+        return organization.getDeactivated() != null;
     }
 }

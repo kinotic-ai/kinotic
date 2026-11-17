@@ -11,6 +11,7 @@ import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -25,11 +26,13 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
+import org.kinotic.system.internal.api.services.billing.MicroserviceBilling;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Optional;
 
 /**
  * Keeps each microservice of a deployed project running as its deployment says it should: the worker
@@ -65,6 +68,9 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
     private final ParticipantIdentityService participantIdentityService;
+    private final OrganizationService organizationService;
+    // present where Kinotic Cloud bills organizations
+    private final Optional<MicroserviceBilling> microserviceBilling;
 
     @Override
     public WatchedType type() {
@@ -79,10 +85,38 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
         if (state.getDeletionRequested() != null) {
             ret = finalizeRemoval(current);
         } else if (desired == null) {
-            ret = Future.succeededFuture(Requeue.NONE);
-        } else if (desired.phase() == DeploymentStatusType.ORPHANED) {
-            // the commit dropped the microservice: whatever runs keeps running until the deployment is removed
-            ret = microserviceDeploymentRepository.reportObserved(current.getId(), desired, state.getGeneration(), "orphaned by the commit")
+            ret = bill(current).map(Requeue.NONE);
+        } else {
+            ret = bill(current)
+                    .compose(v -> organizationService.findById(current.getOrganizationId()))
+                    .compose(organization -> organization != null && organization.getDeactivated() != null
+                            ? suspend(current)
+                            : reconcileIntent(current, desired));
+        }
+        return ret;
+    }
+
+    // a deployment is billed from its own state each time it is reconciled, so billing that fails is caught up the next time
+    private Future<Void> bill(MicroserviceDeployment current) {
+        return microserviceBilling.map(billing -> billing.track(current).recover(error -> {
+                                      log.warn("Could not bring the billing of microservice {} of project {} up to date",
+                                               current.getName(), current.getProjectId(), error);
+                                      return Future.<Void>succeededFuture();
+                                  }))
+                                  .orElseGet(Future::succeededFuture);
+    }
+
+    // a failure fails the removal, so the record is kept and the removal retried until its runs are ended
+    private Future<Void> endBilling(MicroserviceDeployment current) {
+        return microserviceBilling.map(billing -> billing.untrack(current)).orElseGet(Future::succeededFuture);
+    }
+
+    private Future<Requeue> reconcileIntent(MicroserviceDeployment current, DeploymentState desired) {
+        Future<Requeue> ret;
+        if (desired.phase() == DeploymentStatusType.ORPHANED) {
+            // the commit dropped the microservice: whatever runs keeps running until the deployment is removed, and one
+            // stopped while its organization was deactivated stays stopped, since the commit has no artifact to start
+            ret = microserviceDeploymentRepository.reportObserved(current.getId(), desired, current.getState().getGeneration(), "orphaned by the commit")
                                                   .map(Requeue.NONE);
         } else {
             ret = Future.all(workloadOf(current),
@@ -90,6 +124,18 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
                         .compose(found -> ensureRunning(current, desired, found.resultAt(0), found.resultAt(1)));
         }
         return ret;
+    }
+
+    // a deactivated organization's VM is stopped, and a stop that fails is retried before the deployment is reported
+    // suspended; reactivating the organization renews the intent, which deploys it again
+    private Future<Requeue> suspend(MicroserviceDeployment current) {
+        return stopWorkloadOf(current)
+                .compose(v -> microserviceDeploymentRepository.reportObserved(current.getId(),
+                                                                              new DeploymentState(DeploymentStatusType.SUSPENDED,
+                                                                                                  DeploymentState.commitOf(current.getState().getObserved())),
+                                                                              current.getState().getGeneration(),
+                                                                              "organization deactivated"))
+                .map(Requeue.NONE);
     }
 
     private Future<Workload> workloadOf(MicroserviceDeployment deployment) {
@@ -265,18 +311,23 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
      */
     private Future<Requeue> finalizeRemoval(MicroserviceDeployment current) {
         log.info("Removing microservice {} of project {}", current.getName(), current.getProjectId());
-        return workloadOf(current)
-                .compose(workload -> workload != null
-                        ? workloadOrchestrationService.stopWorkload(workload.getId())
-                                                      .recover(error -> {
-                                                          log.warn("Workload {} of microservice {} could not be stopped: {}",
-                                                                   workload.getId(), current.getName(), error.getMessage());
-                                                          return Future.succeededFuture();
-                                                      })
-                        : Future.succeededFuture())
+        return stopWorkloadOf(current)
+                .recover(error -> {
+                    log.warn("Workload {} of microservice {} could not be stopped: {}",
+                             current.getWorkloadId(), current.getName(), error.getMessage());
+                    return Future.succeededFuture();
+                })
+                .compose(v -> endBilling(current))
                 .compose(v -> removeMachine(current))
                 .compose(v -> microserviceDeploymentRepository.deleteByIdSync(current.getId()))
                 .map(Requeue.NONE);
+    }
+
+    private Future<Void> stopWorkloadOf(MicroserviceDeployment current) {
+        return workloadOf(current)
+                .compose(workload -> workload != null
+                        ? workloadOrchestrationService.stopWorkload(workload.getId())
+                        : Future.succeededFuture());
     }
 
     // An org member may already have removed the machine from the console

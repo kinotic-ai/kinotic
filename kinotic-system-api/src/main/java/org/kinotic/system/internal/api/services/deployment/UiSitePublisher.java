@@ -8,10 +8,12 @@ import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.PublishedSitesProperties;
 import org.kinotic.domain.api.utils.HostLabelUtil;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.services.OrganizationDnsRecordProvisioner;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.deployment.UiArtifact;
 import org.kinotic.management.api.model.deployment.UiDeployment;
@@ -46,6 +48,7 @@ public class UiSitePublisher {
     private final SiteWorkloadFactory siteWorkloadFactory;
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final OrganizationDnsRecordProvisioner dnsRecordProvisioner;
+    private final OrganizationService organizationService;
     private final KinoticDomainProperties domainProperties;
 
     /**
@@ -79,19 +82,23 @@ public class UiSitePublisher {
 
     /**
      * Runs the publish workload with one upload URL per site, each scoped to that site's
-     * directory in the sites account.
+     * directory in the sites account. The sites of a deactivated organization are published suspended.
      *
      * @return the publish workload once its run ended, whatever the outcome
      */
     public Future<Workload> upload(Project project, DeployTarget target, List<UiDeployment> rows, String commitSha) {
-        return Future.all(rows.stream()
-                              .map(row -> siteStorageService.issueUploadUrl(hostname(row), UPLOAD_URL_TTL)
-                                                            .map(url -> Map.entry(row.getName(), url)))
-                              .toList())
-                .map(all -> {
+        Future<List<Map.Entry<String, String>>> issued = Future.all(rows.stream()
+                                                                       .map(row -> siteStorageService.issueUploadUrl(hostname(row), UPLOAD_URL_TTL)
+                                                                                                     .map(url -> Map.entry(row.getName(), url)))
+                                                                       .toList())
+                                                                .map(all -> all.<Map.Entry<String, String>>list());
+        return Future.all(issued, organizationService.findById(project.getOrganizationId()))
+                .map(found -> {
                     JsonObject urls = new JsonObject();
-                    all.<Map.Entry<String, String>>list().forEach(entry -> urls.put(entry.getKey(), entry.getValue()));
-                    return siteWorkloadFactory.publish(project, target, urls, commitSha);
+                    found.<List<Map.Entry<String, String>>>resultAt(0).forEach(entry -> urls.put(entry.getKey(), entry.getValue()));
+                    Organization organization = found.resultAt(1);
+                    return siteWorkloadFactory.publish(project, target, urls, commitSha,
+                                                       organization != null && organization.getDeactivated() != null);
                 })
                 .compose(workloadOrchestrationService::deployWorkload);
     }

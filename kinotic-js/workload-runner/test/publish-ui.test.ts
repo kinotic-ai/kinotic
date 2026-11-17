@@ -39,6 +39,8 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         // a file an earlier publish left behind, stamped with its commit
         const stale = await putBlob('admin.apps.kinotic.test/assets/old.js', '// stale', { 'x-ms-meta-commit': 'b'.repeat(40) })
         expect(stale.status).toBe(201)
+        // the index a suspension kept, which only the suspension, resumption and a suspended publish replace
+        expect((await putBlob('admin.apps.kinotic.test/.kinotic/index.html', '<html>kept</html>', { 'x-ms-meta-commit': 'b'.repeat(40) })).status).toBe(201)
 
         const result = spawnSync('bun', [PUBLISH], {
             env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: uploadUrls, KINOTIC_UI_COMMIT: sha, KINOTIC_WORKSPACE_DIR: workspaceDir },
@@ -70,6 +72,7 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         expect(index.headers.get('x-ms-meta-commit')).toBe(sha)
 
         expect((await readBlob('admin.apps.kinotic.test/assets/old.js')).status).toBe(404)
+        expect(await (await readBlob('admin.apps.kinotic.test/.kinotic/index.html')).text()).toBe('<html>kept</html>')
     }, 60_000)
 
     it('fails when a UI was not built', async () => {
@@ -98,5 +101,46 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         expect(result.status).not.toBe(0)
         expect(result.stderr).toContain('..\\evil')
         expect((await readBlob('backslash.apps.kinotic.test/index.html')).status).toBe(404)
+    }, 60_000)
+
+    it('publishes a deactivated organization\'s site suspended, keeping its index for the resumption', async () => {
+        const sha = 'd'.repeat(40)
+        const site = `deactivated-${crypto.randomUUID()}.apps.kinotic.test`
+
+        const result = spawnSync('bun', [PUBLISH], {
+            env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: JSON.stringify({ admin: siteUrl(site) }), KINOTIC_UI_COMMIT: sha,
+                   KINOTIC_WORKSPACE_DIR: workspaceDir, KINOTIC_UI_SUSPENDED: 'true' },
+            encoding: 'utf-8',
+        })
+
+        expect(result.stderr).toBe('')
+        expect(result.status).toBe(0)
+        const index = await readBlob(`${site}/index.html`)
+        expect(await index.text()).toContain('This site is offline')
+        expect(index.headers.get('x-ms-meta-suspended')).toBe('true')
+        expect(index.headers.get('x-ms-meta-commit')).toBe(sha)
+        const kept = await readBlob(`${site}/.kinotic/index.html`)
+        expect(await kept.text()).toBe('<html>admin</html>')
+        expect(kept.headers.get('x-ms-meta-commit')).toBe(sha)
+    }, 60_000)
+
+    it('publishes over a suspended site, keeping the newer index', async () => {
+        const site = `resuspended-${crypto.randomUUID()}.apps.kinotic.test`
+        const publish = (sha: string) => spawnSync('bun', [PUBLISH], {
+            env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: JSON.stringify({ admin: siteUrl(site) }), KINOTIC_UI_COMMIT: sha,
+                   KINOTIC_WORKSPACE_DIR: workspaceDir, KINOTIC_UI_SUSPENDED: 'true' },
+            encoding: 'utf-8',
+        })
+        expect(publish('e'.repeat(40)).status).toBe(0)
+        writeFileSync(join(workspaceDir, 'packages', 'ui', 'admin', 'dist', 'index.html'), '<html>admin v2</html>')
+
+        const result = publish('f'.repeat(40))
+
+        expect(result.stderr).toBe('')
+        expect(result.status).toBe(0)
+        const index = await readBlob(`${site}/index.html`)
+        expect(index.headers.get('x-ms-meta-suspended')).toBe('true')
+        expect(index.headers.get('x-ms-meta-commit')).toBe('f'.repeat(40))
+        expect(await (await readBlob(`${site}/.kinotic/index.html`)).text()).toBe('<html>admin v2</html>')
     }, 60_000)
 })

@@ -31,6 +31,11 @@ export enum DeploymentStatusType {
      */
     ORPHANED = 'ORPHANED',
     /**
+     * The deployment's organization is deactivated, so a microservice's VM is stopped, and a UI's site
+     * sends its visitors to the deactivated page, until the organization is reactivated.
+     */
+    SUSPENDED = 'SUSPENDED',
+    /**
      * The last attempt failed; the status message says why.
      */
     FAILED = 'FAILED'
