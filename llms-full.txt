@@ -5820,8 +5820,8 @@ To update the CLI, run `kinotic local down`, then the same line again.
 
 #### Create your organization
 
-Open [http://localhost:9090/signup](http://localhost:9090/signup), enter your name and email, then name
-your organization and set a password. A local install sends no email, so the page goes straight on, and
+Open [http://localhost:9090/signup](http://localhost:9090/signup), enter your email, then your name,
+your organization's name and a password. A local install sends no email, so the page goes straight on, and
 you are signed in to your new organization.
 
 #### Follow the Quickstart in the portal
@@ -9362,8 +9362,8 @@ on your first pull request by commenting `I have read the Kinotic CLA Document a
 ## Licensing
 
 Kinotic RPC (`kinotic-core/`, `kinotic-api-gateway/`, `kinotic-client/`, `kinotic-idl/`, and the `core` and `idl`
-packages in `kinotic-js/workspace/packages/`) is licensed under the Apache License 2.0, and none of
-its modules may depend on a module outside it: the build fails if one declares a project dependency on such a
+packages in `kinotic-js/workspace/packages/`) and `kinotic-common/` are licensed under the Apache License 2.0, and none
+of their modules may depend on a module outside them: the build fails if one declares a project dependency on such a
 module. Every file in a Java package with an `ee` segment is an Enterprise Implementation,
 licensed under the Kinotic Enterprise License
 ([`LICENSE-ENTERPRISE`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-ENTERPRISE)),
@@ -12180,6 +12180,22 @@ the repository to its license, and the license texts govern wherever this page s
   
   <tr>
     <td>
+      <code>
+        kinotic-common/
+      </code>
+      
+      , the server code Kinotic OS shares with servers built on Kinotic RPC alone
+    </td>
+    
+    <td>
+      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-APACHE" rel="nofollow">
+        Apache License 2.0
+      </a>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
       Third-party components
     </td>
     
@@ -13921,7 +13937,7 @@ Every sign-up founds a new organization with the founder as its first user. The 
 3. The organization and its founder are created, the founder bound to their GitHub identity, and the browser is signed in.
 4. The page then offers **Continue to GitHub** to install the Kinotic GitHub App, which project creation needs.
 
-Where the management server sets `kinotic.managementServer.passwordSignUp`, as the `demonstration` profile does, the `/signup` page offers an email and a password in place of GitHub (`/signup/email`): `POST /api/auth/org/signup` sends a verification link to `/signup/verify`, where the founder names the organization and sets a password, and the organization takes passwords from the start. Without the property the route answers `403`, and `GET /api/auth/org/signup/methods` tells the portal which page to show. A pending sign-up that has expired gives way to a new one.
+Where the management server sets `kinotic.managementServer.passwordSignUp`, as the `demonstration` profile does, the `/signup` page offers an email and a password in place of GitHub (`/signup/email`): `POST /api/auth/org/signup` takes the email alone and sends a verification link to `/signup/verify`, where the founder enters their name, names the organization and sets a password, and the organization takes passwords from the start. Without the property the route answers `403`, and `GET /api/auth/org/signup/methods` tells the portal which page to show. A pending sign-up that has expired gives way to a new one.
 
 When `kinotic.domain.email.enabled` is `false`, as on a demonstration server, nothing is sent: the sign-up's response carries its verification link as `verificationUrl`, which the portal opens at once, so the address is never proven to be the founder's, and asking again for an address with a pending sign-up returns the same link. Each link is also logged to the management server's console.
 
@@ -14000,10 +14016,6 @@ The portal's emails link to the portal. A server that embeds Kinotic's modules t
     
     <td>
       <code>
-        displayName
-      </code>
-      
-      , <code>
         verificationUrl
       </code>
     </td>

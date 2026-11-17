@@ -232,7 +232,7 @@ Every sign-up founds a new organization with the founder as its first user. The 
 3. The organization and its founder are created, the founder bound to their GitHub identity, and the browser is signed in.
 4. The page then offers **Continue to GitHub** to install the Kinotic GitHub App, which project creation needs.
 
-Where the management server sets `kinotic.managementServer.passwordSignUp`, as the `demonstration` profile does, the `/signup` page offers an email and a password in place of GitHub (`/signup/email`): `POST /api/auth/org/signup` sends a verification link to `/signup/verify`, where the founder names the organization and sets a password, and the organization takes passwords from the start. Without the property the route answers `403`, and `GET /api/auth/org/signup/methods` tells the portal which page to show. A pending sign-up that has expired gives way to a new one.
+Where the management server sets `kinotic.managementServer.passwordSignUp`, as the `demonstration` profile does, the `/signup` page offers an email and a password in place of GitHub (`/signup/email`): `POST /api/auth/org/signup` takes the email alone and sends a verification link to `/signup/verify`, where the founder enters their name, names the organization and sets a password, and the organization takes passwords from the start. Without the property the route answers `403`, and `GET /api/auth/org/signup/methods` tells the portal which page to show. A pending sign-up that has expired gives way to a new one.
 
 When `kinotic.domain.email.enabled` is `false`, as on a demonstration server, nothing is sent: the sign-up's response carries its verification link as `verificationUrl`, which the portal opens at once, so the address is never proven to be the founder's, and asking again for an address with a pending sign-up returns the same link. Each link is also logged to the management server's console.
 
@@ -311,10 +311,6 @@ The portal's emails link to the portal. A server that embeds Kinotic's modules t
     
     <td>
       <code>
-        displayName
-      </code>
-      
-      , <code>
         verificationUrl
       </code>
     </td>

@@ -87,6 +87,22 @@ the repository to its license, and the license texts govern wherever this page s
   
   <tr>
     <td>
+      <code>
+        kinotic-common/
+      </code>
+      
+      , the server code Kinotic OS shares with servers built on Kinotic RPC alone
+    </td>
+    
+    <td>
+      <a href="https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-APACHE" rel="nofollow">
+        Apache License 2.0
+      </a>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
       Third-party components
     </td>
     

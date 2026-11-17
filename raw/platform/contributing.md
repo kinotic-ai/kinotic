@@ -598,8 +598,8 @@ on your first pull request by commenting `I have read the Kinotic CLA Document a
 ## Licensing
 
 Kinotic RPC (`kinotic-core/`, `kinotic-api-gateway/`, `kinotic-client/`, `kinotic-idl/`, and the `core` and `idl`
-packages in `kinotic-js/workspace/packages/`) is licensed under the Apache License 2.0, and none of
-its modules may depend on a module outside it: the build fails if one declares a project dependency on such a
+packages in `kinotic-js/workspace/packages/`) and `kinotic-common/` are licensed under the Apache License 2.0, and none
+of their modules may depend on a module outside them: the build fails if one declares a project dependency on such a
 module. Every file in a Java package with an `ee` segment is an Enterprise Implementation,
 licensed under the Kinotic Enterprise License
 ([`LICENSE-ENTERPRISE`](https://github.com/kinotic-ai/kinotic/blob/develop/LICENSE-ENTERPRISE)),

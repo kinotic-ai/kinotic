@@ -42,8 +42,8 @@ To update the CLI, run `kinotic local down`, then the same line again.
 
 #### Create your organization
 
-Open [http://localhost:9090/signup](http://localhost:9090/signup), enter your name and email, then name
-your organization and set a password. A local install sends no email, so the page goes straight on, and
+Open [http://localhost:9090/signup](http://localhost:9090/signup), enter your email, then your name,
+your organization's name and a password. A local install sends no email, so the page goes straight on, and
 you are signed in to your new organization.
 
 #### Follow the Quickstart in the portal
