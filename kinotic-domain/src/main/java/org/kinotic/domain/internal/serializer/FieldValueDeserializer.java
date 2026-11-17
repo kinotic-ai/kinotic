@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.serializer;
+package org.kinotic.domain.internal.serializer;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.json.JsonData;

@@ -2,6 +2,7 @@
 
 package org.kinotic.domain.internal.config;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
 import org.kinotic.core.api.security.Participant;
@@ -15,6 +16,8 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.EntityDecorator;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.domain.internal.serializer.FieldValueDeserializer;
+import org.kinotic.domain.internal.serializer.FieldValueSerializer;
 import org.kinotic.domain.internal.serializer.RawJsonDeserializer;
 import org.kinotic.domain.internal.serializer.RawJsonSerializer;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -45,6 +48,10 @@ public class KinoticDomainJacksonConfig {
 
         ret.addDeserializer(RawJson.class, new RawJsonDeserializer(new ObjectMapper()));
         ret.addSerializer(RawJson.class, new RawJsonSerializer());
+
+        // CrudServiceTemplate writes a cursor as the sort values of a page's last hit
+        ret.addDeserializer(FieldValue.class, new FieldValueDeserializer());
+        ret.addSerializer(FieldValue.class, new FieldValueSerializer());
 
         ret.setMixInAnnotation(Participant.class, ParticipantMixin.class);
         ret.registerSubtypes(DefaultSystemParticipant.class,
