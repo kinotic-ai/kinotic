@@ -2355,6 +2355,8 @@ sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
 output plus the node's id; then the Proxmox root's `bootstrap-identities.sh` creates the
 first system user and each node's SYSTEM machine, installing the machine's credentials in
 the node's `vm-manager.secrets.env`; confirm each node is `ONLINE` with no health message.
+`bootstrap-system-sign-in.sh` writes the `SYSTEM` configuration, so system users sign in to
+the console with their Minds Ignited account from then on.
 6. **End to end.** Deploy the template project from a peer's organization: the sync VM fetches
 through the allowlist, the runtime VM registers its microservice, the UI appears at
 `<app>--<ui>.<org>.dev.kinotic.io`, and the run's log and the microservice's traces show in the

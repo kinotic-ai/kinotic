@@ -12067,6 +12067,8 @@ sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
 output plus the node's id; then the Proxmox root's `bootstrap-identities.sh` creates the
 first system user and each node's SYSTEM machine, installing the machine's credentials in
 the node's `vm-manager.secrets.env`; confirm each node is `ONLINE` with no health message.
+`bootstrap-system-sign-in.sh` writes the `SYSTEM` configuration, so system users sign in to
+the console with their Minds Ignited account from then on.
 6. **End to end.** Deploy the template project from a peer's organization: the sync VM fetches
 through the allowlist, the runtime VM registers its microservice, the UI appears at
 `<app>--<ui>.<org>.dev.kinotic.io`, and the run's log and the microservice's traces show in the
@@ -14299,7 +14301,9 @@ When an id_token has an email but no `email_verified` (other than Entra or Apple
 
 ## System Authentication
 
-System users sign in to the system console with an email and password (`POST /api/auth/system/login`). There is no sign-up, SSO or social path for them; they are created by migration fixtures and listed read-only under **Members → Users**. The system login authenticates only system users, and every organization login only organization users, so the same email signs in to each with that scope's own user.
+System users sign in to the system console with an email and password (`POST /api/auth/system/login`), or through a provider the deployment registers for them: a `SYSTEM` configuration, the registration with the identity provider of the people who run the deployment. Such a configuration names one directory of its provider and an email domain, and every account of that directory whose verified email is on the domain signs in as the system user with that email, which is created on the account's first sign-in. A system user holds the system's full authority, so the domain admits only the people meant to run the deployment. The login page lists the configurations above the password form, which stays available whatever the configurations say.
+
+There is no sign-up for system users: beside those a `SYSTEM` configuration admits, they are created by migration fixtures or the deployment's bootstrap, and all are listed read-only under **Members → Users**. The system login authenticates only system users, and every organization login only organization users, so the same email signs in to each with that scope's own user.
 
 ## Endpoint Reference
 
@@ -14900,6 +14904,72 @@ The app server answers at each application's own API host, `<organizationId>--<a
     
     <td>
       System user email and password (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login/providers
+      </code>
+    </td>
+    
+    <td>
+      The <code>
+        SYSTEM
+      </code>
+      
+       configurations the system console's login offers (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login/start/:configId
+      </code>
+    </td>
+    
+    <td>
+      Start a system user's sign-in through a <code>
+        SYSTEM
+      </code>
+      
+       configuration (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login/oidc/callback/:configId
+      </code>
+    </td>
+    
+    <td>
+      The provider's callback for a <code>
+        SYSTEM
+      </code>
+      
+       configuration, its redirect URI (system server)
     </td>
   </tr>
   
@@ -16549,7 +16619,7 @@ A system user and an organization administrator each write their own kind of con
 
 Each owner's kind reaches the vault by its own key. The red path is the point of the design: an organization's row has nowhere to write a system secret's name.
 
-- `OidcConfiguration` is sealed: `ManagedOidcConfiguration` (`ORG_SIGNUP` for GitHub sign-up, `APP_SOCIAL` for Google and Microsoft) and `OwnedOidcConfiguration`, whose concrete kind is the scope it is offered at: `ORGANIZATION`, `APPLICATION`, `TENANT`. All are documents in one index, `kinotic_oidc_configuration`, read back by their `type`.
+- `OidcConfiguration` is sealed: `ManagedOidcConfiguration` (`ORG_SIGNUP` for GitHub sign-up, `APP_SOCIAL` for Google and Microsoft, `SYSTEM` for the deployment's operators) and `OwnedOidcConfiguration`, whose concrete kind is the scope it is offered at: `ORGANIZATION`, `APPLICATION`, `TENANT`. All are documents in one index, `kinotic_oidc_configuration`, read back by their `type`.
 - An organization names its account at a provider, never a URL. The issuer is derived from the provider's template on every save, so the server only ever connects to the provider's own hosts. The organization's configurations are managed on the Authentication providers tab of its settings page, an application's and a tenant's on the application's settings page, or through `OwnedOidcConfigurationService`.
 - Deleting an organization's configuration deletes its secret. A save without a secret keeps the one held; `deleteClientSecret` removes it, which makes the configuration a public client whose sign-in never reads the vault. A copy to another scope (`copy`) gets its own callback URL and its own copy of the secret.
 
@@ -16630,7 +16700,7 @@ Two rows, one per organization: the methods that sign the user in, the user, and
 
 - Disabling or removing a member touches that organization's user alone. Removing a member deletes the user with its credential, bindings and delegates, the device-code and authorization-code grants it approved, and revokes its refresh tokens, and the person's users of other organizations stay as they are.
 - A delegate (the CLI, an MCP host) is unique per owner and client, carries its owner's organization, and authenticates only while its owner may still act there.
-- The system console signs in system users, a separate row for the same person with a password of its own.
+- The system console signs in system users, a separate row for the same person with a password of its own. A `SYSTEM` configuration signs one in by the email its provider verifies, with no binding: the configuration names one directory, whose administrator issues its addresses, and an email domain the address must be on. The system user is created on the first such sign-in.
 
 ## The doors on the management server
 
@@ -17682,7 +17752,7 @@ There are three scopes, each with its own kind of user:
     </td>
     
     <td>
-      Password
+      Password and the deployment's own provider
     </td>
   </tr>
   
@@ -18221,7 +18291,7 @@ The authorization server returns its issuer as `iss` on every callback (RFC 9207
 
 ## Bootstrap
 
-`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__system_identities.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V6__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
+`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A `SYSTEM` registration, through which system users sign in, is a deployment's own and is not seeded. A migration with environment suffixes, such as `V2__system_identities.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V6__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
 
 ## Network Security
 

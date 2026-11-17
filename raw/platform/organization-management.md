@@ -594,7 +594,9 @@ When an id_token has an email but no `email_verified` (other than Entra or Apple
 
 ## System Authentication
 
-System users sign in to the system console with an email and password (`POST /api/auth/system/login`). There is no sign-up, SSO or social path for them; they are created by migration fixtures and listed read-only under **Members → Users**. The system login authenticates only system users, and every organization login only organization users, so the same email signs in to each with that scope's own user.
+System users sign in to the system console with an email and password (`POST /api/auth/system/login`), or through a provider the deployment registers for them: a `SYSTEM` configuration, the registration with the identity provider of the people who run the deployment. Such a configuration names one directory of its provider and an email domain, and every account of that directory whose verified email is on the domain signs in as the system user with that email, which is created on the account's first sign-in. A system user holds the system's full authority, so the domain admits only the people meant to run the deployment. The login page lists the configurations above the password form, which stays available whatever the configurations say.
+
+There is no sign-up for system users: beside those a `SYSTEM` configuration admits, they are created by migration fixtures or the deployment's bootstrap, and all are listed read-only under **Members → Users**. The system login authenticates only system users, and every organization login only organization users, so the same email signs in to each with that scope's own user.
 
 ## Endpoint Reference
 
@@ -1195,6 +1197,72 @@ The app server answers at each application's own API host, `<organizationId>--<a
     
     <td>
       System user email and password (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login/providers
+      </code>
+    </td>
+    
+    <td>
+      The <code>
+        SYSTEM
+      </code>
+      
+       configurations the system console's login offers (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login/start/:configId
+      </code>
+    </td>
+    
+    <td>
+      Start a system user's sign-in through a <code>
+        SYSTEM
+      </code>
+      
+       configuration (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        GET
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/login/oidc/callback/:configId
+      </code>
+    </td>
+    
+    <td>
+      The provider's callback for a <code>
+        SYSTEM
+      </code>
+      
+       configuration, its redirect URI (system server)
     </td>
   </tr>
   

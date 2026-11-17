@@ -62,7 +62,7 @@ There are three scopes, each with its own kind of user:
     </td>
     
     <td>
-      Password
+      Password and the deployment's own provider
     </td>
   </tr>
   
@@ -601,7 +601,7 @@ The authorization server returns its issuer as `iss` on every callback (RFC 9207
 
 ## Bootstrap
 
-`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A migration with environment suffixes, such as `V2__system_identities.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V6__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
+`kinotic-migration` runs before the servers start, applying each versioned SQL migration once. `V1__init.sql` creates the indices and seeds the system's registrations — GitHub as `ORG_SIGNUP`, Google and Microsoft as `APP_SOCIAL`. A `SYSTEM` registration, through which system users sign in, is a deployment's own and is not seeded. A migration with environment suffixes, such as `V2__system_identities.demonstration.test.e2e.sql`, runs only in those environments, which keeps fixtures out of production. `V6__system_sign_in.demonstration.sql` turns the three registrations off on a demonstration server, which holds none of their secrets, so its sign-up and sign-in pages offer an email and a password alone. Seeded rows name their secrets; the secrets themselves live in secret storage, so none passes through a migration or a config file.
 
 ## Network Security
 
