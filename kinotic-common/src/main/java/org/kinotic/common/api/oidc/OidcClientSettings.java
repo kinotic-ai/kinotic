@@ -1,9 +1,9 @@
 package org.kinotic.common.api.oidc;
 
 /**
- * One client registration at a sign-in provider, as {@link OidcClientService#createClient} takes it. A provider that
- * publishes an OpenID Connect discovery document is described by its authority. A provider that publishes none, such
- * as GitHub, names its authorization and token endpoints, and the user info endpoint that answers who signed in.
+ * One client registration at a sign-in provider, as {@link OidcClientService#createClient} takes it. The provider is
+ * described by its authority, whose OpenID Connect discovery document names its endpoints. A registration that names
+ * the endpoints itself is an {@link OidcEndpointSettings}.
  */
 public interface OidcClientSettings {
 
@@ -18,37 +18,5 @@ public interface OidcClientSettings {
 
     /** The audience id tokens must name, or {@code null} to accept any. */
     String getAudience();
-
-    /**
-     * The provider's authorization endpoint, named together with {@link #getTokenUri()} in place of discovery;
-     * {@code null} for a registration discovered from its authority.
-     */
-    default String getAuthorizationUri() {
-        return null;
-    }
-
-    /**
-     * The provider's token endpoint, named together with {@link #getAuthorizationUri()} in place of discovery;
-     * {@code null} for a registration discovered from its authority.
-     */
-    default String getTokenUri() {
-        return null;
-    }
-
-    /**
-     * The endpoint that answers the signed-in person's profile for an access token. When named, the person's claims
-     * are read from it in place of an id token.
-     */
-    default String getUserInfoUri() {
-        return null;
-    }
-
-    /**
-     * The endpoint that answers the signed-in person's email addresses as a GitHub-style array, each with
-     * {@code email}, {@code primary} and {@code verified}. Read only when {@link #getUserInfoUri()} names an endpoint.
-     */
-    default String getUserEmailsUri() {
-        return null;
-    }
 
 }

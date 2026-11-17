@@ -16,6 +16,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientService;
 import org.kinotic.common.api.oidc.OidcClientSettings;
+import org.kinotic.common.api.oidc.OidcEndpointSettings;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -55,15 +56,16 @@ public class DefaultOidcClientService implements OidcClientService {
         if (clientSecret != null) {
             options.setClientSecret(clientSecret);
         }
-        if (settings.getAuthorizationUri() != null || settings.getTokenUri() != null) {
-            if (settings.getAuthorizationUri() == null || settings.getTokenUri() == null) {
+        if (settings instanceof OidcEndpointSettings endpoints
+                && !StringUtils.isAllBlank(endpoints.getAuthorizationUri(), endpoints.getTokenUri())) {
+            if (StringUtils.isAnyBlank(endpoints.getAuthorizationUri(), endpoints.getTokenUri())) {
                 ret = Future.failedFuture(new IllegalArgumentException(
                         "authorizationUri and tokenUri must both be set to bypass OIDC discovery"));
             } else {
                 // Vert.x uses an absolute URL in a *Path option as-is; OAuth2API prepends
                 // the site only when the value starts with '/'.
-                options.setAuthorizationPath(settings.getAuthorizationUri())
-                       .setTokenPath(settings.getTokenUri())
+                options.setAuthorizationPath(endpoints.getAuthorizationUri())
+                       .setTokenPath(endpoints.getTokenUri())
                        .setHeaders(new JsonObject().put("User-Agent", USER_AGENT));
                 ret = Future.succeededFuture(new DefaultOidcClient(OAuth2Auth.create(vertx, options), webClient, settings));
             }

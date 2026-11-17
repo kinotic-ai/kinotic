@@ -9,7 +9,8 @@ public interface OidcClientService {
 
     /**
      * Creates the client of the registration {@code settings} describes, reading the provider's OpenID Connect
-     * discovery document at the authority unless the settings name the authorization and token endpoints.
+     * discovery document at the authority unless the settings are {@link OidcEndpointSettings} that name the
+     * authorization and token endpoints.
      * The caller owns the client and {@link OidcClient#close closes} it when done with it.
      *
      * @param settings     the registration

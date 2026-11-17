@@ -26,7 +26,7 @@ public interface OidcClient {
      * Redeems the code the provider returned to {@code callbackUrl} and returns the claims of the person who signed
      * in ({@code sub}, {@code email}, {@code email_verified}, {@code name}, …). The claims are those of the id token
      * once its issuer, audience, nonce and expiry check out, or, for a registration that sets
-     * {@link OidcClientSettings#getUserInfoUri() userInfoUri}, those its profile and email endpoints answer. The
+     * {@link OidcEndpointSettings#getUserInfoUri() userInfoUri}, those its profile and email endpoints answer. The
      * caller must have matched the callback's {@code state} to {@link OidcAuthorization#state()} first.
      *
      * @param code          the authorization code

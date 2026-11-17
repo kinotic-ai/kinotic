@@ -19,6 +19,7 @@ import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.common.api.oidc.OidcAuthorization;
 import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientSettings;
+import org.kinotic.common.api.oidc.OidcEndpointSettings;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -57,12 +58,13 @@ public class DefaultOidcClient implements OidcClient {
                                            .setCodeVerifier(authorization.pkceVerifier()))
                      .compose(user -> {
                          Future<Map<String, Object>> ret;
-                         if (StringUtils.isNotBlank(settings.getUserInfoUri())) {
+                         if (settings instanceof OidcEndpointSettings endpoints
+                                 && StringUtils.isNotBlank(endpoints.getUserInfoUri())) {
                              // A provider configured with an identity endpoint issues no id_token, so there is no
                              // issuer/audience/nonce to check — the caller's state match plus the direct TLS code
                              // exchange are the security boundary, and identity comes from the provider's API using
                              // the exchanged access token.
-                             ret = apiClaims(user);
+                             ret = apiClaims(user, endpoints);
                          } else {
                              ret = idTokenClaims(user, authorization.nonce());
                          }
@@ -154,18 +156,18 @@ public class DefaultOidcClient implements OidcClient {
 
     /**
      * Builds the identity claims for a provider with no id_token by querying the endpoints
-     * on its settings: {@code userInfoUri} supplies {@code sub}, {@code name} and
+     * its settings name: {@code userInfoUri} supplies {@code sub}, {@code name} and
      * {@code email}; {@code userEmailsUri}, when set, supplies the definitive {@code email}
      * and {@code email_verified} from a GitHub-style emails array.
      */
-    private Future<Map<String, Object>> apiClaims(User user) {
+    private Future<Map<String, Object>> apiClaims(User user, OidcEndpointSettings endpoints) {
         String accessToken = user.principal().getString("access_token");
-        return apiGet(accessToken, settings.getUserInfoUri())
+        return apiGet(accessToken, endpoints.getUserInfoUri())
                 .map(response -> profileClaims(response.bodyAsJsonObject()))
                 .compose(claims -> {
                     Future<Map<String, Object>> ret;
-                    if (StringUtils.isNotBlank(settings.getUserEmailsUri())) {
-                        ret = apiGet(accessToken, settings.getUserEmailsUri())
+                    if (StringUtils.isNotBlank(endpoints.getUserEmailsUri())) {
+                        ret = apiGet(accessToken, endpoints.getUserEmailsUri())
                                 .map(response -> withBestEmail(claims, response.bodyAsJsonArray()));
                     } else {
                         ret = Future.succeededFuture(claims);

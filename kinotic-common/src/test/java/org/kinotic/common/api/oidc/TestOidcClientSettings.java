@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-class TestOidcClientSettings implements OidcClientSettings {
+class TestOidcClientSettings implements OidcEndpointSettings {
 
     private OidcProviderType provider;
     private String authority;
