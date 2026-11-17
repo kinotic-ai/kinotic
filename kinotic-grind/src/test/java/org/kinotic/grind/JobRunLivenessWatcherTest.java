@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * executing on a node that is not a member is ended FAILED with SERVER_NODE_LEFT, however many
  * there are, and the runs of the member nodes keep executing, those of a node that joins while the
  * departed node's runs are being ended among them. A search that fails is made again, and a run
- * the first search did not hold is ended by the second.
+ * the first search did not hold is ended by the second, which every change to the membership gets.
  */
 public class JobRunLivenessWatcherTest extends AbstractGrindTest {
 
@@ -164,20 +164,55 @@ public class JobRunLivenessWatcherTest extends AbstractGrindTest {
         awaitEnded(ledger, "departed");
     }
 
+    @Test
+    public void aChangeJustBeforeAnEarlierChangesSecondSearchGetsASecondSearchOfItsOwn() throws Exception {
+        AtomicBoolean indexed = new AtomicBoolean();
+        AtomicBoolean slow = new AtomicBoolean();
+        // a store whose search holds the run only once it is indexed, and answers late while slow
+        InMemoryJobRunRepository ledger = new InMemoryJobRunRepository() {
+            @Override
+            public synchronized Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
+                Future<Page<JobRun>> found = indexed.get()
+                        ? super.findRunningElsewhere(members, pageable)
+                        : Future.succeededFuture(new Page<>(List.of(), 0L));
+                return slow.get() ? vertx.timer(600).compose(waited -> found) : found;
+            }
+        };
+        ledger.saveRun(executing("departed", DEPARTED_NODE_ID));
+        Sinks.Many<Set<String>> membership = Sinks.many().replay().latest();
+        try (AnnotationConfigApplicationContext watcherCtx = watcherContext(ledger, membership)) {
+            membership.tryEmitNext(Set.of(TEST_NODE_ID, "leaving-node"));
+            // the first change's second search starts while the search made for this change is still out
+            Thread.sleep(4_700);
+            slow.set(true);
+            membership.tryEmitNext(Set.of(TEST_NODE_ID));
+            Thread.sleep(1_500);
+            slow.set(false);
+            indexed.set(true);
+
+            awaitUntil("the departed node's run to end", () -> ledger.savedRuns.get("departed").getStatus() == ExecutionStatus.FAILED);
+        }
+    }
+
     // Reports a membership the departed node is not part of to a watcher over the ledger, and waits for the run to be ended
     private void awaitEnded(InMemoryJobRunRepository ledger, String jobRunId) throws InterruptedException {
         Sinks.Many<Set<String>> membership = Sinks.many().replay().latest();
-        try (AnnotationConfigApplicationContext watcherCtx = new AnnotationConfigApplicationContext()) {
-            watcherCtx.getBeanFactory().registerSingleton("eventBusService", eventBusReporting(membership.asFlux()));
-            watcherCtx.getBeanFactory().registerSingleton("jobRunRepository", ledger);
-            watcherCtx.getBeanFactory().registerSingleton("vertx", vertx);
-            watcherCtx.register(JobRunLivenessWatcher.class);
-            watcherCtx.refresh();
-
+        try (AnnotationConfigApplicationContext watcherCtx = watcherContext(ledger, membership)) {
             membership.tryEmitNext(Set.of(TEST_NODE_ID));
 
             awaitUntil("the departed node's run to end", () -> ledger.savedRuns.get(jobRunId).getStatus() == ExecutionStatus.FAILED);
         }
+    }
+
+    // A context holding a watcher over the ledger, which is told the memberships the sink emits
+    private AnnotationConfigApplicationContext watcherContext(InMemoryJobRunRepository ledger, Sinks.Many<Set<String>> membership) {
+        AnnotationConfigApplicationContext ret = new AnnotationConfigApplicationContext();
+        ret.getBeanFactory().registerSingleton("eventBusService", eventBusReporting(membership.asFlux()));
+        ret.getBeanFactory().registerSingleton("jobRunRepository", ledger);
+        ret.getBeanFactory().registerSingleton("vertx", vertx);
+        ret.register(JobRunLivenessWatcher.class);
+        ret.refresh();
+        return ret;
     }
 
     private List<JobRun> departedRuns() {

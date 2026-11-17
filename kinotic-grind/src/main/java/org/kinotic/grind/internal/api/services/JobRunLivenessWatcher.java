@@ -52,8 +52,9 @@ public class JobRunLivenessWatcher {
     // The one timer for the next search, guarded by this with the fields below: the searches made
     // for two changes to the membership complete on different threads
     private Long timerId;
-    // Whether the runs are still to be searched for a second time
-    private boolean rescanOwed;
+    // When the second search is due, RESCAN_MS after the latest change to the membership, or 0 once
+    // a search that started at or after that time has succeeded
+    private long rescanDueAt;
     private boolean stopped;
 
     // The membership last reported. Ending a departed node's runs takes a write per run, so each page
@@ -78,34 +79,33 @@ public class JobRunLivenessWatcher {
     private void membershipChanged(Set<String> current) {
         members = current;
         synchronized (this) {
-            rescanOwed = true;
+            rescanDueAt = System.currentTimeMillis() + RESCAN_MS;
         }
         sweep(RETRY_MS);
     }
 
     private void sweep(long retryMs) {
-        endRunsElsewhere().onComplete(swept -> swept(swept, retryMs));
+        long started = System.currentTimeMillis();
+        endRunsElsewhere().onComplete(swept -> swept(swept, started, retryMs));
     }
 
     // Sets the timer for the search that follows this one: the same search again when it failed, the
-    // second search when it is owed. Either stands in for the search of a timer already set.
-    private synchronized void swept(AsyncResult<Void> swept, long retryMs) {
+    // second search while it is due. Either stands in for the search of a timer already set.
+    private synchronized void swept(AsyncResult<Void> swept, long started, long retryMs) {
         if (!stopped) {
             if (swept.failed()) {
                 log.error("Runs left by departed nodes could not be ended, next attempt in {}ms", retryMs, swept.cause());
                 setTimer(retryMs, () -> sweep(Math.min(RETRY_MAX_MS, retryMs * 2)));
-            } else if (rescanOwed) {
-                setTimer(RESCAN_MS, this::rescan);
+            } else if (rescanDueAt != 0) {
+                // judged by when this search started, so a search a timer set for an earlier change
+                // starts is not taken for the second search of a later one
+                if (started >= rescanDueAt) {
+                    rescanDueAt = 0;
+                } else {
+                    setTimer(Math.max(1, rescanDueAt - System.currentTimeMillis()), () -> sweep(RETRY_MS));
+                }
             }
         }
-    }
-
-    private void rescan() {
-        // cleared as the search starts, so a change to the membership during it is searched for again
-        synchronized (this) {
-            rescanOwed = false;
-        }
-        sweep(RETRY_MS);
     }
 
     // Called holding the lock
