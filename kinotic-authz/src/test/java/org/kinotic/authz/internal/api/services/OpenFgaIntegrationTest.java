@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
+import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
@@ -42,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -331,7 +333,8 @@ class OpenFgaIntegrationTest {
 
     @Test
     void checksAnswerFromWrittenRelationships() throws Exception {
-        await(storeService.ensureModel(SYSTEM, generator.systemModel(List.of(projectService()))));
+        AuthzModel model = generator.systemModel(List.of(projectService()));
+        await(storeService.ensureModel(SYSTEM, model));
         List<RelationshipTuple> written = List.of(
                 new RelationshipTuple("user:sally-checks", "member", "organization:acme-checks"),
                 new RelationshipTuple("organization:acme-checks", "organization", "application:crm-checks"),
@@ -353,10 +356,10 @@ class OpenFgaIntegrationTest {
         // the grant of a role bundling only editing explains reading, which editing implies
         Grant editing = new Grant("sally_edits_billing_checks", "project.editor_checks", new Subject(SubjectType.USER, "sally-checks"),
                                   new Resource("project", "billing-checks"));
-        assertEquals(List.of(editing), await(relationshipService.explain(SYSTEM, editing.subject(),
+        assertEquals(List.of(editing), await(relationshipService.explain(SYSTEM, model,
                                                                        new RelationshipTuple("user:sally-checks", "project_can_read", "project:billing-checks"),
                                                                        List.of(), List.of(editing))).through());
-        assertEquals(List.of(), await(relationshipService.explain(SYSTEM, editing.subject(),
+        assertEquals(List.of(), await(relationshipService.explain(SYSTEM, model,
                                                                   new RelationshipTuple("user:sally-checks", "project_can_delete", "project:billing-checks"),
                                                                   List.of(), List.of(editing))).through());
 
@@ -365,6 +368,68 @@ class OpenFgaIntegrationTest {
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // the store is shared with the other tests and with a run against a persistent engine, so nothing written here stays
         await(relationshipService.remove(SYSTEM, written));
+    }
+
+    @Test
+    void anExplanationNamesTheGrantsWhoseRolesHoldThePermission() throws Exception {
+        String store = "explains-test";
+        await(storeService.ensureStore(store));
+        AuthzModel model = generator.systemModel(List.of(projectService(), applicationService()));
+        await(relationshipService.ensureModelWithRoles(store, model));
+        String application = "application:crm-explains";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("organization:acme-explains", "organization", application))));
+        // a role homed at the project, below the application it is granted on, and one homed at the application
+        String editing = await(relationshipService.bind(store, "project.editor", "user:sally-explains", application));
+        String viewing = await(relationshipService.bind(store, "application.viewer", "user:sally-explains", application));
+        List<Grant> grants = await(relationshipService.findGrants(store, application));
+
+        AccessExplanation reads = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:sally-explains", "application_can_read", application), List.of(), grants));
+        AccessExplanation edits = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:sally-explains", "project_can_edit", application), List.of(), grants));
+
+        assertTrue(reads.allowed());
+        assertEquals(List.of(viewing), reads.through().stream().map(Grant::id).toList());
+        assertTrue(edits.allowed());
+        assertEquals(List.of(editing), edits.through().stream().map(Grant::id).toList());
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void anExplanationNamesATenantsGrantForAPermissionTheTenantCarries() throws Exception {
+        String store = "acme.crm-carried";
+        await(storeService.ensureStore(store));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        await(relationshipService.ensureModelWithRoles(store, model));
+        String tenant = "tenant:north-carried";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm-carried", "application", tenant))));
+        String administering = await(relationshipService.bind(store, "tenant.admin", "user:sally-carried", tenant));
+
+        AccessExplanation reads = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:sally-carried", "entity_definition_can_read", tenant), List.of(),
+                await(relationshipService.findGrants(store, tenant))));
+
+        assertTrue(reads.allowed());
+        assertEquals(List.of(administering), reads.through().stream().map(Grant::id).toList());
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void theGrantsOfAResourceAreAllFoundHoweverManyItHas() throws Exception {
+        AuthzModel model = generator.systemModel(List.of(projectService()));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, model));
+        String project = "project:billing-many";
+        Set<String> made = new HashSet<>();
+        for (int i = 0; i < 40; i++) {
+            made.add(await(relationshipService.bind(SYSTEM, "project.editor", "user:member" + i + "-many", project)));
+        }
+
+        List<Grant> grants = await(relationshipService.findGrants(SYSTEM, project));
+
+        assertEquals(made, grants.stream().map(Grant::id).collect(Collectors.toSet()));
+        assertEquals(40, grants.stream().map(Grant::subject).distinct().count());
+        await(relationshipService.removeObject(SYSTEM, project));
+        assertEquals(List.of(), await(relationshipService.findGrants(SYSTEM, project)));
     }
 
     @Test
@@ -594,6 +659,11 @@ class OpenFgaIntegrationTest {
                        function("findById", "project", "project", "can_read"),
                        function("save", "project", "project", "can_edit"),
                        function("deleteById", "project", "project", "can_delete"));
+    }
+
+    private static ServiceDefinition applicationService() {
+        return service("ApplicationService", "application", "organization",
+                       function("findById", "application", "application", "can_read"));
     }
 
     // an application's own service, declared on the tenant, so the tenant carries its permission
