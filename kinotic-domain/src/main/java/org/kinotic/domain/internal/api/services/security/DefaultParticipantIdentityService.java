@@ -360,9 +360,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         return user.isPending() ? identityRepository.clearPending(user.getId(), null).mapEmpty() : Future.succeededFuture();
     }
 
-    // a system user signs in to the system console with a password alone
+    // a system user is signed in by its email and holds no binding
     private static void requireBindable(UserParticipantIdentity user) {
-        Validate.isTrue(!(user instanceof SystemParticipantIdentity), "A system user signs in with a password alone");
+        Validate.isTrue(!(user instanceof SystemParticipantIdentity), "A system user holds no binding");
     }
 
     @Override

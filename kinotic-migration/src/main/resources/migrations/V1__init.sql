@@ -303,7 +303,8 @@ CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
 -- organization's user and <organizationId>/<applicationId>/<oidcConfigId>:<subject> for an application's user,
 -- so a callback reads the binding by a get and a provider identity signs in at most one user of each
 -- organization and of each application. organizationId and applicationId are the bound user's scope,
--- applicationId null for an organization's user. A system user signs in with a password alone and holds no binding.
+-- applicationId null for an organization's user. A system user holds no binding: it signs in with a password, or
+-- through a SYSTEM configuration, which admits it by its email.
 CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
     id KEYWORD,
     identityId KEYWORD,
@@ -315,9 +316,12 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_binding (
 );
 
 -- OIDC Configuration: every OIDC provider configuration (OidcConfiguration), discriminated by
--- type the way kinotic_participant_identity is. ORG_SIGNUP and APP_SOCIAL rows are the system's
--- managed registrations (ManagedOidcConfiguration): they belong to no organization, are seeded below,
--- and name their client secret in the system's secret storage with secretNameRef. type=ORG_SIGNUP
+-- type the way kinotic_participant_identity is. ORG_SIGNUP, APP_SOCIAL and SYSTEM rows are the system's
+-- managed registrations (ManagedOidcConfiguration): they belong to no organization and name their client
+-- secret in the system's secret storage with secretNameRef. ORG_SIGNUP and APP_SOCIAL rows are seeded below;
+-- a SYSTEM row is the deployment's own, the registration with its operators' identity provider that the
+-- system console's login offers, signing in as a system user every account of that one directory whose
+-- email is on allowedEmailDomain. type=ORG_SIGNUP
 -- (GitHub) powers the "Continue with X" buttons on org signup and org login; type=APP_SOCIAL
 -- (Google, Microsoft) is the registration an APPLICATION row of the same provider kind signs in through
 -- when its clientRegistrationType is MANAGED. type=ORGANIZATION, type=APPLICATION and type=TENANT are providers an
@@ -356,6 +360,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     userEmailsUri KEYWORD NOT INDEXED,
     scopes KEYWORD NOT INDEXED,
     audience KEYWORD NOT INDEXED,
+    allowedEmailDomain KEYWORD NOT INDEXED,
     enabled BOOLEAN,
     created DATE,
     updated DATE
@@ -665,6 +670,8 @@ CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD,
 --   <managementApiBaseUrl>/api/auth/org/login/social/callback/<id>
 -- An APP_SOCIAL registration (the app server's apex host answers the callback for every application):
 --   <appServerApiBaseUrl>/api/auth/app/login/social/callback/<id>
+-- A SYSTEM registration:
+--   <systemServerApiBaseUrl>/api/auth/system/login/oidc/callback/<id>
 
 INSERT INTO kinotic_oidc_configuration (id, type, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('entra-platform', 'APP_SOCIAL', 'Microsoft', 'azure-ad', 'f24706cc-55ff-4d17-b72c-11ddfa87966a', 'entra-platform', 'https://login.microsoftonline.com/common/v2.0', true, '2026-05-05', '2026-05-05') WITH REFRESH;
 

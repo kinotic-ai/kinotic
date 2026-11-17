@@ -37,7 +37,7 @@ public interface ProfileService {
     /**
      * The configurations an organization's user may connect as further sign-in methods and has not yet: those its
      * organization's login offers, the system's org sign-up registrations and the organization's own; none for a
-     * system user, which signs in with a password alone. Connecting one starts at
+     * system user, which holds no binding. Connecting one starts at
      * {@code POST /api/auth/org/methods/start/<configurationId>}.
      */
     Future<List<LoginProviderSummary>> findConnectableProviders(Participant participant);

@@ -275,6 +275,14 @@ uploaded them.
    ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2
    ```
 
+   `bootstrap-system-sign-in.sh` then writes the system console's sign-in registration, the Azure
+   root's `system_sign_in` output, so system users sign in with their Minds Ignited account; an
+   account's first sign-in creates its system user. It can be run again after the output changes:
+
+   ```bash
+   ./bootstrap-system-sign-in.sh
+   ```
+
    Further operators and machines come from the system console's **Members** pages.
 
    The node appears `ONLINE` in the console with no health message. A first deployment lands

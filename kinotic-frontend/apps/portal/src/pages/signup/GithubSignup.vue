@@ -26,5 +26,5 @@
 <script setup lang="ts">
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import { SocialAuthButton } from '@kinotic-ai/frontend-common'
 </script>

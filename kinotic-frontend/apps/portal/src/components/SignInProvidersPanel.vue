@@ -129,7 +129,8 @@ import {
 import CopyableUrl from '@/components/CopyableUrl.vue'
 import SignInProviderDrawer from '@/components/SignInProviderDrawer.vue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { PASSWORD_PROVIDER_NAME, PROVIDER_LOGOS, providerDisplayName, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
+import { PASSWORD_PROVIDER_NAME, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
+import { PROVIDER_LOGOS, providerDisplayName } from '@kinotic-ai/frontend-common'
 
 /** One table row: a sign-in provider of the organization's and the columns it is listed by. */
 interface ConfigurationRow extends DescriptiveIdentifiable {

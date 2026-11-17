@@ -105,9 +105,9 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import { SocialAuthButton } from '@kinotic-ai/frontend-common'
 import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
-import { emailNotVerifiedMessage, providerDisplayName } from '@/util/oidcConfigurations'
+import { emailNotVerifiedMessage, providerDisplayName } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('login')
 

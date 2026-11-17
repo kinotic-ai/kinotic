@@ -14,7 +14,7 @@ import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
-import org.kinotic.domain.api.rest.support.OidcCallbackException;
+import org.kinotic.common.api.oidc.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.rest.support.OidcFlowPurpose;

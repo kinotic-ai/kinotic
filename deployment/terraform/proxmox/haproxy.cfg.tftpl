@@ -5,6 +5,9 @@
 # re-encrypts to the server.
 global
     log stdout format raw local0
+    # A stop waits for open connections to end, and the servers' STOMP connections stay open for hours,
+    # so a reboot of the container would hold its listener closed until they did
+    hard-stop-after 10s
 
 defaults
     mode tcp

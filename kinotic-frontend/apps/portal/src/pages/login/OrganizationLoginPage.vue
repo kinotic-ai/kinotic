@@ -83,7 +83,7 @@ import { type IUserState } from '@/states/IUserState'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, postCredentials } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import { SocialAuthButton } from '@kinotic-ai/frontend-common'
 import { forgetOrganization, type LoginProvider, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
 
 const debug = createDebug('login')

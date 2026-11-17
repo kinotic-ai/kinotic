@@ -83,7 +83,7 @@ public class DefaultProfileService implements ProfileService {
     @Override
     public Future<List<LoginProviderSummary>> findConnectableProviders(Participant participant) {
         DomainUtil.requireUserParticipant(participant);
-        // a system user signs in with a password alone
+        // a system user holds no binding
         Future<List<LoginProviderSummary>> ret;
         if (participant instanceof OrganizationParticipant member) {
             Future<Set<String>> bound = identityService.findOidcBindings(member.getId())
@@ -94,7 +94,7 @@ public class DefaultProfileService implements ProfileService {
                                                               .map(LoginProviderSummary::of)
                                                               .toList());
         } else {
-            // a system user signs in with a password alone
+            // a system user holds no binding
             ret = Future.succeededFuture(List.of());
         }
         return ret;
@@ -155,7 +155,7 @@ public class DefaultProfileService implements ProfileService {
         return Future.all(hasPassword, offered).map(cf -> hasPassword.result() && offered.result());
     }
 
-    // a system user signs in with a password alone; an organization's user only while its organization's login takes one
+    // the system console's login always takes a password; an organization's user only while its organization's login takes one
     private Future<Boolean> passwordOffered(Participant participant) {
         Future<Boolean> ret;
         if (participant instanceof OrganizationParticipant member) {

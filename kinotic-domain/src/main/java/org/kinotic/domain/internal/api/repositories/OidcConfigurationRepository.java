@@ -10,6 +10,7 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfigurationType;
 import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -64,6 +65,25 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
      */
     public Future<OrgSignupOidcConfiguration> findOrgSignupById(String id) {
         return findById(id).map(config -> config instanceof OrgSignupOidcConfiguration social ? social : null);
+    }
+
+    /**
+     * Every enabled registration the system console's login offers.
+     */
+    public Future<List<SystemOidcConfiguration>> findEnabledSystem() {
+        return findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
+                termFilter(TYPE_FIELD, OidcConfigurationType.SYSTEM.name()),
+                termFilter(ENABLED_FIELD, true))))
+                .map(page -> page.map(SystemOidcConfiguration.class::cast))
+                .map(Page::getContent);
+    }
+
+    /**
+     * The system console's registration {@code id}, enabled or not, or {@code null} when no
+     * {@link SystemOidcConfiguration} has that id.
+     */
+    public Future<SystemOidcConfiguration> findSystemById(String id) {
+        return findById(id).map(config -> config instanceof SystemOidcConfiguration system ? system : null);
     }
 
     /**

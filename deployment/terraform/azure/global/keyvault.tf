@@ -206,7 +206,7 @@ resource "azurerm_key_vault_secret" "turnstile_secret_key" {
 # ── OIDC client secrets ───────────────────────────────────────────────────────
 # Stored at name = configId. SecretReferenceResolver in the servers fetches by name
 # at OAuth2-build time (no pod-side mount); the secretNameRef on the
-# kinotic_org_signup_oidc_configuration row points at the AKV secret name here.
+# kinotic_oidc_configuration row points at the AKV secret name here.
 
 resource "azurerm_key_vault_secret" "entra_platform_client_secret" {
   name         = "entra-platform"

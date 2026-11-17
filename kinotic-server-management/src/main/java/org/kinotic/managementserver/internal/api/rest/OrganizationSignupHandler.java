@@ -1,5 +1,6 @@
 package org.kinotic.managementserver.internal.api.rest;
 
+import org.kinotic.common.api.oidc.OidcErrorCodes;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;

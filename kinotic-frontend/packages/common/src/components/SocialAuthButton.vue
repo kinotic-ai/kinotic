@@ -13,9 +13,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { type OidcProviderType } from '@kinotic-ai/management-api'
 
-import { PROVIDER_LOGOS, providerDisplayName } from '@/util/oidcConfigurations'
+import { PROVIDER_LOGOS, providerDisplayName } from '../util/oidcProviders'
 
 /** What the button does: signs in, signs up, or connects the provider to the signed-in user. */
 export type Intent = 'sign-in' | 'sign-up' | 'connect'
@@ -34,7 +33,7 @@ const MONOCHROME_PROVIDERS = new Set(['github', 'okta'])
 // Google's and Microsoft's branding fix the button text to their own name, and GitHub's button reads the same way
 const BRAND_NAMED_PROVIDERS = new Set(['google', 'azure-ad', 'github'])
 
-const logo = computed<string | undefined>(() => PROVIDER_LOGOS[props.provider as OidcProviderType])
+const logo = computed<string | undefined>(() => PROVIDER_LOGOS[props.provider])
 
 const monochrome = computed<boolean>(() => MONOCHROME_PROVIDERS.has(props.provider))
 

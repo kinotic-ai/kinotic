@@ -44,7 +44,6 @@ declare module 'vue' {
     SetPasswordFields: typeof import('./src/components/SetPasswordFields.vue')['default']
     SignInProviderDrawer: typeof import('./src/components/SignInProviderDrawer.vue')['default']
     SignInProvidersPanel: typeof import('./src/components/SignInProvidersPanel.vue')['default']
-    SocialAuthButton: typeof import('./src/components/SocialAuthButton.vue')['default']
     Tag: typeof import('primevue/tag')['default']
     TemplateCodeEditor: typeof import('./src/components/TemplateCodeEditor.vue')['default']
     Textarea: typeof import('primevue/textarea')['default']

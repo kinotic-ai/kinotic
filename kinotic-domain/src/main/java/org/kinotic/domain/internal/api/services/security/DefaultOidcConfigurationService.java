@@ -15,6 +15,7 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
@@ -28,6 +29,9 @@ import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.util.regex.Pattern;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -38,6 +42,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class DefaultOidcConfigurationService extends AbstractCrudService<OidcConfiguration> implements OidcConfigurationService {
+
+    private static final Pattern EMAIL_DOMAIN = Pattern.compile("[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+");
 
     private final OidcConfigurationRepository oidcRepository;
     private final ApplicationRepository applicationRepository;
@@ -107,6 +113,15 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             }
         } else if (entity instanceof ApplicationSocialOidcConfiguration social && social.isEnabled()) {
             ret = requireOnlyEnabledRegistration(social);
+        } else if (entity instanceof SystemOidcConfiguration system) {
+            // every account of the directory on the domain becomes a system user, so the domain is named and the
+            // registration is one directory's own: an authority admitting every directory would admit anyone's
+            // account that claims an address on it
+            Validate.isTrue(system.getAllowedEmailDomain() != null && EMAIL_DOMAIN.matcher(system.getAllowedEmailDomain()).matches(),
+                            "SystemOidcConfiguration needs the email domain whose accounts sign in, as in example.com");
+            Validate.isTrue(admitsOneDirectory(system),
+                            "SystemOidcConfiguration signs in the accounts of one directory, which authority '%s' does not name",
+                            system.getAuthority());
         }
         Future<OidcConfiguration> existing;
         if (entity.getId() == null) {
@@ -175,6 +190,21 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             }
             return ret;
         });
+    }
+
+    // whether the registration's authority is the issuer of one directory of its provider
+    private static boolean admitsOneDirectory(SystemOidcConfiguration system) {
+        boolean ret = StringUtils.isNotBlank(system.getAuthority());
+        if (ret && system.getProvider() == OidcProviderType.AZURE_AD) {
+            // https://login.microsoftonline.com/<directory>/v2.0, whose path Entra reads without regard to case
+            String path = URI.create(system.getAuthority()).getPath();
+            String[] segments = path != null ? path.toLowerCase(Locale.ROOT).split("/") : new String[0];
+            ret = segments.length > 1 && !segments[1].isBlank()
+                  && !system.getProvider().admitsEveryDirectory(segments[1])
+                  // every personal Microsoft account
+                  && !"consumers".equals(segments[1]);
+        }
+        return ret;
     }
 
     /**
@@ -249,6 +279,17 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     public Future<OrgSignupOidcConfiguration> findOrgSignupById(String id) {
         Validate.notBlank(id, "id cannot be blank");
         return oidcRepository.findOrgSignupById(id);
+    }
+
+    @Override
+    public Future<List<SystemOidcConfiguration>> findEnabledSystemProviders() {
+        return oidcRepository.findEnabledSystem();
+    }
+
+    @Override
+    public Future<SystemOidcConfiguration> findSystemById(String id) {
+        Validate.notBlank(id, "id cannot be blank");
+        return oidcRepository.findSystemById(id);
     }
 
     @Override

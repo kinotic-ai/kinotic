@@ -99,9 +99,9 @@ import { useToast } from 'primevue/usetoast'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import { SocialAuthButton } from '@kinotic-ai/frontend-common'
 import { KINOTIC_UI } from '@/IKinoticUI'
-import { emailNotVerifiedMessage } from '@/util/oidcConfigurations'
+import { emailNotVerifiedMessage } from '@kinotic-ai/frontend-common'
 import { KinoticStates } from '@/states'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 

@@ -12,14 +12,15 @@ import org.kinotic.common.api.oidc.OidcEndpointSettings;
  * storage under the name {@link #secretNameRef}, and it alone may name a provider's endpoints explicitly,
  * for a provider such as GitHub that publishes no OIDC discovery document. The concrete subtype states
  * whom the registration signs in: {@link OrgSignupOidcConfiguration} organization users at sign-up and
- * sign-in, {@link ApplicationSocialOidcConfiguration} the users of applications that offer it.
+ * sign-in, {@link ApplicationSocialOidcConfiguration} the users of applications that offer it,
+ * {@link SystemOidcConfiguration} system users.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
 public abstract sealed class ManagedOidcConfiguration extends OidcConfiguration implements OidcEndpointSettings
-        permits OrgSignupOidcConfiguration, ApplicationSocialOidcConfiguration {
+        permits OrgSignupOidcConfiguration, ApplicationSocialOidcConfiguration, SystemOidcConfiguration {
 
     /**
      * Name of the OAuth client secret in the system's secret storage — the Azure Key Vault of

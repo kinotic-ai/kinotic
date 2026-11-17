@@ -72,6 +72,11 @@ there once, and its registration lists the management server's callback URLs und
 az keyvault secret set --vault-name kv-kinotic-dev --name github-platform --value "$(cat)" >/dev/null   # the App's client secret on stdin
 ```
 
+System users sign in to the system console through the single-tenant registration `kinotic-dev-system-console`
+(`system-console.tf`). Its client secret is placed in `kv-kinotic-dev` as `entra-system`, and the `system_sign_in`
+output is the `SYSTEM` row of `kinotic_oidc_configuration` that the proxmox root's `bootstrap-system-sign-in.sh`
+writes: every account of this tenant with an address on `mindsignited.com` signs in as a system user.
+
 `terraform destroy` removes the resource group with everything in it, the records in both
 zones, the service principal, and its role assignments. The snapshot account goes with the group, so
 copy the last snapshot elsewhere first if it still matters.

@@ -152,7 +152,7 @@ import CopyableUrl from '@/components/CopyableUrl.vue'
 import { KinoticStates } from '@/states'
 import { findLoginProviders, type LoginProvider } from '@/pages/login/organizationLogin'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { PROVIDER_LOGOS } from '@/util/oidcConfigurations'
+import { PROVIDER_LOGOS } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 /** One table row: a member, or an application's user, pending while nobody has signed in as them yet. */

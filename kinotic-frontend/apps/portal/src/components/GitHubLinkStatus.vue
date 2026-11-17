@@ -6,8 +6,11 @@ import Button from 'primevue/button'
 import { GitBranch, Unplug } from '@lucide/vue'
 import { isDark as darkMode, TINTS } from '@kinotic-ai/frontend-common'
 import FeatureEmptyState from '@/components/FeatureEmptyState.vue'
-import githubLogo from '@/assets/github-icon.svg'
+import { PROVIDER_LOGOS } from '@kinotic-ai/frontend-common'
+import { OidcProviderType } from '@kinotic-ai/management-api'
 import kinoticLogo from '@/assets/header-logo.svg'
+
+const githubLogo = PROVIDER_LOGOS[OidcProviderType.GITHUB]
 
 const props = defineProps<{
   /** Route the GitHub install round-trip returns to after linking. */

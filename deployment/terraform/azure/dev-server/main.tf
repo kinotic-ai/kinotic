@@ -138,7 +138,7 @@ resource "azurerm_role_assignment" "server_key_vault_secrets" {
 }
 
 # The operator places the social sign-in providers' client secrets, which the seeded
-# kinotic_org_signup_oidc_configuration rows name by secretNameRef
+# kinotic_oidc_configuration rows name by secretNameRef
 resource "azurerm_role_assignment" "operator_key_vault_secrets" {
   scope                = azurerm_key_vault.server.id
   role_definition_name = "Key Vault Secrets Officer"
