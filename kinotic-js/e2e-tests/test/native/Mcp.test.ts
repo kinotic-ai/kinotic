@@ -26,7 +26,7 @@ const SAVE_PROJECT = 'Project Service Save'
 /** applicationId of the APPLICATION-scope user seeded for this suite by V4__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
 
-/** That user's credentials, which no server's MCP endpoint admits. */
+/** That user's credentials, which only the app server's MCP endpoint admits. */
 const APP_USER_HEADERS = {clientId: appFixtureEmail(APP_ID, E2E_APP_TENANT),
                           clientSecret: E2E_FIXTURE_PASSWORD,
                           organizationId: E2E_ORGANIZATION_ID,
@@ -103,8 +103,8 @@ describe('Kinotic JS', () => {
             .toContain(FIND_PROJECTS_BY_REPO)
     })
 
-    it('refuses an application participant at every MCP endpoint', async () => {
-        // the org and system servers serve MCP and admit only their own participants; the app server serves none
+    it('refuses an application participant at the org and system servers\' MCP endpoints', async () => {
+        // the org and system servers admit only their own participants
         await expect(connectMcpClient(managementServer(), APP_USER_HEADERS)).rejects.toThrowError()
         await expect(connectMcpClient(systemServer(), APP_USER_HEADERS)).rejects.toThrowError()
     })

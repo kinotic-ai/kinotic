@@ -88,6 +88,11 @@ public class DomainProperties {
     private String elasticPassword = null;
 
     /**
+     * Leaves out the MCP server on {@code POST /mcp}, for a server that runs without an API gateway.
+     */
+    private boolean disableMcpServer = false;
+
+    /**
      * The origin of the portal's pages, the scheme and authority of {@link #getPortalBaseUrl()}, or {@code null} when
      * no portal is set.
      */
