@@ -49,6 +49,8 @@ public class DefaultRelationshipService implements RelationshipService {
     private static final int HTTP_CONFLICT = 409;
     private static final String OBJECT_LOCK_PREFIX = "kinotic.authz.object.";
     private static final long OBJECT_LOCK_TIMEOUT_MILLIS = 30_000;
+    // the most requests one operation has under way at the engine; the client opens a connection for each
+    private static final int MAX_CONCURRENT_REQUESTS = 16;
 
     private final OpenFgaService fga;
     private final DefaultAuthzStoreService stores;
@@ -89,15 +91,10 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Set<String>> findRolePermissions(String store, String roleId) {
+        // every relation of a role is a permission it bundles
         return read(store, AuthzUtil.roleObject(roleId)).map(held -> {
             Set<String> ret = new TreeSet<>();
-            for (RelationshipTuple tuple : held) {
-                // a role's permissions are the tuples it holds for everyone; a binding or anything else attached
-                // to the role object is not a permission
-                if (AuthzConstants.EVERYONE.equals(tuple.user())) {
-                    ret.add(tuple.relation());
-                }
-            }
+            held.forEach(tuple -> ret.add(tuple.relation()));
             return ret;
         });
     }
@@ -105,18 +102,8 @@ public class DefaultRelationshipService implements RelationshipService {
     @Override
     public Future<List<String>> findBindings(String store, String user, Set<String> boundOn) {
         // a binding is typed by what it is attached to, so it is read on each type
-        List<Future<List<RelationshipTuple>>> reads = boundOn.stream()
-                                                             .map(type -> readByUser(store, user, AuthzUtil.roleBindingType(type)))
-                                                             .toList();
-        return Future.all(reads).map(all -> {
-            List<String> ret = new ArrayList<>();
-            for (int i = 0; i < reads.size(); i++) {
-                for (RelationshipTuple tuple : all.<List<RelationshipTuple>>resultAt(i)) {
-                    ret.add(tuple.object());
-                }
-            }
-            return ret;
-        });
+        return requestEach(List.copyOf(boundOn), type -> readByUser(store, user, AuthzUtil.roleBindingType(type)))
+                .map(reads -> reads.stream().flatMap(List::stream).map(RelationshipTuple::object).toList());
     }
 
     @Override
@@ -199,18 +186,14 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     private Future<Void> reconcileRoles(String store, Map<String, Set<String>> roles) {
-        List<Future<Set<String>>> reads = new ArrayList<>();
         List<String> ids = new ArrayList<>(roles.keySet());
-        for (String roleId : ids) {
-            reads.add(findRolePermissions(store, roleId));
-        }
-        return Future.all(reads).compose(held -> {
+        return requestEach(ids, roleId -> findRolePermissions(store, roleId)).compose(held -> {
             List<RelationshipTuple> writes = new ArrayList<>();
             List<RelationshipTuple> deletes = new ArrayList<>();
             for (int i = 0; i < ids.size(); i++) {
                 String role = AuthzUtil.roleObject(ids.get(i));
                 Set<String> desired = roles.get(ids.get(i));
-                Set<String> bundled = held.resultAt(i);
+                Set<String> bundled = held.get(i);
                 for (String permission : bundled) {
                     if (!desired.contains(permission)) {
                         deletes.add(new RelationshipTuple(AuthzConstants.EVERYONE, permission, role));
@@ -296,12 +279,12 @@ public class DefaultRelationshipService implements RelationshipService {
         // read: a relationship written under a type the newest version dropped is still held, and holds again
         // once the type is declared again
         return stores.typesOf(store)
-                     .compose(types -> Future.all(types.stream().map(type -> readByUser(store, user, type)).toList()))
+                     .compose(types -> requestEach(List.copyOf(types), type -> readByUser(store, user, type)))
                      .compose(reads -> {
                          Future<Void> ret = Future.succeededFuture();
                          List<RelationshipTuple> others = new ArrayList<>();
-                         for (int i = 0; i < reads.size(); i++) {
-                             for (RelationshipTuple tuple : reads.<List<RelationshipTuple>>resultAt(i)) {
+                         for (List<RelationshipTuple> held : reads) {
+                             for (RelationshipTuple tuple : held) {
                                  // a binding is made to one subject, so the subject's binding goes with it whole
                                  if (AuthzUtil.typeOf(tuple.object()).endsWith(AuthzConstants.ROLE_BINDING_TYPE_SUFFIX)) {
                                      ret = ret.compose(v -> removeBinding(store, tuple.object()));
@@ -320,14 +303,9 @@ public class DefaultRelationshipService implements RelationshipService {
         String bindingType = AuthzUtil.typeOf(binding);
         String resourceType = bindingType.substring(0, bindingType.length() - AuthzConstants.ROLE_BINDING_TYPE_SUFFIX.length());
         return readByUser(store, binding, resourceType).compose(attachments -> {
-            Future<Void> ret;
-            if (attachments.isEmpty()) {
-                ret = read(store, binding).compose(held -> remove(store, held));
-            } else {
-                ret = Future.succeededFuture();
-                for (RelationshipTuple attachment : attachments) {
-                    ret = ret.compose(v -> unbind(store, AuthzUtil.idOf(binding), attachment.object()));
-                }
+            Future<Void> ret = Future.succeededFuture();
+            for (RelationshipTuple attachment : attachments) {
+                ret = ret.compose(v -> unbind(store, AuthzUtil.idOf(binding), attachment.object()));
             }
             return ret;
         });
@@ -348,13 +326,9 @@ public class DefaultRelationshipService implements RelationshipService {
     public Future<List<Grant>> findGrants(String store, String object) {
         Resource resource = new Resource(AuthzUtil.typeOf(object), AuthzUtil.idOf(object));
         // the attachments alone: an organization, an application and a tenant each hold a tuple per member beside them
-        return read(store, object, AuthzConstants.ROLE_BINDING_RELATION).compose(attachments -> {
-            List<Future<Grant>> bindings = new ArrayList<>();
-            for (RelationshipTuple attachment : attachments) {
-                bindings.add(grantOf(store, attachment.user(), resource));
-            }
-            return Future.all(bindings).map(all -> all.<Grant>list().stream().filter(grant -> grant != null).toList());
-        });
+        return read(store, object, AuthzConstants.ROLE_BINDING_RELATION)
+                .compose(attachments -> requestEach(attachments, attachment -> grantOf(store, attachment.user(), resource)))
+                .map(grants -> grants.stream().filter(grant -> grant != null).toList());
     }
 
     // The binding's role and member; null for a binding made to a userset no grant names
@@ -386,41 +360,41 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<AccessExplanation> explain(String store,
-                                             Subject subject,
+                                             AuthzModel model,
                                              RelationshipTuple holds,
                                              List<RelationshipTuple> context,
                                              List<Grant> grants) {
+        // a role has a relation only for the permissions of its home and of the types inside it, and the engine
+        // refuses a check for any other, so a grant of a role that cannot hold the permission is left out unasked
+        List<Grant> candidates = grants.stream().filter(grant -> model.canHold(grant.roleId(), holds.relation())).toList();
         return stores.modelId(store).compose(modelId -> {
             // an administrator asks after changing access, so the answer must not predate the change
             Future<Boolean> allowed = check(store, modelId, holds, Consistency.HIGHER_CONSISTENCY, context);
-            List<Future<Boolean>> explains = grants.stream()
-                                                   .map(grant -> explains(store, modelId, grant, subject, holds.relation()))
-                                                   .toList();
-            return Future.all(explains).compose(results -> allowed.map(held -> {
-                List<Grant> through = new ArrayList<>();
-                for (int i = 0; i < grants.size(); i++) {
-                    if (results.<Boolean>resultAt(i)) {
-                        through.add(grants.get(i));
-                    }
-                }
-                return new AccessExplanation(held, through);
-            }));
+            return requestEach(candidates, grant -> explains(store, modelId, grant, holds))
+                    .compose(explains -> allowed.map(held -> {
+                        List<Grant> through = new ArrayList<>();
+                        for (int i = 0; i < candidates.size(); i++) {
+                            if (explains.get(i)) {
+                                through.add(candidates.get(i));
+                            }
+                        }
+                        return new AccessExplanation(held, through);
+                    }));
         });
     }
 
-    // Whether the grant gives the subject the permission: its role bundles the permission or one implying it, and it
-    // was made to the subject or to a group the subject is a member of
-    private Future<Boolean> explains(String store, String modelId, Grant grant, Subject subject, String permission) {
+    // Whether the grant gives the permission asked about to the user asked about: its role bundles the permission
+    // or one implying it, and it was made to the user or to a group the user is a member of
+    private Future<Boolean> explains(String store, String modelId, Grant grant, RelationshipTuple holds) {
         // the role's relation also holds every permission a bundled one implies, which only a check evaluates
-        Future<Boolean> bundled = check(store, modelId, new RelationshipTuple(AuthzConstants.EVERYONE, permission,
+        Future<Boolean> bundled = check(store, modelId, new RelationshipTuple(AuthzConstants.EVERYONE, holds.relation(),
                                                                               AuthzUtil.roleObject(grant.roleId())),
                                         Consistency.HIGHER_CONSISTENCY, List.of());
         Future<Boolean> member;
-        if (grant.subject().equals(subject)) {
+        if (grant.subject().equals(subjectOf(holds.user()))) {
             member = Future.succeededFuture(true);
-        } else if (grant.subject().type() == SubjectType.GROUP && subject.type() == SubjectType.USER) {
-            RelationshipTuple membership = new RelationshipTuple(AuthzUtil.object(AuthzConstants.USER_TYPE, subject.id()),
-                                                                 AuthzConstants.MEMBER_RELATION,
+        } else if (grant.subject().type() == SubjectType.GROUP && AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(holds.user()))) {
+            RelationshipTuple membership = new RelationshipTuple(holds.user(), AuthzConstants.MEMBER_RELATION,
                                                                  AuthzUtil.object(AuthzConstants.GROUP_TYPE, grant.subject().id()));
             // an admin asks after changing a group, so the answer must not predate the change
             member = check(store, modelId, membership, Consistency.HIGHER_CONSISTENCY, List.of());
@@ -519,6 +493,20 @@ public class DefaultRelationshipService implements RelationshipService {
         return consistency == Consistency.HIGHER_CONSISTENCY
                 ? ConsistencyPreference.HIGHER_CONSISTENCY
                 : ConsistencyPreference.MINIMIZE_LATENCY;
+    }
+
+    // What the request of each item yields, in the items' order, with at most MAX_CONCURRENT_REQUESTS of the
+    // requests under way at a time
+    private static <T, R> Future<List<R>> requestEach(List<T> items, Function<T, Future<R>> request) {
+        Future<List<R>> ret = Future.succeededFuture(new ArrayList<>());
+        for (int from = 0; from < items.size(); from += MAX_CONCURRENT_REQUESTS) {
+            List<T> batch = items.subList(from, Math.min(items.size(), from + MAX_CONCURRENT_REQUESTS));
+            ret = ret.compose(collected -> Future.all(batch.stream().map(request).toList()).map(all -> {
+                collected.addAll(all.list());
+                return collected;
+            }));
+        }
+        return ret;
     }
 
     private Future<List<RelationshipTuple>> read(String store, ReadRequestTupleKey key) {

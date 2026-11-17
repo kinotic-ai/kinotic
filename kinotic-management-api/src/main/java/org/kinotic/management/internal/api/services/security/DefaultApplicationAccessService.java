@@ -88,8 +88,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
             String store = storeOf(application);
             RelationshipTuple holds = new RelationshipTuple(AuthzGraphUtil.authzSubject(subject), permission, objectOf(application, resource));
             return requireSubject(application, subject)
-                    .compose(v -> grantsOn(application, resource))
-                    .compose(grants -> relationships.explain(store, subject, holds, edgesOf(resource), grants))
+                    .compose(v -> Future.all(model(application), grantsOn(application, resource)))
+                    .compose(both -> relationships.explain(store, both.resultAt(0), holds, edgesOf(resource), both.resultAt(1)))
                     .map(AuthzGraphUtil::localExplanation);
         });
     }

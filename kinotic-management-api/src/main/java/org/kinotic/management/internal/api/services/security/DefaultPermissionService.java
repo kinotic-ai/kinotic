@@ -339,11 +339,11 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         String name = AuthzUtil.permissionName(resource.type(), permission);
         return requireSubject(subject, organizationId).compose(stored -> model()
-                .compose(model -> requireInOrganization(model, resource, organizationId))
-                .compose(this::grantsOn)
-                .compose(grants -> relationships.explain(SYSTEM, stored,
-                                                         new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
-                                                         List.of(), grants))
+                .compose(model -> requireInOrganization(model, resource, organizationId)
+                        .compose(this::grantsOn)
+                        .compose(grants -> relationships.explain(SYSTEM, model,
+                                                                 new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
+                                                                 List.of(), grants)))
                 .map(AuthzGraphUtil::localExplanation));
     }
 

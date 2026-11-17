@@ -1,6 +1,7 @@
 package org.kinotic.authz.api.model;
 
 import org.kinotic.idl.api.utils.AuthzUtil;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
@@ -85,6 +86,25 @@ public record AuthzModel(ObjectNode definition,
         for (String type : tier(root)) {
             if (tier(type).contains(home)) {
                 ret.add(type);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Whether a role can hold a permission: the model gives the roles of its home a relation for the permissions
+     * of the home and of every type inside it, and for no other.
+     *
+     * @param roleId     the role, {@code <home type>.<name>}
+     * @param permission the model name of the permission
+     * @return true when the model has the permission as a relation of the role
+     */
+    public boolean canHold(String roleId, String permission) {
+        String roleType = AuthzUtil.roleType(AuthzUtil.roleHome(roleId));
+        boolean ret = false;
+        for (JsonNode type : definition.path("type_definitions")) {
+            if (roleType.equals(type.path("type").asString())) {
+                ret = type.path("relations").has(permission);
             }
         }
         return ret;

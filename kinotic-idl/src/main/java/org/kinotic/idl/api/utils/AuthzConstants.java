@@ -75,8 +75,6 @@ public final class AuthzConstants {
     public static final String ROLE_RELATION = "role";
     /** The relation of a resource to a binding attached to it. */
     public static final String ROLE_BINDING_RELATION = "role_binding";
-    /** The relation a role holds for everyone, which a binding then narrows to its members. */
-    public static final String GRANT_RELATION = "grant";
     /** Everyone, the user of every tuple that puts a permission in a role. */
     public static final String EVERYONE = USER_TYPE + ":*";
 

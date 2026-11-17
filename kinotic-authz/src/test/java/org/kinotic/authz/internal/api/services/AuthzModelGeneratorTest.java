@@ -223,7 +223,6 @@ public class AuthzModelGeneratorTest {
     public void rolesBundleTheirHomesPermissionsAndBindingsNarrowThemToMembers() {
         AuthzModel model = generator.systemModel(systemServices());
 
-        assertEquals(List.of("user:*"), directTypes(type(model, "project_role"), "grant"));
         assertEquals(List.of("user:*"), directTypes(type(model, "project_role"), "project_can_deploy"));
         // a role homed at a type bundles only the permissions of the type and of the types inside it
         assertFalse(type(model, "project_role").get("relations").has("organization_can_read_members"));
@@ -552,6 +551,48 @@ public class AuthzModelGeneratorTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
         assertTrue(e.getMessage().contains("OtherProjectService"));
+    }
+
+    @Test
+    public void aTypesParentIsTheOneAnyOfItsServicesNamesInEitherOrder() {
+        ServiceDefinition parented = service("ProjectService", "project", "application",
+                                             function("findById", "project", "project", "can_read"));
+        ServiceDefinition bare = service("ProjectReportService", "project", null,
+                                         function("report", "project", "project", "can_read_reports"));
+
+        assertEquals("application", generator.systemModel(List.of(parented, bare)).parents().get("project"));
+        assertEquals("application", generator.systemModel(List.of(bare, parented)).parents().get("project"));
+    }
+
+    @Test
+    public void aServiceNamingAParentForARootOfTheKernelFails() {
+        List<ServiceDefinition> services = List.of(service("ClusterService", "system", "organization"));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
+
+        assertTrue(e.getMessage().contains("ClusterService"));
+    }
+
+    @Test
+    public void aPermissionNamedAsARelationTheModelDefinesFails() {
+        // end_user is the relation an application holds its users under
+        List<ServiceDefinition> services = List.of(service("EndService", "end", "application",
+                                                           function("findUser", "end", "end", "user")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                                                  () -> generator.applicationModel(List.of(entitiesRepository()), services));
+
+        assertTrue(e.getMessage().contains("end_user"));
+    }
+
+    @Test
+    public void aRoleCanHoldThePermissionsOfItsHomeAndOfTheTypesInsideIt() {
+        AuthzModel model = generator.systemModel(systemServices());
+
+        assertTrue(model.canHold("project.editor", "project_can_edit"));
+        assertTrue(model.canHold("organization.admin", "project_can_edit"));
+        assertFalse(model.canHold("project.editor", "organization_can_read_members"));
+        assertFalse(model.canHold("report.viewer", "project_can_edit"));
     }
 
     @Test

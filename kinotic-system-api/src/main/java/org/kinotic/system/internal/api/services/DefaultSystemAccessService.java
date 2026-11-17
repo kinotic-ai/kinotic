@@ -73,9 +73,10 @@ public class DefaultSystemAccessService implements SystemAccessService {
         validate(subject);
         Validate.notBlank(permission, "permission cannot be blank");
         String name = AuthzUtil.permissionName(AuthzConstants.SYSTEM_TYPE, permission);
-        return requireStaff(subject).compose(stored -> relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT)
-                .compose(grants -> relationships.explain(SYSTEM, stored, new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzConstants.SYSTEM_OBJECT),
-                                                         List.of(), grants))
+        return requireStaff(subject).compose(stored -> Future.all(model(), relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT))
+                .compose(both -> relationships.explain(SYSTEM, both.resultAt(0),
+                                                       new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzConstants.SYSTEM_OBJECT),
+                                                       List.of(), both.resultAt(1)))
                 .map(AuthzGraphUtil::localExplanation));
     }
 

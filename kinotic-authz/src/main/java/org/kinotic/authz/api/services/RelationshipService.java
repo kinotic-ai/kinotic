@@ -6,7 +6,6 @@ import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
-import org.kinotic.authz.api.model.Subject;
 
 import java.util.List;
 import java.util.Map;
@@ -254,14 +253,15 @@ public interface RelationshipService {
      * subject is a member of. The answer reflects every write that completed before the call.
      *
      * @param store   the store, named as its record is
-     * @param subject the user or group asked about
-     * @param holds   the subject's user, the model name of the permission and the object
+     * @param model   the model the store runs
+     * @param holds   the subject asked about, as {@code user:<id>} or {@code group:<id>#member}, the model name of
+     *                the permission and the object
      * @param context tuples held for this check only, as {@link #check(String, RelationshipTuple, Consistency, List)} takes them
      * @param grants  the grants that reach the object
      * @return whether the permission is held, and the grants giving it as the store holds them
      */
     Future<AccessExplanation> explain(String store,
-                                      Subject subject,
+                                      AuthzModel model,
                                       RelationshipTuple holds,
                                       List<RelationshipTuple> context,
                                       List<Grant> grants);
@@ -291,7 +291,8 @@ public interface RelationshipService {
     Future<Boolean> check(String store, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context);
 
     /**
-     * The objects of a type on which the user holds the relation, by the rules of the model the store runs.
+     * The objects of a type on which the user holds the relation, by the rules of the model the store runs, as
+     * many as the engine finds before its listing deadline passes.
      *
      * @param store       the store, named as its record is
      * @param user        who holds the relation
