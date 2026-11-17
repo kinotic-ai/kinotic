@@ -43,6 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -272,8 +273,13 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class,
                                                                       () -> signUps.completePasswordSignUp(scope, token, "a-good-password", "n".repeat(201))));
 
-        // the name is chosen by the person who holds the email, when they complete the sign-up
-        ApplicationParticipantIdentity user = await(signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up"));
+        // the name is chosen by the person who holds the email, when they complete the sign-up, and two completions
+        // presenting the token at once create one user
+        Future<ApplicationParticipantIdentity> one = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
+        Future<ApplicationParticipantIdentity> other = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
+        Future.join(one, other).toCompletionStage().toCompletableFuture().handle((v, e) -> null).get(30, TimeUnit.SECONDS);
+        assertTrue(one.succeeded() ^ other.succeeded(), "exactly one completion creates the user");
+        ApplicationParticipantIdentity user = one.succeeded() ? one.result() : other.result();
         assertEquals(email, user.getEmail());
         assertEquals("Pat Signs Up", user.getDisplayName());
         assertNotNull(user.getTenantId());

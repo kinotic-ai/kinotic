@@ -8,6 +8,7 @@ import org.kinotic.domain.api.model.persistence.idl.decorators.FlattenedDecorato
 import org.kinotic.domain.api.model.persistence.idl.decorators.IdDecorator;
 import org.kinotic.domain.api.model.persistence.idl.decorators.PolicyDecorator;
 import org.kinotic.idl.api.converter.C3ConversionException;
+import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -52,6 +53,16 @@ class DefaultEntityDefinitionConversionServiceTest {
                                 .filter(property -> property.getJsonPath().equals("details")
                                         && property.findDecorator(PolicyDecorator.class) != null)
                                 .count());
+    }
+
+    @Test
+    void aFlattenedObjectHoldingAnArrayWithNoElementTypeConverts() {
+        ObjectC3Type details = new ObjectC3Type().setName("Details").setNamespace("test");
+        details.addProperty("tags", new ArrayC3Type());
+
+        ElasticConversionResult result = conversionService.convertToElasticMapping(entity(details, List.of(new FlattenedDecorator())));
+
+        assertEquals("id", result.idFieldName());
     }
 
     private static EntityDefinition entity(ObjectC3Type details, List<C3Decorator> decorators) {

@@ -138,7 +138,8 @@ public class ObjectC3TypeToElastic implements C3TypeConverter<Property, ObjectC3
             case UnionC3Type union -> union.getTypes().forEach(member -> rejectPoliciesWithin(member, jsonPath));
             case ArrayC3Type array -> rejectPoliciesWithin(array.getContains(), jsonPath);
             case MapC3Type map -> rejectPoliciesWithin(map.getValue(), jsonPath);
-            default -> { }
+            // an array or map that names no element type carries a null here, which holds no policy
+            case null, default -> { }
         }
     }
 

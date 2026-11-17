@@ -8,7 +8,6 @@ import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
-import io.vertx.ext.web.handler.HttpException;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
@@ -32,7 +31,6 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.event.ZoneRules;
-import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.kinotic.core.api.security.ConnectionRevocationType;
@@ -50,11 +48,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -208,45 +206,18 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
-    public void testSessionLoginOfARevokedIdentityIsRefused() throws Exception {
-        when(services.securityService.reauthenticate(any()))
-                .thenReturn(Future.failedFuture(new AuthenticationException("The identity was removed")));
-        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
-
-        ExecutionException failure = Assertions.assertThrows(ExecutionException.class,
-                () -> handler.handshake(sessionLoginContext(new ConnectedInfo(participant(), null, null, "login-1")))
-                             .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
-
-        HttpException rejection = Assertions.assertInstanceOf(HttpException.class, failure.getCause());
-        Assertions.assertEquals(401, rejection.getStatusCode());
-    }
-
-    @Test
-    public void testSessionLoginCarriesTheParticipantItsIdentityActsAsNow() throws Exception {
-        TestParticipant current = new TestParticipant("org-user");
-        when(services.securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(current));
-        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
-
-        handler.handshake(sessionLoginContext(new ConnectedInfo(participant(), null, null, "login-1")))
-               .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-
-        verify(services.securityService).reauthenticate(any());
-        verify(services.securityService, never()).authenticate(any(), any());
-    }
-
-    @Test
     public void testLogoutEndsOnlyTheConnectionsOfItsLogin() throws Exception {
-        when(services.securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(participant()));
+        RoutingContext routingContext = sessionLoginContext();
+        String loginId = SessionBinding.connectedInfo(routingContext).getLoginId();
         CountDownLatch closed = new CountDownLatch(1);
         EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
-        handler.handshake(sessionLoginContext(new ConnectedInfo(participant(), null, null, "login-1")))
-               .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        verify(services.securityService, never()).authenticate(any(), any());
 
-        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, "login-2"));
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, "another-login"));
         Assertions.assertFalse(closed.await(200, TimeUnit.MILLISECONDS), "another login's logout ended the connection");
 
-        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, "login-1"));
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, loginId));
         Assertions.assertTrue(closed.await(5, TimeUnit.SECONDS), "the logout did not end the connection established on the login");
     }
 
@@ -790,14 +761,23 @@ public class EndpointConnectionHandlerTests {
         return handler;
     }
 
-    // An upgrade from a page whose session holds a login for it, as SessionBinding resolves it for the request
-    private RoutingContext sessionLoginContext(ConnectedInfo login) {
+    // An upgrade from a page whose session holds a login for it, bound the way a sign-in binds it
+    private RoutingContext sessionLoginContext() {
         HttpServerRequest request = mock(HttpServerRequest.class);
         when(request.headers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
         RoutingContext routingContext = mock(RoutingContext.class);
         when(routingContext.session()).thenReturn(services.sessionStore.createSession(SESSION_TIMEOUT_MS));
         when(routingContext.request()).thenReturn(request);
-        when(routingContext.get(SessionBinding.class.getName() + ".login")).thenReturn(login);
+        // what a handler puts in the context, a later one gets
+        Map<String, Object> contextData = new HashMap<>();
+        when(routingContext.put(anyString(), any())).thenAnswer(invocation -> {
+            contextData.put(invocation.getArgument(0), invocation.getArgument(1));
+            return routingContext;
+        });
+        when(routingContext.get(anyString())).thenAnswer(invocation -> contextData.get(invocation.<String>getArgument(0)));
+        ConnectedInfo login = new ConnectedInfo();
+        login.setParticipant(participant());
+        SessionBinding.bind(routingContext, SessionBinding.origin(routingContext), login);
         return routingContext;
     }
 

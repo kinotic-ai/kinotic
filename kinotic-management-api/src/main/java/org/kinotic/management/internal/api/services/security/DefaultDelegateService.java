@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateSession;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
@@ -23,7 +22,6 @@ public class DefaultDelegateService implements DelegateService {
 
     private final ParticipantIdentityService identityService;
     private final RefreshTokenService refreshTokenService;
-    private final ConnectionRevocationService connectionRevocationService;
 
     @Override
     public Future<Page<DelegatingParticipantIdentity>> findMyDelegates(Pageable pageable, Participant participant) {
@@ -41,10 +39,7 @@ public class DefaultDelegateService implements DelegateService {
     public Future<Void> revokeSession(String delegateId, String familyId, Participant participant) {
         Validate.notBlank(familyId, "familyId is required");
         return loadOwnedDelegate(delegateId, participant)
-                .compose(delegate -> refreshTokenService.revokeFamily(delegate.getId(), familyId)
-                        // a connection is registered under the delegate rather than the session it came from, so every
-                        // connection of the delegate ends; one of another session reconnects with that session's token
-                        .compose(v -> connectionRevocationService.revoke(delegate.getId())));
+                .compose(delegate -> refreshTokenService.revokeFamily(delegate.getId(), familyId));
     }
 
     @Override

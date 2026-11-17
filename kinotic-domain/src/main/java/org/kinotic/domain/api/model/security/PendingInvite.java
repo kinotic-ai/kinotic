@@ -31,6 +31,9 @@ public class PendingInvite implements PendingVerification {
     /** Hard expiry after which the token is invalid. */
     private Date expiresAt;
 
+    /** Epoch milliseconds until which one completion holds this record; null while none does. */
+    private Long claimedUntil;
+
     private Date created;
 
     /** Email the invitation was sent to; the eventual {@link ParticipantIdentity} is created with it. */

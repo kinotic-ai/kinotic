@@ -25,7 +25,7 @@ import java.util.stream.Stream;
  * {@code Origin}, the origin of its {@code Referer}. A request that names no page, as a client outside a
  * browser sends, has its own login slot.
  *
- * <p>{@link #handler(String)} resolves the binding for each request and must be mounted directly behind
+ * <p>{@link #handler(String, SecurityService)} resolves the binding for each request and must be mounted directly behind
  * the {@code SessionHandler} of every route that reads or writes a login; the other methods read what it
  * resolved.
  */
@@ -42,35 +42,63 @@ public final class SessionBinding {
     /**
      * The handler that resolves each request's binding, for routes whose {@code SessionHandler} issues
      * {@code sessionCookieName}. It fails the request with {@code 401} and destroys the session when the
-     * session holds a login established on another host.
+     * session holds a login established on another host. The calling page's login is re-established with
+     * {@link SecurityService#reauthenticate} on every request, so every reader of it sees the participant its
+     * identity acts as at the time of the request: a login whose identity may no longer act ends, and the request
+     * proceeds as one from a page with no login. A security service that cannot answer fails the request with
+     * {@code 503}.
      */
-    public static Handler<RoutingContext> handler(String sessionCookieName) {
+    public static Handler<RoutingContext> handler(String sessionCookieName, SecurityService securityService) {
         return ctx -> {
             String origin = pageOrigin(ctx.request());
             if (origin != null) {
                 ctx.put(ORIGIN_KEY, origin);
             }
             boolean hostMatches = true;
+            ConnectedInfo login = null;
             // reading the session stores it, so a request without the cookie reads nothing
             if (ctx.request().getCookie(sessionCookieName) != null) {
                 ctx.put(PRESENTED_KEY, Boolean.TRUE);
                 Session session = ctx.session();
                 String host = requestHost(ctx);
-                hostMatches = logins(session).allMatch(login -> host != null && host.equalsIgnoreCase(login.getHost()));
+                hostMatches = logins(session).allMatch(bound -> host != null && host.equalsIgnoreCase(bound.getHost()));
                 if (!hostMatches) {
                     // a cookie replayed against a host that did not issue it
                     session.destroy();
-                } else if (session.get(loginKey(origin)) instanceof ConnectedInfo login) {
-                    ctx.put(LOGIN_KEY, login);
+                } else if (session.get(loginKey(origin)) instanceof ConnectedInfo bound && bound.getParticipant() != null) {
+                    login = bound;
                 }
             }
-            if (hostMatches) {
-                ctx.next();
-            } else {
+            if (!hostMatches) {
                 log.warn("The session was not issued by this host");
                 ctx.fail(401, new AuthenticationException("The session is not valid"));
+            } else if (login == null) {
+                ctx.next();
+            } else {
+                verify(ctx, login, securityService);
             }
         };
+    }
+
+    // The session outlives the disabling or removal of the identity it signed in, so the login is resolved against
+    // the identity on each request rather than trusted for the session's life
+    private static void verify(RoutingContext ctx, ConnectedInfo login, SecurityService securityService) {
+        securityService.reauthenticate(login.getParticipant())
+                       .onSuccess(participant -> {
+                           login.setParticipant(participant);
+                           ctx.put(LOGIN_KEY, login);
+                           ctx.next();
+                       })
+                       .onFailure(error -> {
+                           if (error instanceof AuthenticationException) {
+                               log.debug("The login of {} ended with its identity", login.getParticipant().getId());
+                               unbind(ctx);
+                               ctx.next();
+                           } else {
+                               log.warn("The security service could not re-establish a session login", error);
+                               ctx.fail(503, error);
+                           }
+                       });
     }
 
     /** The origin of the page that sent the request, or {@code null} when it names none. */

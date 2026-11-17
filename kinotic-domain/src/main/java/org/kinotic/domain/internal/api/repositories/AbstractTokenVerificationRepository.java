@@ -5,6 +5,7 @@ import org.kinotic.domain.api.model.security.PendingVerification;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.Date;
+import java.util.Map;
 
 /**
  * Persistence base for short-lived, single-use token records. Layers token lookup and
@@ -15,6 +16,18 @@ import java.util.Date;
  */
 public abstract class AbstractTokenVerificationRepository<T extends PendingVerification>
         extends AbstractRepository<T> {
+
+    /** How long a claim holds a record whose completion neither finished nor released it. */
+    private static final long CLAIM_TTL_MS = 5 * 60 * 1000L;
+
+    private static final String CLAIM_SCRIPT = """
+            if (ctx._source.claimedUntil != null && ctx._source.claimedUntil > params.now) {
+                ctx.op = 'noop'
+            } else {
+                ctx._source.claimedUntil = params.claimedUntil
+            }""";
+
+    private static final String RELEASE_SCRIPT = "ctx._source.remove('claimedUntil')";
 
     protected AbstractTokenVerificationRepository(String indexName,
                                                   Class<T> type,
@@ -47,23 +60,28 @@ public abstract class AbstractTokenVerificationRepository<T extends PendingVerif
     }
 
     /**
-     * Finds the live record for the token, as {@link #findValidByToken} does, and takes it: it is deleted, and exactly
-     * one of any callers racing on the same token gets it; the others fail as for a token already consumed. A caller
-     * whose work on the record then fails gives it back with {@link #restore}.
+     * Claims a live record for the one completion of its flow that calls this, for {@link #CLAIM_TTL_MS}: of several
+     * callers presenting the same record at once exactly one gets it, and the others fail. The caller deletes the
+     * record once its flow completes, and gives it up with {@link #release} when the flow fails; a claim neither
+     * deleted nor released lapses, so the token can be presented again.
+     *
+     * @param pending the record {@link #findValidByToken} returned
+     * @return a future emitting the record, failed with an {@link IllegalArgumentException} while another
+     *         completion holds it
      */
-    public Future<T> claimValidByToken(String verificationToken) {
-        return findValidByToken(verificationToken)
-                .compose(pending -> consume(pending.getId())
-                        .compose(claimed -> claimed
-                                ? Future.succeededFuture(pending)
-                                : Future.failedFuture(new IllegalArgumentException("Invalid or already consumed token."))));
+    public Future<T> claim(T pending) {
+        long now = System.currentTimeMillis();
+        return crudServiceTemplate.scriptedUpdate(indexName, pending.getId(), CLAIM_SCRIPT,
+                                                  Map.of("now", now, "claimedUntil", now + CLAIM_TTL_MS), null)
+                                  .compose(claimed -> claimed
+                                          ? Future.succeededFuture(pending)
+                                          : Future.failedFuture(new IllegalArgumentException(
+                                                  "This link is already being completed. Try again in a moment.")));
     }
 
-    /**
-     * Writes back a record taken with {@link #claimValidByToken}, searchable by its token once the future completes,
-     * so the link that carries it can be followed again.
-     */
-    public Future<T> restore(T claimed) {
-        return saveSync(claimed);
+    /** Gives up a claim taken with {@link #claim}, so the token can be presented again at once. */
+    public Future<Void> release(T pending) {
+        return crudServiceTemplate.scriptedUpdate(indexName, pending.getId(), RELEASE_SCRIPT, Map.of(), null)
+                                  .mapEmpty();
     }
 }

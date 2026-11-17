@@ -111,14 +111,16 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     // The pending sign-up is claimed before anything is created, so concurrent completions with one token create one
-    // organization; a completion that fails, a taken name among the causes, gives the sign-up back for another try
+    // organization; a completion that fails, a taken name among the causes, releases it for another try
     private Future<Participant> completeSignUp(String token, Function<PendingSignUp, Future<Participant>> complete) {
-        return pendingSignUpRepository.claimValidByToken(token)
+        return pendingSignUpRepository.findValidByToken(token)
+                .compose(pendingSignUpRepository::claim)
                 .compose(pending -> complete.apply(pending)
-                        .recover(err -> pendingSignUpRepository.restore(pending)
-                                .onFailure(restoreErr -> log.warn("Could not restore pending sign-up {}: {}",
-                                                                  pending.getId(), restoreErr.getMessage()))
-                                .transform(v -> Future.failedFuture(err))));
+                        .compose(founder -> pendingSignUpRepository.deleteById(pending.getId()).map(founder),
+                                 err -> pendingSignUpRepository.release(pending)
+                                                               .onFailure(releaseErr -> log.warn("Could not release pending sign-up {}: {}",
+                                                                                                 pending.getId(), releaseErr.getMessage()))
+                                                               .transform(v -> Future.failedFuture(err))));
     }
 
     // a founder who signed up with a password signs in with it, so the organization's login takes one

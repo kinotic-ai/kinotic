@@ -208,16 +208,16 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         return requirePasswordSignUp(scope)
                 .compose(v -> pendingRepository.findValidByToken(token))
                 .compose(pending -> {
-                    // a token carried to another application's host signs up no one there, and leaves the sign-up
-                    // where it was
+                    // a token carried to another application's host signs up no one there
                     Validate.isTrue(application.equals(new ApplicationKey(pending.getOrganizationId(), pending.getApplicationId())),
                                     "Invalid or already consumed token.");
                     // claimed before the user is created, so concurrent completions with one token create one user;
-                    // a creation that fails gives the sign-up back for another try
-                    return pendingRepository.claimValidByToken(token)
+                    // a creation that fails releases the sign-up for another try
+                    return pendingRepository.claim(pending)
                             .compose(claimed -> identityService.createUser(newUser(application, claimed.getEmail(), StringUtils.isNotBlank(displayName) ? displayName : null), password)
-                                    .recover(err -> pendingRepository.restore(claimed)
-                                            .transform(r -> Future.failedFuture(err))));
+                                    .compose(created -> pendingRepository.deleteById(claimed.getId()).map(created),
+                                             err -> pendingRepository.release(claimed)
+                                                                     .transform(released -> Future.failedFuture(err))));
                 });
     }
 
