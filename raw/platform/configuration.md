@@ -1026,6 +1026,178 @@ client reach it at `http://localhost:3001`, a deployment's sync workload at
 `http://192.168.127.254:3001`, the host alias of a BOXLITE guest; and Gitea delivers its webhooks to
 `kinotic-server-management:58503`.
 
+## GitHub App
+
+With the `GITHUB` repository host, one GitHub App, named by `kinotic.managementApi.github.appId` and
+`appSlug`, signs organizations up, is installed on each organization's GitHub account, and mints every
+repository token. Its settings on GitHub must hold the following, or the step that needs a setting fails
+with GitHub's `403 Resource not accessible by integration`:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Setting
+    </th>
+    
+    <th>
+      Value
+    </th>
+    
+    <th>
+      Needed by
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Repository permissions → Administration
+    </td>
+    
+    <td>
+      Read and write
+    </td>
+    
+    <td>
+      Creating a project's repository from the template
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Repository permissions → Contents
+    </td>
+    
+    <td>
+      Read and write
+    </td>
+    
+    <td>
+      Committing the rendered template to a new repository, tags and branches, the sync workload's fetch token, and a coding agent's write token
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Repository permissions → Metadata
+    </td>
+    
+    <td>
+      Read-only
+    </td>
+    
+    <td>
+      Every repository call
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Organization permissions → Members
+    </td>
+    
+    <td>
+      Read-only
+    </td>
+    
+    <td>
+      Linking an organization's installation, which checks that the authorizing user owns that GitHub organization
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Account permissions → Email addresses
+    </td>
+    
+    <td>
+      Read-only
+    </td>
+    
+    <td>
+      Signing up and signing in with GitHub, which reads the account's verified email
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Subscribe to events → Push
+    </td>
+    
+    <td>
+      Selected
+    </td>
+    
+    <td>
+      Deploying a project on each push to its default branch
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Request user authorization (OAuth) during installation
+    </td>
+    
+    <td>
+      Selected
+    </td>
+    
+    <td>
+      Linking an installation, whose return carries the authorizing user's code
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Callback URLs
+    </td>
+    
+    <td>
+      <code>
+        <apiBaseUrl>/api/github/install/callback
+      </code>
+      
+       first, then <code>
+        <apiBaseUrl>/api/auth/org/login/social/callback/github-platform
+      </code>
+    </td>
+    
+    <td>
+      GitHub returns an installation to the first callback URL; sign-in names the second
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Webhook URL
+    </td>
+    
+    <td>
+      <code>
+        <apiBaseUrl>/api/github/webhook
+      </code>
+      
+      , with <code>
+        kinotic.managementApi.github.webhookSecret
+      </code>
+      
+       as its secret
+    </td>
+    
+    <td>
+      Pushes and installation changes
+    </td>
+  </tr>
+</tbody>
+</table>
+
+`<apiBaseUrl>` is `kinotic.managementApi.apiBaseUrl`. The `github-platform` sign-in provider the migration
+seeds is this App's own OAuth client: its client id and secret are the App's. GitHub asks the owner of
+every account the App is already installed on to approve a permission added later, and the App's tokens
+for that account carry the permission only once they do.
+
 ## Application API hosts
 
 Each application has an API host of its own, its `<organizationId>--<applicationId>` label
