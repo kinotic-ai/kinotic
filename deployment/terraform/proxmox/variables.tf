@@ -158,6 +158,18 @@ variable "mimir_version" {
   default = "2.14.3"
 }
 
+variable "license_server_version" {
+  description = "The license key server's image tag on Docker Hub: main follows the license-key-server repository's default branch"
+  type        = string
+  default     = "main"
+}
+
+variable "postgres_version" {
+  description = "The license key server's database, Postgres; its major version names the binaries' directory"
+  type        = string
+  default     = "17.12"
+}
+
 variable "haproxy_version" {
   description = "The edge's HAProxy, from the 3.2 LTS line"
   type        = string

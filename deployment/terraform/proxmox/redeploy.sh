@@ -2,9 +2,10 @@
 # Deploys what changed since the last run, and nothing else:
 #
 #   - each of the servers' images and kinotic-migration's, Summit 42's among them when it runs,
-#     whose tag has a new digest on Docker Hub: only those containers are replaced (a republished
-#     SNAPSHOT keeps its tag, so a plain apply never notices), a replaced migration runs again, and
-#     the applier restores the settings the provider drops
+#     and the license key server's, whose tag has a new digest on Docker Hub: only those
+#     containers are replaced (a republished SNAPSHOT keeps its tag, so a plain apply never
+#     notices), a replaced migration runs again, and the applier restores the settings the
+#     provider drops
 #   - the portal and the system console, when kinotic-frontend differs from what the sites
 #     Worker serves (deploy-ui.sh records the tree it built in each app's version.json)
 #   - Summit 42's UI, when it runs and the summit-42 repository's main differs from the commit its
@@ -41,7 +42,7 @@ hub_digest() {   # <repository>:<tag>
     | python3 -c 'import sys, json; print(json.load(sys.stdin)["digest"])'
 }
 
-# ---- the servers and kinotic-migration ----------------------------------------------------
+# ---- the servers, kinotic-migration and the license key server ----------------------------
 # The marker holds one "name=digest" word per image; only a container whose digest differs is replaced
 deployed_images="$(ssh "root@$HOST" "cat '$MARKER' 2>/dev/null || true")"
 deployed_digest() { tr ' ' '\n' <<<"$deployed_images" | sed -n "s/^$1=//p"; }
@@ -62,12 +63,19 @@ while read -r name hostname image; do
     replace+=(-replace="proxmox_oci_image.server[\"$name\"]" -replace="proxmox_virtual_environment_container.fleet[\"$name\"]")
   fi
 done <<<"$SERVERS"
+license_digest="$(hub_digest "kinoticai/license-key-server:$(out license_server_version)")"
+wanted_images="$wanted_images license-key-server=$license_digest"
+if [[ "$license_digest" != "$(deployed_digest license-key-server)" ]]; then
+  changed+=(license-key-server)
+  changed_hosts+=("$(terraform -chdir="$AZURE" output -json license_server_hostnames | python3 -c 'import sys, json; print(json.load(sys.stdin)[0])')")
+  replace+=(-replace=proxmox_oci_image.license_key_server -replace='proxmox_virtual_environment_container.fleet["license-key-server"]')
+fi
 if (( ${#changed[@]} == 0 )); then
-  echo "==> Images: the servers and kinotic-migration are what the host runs"
+  echo "==> Images: the servers, kinotic-migration and the license key server are what the host runs"
 elif $DRY_RUN; then
-  echo "==> Images: a new digest on Docker Hub for ${changed[*]}; would replace their containers"
+  echo "==> Images: a new digest for ${changed[*]}; would replace their containers"
 else
-  echo "==> Images: a new digest on Docker Hub for ${changed[*]}; replacing their containers"
+  echo "==> Images: a new digest for ${changed[*]}; replacing their containers"
   plan="$(mktemp)"
   terraform -chdir="$HERE" plan -input=false -out="$plan" "${replace[@]}" >/dev/null
   if [[ "${changed[0]}" == kinotic-migration ]]; then

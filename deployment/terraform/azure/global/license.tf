@@ -2,8 +2,9 @@
 # The EC P-256 key that signs Kinotic Enterprise License keys with ES256. Key Vault generates it
 # and keeps the private key: a license key is issued by calling the vault's sign operation, and
 # the private key cannot be exported. The public key is the one Kinotic's license verifier
-# trusts, read from the license_signing_public_key_pem output. The servers' identity holds only
-# Key Vault Secrets User on this vault, which cannot sign.
+# trusts, read from the license_signing_public_key_pem output. The Kinotic servers' identity holds
+# only Key Vault Secrets User on this vault, which cannot sign; the license key server's principal
+# (dev-server/license-server.tf) holds Key Vault Crypto User on this key alone.
 
 resource "azurerm_role_assignment" "platform_kv_tf_crypto_officer" {
   scope                = azurerm_key_vault.platform.id

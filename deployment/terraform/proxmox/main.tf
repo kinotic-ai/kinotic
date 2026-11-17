@@ -5,9 +5,9 @@
 # pulls, with its state in a host directory: the Elasticsearch nodes on a physical disk each.
 # The servers live on the private network; the edge, an HAProxy container on the LAN, takes
 # the router's forwarded 443 and passes each TLS connection, unopened, to the server its SNI
-# names. The workload nodes are separate machines provisioned with deployment/vm-node; they
-# dial the servers through the edge and the stores on the LAN, and the vm_manager_env output
-# is their configuration.
+# names, apart from the license key server's, whose TLS it terminates. The workload nodes are
+# separate machines provisioned with deployment/vm-node; they dial the servers through the edge
+# and the stores on the LAN, and the vm_manager_env output is their configuration.
 #
 # Terraform owns what the Proxmox API exposes: the private network, the images, the
 # containers with their mounts, and the files it uploads to the host. The rest —
@@ -33,12 +33,15 @@ locals {
   mimir_ip = split("/", var.mimir_ip)[0]
 
   # The private network: the host is its gateway, the edge takes .10, the ES nodes .11 to .13,
-  # the servers .20, .22 and .23, the migration .21, Summit 42 .24
+  # the servers .20, .22 and .23, the migration .21, Summit 42 .24, the license key server .25
+  # and its database .26
   private_prefix       = split("/", var.private_cidr)[1]
   private_gateway      = cidrhost(var.private_cidr, 1)
   edge_private_ip      = cidrhost(var.private_cidr, 10)
   es_ips               = [for i in range(3) : cidrhost(var.private_cidr, 11 + i)]
   migration_private_ip = cidrhost(var.private_cidr, 21)
+  license_server_ip    = cidrhost(var.private_cidr, 25)
+  licenses_db_ip       = cidrhost(var.private_cidr, 26)
 
   # The router forwards the public 443 to the same port on the edge, which serves every name there
   public_port = 443
@@ -84,6 +87,30 @@ locals {
     haproxy = {
       entrypoint = "/usr/local/bin/docker-entrypoint.sh haproxy -f /usr/local/etc/haproxy/haproxy.cfg"
       env        = { PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" }
+    }
+    # The license key server: the Temurin JRE's environment and the server's own, run as the
+    # image's licenses user in its working directory
+    license_key_server = {
+      entrypoint = "java -jar /opt/license-key-server/license-key-server.jar"
+      env = {
+        PATH                         = "/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        JAVA_HOME                    = "/opt/java/openjdk"
+        LANG                         = "en_US.UTF-8"
+        LANGUAGE                     = "en_US:en"
+        LC_ALL                       = "en_US.UTF-8"
+        JAVA_TOOL_OPTIONS            = "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED -XX:MaxDirectMemorySize=256m -XX:+DisableExplicitGC"
+        KINOTIC_IGNITE_WORKDIRECTORY = "/var/lib/license-key-server/ignite"
+      }
+    }
+    # The image's docker-entrypoint.sh initializes an empty data directory, then runs postgres
+    # as the postgres user
+    postgres = {
+      entrypoint = "/usr/local/bin/docker-entrypoint.sh postgres"
+      env = {
+        PATH   = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/${split(".", var.postgres_version)[0]}/bin"
+        LANG   = "en_US.utf8"
+        PGDATA = "/var/lib/postgresql/data"
+      }
     }
     # The buildpack images: the three servers and kinotic-migration
     cnb = {
@@ -311,9 +338,19 @@ locals {
     timeout          = 300
   } }
 
+  # The license key server rate-limits by the client's address, so the edge terminates TLS for
+  # its names and sets X-Forwarded-For, then re-encrypts to it; every other name passes through
+  license_server = {
+    hostnames  = local.azure.license_server_hostnames
+    private_ip = local.license_server_ip
+    port       = 58503
+  }
+  licenses_db_ready = "bash -c '</dev/tcp/${local.licenses_db_ip}/5432' 2>/dev/null"
+
   edge_config = templatefile("${path.module}/haproxy.cfg.tftpl", {
-    port    = local.public_port
-    servers = local.servers
+    port       = local.public_port
+    servers    = local.servers
+    terminated = { license-key-server = merge(local.license_server, { cert = "/usr/local/etc/haproxy-certs/licenses.pem" }) }
   })
 
   containers = merge(local.es_containers, local.server_containers, {
@@ -421,9 +458,66 @@ locals {
       verify           = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
       timeout          = 900
     }
+    licenses-db = {
+      vm_id         = 126
+      description   = "Postgres: the license key server's database"
+      image         = proxmox_oci_image.postgres.id
+      cores         = 2
+      memory        = 1024
+      order         = 20
+      start_on_boot = true
+      run_once      = false
+      interfaces    = [{ bridge = var.private_network, address = "${local.licenses_db_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts        = [{ volume = "${local.data_root}/licenses-db", path = "/var/lib/postgresql/data", read_only = false }]
+      entrypoint    = local.images.postgres.entrypoint
+      image_env     = local.images.postgres.env
+      # The image creates the licenses user and database on an empty data directory, with the
+      # password from licenses-db.env
+      env = {
+        POSTGRES_DB   = "licenses"
+        POSTGRES_USER = "licenses"
+      }
+      privileged_ports = false
+      secrets_env      = "${var.secrets_dir}/licenses-db.env"
+      files            = {}
+      uid              = 999
+      gid              = 999
+      wait_for         = null
+      verify           = local.licenses_db_ready
+      timeout          = 300
+    }
+    license-key-server = {
+      vm_id         = 127
+      description   = "The license key server: licenses.kinotic.ai and licenses-console.kinotic.ai, on :58503 with TLS, behind the edge"
+      image         = proxmox_oci_image.license_key_server.id
+      cores         = 2
+      memory        = 2048
+      order         = 30
+      start_on_boot = true
+      run_once      = false
+      interfaces    = [{ bridge = var.private_network, address = "${local.license_server_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      # The certificate for both names, placed by certbot
+      mounts     = [{ volume = "${var.secrets_dir}/license-key-server/certs", path = "/etc/license-key-server/certs", read_only = true }]
+      entrypoint = local.images.license_key_server.entrypoint
+      image_env  = local.images.license_key_server.env
+      env = merge(local.azure.license_server_env, {
+        KINOTIC_LICENSES_DATABASE_HOST  = local.licenses_db_ip
+        KINOTIC_APIGATEWAY_SSL_ENABLED  = "true"
+        KINOTIC_APIGATEWAY_SSL_CERTPATH = "/etc/license-key-server/certs/fullchain.pem"
+        KINOTIC_APIGATEWAY_SSL_KEYPATH  = "/etc/license-key-server/certs/privkey.pem"
+      })
+      privileged_ports = false
+      secrets_env      = "${var.secrets_dir}/license-key-server.env"
+      files            = {}
+      uid              = 10001
+      gid              = 10001
+      wait_for         = local.licenses_db_ready
+      verify           = "curl -skf https://${local.license_server_ip}:58503/health"
+      timeout          = 300
+    }
     edge = {
       vm_id         = 124
-      description   = "The edge: HAProxy on :${local.public_port}, which the router forwards to; passes each TLS connection, unopened, to the server its SNI names"
+      description   = "The edge: HAProxy on :${local.public_port}, which the router forwards to; passes each TLS connection, unopened, to the server its SNI names, and terminates TLS for the license key server"
       image         = proxmox_oci_image.haproxy.id
       cores         = 1
       memory        = 256
@@ -436,7 +530,11 @@ locals {
         { bridge = var.bridge, address = "dhcp", gateway = null, mac = var.edge_mac },
         { bridge = var.private_network, address = "${local.edge_private_ip}/${local.private_prefix}", gateway = null, mac = null },
       ]
-      mounts           = [{ volume = "${local.config_root}/edge", path = "/usr/local/etc/haproxy", read_only = true }]
+      # The certificate it terminates the license key server's names with, placed by certbot
+      mounts = [
+        { volume = "${local.config_root}/edge", path = "/usr/local/etc/haproxy", read_only = true },
+        { volume = "${var.secrets_dir}/edge", path = "/usr/local/etc/haproxy-certs", read_only = true },
+      ]
       entrypoint       = local.images.haproxy.entrypoint
       image_env        = local.images.haproxy.env
       env              = {}
@@ -567,6 +665,18 @@ resource "proxmox_oci_image" "mimir" {
   node_name    = var.proxmox_node
   datastore_id = var.files_datastore_id
   reference    = "docker.io/grafana/mimir:${var.mimir_version}"
+}
+
+resource "proxmox_oci_image" "postgres" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/library/postgres:${var.postgres_version}"
+}
+
+resource "proxmox_oci_image" "license_key_server" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/kinoticai/license-key-server:${var.license_server_version}"
 }
 
 resource "proxmox_oci_image" "haproxy" {
