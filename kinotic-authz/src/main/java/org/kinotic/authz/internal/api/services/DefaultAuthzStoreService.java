@@ -103,7 +103,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                     Future<Void> ret = Future.succeededFuture();
                     for (String id : ids) {
                         ret = ret.compose(v -> fga.deleteStore(id).onSuccess(deleted -> {
-                            forget(store, id);
+                            storeIds.remove(store);
+                            modelVersions.remove(id);
                             vertx.eventBus().publish(STORE_DELETED_ADDRESS, new JsonObject().put("store", store).put("id", id));
                         }));
                     }
@@ -124,7 +125,14 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
 
     @Override
     public Future<String> modelId(String store) {
-        return storeIdOf(store).compose(storeId -> version(store, storeId, false));
+        return storeIdOf(store).compose(storeId -> {
+            ModelVersion kept = modelVersions.get(storeId);
+            // every request's check names the version, so it is read once and kept; the reconciler's write of a
+            // new version reaches a node within the retention, or at once where a check it refuses asks again
+            return kept != null && kept.readAt() + RETENTION_MILLIS > System.currentTimeMillis()
+                    ? Future.succeededFuture(kept.id())
+                    : readModelId(store, storeId);
+        });
     }
 
     /**
@@ -133,26 +141,18 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
      * since, or one without a relation the newest has.
      */
     Future<String> refreshModelId(String store) {
-        return storeIdOf(store).compose(storeId -> version(store, storeId, true));
+        return storeIdOf(store).compose(storeId -> readModelId(store, storeId));
     }
 
-    private Future<String> version(String store, String storeId, boolean refresh) {
-        ModelVersion kept = refresh ? null : modelVersions.get(storeId);
-        Future<String> ret;
-        if (kept != null && kept.readAt() + RETENTION_MILLIS > System.currentTimeMillis()) {
-            ret = Future.succeededFuture(kept.id());
-        } else {
-            // every request's check names the version, so it is read once and kept; the reconciler's write of a
-            // new version reaches a node within the retention, or at once where a check it refuses asks again
-            ret = latestModel(storeId).map(model -> {
-                if (model == null) {
-                    throw new IllegalStateException("The store of '" + store + "' runs no model yet");
-                }
-                modelVersions.put(storeId, new ModelVersion(model.getId(), System.currentTimeMillis()));
-                return model.getId();
-            });
-        }
-        return ret;
+    // The store's newest model version as the engine has it, kept in place of the one read before
+    private Future<String> readModelId(String store, String storeId) {
+        return latestModel(storeId).map(model -> {
+            if (model == null) {
+                throw new IllegalStateException("The store of '" + store + "' runs no model yet");
+            }
+            modelVersions.put(storeId, new ModelVersion(model.getId(), System.currentTimeMillis()));
+            return model.getId();
+        });
     }
 
     @Override
@@ -225,7 +225,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                 } else {
                     ObjectNode relations = role.withObjectProperty("relations");
                     ObjectNode metadata = role.withObjectProperty("metadata").withObjectProperty("relations");
-                    for (String relation : targetRole.get("relations").propertyNames()) {
+                    for (String relation : targetRole.path("relations").propertyNames()) {
                         if (!relations.has(relation)) {
                             relations.set(relation, targetRole.get("relations").get(relation).deepCopy());
                             metadata.set(relation, targetRole.get("metadata").get("relations").get(relation).deepCopy());
@@ -269,9 +269,9 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
      */
     Future<Set<String>> typesOf(String store) {
         return findStore(storeNameOf(store))
-                .compose(found -> found == null
+                .compose(storeId -> storeId == null
                         ? Future.succeededFuture(Set.<String>of())
-                        : storeIdOf(store).compose(storeId -> typesOf(storeId, null, new LinkedHashSet<>())));
+                        : typesOf(storeId, null, new LinkedHashSet<>()));
     }
 
     private Future<Set<String>> typesOf(String storeId, String continuationToken, Set<String> collected) {
@@ -318,8 +318,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                         || stage.join().resolvedAt() + RETENTION_MILLIS < System.currentTimeMillis()));
     }
 
-    // A kept id the engine still has is kept; one it reports gone is forgotten, with the version read from it,
-    // and the name resolved again
+    // A kept id the engine still has is kept; for one it reports gone the name is resolved again, and the version
+    // read from the store that is gone is forgotten
     private Future<ResolvedStore> resolve(String store, ResolvedStore kept) {
         Future<String> ret;
         if (kept == null) {
@@ -330,7 +330,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                      .recover(e -> {
                          Future<String> again;
                          if (e instanceof FgaError error && error.isNotFoundError()) {
-                             forget(store, kept.id());
+                             modelVersions.remove(kept.id());
                              again = requireStore(store);
                          } else {
                              again = Future.failedFuture(e);
@@ -339,11 +339,6 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                      });
         }
         return ret.map(id -> new ResolvedStore(id, System.currentTimeMillis()));
-    }
-
-    private void forget(String store, String storeId) {
-        storeIds.remove(store);
-        modelVersions.remove(storeId);
     }
 
     // The engine's name of a store: the system's fixed one, or an application's prefixed by what it is. The engine

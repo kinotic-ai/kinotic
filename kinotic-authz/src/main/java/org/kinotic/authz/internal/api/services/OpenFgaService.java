@@ -144,13 +144,14 @@ public class OpenFgaService {
     }
 
     /**
-     * Every object the request lists, however many there are. An error the engine reports partway through fails
-     * the listing.
+     * The objects the request lists, as many as the engine finds before its listing deadline passes, which is
+     * three seconds unless the engine is configured otherwise; a listing the deadline ends is short and completes
+     * like a whole one. An error the engine reports partway through fails the listing.
      */
     public Future<List<String>> listObjects(String storeId, ListObjectsRequest request) {
-        // the streamed endpoint returns every object, where ListObjects stops at the engine's configured maximum.
-        // Its consumers are called one line at a time on one HTTP client thread, and the future completes after
-        // the last of them
+        // the streamed endpoint is bounded by the deadline alone, where ListObjects also stops at the engine's
+        // configured maximum. Its consumers are called one line at a time on one HTTP client thread, and the
+        // future completes after the last of them
         List<String> objects = new ArrayList<>();
         AtomicReference<Throwable> streamError = new AtomicReference<>();
         Future<Void> streamed;

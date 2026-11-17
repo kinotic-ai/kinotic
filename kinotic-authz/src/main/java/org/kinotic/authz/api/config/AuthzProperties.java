@@ -27,7 +27,7 @@ public class AuthzProperties {
      * The pre-shared key OpenFGA authenticates API calls with, or empty when its API is unauthenticated, as in
      * local development.
      */
-    private String apiToken = null;
+    private String apiToken;
 
     /**
      * Has the server place the records it finds stored in the authorization graph when it starts: the
