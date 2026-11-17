@@ -37,7 +37,6 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final String TENANT = AuthzConstants.TENANT_TYPE;
     private static final String MEMBER = AuthzConstants.MEMBER_RELATION;
     private static final String END_USER = AuthzConstants.END_USER_RELATION;
-    private static final String GRANT = AuthzConstants.GRANT_RELATION;
     private static final String ROLE = AuthzConstants.ROLE_RELATION;
     private static final String ROLE_BINDING = AuthzConstants.ROLE_BINDING_RELATION;
 
@@ -279,19 +278,28 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     }
 
     private static void declareServiceTypes(Collection<ServiceDefinition> services, Map<String, ResourceType> types) {
+        // a type is declared by each of its services and its parent by any of them, so every service is read for
+        // the parents before a type is made, whichever order the services come in
+        Map<String, String> parents = new HashMap<>();
+        for (ServiceDefinition service : services) {
+            AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
+            if (resource != null && resource.getParent() != null) {
+                ResourceType kernel = types.get(resource.getResourceType());
+                String parent = kernel != null
+                        ? kernel.parent
+                        : parents.computeIfAbsent(resource.getResourceType(), type -> resource.getParent());
+                // the kernel's parent, or another service's, is the one in the tree; a second parent would fork it
+                if (!resource.getParent().equals(parent)) {
+                    throw new IllegalArgumentException("Service " + service.getQualifiedName() + " declares the parent of '"
+                                                               + resource.getResourceType() + "' as '" + resource.getParent()
+                                                               + "', but it is '" + parent + "'");
+                }
+            }
+        }
         for (ServiceDefinition service : services) {
             AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
             if (resource != null) {
-                ResourceType type = types.get(resource.getResourceType());
-                if (type == null) {
-                    type = new ResourceType(resource.getResourceType(), resource.getParent());
-                    types.put(type.name, type);
-                } else if (resource.getParent() != null && !resource.getParent().equals(type.parent)) {
-                    // the kernel's parent, or another service's, is the one in the tree; a second parent would fork it
-                    throw new IllegalArgumentException("Service " + service.getQualifiedName() + " declares the parent of '"
-                                                               + type.name + "' as '" + resource.getParent()
-                                                               + "', but it is '" + type.parent + "'");
-                }
+                ResourceType type = types.computeIfAbsent(resource.getResourceType(), name -> new ResourceType(name, parents.get(name)));
                 for (AuthzRoleDeclaration role : resource.getRoles()) {
                     Set<String> permissions = new LinkedHashSet<>(role.getPermissions());
                     Set<String> declared = type.declaredRoles.putIfAbsent(role.getId(), permissions);
@@ -415,7 +423,6 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
      */
     private static ObjectNode roleType(String home, List<ResourceType> carried) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
-        relations.put(GRANT, direct(List.of(USER + ":*")));
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 ObjectNode bundled = direct(List.of(USER + ":*"));
@@ -428,7 +435,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                     relation = union(sources);
                     relation.set("directly_related_user_types", directTypes);
                 }
-                relations.put(AuthzUtil.permissionName(about.name, permission.getKey()), relation);
+                relate(relations, AuthzUtil.permissionName(about.name, permission.getKey()), relation);
             }
         }
         return typeDefinition(AuthzUtil.roleType(home), relations);
@@ -441,10 +448,10 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
      */
     private static ObjectNode roleBindingType(String boundOn, Set<String> homes, Set<String> permissions, List<String> memberTypes) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
-        relations.put(ROLE, direct(homes.stream().map(AuthzUtil::roleType).toList()));
-        relations.put(MEMBER, direct(memberTypes));
+        relate(relations, ROLE, direct(homes.stream().map(AuthzUtil::roleType).toList()));
+        relate(relations, MEMBER, direct(memberTypes));
         for (String permission : permissions) {
-            relations.put(permission, intersection(List.of(computed(MEMBER), tupleToUserset(ROLE, permission))));
+            relate(relations, permission, intersection(List.of(computed(MEMBER), tupleToUserset(ROLE, permission))));
         }
         return typeDefinition(AuthzUtil.roleBindingType(boundOn), relations);
     }
@@ -452,15 +459,15 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static ObjectNode resourceType(ResourceType type, List<ResourceType> carried) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
         if (type.parent != null) {
-            relations.put(type.parent, direct(List.of(type.parent)));
+            relate(relations, type.parent, direct(List.of(type.parent)));
         }
         for (Map.Entry<String, Set<String>> membership : new TreeMap<>(type.memberships).entrySet()) {
-            relations.put(membership.getKey(), direct(new ArrayList<>(membership.getValue())));
+            relate(relations, membership.getKey(), direct(new ArrayList<>(membership.getValue())));
         }
         for (Map.Entry<String, String> inherited : type.inherited.entrySet()) {
-            relations.put(inherited.getKey(), tupleToUserset(inherited.getValue(), inherited.getKey()));
+            relate(relations, inherited.getKey(), tupleToUserset(inherited.getValue(), inherited.getKey()));
         }
-        relations.put(ROLE_BINDING, direct(List.of(AuthzUtil.roleBindingType(type.name))));
+        relate(relations, ROLE_BINDING, direct(List.of(AuthzUtil.roleBindingType(type.name))));
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 String name = AuthzUtil.permissionName(about.name, permission.getKey());
@@ -471,7 +478,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                     sources.add(tupleToUserset(type.parent, name));
                 }
                 // OpenFGA rejects a union of one, so a permission with a single source is that source itself
-                relations.put(name, sources.size() == 1 ? sources.getFirst() : union(sources));
+                relate(relations, name, sources.size() == 1 ? sources.getFirst() : union(sources));
             }
         }
         return typeDefinition(type.name, relations);
@@ -485,10 +492,10 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
      */
     private static ObjectNode tenantDefinitionType(ResourceType definition) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
-        relations.put(DEFINITION, direct(List.of(ENTITY_DEFINITION)));
-        relations.put(TENANT, direct(List.of(TENANT)));
-        relations.put(ROLE_BINDING, direct(List.of(AuthzUtil.roleBindingType(TENANT_DEFINITION))));
-        relations.put(PLACED, tupleToUserset(DEFINITION, PLACED));
+        relate(relations, DEFINITION, direct(List.of(ENTITY_DEFINITION)));
+        relate(relations, TENANT, direct(List.of(TENANT)));
+        relate(relations, ROLE_BINDING, direct(List.of(AuthzUtil.roleBindingType(TENANT_DEFINITION))));
+        relate(relations, PLACED, tupleToUserset(DEFINITION, PLACED));
         for (Map.Entry<String, Set<String>> permission : new TreeMap<>(definition.permissions).entrySet()) {
             String name = AuthzUtil.permissionName(definition.name, permission.getKey());
             List<ObjectNode> sources = new ArrayList<>();
@@ -496,7 +503,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             sources.addAll(implying(definition, permission.getKey()));
             sources.add(tupleToUserset(DEFINITION, name));
             sources.add(intersection(List.of(tupleToUserset(TENANT, name), computed(PLACED))));
-            relations.put(name, union(sources));
+            relate(relations, name, union(sources));
         }
         return typeDefinition(TENANT_DEFINITION, relations);
     }
@@ -510,6 +517,16 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             }
         }
         return ret;
+    }
+
+    // Gives a type being built a relation. A permission is a relation named <type>_<permission>, so one named as
+    // a relation the model defines for the type, such as end_user, would take that relation's place
+    private static void relate(Map<String, ObjectNode> relations, String name, ObjectNode userset) {
+        if (relations.putIfAbsent(name, userset) != null) {
+            throw new IllegalArgumentException("A type of the model would have two relations named '" + name
+                                                       + "': a permission's model name, <type>_<permission>, is the name of"
+                                                       + " a relation the model defines itself");
+        }
     }
 
     private static ObjectNode typeDefinition(String name, Map<String, ObjectNode> relations) {
