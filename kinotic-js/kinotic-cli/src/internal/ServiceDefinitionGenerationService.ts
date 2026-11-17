@@ -3,6 +3,7 @@ import {
     AsyncC3Type,
     C3Type,
     FunctionDefinition,
+    McpToolDecorator,
     type MetadataType,
     ParameterDefinition,
     ServiceDefinition,
@@ -12,9 +13,10 @@ import {
 import {KinoticProjectConfig} from '@kinotic-ai/management-api'
 import fsPromises from 'fs/promises'
 import path from 'path'
-import {ClassDeclaration, Decorator, MethodDeclaration, Project, Type} from 'ts-morph'
+import {ClassDeclaration, Decorator, MethodDeclaration, ObjectLiteralExpression, Project, SyntaxKind, Type} from 'ts-morph'
 import {createConversionContext, IConversionContext} from './converter/IConversionContext'
 import {TypescriptConversionState} from './converter/typescript/TypescriptConversionState'
+import {convertToObjectLiteral} from './converter/typescript/ConverterUtils'
 import {ServiceValueToC3Type} from './converter/typescript/ServiceValueToC3Type'
 import {TypescriptConverterStrategy} from './converter/typescript/TypescriptConverterStrategy'
 import {Logger} from './Logger'
@@ -30,10 +32,21 @@ const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
 // The metadata key of the warnings a parameter's or a function's return type raised, for the directory's readers to show
 const WARNINGS_METADATA_KEY = 'warnings'
 
+// The words of a function name that hint a tool's behavior, the rules the platform reads its own services'
+// names by (McpToolHints in kinotic-idl)
+const READ_ONLY_VERBS = new Set(['count', 'exists', 'fetch', 'find', 'get', 'has', 'is', 'list', 'load', 'query', 'read', 'search'])
+// a verb that replaces or removes state: repeating it lands on the same state
+const DESTRUCTIVE_VERBS = new Set(['clear', 'delete', 'destroy', 'drop', 'purge', 'put', 'remove', 'save', 'set', 'truncate',
+                                   'update', 'upsert'])
+// a verb that changes state additively: no hint of its own, but it disqualifies a reading verb in the same name
+const ADDITIVE_VERBS = new Set(['add', 'apply', 'create', 'execute', 'generate', 'import', 'insert', 'invoke', 'publish',
+                                'register', 'retry', 'run', 'send', 'start', 'stop', 'submit', 'trigger', 'upload'])
+
 /**
  * Generates the definition of every service the project publishes, the classes decorated with @Publish under
  * the project's servicesPaths: one function per instance method of the class and the classes it extends, with
- * the parameters a request carries, typed as an entity's properties are. The definitions are written to the
+ * the parameters a request carries, typed as an entity's properties are, and the tool a function is exposed as
+ * by an @McpTool on its method or on the class. The definitions are written to the
  * ServiceDefinitions module, which declares them to the runtime so each service registers in the platform's
  * service directory as it comes online.
  */
@@ -113,16 +126,28 @@ export class ServiceDefinitionGenerationService {
         state.shouldAddSourcePathToMetadata = false
         // a union with no name of its own is named for the service and the function or parameter carrying it
         state.objectNameStack.push(name)
+        const serviceTool = declaration.getDecorator('McpTool')
+        // the service's half leads every tool's title
+        const serviceTitle = (serviceTool ? mcpToolOptions(serviceTool, service).title : null) || titleCase(name)
         const conversion = createConversionContext(new TypescriptConverterStrategy(state, this.logger, [new ServiceValueToC3Type(this.logger)]))
         // the most specific declaration of a method wins, as the instance's prototype chain resolves it
-        const converted = new Set<string>()
+        const seen = new Set<string>()
         let current: ClassDeclaration | undefined = declaration
         while (current) {
             for (const method of current.getInstanceMethods()) {
                 // the runtime serves the methods on the prototype chain, which holds no ES private (#) method
-                if (!method.isOverload() && !method.getName().startsWith('#') && !converted.has(method.getName())) {
-                    converted.add(method.getName())
-                    ret.addFunction(this.convertMethod(method, service, conversion))
+                if (!method.isOverload() && !method.getName().startsWith('#') && !seen.has(method.getName())) {
+                    seen.add(method.getName())
+                    const converted = this.convertMethod(method, service, conversion)
+                    const methodTool = method.getDecorator('McpTool')
+                    if (methodTool || serviceTool) {
+                        const where = `${method.getName()} on ${service}`
+                        if (converted.returnType instanceof StreamC3Type) {
+                            throw new Error(`${where} streams its result, which an MCP tool cannot`)
+                        }
+                        converted.addDecorator(mcpToolOf(method, methodTool ? mcpToolOptions(methodTool, where) : null, serviceTitle))
+                    }
+                    ret.addFunction(converted)
                 }
             }
             current = current.getBaseClass()
@@ -205,6 +230,64 @@ export class ServiceDefinitionGenerationService {
 function takeWarnings(state: TypescriptConversionState): MetadataType | null {
     const warnings = state.warnings.splice(0)
     return warnings.length > 0 ? {[WARNINGS_METADATA_KEY]: warnings} : null
+}
+
+// What an @McpTool states: its one argument, an object literal of literals, or nothing
+function mcpToolOptions(decorator: Decorator, where: string): Partial<McpToolDecorator> {
+    let ret: Partial<McpToolDecorator> = {}
+    const argument = decorator.getArguments()[0]
+    if (argument) {
+        if (argument.getKind() !== SyntaxKind.ObjectLiteralExpression) {
+            throw new Error(`@McpTool on ${where} must take an object literal but took ${argument.getText()}`)
+        }
+        ret = convertToObjectLiteral(argument as ObjectLiteralExpression)
+    }
+    return ret
+}
+
+// The tool a function is exposed as. Its own @McpTool describes it outright, hints included; a function
+// exposed by the class alone is hinted by its name. A title or description left empty comes from the function:
+// its name, and its JSDoc before its name as a sentence
+function mcpToolOf(method: MethodDeclaration, options: Partial<McpToolDecorator> | null, serviceTitle: string): McpToolDecorator {
+    const name = method.getName()
+    const description = options?.description || method.getJsDocs().map(doc => doc.getDescription().trim()).find(doc => doc)
+                        || sentenceCase(name)
+    const ret = new McpToolDecorator(`${serviceTitle} ${options?.title || titleCase(name)}`, description)
+    if (options) {
+        ret.readOnlyHint = options.readOnlyHint === true
+        ret.destructiveHint = options.destructiveHint === true
+        ret.idempotentHint = options.idempotentHint === true
+        ret.openWorldHint = options.openWorldHint === true
+    } else {
+        // a mutating word anywhere outranks a reading one, so getOrCreatePerson is never served as read-only
+        const words = camelCaseWords(name).map(word => word.toLowerCase())
+        if (words.some(word => DESTRUCTIVE_VERBS.has(word))) {
+            ret.destructiveHint = true
+            ret.idempotentHint = true
+        } else if (name.endsWith('IfNotExist') || name.endsWith('IfNotExists')) {
+            ret.idempotentHint = true
+        } else if (!words.some(word => ADDITIVE_VERBS.has(word))) {
+            ret.readOnlyHint = words.some(word => READ_ONLY_VERBS.has(word))
+        }
+    }
+    return ret
+}
+
+// The words of a camel case identifier, an acronym staying one word: CRIResolver is CRI and Resolver
+function camelCaseWords(name: string): string[] {
+    return name.match(/[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+/g) ?? [name]
+}
+
+// findByRepoFullName as "Find By Repo Full Name"
+function titleCase(name: string): string {
+    return camelCaseWords(name).map(capitalize).join(' ')
+}
+
+// findByCRI as "Find by CRI": only the first word capitalized, an acronym keeping its case
+function sentenceCase(name: string): string {
+    return camelCaseWords(name)
+        .map((word, index) => index === 0 ? capitalize(word) : (word === word.toUpperCase() ? word : word.charAt(0).toLowerCase() + word.slice(1)))
+        .join(' ')
 }
 
 function capitalize(value: string): string {

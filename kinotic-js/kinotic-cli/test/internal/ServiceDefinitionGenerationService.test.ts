@@ -288,6 +288,94 @@ describe('ServiceDefinitionGenerationService', () => {
         expect((fn(probe, 'hang').returnType as AsyncC3Type).valueType).to.be.instanceOf(AnyC3Type)
     })
 
+    it('describes the tool of every function an @McpTool exposes, on the method or on the class', async () => {
+        writeService(`import {McpTool, Publish} from '@kinotic-ai/core'
+
+@Publish('com.acme.orders')
+export class OrderService {
+
+    /**
+     * Finds an order by its id.
+     */
+    @McpTool()
+    async findById(orderId: string): Promise<string> {
+        return orderId
+    }
+
+    @McpTool({title: 'Push to ERP', description: 'Sends the order to the ERP', openWorldHint: true})
+    async saveToErp(orderId: string): Promise<void> {
+        void orderId
+    }
+
+    async cancel(orderId: string): Promise<void> {
+        void orderId
+    }
+}
+
+@McpTool({title: 'Stock'})
+@Publish('com.acme.orders')
+export class StockService {
+
+    /** How many of the item are on hand. */
+    async itemCount(sku: string): Promise<number> {
+        return sku.length
+    }
+
+    async deleteItem(sku: string): Promise<void> {
+        void sku
+    }
+
+    async createItemIfNotExist(sku: string): Promise<void> {
+        void sku
+    }
+
+    async getOrCreateBin(sku: string): Promise<string> {
+        return sku
+    }
+}
+`, 'OrderService.ts')
+
+        const definitions = await generate()
+        const orders = definitions.find(d => d.name === 'OrderService')!
+        const stock = definitions.find(d => d.name === 'StockService')!
+        const hints = (readOnlyHint: boolean, destructiveHint: boolean, idempotentHint: boolean, openWorldHint = false) =>
+            ({readOnlyHint, destructiveHint, idempotentHint, openWorldHint})
+
+        // a method's own declaration describes it outright: what it leaves empty comes from the method, and its hints are as written
+        expect(fn(orders, 'findById').decorators).to.deep.equal(
+            [{type: 'McpTool', title: 'Order Service Find By Id', description: 'Finds an order by its id.', ...hints(false, false, false)}])
+        expect(fn(orders, 'saveToErp').decorators).to.deep.equal(
+            [{type: 'McpTool', title: 'Order Service Push to ERP', description: 'Sends the order to the ERP', ...hints(false, false, false, true)}])
+        expect(fn(orders, 'cancel').decorators ?? []).to.be.empty
+
+        // the class exposes every function, each hinted by its name
+        expect(fn(stock, 'itemCount').decorators).to.deep.equal(
+            [{type: 'McpTool', title: 'Stock Item Count', description: 'How many of the item are on hand.', ...hints(true, false, false)}])
+        expect(fn(stock, 'deleteItem').decorators).to.deep.equal(
+            [{type: 'McpTool', title: 'Stock Delete Item', description: 'Delete item', ...hints(false, true, true)}])
+        expect(fn(stock, 'createItemIfNotExist').decorators![0]).to.include(hints(false, false, true))
+        expect(fn(stock, 'getOrCreateBin').decorators![0]).to.include(hints(false, false, false))
+    })
+
+    it('refuses a tool that streams its result', async () => {
+        writeService(`import {McpTool, Publish} from '@kinotic-ai/core'
+
+export interface Observable<T> {
+    subscribe(next: (value: T) => void): void
+}
+
+@Publish('com.acme.orders')
+export class FeedService {
+    @McpTool()
+    watch(): Observable<string> {
+        return {subscribe: () => undefined}
+    }
+}
+`, 'FeedService.ts')
+
+        expect(await generateError()).to.contain('watch on com.acme.orders.FeedService streams its result')
+    })
+
     it('writes the module that declares the definitions to the runtime', async () => {
         await generate()
 

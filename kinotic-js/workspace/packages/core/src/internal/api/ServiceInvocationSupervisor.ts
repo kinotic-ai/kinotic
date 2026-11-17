@@ -2,6 +2,7 @@ import { createCRI } from '@/api/event/CRI'
 import { EventConstants, type IEvent, type IEventBus } from '@/api/event/IEventBus'
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import {type ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver'
+import type { ServiceDefinition } from '@kinotic-ai/idl'
 import { Util } from './Util'
 import type { ActiveStream } from './ActiveStream'
 import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnValueConverter'
@@ -40,6 +41,8 @@ export class ServiceInvocationSupervisor {
     private connectionGeneration: number = 0
     private readonly methodMap: Record<string, (...args: any[]) => any>
     private readonly scopeOptionalMethods: Set<string>
+    // The parameter names of each function the service's definition declares, which arguments sent by name bind to
+    private readonly parameterNames: Map<string, string[]> | null
     private readonly tracer: Tracer
 
     constructor(
@@ -51,6 +54,7 @@ export class ServiceInvocationSupervisor {
             logger?: Logger
             argumentResolver?: ArgumentResolver
             returnValueConverter?: ReturnValueConverter
+            serviceDefinition?: ServiceDefinition | null
         } = {}
     ) {
         if (!serviceIdentifier) throw new Error("ServiceIdentifier must not be null")
@@ -69,6 +73,9 @@ export class ServiceInvocationSupervisor {
 
         this.methodMap = this.buildMethodMap(serviceInstance)
         this.scopeOptionalMethods = scopeOptionalMethodNames(serviceInstance)
+        this.parameterNames = options.serviceDefinition
+            ? new Map(options.serviceDefinition.functions.map(f => [f.name, f.parameters.map(p => p.name)]))
+            : null
         // Names the instrumentation scope, which is the library emitting the span rather than the
         // application being traced. The application identifies itself through the SDK's resource.
         this.tracer = opentelemetry.trace.getTracer(info.name, info.version)
@@ -248,7 +255,7 @@ export class ServiceInvocationSupervisor {
         const generation = this.connectionGeneration
 
         try {
-            const args = this.argumentResolver.resolveArguments(event)
+            const args = this.argumentResolver.resolveArguments(event, this.parameterNames?.get(methodName) ?? null)
             const injectContext = receivesContext(this.serviceInstance, methodName);
 
             // The context starts with the caller the gateway wrote as the event's sender, so the

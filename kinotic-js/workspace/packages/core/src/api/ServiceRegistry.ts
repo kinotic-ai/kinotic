@@ -174,7 +174,8 @@ export class ServiceRegistry implements IServiceRegistry {
                 serviceIdentifier,
                 service,
                 this.eventBus,
-                () => this.contextInterceptor
+                () => this.contextInterceptor,
+                { serviceDefinition: entry?.serviceDefinition }
             )
             this.supervisors.set(criString, supervisor)
             supervisor.start()

@@ -245,7 +245,7 @@ function convertCallExpressionToJs(expression: CallExpression): any {
 }
 
 // Convert ObjectLiteralExpression to a JavaScript object
-function convertToObjectLiteral(expression: ObjectLiteralExpression): any {
+export function convertToObjectLiteral(expression: ObjectLiteralExpression): any {
     const result: any = {}
     for(const prop of expression.getProperties()) {
         if (prop.getKind() === SyntaxKind.PropertyAssignment) {

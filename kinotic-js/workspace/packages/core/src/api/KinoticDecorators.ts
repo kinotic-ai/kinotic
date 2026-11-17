@@ -1,4 +1,5 @@
 import { Kinotic } from '@/api/Kinotic'
+import type { McpToolOptions } from '@/api/McpToolOptions'
 
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import { validateZone } from '@/api/ZoneUtil'
@@ -149,6 +150,18 @@ export function Context(value: Function, _context: ClassMethodDecoratorContext):
 export function receivesContext(serviceInstance: object, methodName: string): boolean {
     const method = (serviceInstance as any)[methodName]
     return typeof method === 'function' && contextMarkedFunctions.has(method)
+}
+
+/**
+ * Exposes a published service's functions as Model Context Protocol tools, through the service definitions
+ * `kinotic generate` writes for the project. On a method it exposes that one function; on the service class
+ * it exposes every function, each described by its own JSDoc and name. A function returning an Observable
+ * cannot be a tool.
+ * @param options what the declaration states about the tool, as an object literal of literals
+ */
+export function McpTool(_options?: McpToolOptions) {
+    return function (_value: Function, _context: ClassDecoratorContext<any> | ClassMethodDecoratorContext): void {
+    }
 }
 
 // Effective zone = zonePrefix . declaredZone. The prefix comes from the client's static

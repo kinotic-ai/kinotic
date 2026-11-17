@@ -3,6 +3,7 @@ import { BehaviorSubject, type Observable, of, Subject } from 'rxjs'
 import { Context, Event, EventConstants, RpcError, ServiceIdentifier, type ConnectOptions, type ContextInterceptor, type IWebSocket, type ServiceContext } from '../src'
 import { EventBus } from '../src/api/event/EventBus'
 import { ServiceInvocationSupervisor } from '../src/internal/api/ServiceInvocationSupervisor'
+import { FunctionDefinition, IntC3Type, ServiceDefinition, StringC3Type } from '@kinotic-ai/idl'
 import { FakeStompServer, type FakeFrame, type FakeSocket } from './FakeStompServer'
 
 const SERVICE = new ServiceIdentifier('com.example', 'SupervisedService')
@@ -43,6 +44,16 @@ class SupervisedService {
         return 'hi'
     }
 
+    subtract(from: number, amount: number | null): string {
+        return `${from}-${amount}`
+    }
+
+    /** Answers with the label and the context it was handed. */
+    @Context
+    labelled(label: string, context: ServiceContext): unknown {
+        return { label, caller: context.participant?.id }
+    }
+
     /** Answers with the context it was handed. */
     @Context
     whoCalled(context: ServiceContext): ServiceContext {
@@ -54,11 +65,20 @@ function options(server: FakeStompServer): ConnectOptions {
     return { server: { host: 'fake', useSSL: false }, webSocketFactory: server.factory as () => IWebSocket }
 }
 
+// The definition the project would declare for the functions invoked by name
+function supervisedDefinition(): ServiceDefinition {
+    const ret = new ServiceDefinition('SupervisedService', 'com.example')
+    ret.addFunction(new FunctionDefinition('subtract').addParameter('from', new IntC3Type()).addParameter('amount', new IntC3Type()))
+    ret.addFunction(new FunctionDefinition('labelled').addParameter('label', new StringC3Type()))
+    return ret
+}
+
 async function startSupervised(server: FakeStompServer,
-                               interceptor: ContextInterceptor<ServiceContext> | null = null): Promise<{ bus: EventBus, service: SupervisedService, supervisor: ServiceInvocationSupervisor }> {
+                               interceptor: ContextInterceptor<ServiceContext> | null = null,
+                               serviceDefinition: ServiceDefinition | null = null): Promise<{ bus: EventBus, service: SupervisedService, supervisor: ServiceInvocationSupervisor }> {
     const bus = new EventBus()
     const service = new SupervisedService()
-    const supervisor = new ServiceInvocationSupervisor(SERVICE, service, bus, () => interceptor)
+    const supervisor = new ServiceInvocationSupervisor(SERVICE, service, bus, () => interceptor, { serviceDefinition })
     supervisor.start()
     await bus.connect(options(server))
     return { bus, service, supervisor }
@@ -66,14 +86,14 @@ async function startSupervised(server: FakeStompServer,
 
 // Delivers an invocation of the method on the service's subscription, addressed the way the gateway
 // addresses one: the method is the path of the destination
-function invoke(socket: FakeSocket, method: string, correlationId: string, headers: Record<string, string> = {}): void {
+function invoke(socket: FakeSocket, method: string, correlationId: string, headers: Record<string, string> = {}, body?: string): void {
     socket.message(ADDRESS, {
         destination: `${ADDRESS}/${method}`,
         [EventConstants.REPLY_TO_HEADER]: `reply://${socket.replyToId}:caller@kinotic.js.EventBus/replyHandler`,
         [EventConstants.CORRELATION_ID_HEADER]: correlationId,
         [EventConstants.CONTENT_TYPE_HEADER]: EventConstants.CONTENT_JSON,
         ...headers
-    })
+    }, body)
 }
 
 // The caller as the gateway writes it on the sender header: the participant it authenticated, with the
@@ -198,6 +218,38 @@ describe('service invocation supervisor', () => {
         expect(sent.length).toBe(2)
         expect(JSON.parse(sent[0]!.body)).toEqual({ participant: CALLER })
         expect(JSON.parse(sent[1]!.body)).toEqual({})
+        supervisor.stop()
+        await bus.disconnect()
+    })
+
+    it('binds arguments sent by name to the parameters the definition declares, whatever order they arrive in', async () => {
+        const server = new FakeStompServer()
+        const { bus, supervisor } = await startSupervised(server, null, supervisedDefinition())
+        const named = { [EventConstants.CONTENT_TYPE_HEADER]: EventConstants.CONTENT_NAMED_JSON }
+
+        invoke(server.current, 'subtract', 'c1', named, JSON.stringify({ amount: 2, from: 5 }))
+        // an argument left out arrives as null
+        invoke(server.current, 'subtract', 'c2', named, JSON.stringify({ from: 5 }))
+        // the context follows the arguments sent, as it follows positional ones
+        invoke(server.current, 'labelled', 'c3', { ...named, [EventConstants.SENDER_HEADER]: JSON.stringify(CALLER) }, JSON.stringify({ label: 'a' }))
+        invoke(server.current, 'subtract', 'c4', named, JSON.stringify({ from: 5, extra: 1 }))
+        await sleep(50)
+
+        const sent = replies(server.current)
+        expect(sent.map(f => f.body)).toEqual(['"5-2"', '"5-null"', JSON.stringify({ label: 'a', caller: 'org-user' }), expect.anything()])
+        expect(sent[3]!.headers[EventConstants.ERROR_HEADER]).toContain("'extra'")
+        supervisor.stop()
+        await bus.disconnect()
+    })
+
+    it('refuses arguments sent by name to a service that declared no definition', async () => {
+        const server = new FakeStompServer()
+        const { bus, supervisor } = await startSupervised(server)
+
+        invoke(server.current, 'subtract', 'c1', { [EventConstants.CONTENT_TYPE_HEADER]: EventConstants.CONTENT_NAMED_JSON }, JSON.stringify({ from: 5 }))
+        await sleep(50)
+
+        expect(replies(server.current)[0]!.headers[EventConstants.ERROR_HEADER]).toContain('ServiceDefinitions')
         supervisor.stop()
         await bus.disconnect()
     })

@@ -1,4 +1,5 @@
 export * from './api/decorators/C3Decorator'
+export * from './api/decorators/McpToolDecorator'
 export * from './api/decorators/NotNullDecorator'
 
 export * from './api/AnyC3Type'

@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
@@ -256,6 +257,13 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         Validate.notNull(entry.getServiceDefinition(), "The entry carries no service definition");
         ServiceDefinition definition = entry.getServiceDefinition();
         Validate.notBlank(definition.getName(), "The service definition names no name");
+        for (FunctionDefinition function : definition.getFunctions()) {
+            McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
+            // the definition arrives over the wire, and a tool is listed by nothing but its title and description
+            Validate.isTrue(decorator == null
+                                    || (StringUtils.isNotBlank(decorator.getTitle()) && StringUtils.isNotBlank(decorator.getDescription())),
+                            "The tool function '%s' states no title or no description", function.getName());
+        }
         // a runtime serves a service published in no namespace at <zone>~<Name>, so the zone is its namespace,
         // which keeps its qualified name apart from every other application's
         boolean inZoneNamespace = definition.getNamespace() == null || definition.getNamespace().isBlank();

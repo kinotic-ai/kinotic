@@ -257,6 +257,10 @@ export enum EventConstants {
     REPLY_DESTINATION_SCHEME = "reply",
 
     CONTENT_JSON = 'application/json',
+    /**
+     * A single JSON object whose fields are the invoked function's arguments by parameter name.
+     */
+    CONTENT_NAMED_JSON = 'application/x-kinotic-named-json',
     CONTENT_TEXT = 'text/plain',
     CONTENT_OCTET_STREAM = 'application/octet-stream',
 

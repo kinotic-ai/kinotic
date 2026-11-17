@@ -5,11 +5,14 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.app.api.services.ApplicationServiceDirectory;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verifies how an application runtime registers its services in the directory: an organization registers a
  * service of one of its applications in that application's zone, a service published in no namespace is addressed
- * in the zone's namespace, and a registration in another zone or for an application the organization does not
+ * in the zone's namespace, a function declared a tool is stored as one, and a registration in another zone or for an application the organization does not
  * own is refused.
  */
 @SpringBootTest
@@ -100,6 +103,40 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
                                                                               definition(NAMESPACE, "ReportService")))));
         assertTrue(entries(appId).isEmpty());
         assertTrue(entries(unknownApp).isEmpty());
+    }
+
+    @Test
+    public void aFunctionDeclaredAToolIsStoredAsOneOfTheServicesTools() throws Exception {
+        String appId = application();
+        String zone = DomainUtil.applicationZone(TEST_ORG_ID, appId);
+        ServiceDefinition definition = definition(NAMESPACE, "ReportService");
+        definition.getFunctions().iterator().next().setDecorators(List.of(new McpToolC3Decorator().setTitle("Reports Find Reports")
+                                                                                            .setDescription("Finds every report")
+                                                                                            .setReadOnlyHint(true)));
+
+        await(runAsOrganization(() -> applicationServiceDirectory.register(entry(appId, zone, definition))));
+
+        ServiceDirectoryEntry stored = stored(appId, zone + "~" + NAMESPACE + ".ReportService");
+        assertTrue(stored.isMcpExposed());
+        assertEquals(1, stored.getMcpTools().size());
+        McpToolDefinition tool = stored.getMcpTools().getFirst();
+        assertEquals(KinoticUtil.mcpToolName(zone + "~" + NAMESPACE + ".ReportService", "findReports"), tool.getName());
+        assertEquals("Reports Find Reports", tool.getTitle());
+        assertEquals("Reports Find Reports: Finds every report", tool.getDescription());
+        assertEquals("srv://" + zone + "~" + NAMESPACE + ".ReportService/findReports", tool.getCri());
+        assertTrue(tool.getAnnotations().isReadOnlyHint());
+        assertFalse(tool.getAnnotations().isDestructiveHint());
+    }
+
+    @Test
+    public void aToolStatingNoDescriptionIsRefused() throws Exception {
+        String appId = application();
+        ServiceDefinition definition = definition(NAMESPACE, "ReportService");
+        definition.getFunctions().iterator().next().setDecorators(List.of(new McpToolC3Decorator().setTitle("Reports Find Reports")));
+
+        assertInstanceOf(IllegalArgumentException.class,
+                         failure(() -> applicationServiceDirectory.register(entry(appId, DomainUtil.applicationZone(TEST_ORG_ID, appId), definition))));
+        assertTrue(entries(appId).isEmpty());
     }
 
     private String application() throws Exception {
