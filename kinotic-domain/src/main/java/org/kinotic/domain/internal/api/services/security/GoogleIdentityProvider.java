@@ -1,7 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.springframework.stereotype.Component;
 
 /**

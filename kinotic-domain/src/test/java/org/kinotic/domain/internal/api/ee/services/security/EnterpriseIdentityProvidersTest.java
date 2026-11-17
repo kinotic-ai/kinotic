@@ -1,7 +1,7 @@
 package org.kinotic.domain.internal.api.ee.services.security;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 
 import java.util.List;
 

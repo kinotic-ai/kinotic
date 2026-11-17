@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.common.api.oidc.OidcEndpointSettings;
 
 /**
  * A provider registration Kinotic made once and system users manage, as opposed to one an
@@ -17,7 +18,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public abstract sealed class ManagedOidcConfiguration extends OidcConfiguration
+public abstract sealed class ManagedOidcConfiguration extends OidcConfiguration implements OidcEndpointSettings
         permits OrgSignupOidcConfiguration, ApplicationSocialOidcConfiguration {
 
     /**

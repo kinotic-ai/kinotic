@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
+import org.kinotic.common.api.oidc.OidcAuthorization;
 import org.kinotic.domain.api.rest.support.OidcFlowPurpose;
 
 /**
@@ -23,9 +24,8 @@ import org.kinotic.domain.api.rest.support.OidcFlowPurpose;
 @AllArgsConstructor
 public class OidcFlowSession implements ClusterSerializable {
 
-    private String state;
-    private String nonce;
-    private String pkceVerifier;
+    /** The state, nonce and PKCE verifier the callback is held to. */
+    private OidcAuthorization authorization;
     private String configId;
 
     /** What the flow is for, which the callback the configuration is registered with dispatches on. */
@@ -58,9 +58,9 @@ public class OidcFlowSession implements ClusterSerializable {
     @Override
     public void writeToBuffer(Buffer buffer) {
         new JsonObject()
-                .put("state", state)
-                .put("nonce", nonce)
-                .put("pkceVerifier", pkceVerifier)
+                .put("state", authorization.state())
+                .put("nonce", authorization.nonce())
+                .put("pkceVerifier", authorization.pkceVerifier())
                 .put("configId", configId)
                 .put("purpose", purpose == null ? null : purpose.name())
                 .put("orgId", orgId)
@@ -76,9 +76,8 @@ public class OidcFlowSession implements ClusterSerializable {
     public int readFromBuffer(int pos, Buffer buffer) {
         JsonObject json = new JsonObject();
         int read = json.readFromBuffer(pos, buffer);
-        this.state = json.getString("state");
-        this.nonce = json.getString("nonce");
-        this.pkceVerifier = json.getString("pkceVerifier");
+        this.authorization = new OidcAuthorization(json.getString("state"), json.getString("nonce"),
+                                                   json.getString("pkceVerifier"));
         this.configId = json.getString("configId");
         this.purpose = json.getString("purpose") == null ? null : OidcFlowPurpose.valueOf(json.getString("purpose"));
         this.orgId = json.getString("orgId");

@@ -36,7 +36,10 @@ public class PendingSignUp implements PendingVerification {
     /** Email the eventual {@link ParticipantIdentity} is created with. */
     private String email;
 
-    /** Display name for the eventual {@link ParticipantIdentity}. For OIDC this is taken from the IdP claims. */
+    /**
+     * Display name for the eventual {@link ParticipantIdentity}. For OIDC this is taken from the IdP claims; an
+     * email/password sign-up collects it at completion.
+     */
     private String displayName;
 
     /** How the email was established, and so whether a password is collected at completion. */

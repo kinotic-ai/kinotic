@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.common.api.oidc;
 
 import org.junit.jupiter.api.Test;
 

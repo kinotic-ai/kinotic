@@ -10,7 +10,7 @@ import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.services.OrganizationService;
@@ -24,7 +24,7 @@ import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
-import org.kinotic.domain.api.rest.support.OAuth2Util;
+import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcErrorCodes;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
@@ -229,7 +229,7 @@ public class InviteHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
             return;
         }
         // the acceptance makes the email's user the identity's, so the email is held to the proof its configuration needs
-        if (!OAuth2Util.isEmailProven(claims, result.config())) {
+        if (!OidcConfigurationService.isEmailProven(claims, result.config())) {
             redirectInviteError(ctx, result.origin(), OidcErrorCodes.EMAIL_NOT_VERIFIED, result.config().getProvider(), token);
             return;
         }
