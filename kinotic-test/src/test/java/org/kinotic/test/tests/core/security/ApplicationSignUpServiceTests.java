@@ -275,11 +275,11 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
 
         // the name is chosen by the person who holds the email, when they complete the sign-up, and two completions
         // presenting the token at once create one user
-        Future<ApplicationParticipantIdentity> one = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
-        Future<ApplicationParticipantIdentity> other = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
-        Future.join(one, other).toCompletionStage().toCompletableFuture().handle((v, e) -> null).get(30, TimeUnit.SECONDS);
-        assertTrue(one.succeeded() ^ other.succeeded(), "exactly one completion creates the user");
-        ApplicationParticipantIdentity user = one.succeeded() ? one.result() : other.result();
+        Future<ApplicationParticipantIdentity> completion = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
+        Future<ApplicationParticipantIdentity> concurrent = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
+        Future.join(completion, concurrent).toCompletionStage().toCompletableFuture().handle((v, e) -> null).get(30, TimeUnit.SECONDS);
+        assertTrue(completion.succeeded() ^ concurrent.succeeded(), "exactly one completion creates the user");
+        ApplicationParticipantIdentity user = completion.succeeded() ? completion.result() : concurrent.result();
         assertEquals(email, user.getEmail());
         assertEquals("Pat Signs Up", user.getDisplayName());
         assertNotNull(user.getTenantId());
