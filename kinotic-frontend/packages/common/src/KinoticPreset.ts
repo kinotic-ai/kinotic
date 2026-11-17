@@ -386,8 +386,8 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             --lp-input-disabled-color: ${dt('surface.500')};
             --lp-icon-color: ${dt('surface.500')};
             --lp-icon-hover: ${dt('surface.950')};
-            /* The brand's mint for text on light surfaces; #28FEB4 itself reads at 1.3:1 on white */
-            --lp-link-color: #0A6B47;
+            /* The brand mint's hue darkened to read at 4:1 on white; #28FEB4 itself reads at 1.3:1 */
+            --lp-link-color: #01915F;
             --lp-footer-link: #0568FD;
             --lp-footer-divider: ${dt('surface.900')};
             --lp-overlay-bg: rgba(249, 250, 251, 0.92);
