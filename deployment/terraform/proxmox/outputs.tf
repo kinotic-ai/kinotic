@@ -77,3 +77,8 @@ output "vm_manager_version" {
   description = "The vm-manager version or dist-tag the nodes are kept on"
   value       = var.vm_manager_version
 }
+
+output "license_server_version" {
+  description = "The license key server's image tag, which redeploy.sh compares against Docker Hub"
+  value       = var.license_server_version
+}

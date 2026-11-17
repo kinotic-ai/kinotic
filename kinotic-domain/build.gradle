@@ -4,6 +4,8 @@ plugins {
 
 dependencies {
     api project(':kinotic-authz')
+    // OidcProviderType, in the public model, is kinotic-common's
+    api project(':kinotic-common')
     implementation project(':kinotic-core')
     // the license renewal calls Minds Ignited's license server through its gateway
     implementation project(':kinotic-client')

@@ -177,6 +177,9 @@ locals {
     api        = local.api_hostname
     system_api = local.system_api_hostname
     summit42   = local.summit42_api_hostname
+    # the license key server's (license-server.tf)
+    licenses         = local.licenses_hostname
+    licenses_console = local.licenses_console_hostname
   } : name => hostname if hostname != null }
 }
 

@@ -9,8 +9,7 @@ import lombok.experimental.Accessors;
  * An invitation or sign-up verification email that a UI built on Kinotic sends in place of Kinotic's own, whose link
  * opens that UI's page. Subject and bodies are Handlebars sources rendered with the variables of the email sent:
  * {@code inviterName}, {@code organizationName}, {@code applicationName} (absent for an organization invitation),
- * {@code acceptUrl} and {@code expiresInDays} for an invitation, and {@code displayName} and {@code verificationUrl}
- * for a verification.
+ * {@code acceptUrl} and {@code expiresInDays} for an invitation, and {@code verificationUrl} for a verification.
  * <p>
  * A call that would send an email with a template fails with {@link IllegalArgumentException}, before it saves
  * anything, unless {@code uiBaseUrl} is an absolute http or https URL naming a host, with no user info, query,

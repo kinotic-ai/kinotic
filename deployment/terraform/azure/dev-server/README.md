@@ -17,6 +17,9 @@ the sites Worker at hostnames of the platform zone, and a hostname for each serv
 | Storage account + container | `stkinoticdevsnapshots` / `elasticsearch-snapshots` | The nightly Elasticsearch snapshot repository, and the migration vehicle |
 | Cloudflare records | `dev-api.kinotic.ai`, `dev-system-api.kinotic.ai`, and `dev-summit42-api.kinotic.ai` when `summit42_enabled` | The router's public address, unproxied, for the management server, the system server and the Summit 42 server; `kinotic-dyndns.timer` on the host keeps them current with the DNS token |
 | Service principal | `kinotic-dev-server` | The identity the servers run as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev` |
+| Service principal | `kinotic-dev-license-server` | The identity the license key server runs as: Key Vault Crypto User on `kinotic-license-signing` in `kv-kinotic-platform` alone, which signs license keys, and Contributor on the email service (`license-server.tf`) |
+| App registration | `kinotic-license-console` | Staff sign-in to the license key server's console, single-tenant, returning to `https://licenses-console.kinotic.ai/api/auth/staff/callback` |
+| Cloudflare records | `licenses.kinotic.ai`, `licenses-console.kinotic.ai` | The router's public address, unproxied, for the license key server's two sites; kept current like the servers' |
 | Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh`; Key Vault Secrets Officer on `kv-kinotic-dev`, to place the social sign-in client secrets |
 
 ## Applying
@@ -56,6 +59,10 @@ so both are applied from the same checkout. Two outputs feed the servers:
 terraform output dev_server_env         # merged into every server's environment by the proxmox root
 terraform output -raw secrets_env       # → kinotic-servers.env in the secrets directory, placed by sync-secrets.sh
 ```
+
+The license key server takes two of its own: `license_server_env`, its environment in the proxmox root, and
+`license_server_secrets_env`, which goes into `license-key-server.env` beside the database password
+(`../../proxmox/README.md`, "The license key server").
 
 The social sign-in providers the migration seeds (the `ORG_SIGNUP` rows of `kinotic_oidc_configuration`)
 resolve their client secrets from `kv-kinotic-dev` by name, so each provider's secret goes

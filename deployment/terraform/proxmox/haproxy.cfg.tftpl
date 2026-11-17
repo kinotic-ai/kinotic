@@ -1,6 +1,8 @@
 # The edge: takes the router's forwarded port and passes each TLS connection, unopened, to the
 # server whose hostname its SNI carries. Every server terminates TLS itself, with a certificate
-# for its own names.
+# for its own names. A terminated server's names are the exception: the edge terminates TLS for
+# them, replaces X-Forwarded-For with the client's address, which only the edge sees, and
+# re-encrypts to the server.
 global
     log stdout format raw local0
 
@@ -28,8 +30,34 @@ frontend tls
 %{ endif ~}
 %{ endfor ~}
 %{ endfor ~}
+%{ for name, server in terminated ~}
+%{ for hostname in server.hostnames ~}
+    use_backend ${name}-tls if { req.ssl_sni -i ${hostname} }
+%{ endfor ~}
+%{ endfor ~}
 %{ for name, server in servers ~}
 
 backend ${name}
     server ${name} ${server.private_ip}:${server.port}
+%{ endfor ~}
+%{ for name, server in terminated ~}
+
+# The TLS connection, still unopened, to the HTTP frontend below, with the client's address
+# carried in the PROXY header
+backend ${name}-tls
+    server ${name}-https abns@${name} send-proxy-v2
+
+frontend ${name}-https
+    mode http
+    option httplog
+    bind abns@${name} accept-proxy ssl crt ${server.cert}
+    # src is the client's address from the PROXY header; whatever the client sent is discarded
+    http-request set-header X-Forwarded-For %[src]
+    default_backend ${name}
+
+backend ${name}
+    mode http
+    # WebSocket connections are long-lived; STOMP heartbeats keep them active
+    timeout tunnel 1h
+    server ${name} ${server.private_ip}:${server.port} ssl verify required ca-file /etc/ssl/certs/ca-certificates.crt sni str(${server.hostnames[0]}) verifyhost ${server.hostnames[0]}
 %{ endfor ~}

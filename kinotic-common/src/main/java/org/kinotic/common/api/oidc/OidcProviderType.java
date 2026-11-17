@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.common.api.oidc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -8,18 +8,13 @@ import java.util.Set;
 /**
  * Canonical identifiers for OIDC provider types. Each value maps 1:1 to a Vert.x
  * provider factory class (e.g. {@code GoogleAuth.discover}, {@code AzureADAuth.discover}),
- * and flows unchanged from the frontend branding table through the login-start request,
- * the persisted {@link OidcConfiguration#getProvider()} field, and the backend factory
- * switch.
+ * and flows unchanged from a frontend branding table through a login-start request and a
+ * persisted provider registration to the backend factory switch.
  * <p>
  * The wire format is the {@code key()} string (e.g. {@code "azure-ad"}), not the Java
  * constant name ({@code AZURE_AD}). {@link JsonValue}/{@link JsonCreator} make Jackson
  * round-trip through the key in both directions, and Spring's relaxed binder uses the
  * same path when binding from helm values or env vars.
- * <p>
- * Every organization may configure {@link #GOOGLE} for itself with a client of its own registration; doing so with
- * {@link #OKTA} or {@link #AZURE_AD} is a Kinotic Enterprise Feature. The server turns the organization's account at
- * the provider into the issuer URL.
  */
 public enum OidcProviderType {
 

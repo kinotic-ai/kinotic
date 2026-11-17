@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Locale;
@@ -72,6 +73,7 @@ class OidcConfigurationSerializationTest {
         String json = jsonMapper.writeValueAsString(owned);
         assertTrue(json.contains("\"type\":\"ORGANIZATION\""), "document must carry the discriminator: " + json);
         assertFalse(json.toLowerCase(Locale.ROOT).contains("secret"), "an organization's row names no secret: " + json);
+        assertFalse(json.contains("Uri"), "an organization's row names no endpoint: " + json);
 
         OidcConfiguration read = jsonMapper.readValue(json, OidcConfiguration.class);
         OrganizationOidcConfiguration readOwned = assertInstanceOf(OrganizationOidcConfiguration.class, read);

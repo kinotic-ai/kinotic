@@ -10,7 +10,7 @@ import org.kinotic.domain.api.model.security.DeviceCodePollResult;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.PollStatus;
 import org.kinotic.domain.api.model.security.RefreshTokenRotation;
-import org.kinotic.domain.api.rest.support.OAuth2Util;
+import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;

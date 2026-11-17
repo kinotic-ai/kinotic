@@ -29,16 +29,17 @@ describe('OrganizationSignup', () => {
 
     it('hands back the verification link, again when asked again, and completes the sign-up there', async () => {
         const email = `e2e-signup-${generateRandomString(8).toLowerCase()}@example.test`
-        const started = await post('/api/auth/org/signup', {email, displayName: 'Signs Up'})
+        const started = await post('/api/auth/org/signup', {email})
         expect(started.status).toBe(200)
         const verificationUrl: string = (await started.json()).verificationUrl
         expect(verificationUrl).toMatch(/\/signup\/verify\?token=/)
 
-        const again = await post('/api/auth/org/signup', {email, displayName: 'Signs Up'})
+        const again = await post('/api/auth/org/signup', {email})
         expect((await again.json()).verificationUrl).toBe(verificationUrl)
 
         const completed = await post('/api/auth/org/signup/complete', {
             token: new URL(verificationUrl).searchParams.get('token'),
+            displayName: 'Signs Up',
             orgName: `Signup ${generateRandomString(6)}`,
             password: 'e2e-signup-password-1'
         })

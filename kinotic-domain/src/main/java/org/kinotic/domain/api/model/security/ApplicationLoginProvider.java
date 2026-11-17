@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
+import org.kinotic.common.api.oidc.OidcProviderType;
+
 /**
  * A sign-in provider an application's login offers, as its login and sign-up pages render it: an email and a password,
  * which the pages offer as a form, or an OIDC provider, which they offer as a button that starts a sign-in through it.

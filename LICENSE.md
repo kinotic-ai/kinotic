@@ -15,6 +15,9 @@ Portions of this software are licensed as follows:
   repository (Kinotic RPC) is licensed under the Apache License 2.0 defined in
   [`LICENSE-APACHE`](LICENSE-APACHE).
 
+- All content that resides in the [`kinotic-common/`](kinotic-common) directory of this repository
+  is licensed under the Apache License 2.0 defined in [`LICENSE-APACHE`](LICENSE-APACHE).
+
 - All third-party components incorporated into the Kinotic software are licensed under the
   original license provided by the owner of the applicable component.
 

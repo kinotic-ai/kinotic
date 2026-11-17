@@ -157,6 +157,37 @@ Its UI is on the sites Worker at `dev-summit42.kinotic.ai`, which `redeploy.sh` 
 summit-42 repository's `main` and uploads. It reads the system LLM configuration named
 `summit-42`, which the system console's **System → LLM configurations** page adds.
 
+### The license key server
+
+The host also runs Minds Ignited's license key server (`kinotic-ai/license-key-server`) at the names Kinotic
+connects to for keys: `licenses.kinotic.ai` for customers and renewing clusters, `licenses-console.kinotic.ai`
+for staff. It is container 127 on `10.10.0.25`, with its Postgres database, `licenses-db`, as container 126 on
+`10.10.0.26` (data in `/var/lib/kinotic/data/licenses-db`). The license server limits sign-in codes per client
+address, read from `X-Forwarded-For`, so the edge terminates TLS for its two names, sets that header to the
+address the connection came from and re-encrypts to the server; every other name still passes through unopened.
+
+Its image is `kinoticai/license-key-server` on Docker Hub, which the license-key-server repository's
+workflow publishes from `main`.
+
+Its Azure identity, its staff sign-in registration and its records come from the `dev-server` root
+(`license-server.tf`); `license_server_env` is its environment, and `license_server_secrets_env` goes into
+`dev-server-secrets/license-key-server.env` with the database password, which `licenses-db.env` holds as
+`POSTGRES_PASSWORD` (`generate-secrets.sh` writes both). One certificate names both hosts, installed into the
+server's directory and, as the PEM HAProxy reads, into the edge's:
+
+```bash
+install -d -m 0700 -o 110001 -g 110001 /etc/kinotic/secrets/license-key-server/certs
+install -d -m 0700 -o 100099 -g 100099 /etc/kinotic/secrets/edge
+/opt/certbot/bin/certbot certonly --non-interactive --agree-tos --cert-name licenses --key-type ecdsa \
+  --authenticator dns-cloudflare --dns-cloudflare-credentials /etc/kinotic/certbot-cloudflare.ini \
+  --deploy-hook "install -m 0640 -o 110001 -g 110001 \"\$RENEWED_LINEAGE\"/fullchain.pem \"\$RENEWED_LINEAGE\"/privkey.pem /etc/kinotic/secrets/license-key-server/certs/ && cat \"\$RENEWED_LINEAGE\"/fullchain.pem \"\$RENEWED_LINEAGE\"/privkey.pem | install -m 0640 -o 100099 -g 100099 /dev/stdin /etc/kinotic/secrets/edge/licenses.pem && { pct reboot 127 2>/dev/null; pct reboot 124 2>/dev/null; true; }" \
+  -d licenses.kinotic.ai -d licenses-console.kinotic.ai
+```
+
+Stripe is configured by adding `KINOTIC_LICENSES_STRIPE_SECRETKEY` and `KINOTIC_LICENSES_STRIPE_WEBHOOKSECRET` to
+`license-key-server.env` and running `sync-secrets.sh`; until then purchases and trials fail and everything else
+works.
+
 The deploy hook runs on every renewal too, which is all the certificate rotation there is.
 `kinotic-dyndns.timer` reads the names to keep current from these certificates and the token
 from the same ini, so it starts working with the first issuance; it rewrites the records of the

@@ -150,10 +150,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
         pending.setCreated(new Date());
         pending.setExpiresAt(new Date(System.currentTimeMillis() + 3_600_000));
         pending.setEmail("isolation-admin-" + suffix + "@kinotic.test");
-        pending.setDisplayName("Isolation Admin");
         pending.setAuthType(AuthType.PASSWORD);
         await(pendingSignUps.saveSync(pending));
-        OrganizationParticipant creator = (OrganizationParticipant) await(signUpService.completeLocalSignUp(token, "Isolation Org " + suffix, "isolation", "Isolation-1"));
+        OrganizationParticipant creator = (OrganizationParticipant) await(signUpService.completeLocalSignUp(token, "Isolation Admin", "Isolation Org " + suffix, "isolation", "Isolation-1"));
         return new DefaultOrganizationParticipant(creator.getId(), creator.getOrganizationId(),
                                                   Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                   List.of("ADMIN"));
