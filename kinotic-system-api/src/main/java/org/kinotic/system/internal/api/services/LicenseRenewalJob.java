@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.services.EntitlementService;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Tasks;
-import org.kinotic.grind.api.services.SystemJob;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -17,12 +17,12 @@ import java.time.Duration;
  */
 @Component
 @RequiredArgsConstructor
-public class LicenseRenewalJob implements SystemJob {
+public class LicenseRenewalJob {
 
     private final EntitlementService entitlementService;
 
-    @Override
-    public JobDefinition createJobDefinition() {
+    @Bean
+    public JobDefinition licenseRenewal() {
         return JobDefinition.create("Renews the cluster's license key with Minds Ignited's license server once it nears its expiry")
                             .name("license-renewal")
                             .version("1")

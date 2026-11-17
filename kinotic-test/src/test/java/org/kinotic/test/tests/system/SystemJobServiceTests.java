@@ -94,12 +94,12 @@ public class SystemJobServiceTests extends KinoticTestBase {
     public void aScheduledJobIsStartedByTheJobManager() throws Exception {
         JobRun latest = awaitScheduledRun(JOB_RUN_RETENTION_SWEEP);
 
-        assertNotNull(latest, "the manager never started the job run retention sweep");
         assertNull(latest.getOrganizationId());
     }
 
     @Test
     public void theJobRunRetentionSweepDeletesRunsThatEndedLongAgoWithTheirTaskRecords() throws Exception {
+        awaitScheduledRun(JOB_RUN_RETENTION_SWEEP);
         Date longAgo = new Date(System.currentTimeMillis() - Duration.ofDays(31).toMillis());
         JobRun expired = saved(new JobRun().setName("retention-test").setStatus(ExecutionStatus.COMPLETED).setStarted(longAgo).setFinished(longAgo));
         await(taskRecords.saveSync(new TaskRecord().setId(expired.getId() + ":0/1")
@@ -110,7 +110,6 @@ public class SystemJobServiceTests extends KinoticTestBase {
         JobRun recent = saved(new JobRun().setName("retention-test").setStatus(ExecutionStatus.COMPLETED).setStarted(new Date()).setFinished(new Date()));
         JobRun latestOfItsJob = saved(new JobRun().setName("retention-test-idle").setStatus(ExecutionStatus.COMPLETED).setStarted(longAgo).setFinished(longAgo));
 
-        awaitScheduledRun(JOB_RUN_RETENTION_SWEEP);
         JobRun sweep = await(systemJobs.startSystemJob(JOB_RUN_RETENTION_SWEEP));
         started.add(sweep.getId());
         assertEquals(ExecutionStatus.COMPLETED, awaitFinished(sweep.getId()).getStatus());
@@ -141,7 +140,7 @@ public class SystemJobServiceTests extends KinoticTestBase {
      * on record is due when the manager starts with this context, and a run a test starts while that
      * one executes is refused.
      *
-     * @return the job's latest run, or null when the manager started none in time
+     * @return the job's latest run
      */
     private JobRun awaitScheduledRun(String name) throws Exception {
         long deadline = System.currentTimeMillis() + 30_000;
@@ -150,6 +149,8 @@ public class SystemJobServiceTests extends KinoticTestBase {
             Thread.sleep(250);
             ret = await(jobRuns.findLatestRun(name, null));
         }
+        assertTrue(ret != null && ret.getStatus() != ExecutionStatus.RUNNING,
+                   "the manager's first run of " + name + " did not end in time");
         return ret;
     }
 

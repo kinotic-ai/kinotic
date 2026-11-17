@@ -7,12 +7,11 @@ import org.apache.ignite.resources.SpringResource;
 import org.kinotic.grind.api.model.ExclusiveJobRunningException;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.grind.api.services.SystemJob;
 
 import java.time.Duration;
 
 /**
- * Starts a run of a {@link SystemJob} on the node the {@link JobManager} chose for it, as the compute
+ * Starts a run of a {@link JobService#findSystemJobs() system job} on the node the {@link JobManager} chose for it, as the compute
  * job the manager sends there, and answers once the run is on record. The run executes on that node,
  * and its outcome is recorded on the run.
  */

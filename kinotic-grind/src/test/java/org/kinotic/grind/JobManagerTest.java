@@ -18,7 +18,6 @@ import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.grind.api.services.SystemJob;
 import org.kinotic.grind.internal.api.services.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.ObjectMapper;
@@ -30,7 +29,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -126,20 +124,14 @@ public class JobManagerTest {
 
     @Test
     public void aNodeThatCannotStartTheRunIsFollowedByTheNext() throws Exception {
-        AtomicBoolean broken = new AtomicBoolean();
-        SystemJob working = job("scheduled", PERIOD);
-        SystemJob breaking = () -> {
-            if (broken.get()) {
-                throw new IllegalStateException("node-b cannot build the job");
-            }
-            return working.createJobDefinition();
-        };
-        JobService jobService = startNode("node-a", List.of(working));
+        JobDefinition breaking = job("scheduled", PERIOD);
+        JobService jobService = startNode("node-a", List.of(job("scheduled", PERIOD)));
         JobService other = startNode("node-b", List.of(breaking));
         jobService.deployJobManager(nodes.getFirst().cluster().forServers());
         other.deployJobManager(nodes.getLast().cluster().forServers());
 
-        broken.set(true);
+        // a definition with no name is refused its run, so from here node-b starts none
+        breaking.name(null);
         int before = ledger.systemRunsOf("scheduled").size();
 
         // every other run is node-b's turn; one it left unstarted would leave the job waiting a minute
@@ -151,22 +143,20 @@ public class JobManagerTest {
         }
     }
 
-    private static SystemJob job(String name, Duration period) {
-        return () -> {
-            JobDefinition ret = JobDefinition.create("A system job of the test").name(name).version("1")
-                                             .task(Tasks.fromRunnable("work", () -> { }));
-            if (period != null) {
-                ret.every(period);
-            }
-            return ret;
-        };
+    private static JobDefinition job(String name, Duration period) {
+        JobDefinition ret = JobDefinition.create("A system job of the test").name(name).version("1")
+                                         .task(Tasks.fromRunnable("work", () -> { }));
+        if (period != null) {
+            ret.every(period);
+        }
+        return ret;
     }
 
     /**
      * Starts an Ignite node whose Spring context holds what a server node's holds for the manager: a
      * job service with the given system jobs, the shared ledger and Vert.x.
      */
-    private JobService startNode(String name, List<SystemJob> systemJobs) throws Exception {
+    private JobService startNode(String name, List<JobDefinition> systemJobs) throws Exception {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         contexts.add(context);
         // registered as they are, since the in-memory ledger has no index to verify on start

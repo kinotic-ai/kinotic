@@ -9,7 +9,7 @@ import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.grind.api.repositories.JobRunRepository;
-import org.kinotic.grind.api.services.SystemJob;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -26,7 +26,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class JobRunRetentionJob implements SystemJob {
+public class JobRunRetentionJob {
 
     // As long as the change ledger keeps the entries of a run's changes (kinotic_watch_event's DATA_RETENTION)
     static final Duration RETENTION = Duration.ofDays(30);
@@ -35,8 +35,8 @@ public class JobRunRetentionJob implements SystemJob {
 
     private final JobRunRepository jobRuns;
 
-    @Override
-    public JobDefinition createJobDefinition() {
+    @Bean
+    public JobDefinition jobRunRetentionSweep() {
         return JobDefinition.create("Deletes the job runs that ended more than " + RETENTION.toDays()
                                             + " days ago, with their task records, keeping the latest run of each job")
                             .name("job-run-retention-sweep")

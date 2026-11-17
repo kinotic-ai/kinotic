@@ -3,7 +3,7 @@ package org.kinotic.system.internal.api.services.workload;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Tasks;
-import org.kinotic.grind.api.services.SystemJob;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -15,12 +15,12 @@ import java.time.Duration;
  */
 @Component
 @RequiredArgsConstructor
-public class WorkloadRetentionJob implements SystemJob {
+public class WorkloadRetentionJob {
 
     private final WorkloadRetentionSweeper sweeper;
 
-    @Override
-    public JobDefinition createJobDefinition() {
+    @Bean
+    public JobDefinition workloadRetentionSweep() {
         return JobDefinition.create("Deletes the records and logs of workload runs that ended more than "
                                             + sweeper.getRetentionDays() + " days ago")
                             .name("workload-retention-sweep")

@@ -17,7 +17,6 @@ import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.grind.api.services.SystemJob;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +29,7 @@ import java.util.Set;
 
 /**
  * The cluster's job manager, one HA cluster singleton on the Ignite service grid. It has a run of
- * each {@link SystemJob} whose definition declares a {@link JobDefinition#getPeriod() period} started
+ * each {@link JobService#findSystemJobs() system job} that declares a {@link JobDefinition#getPeriod() period} started
  * whenever a period has passed since the job's latest run started, whoever started that run, so a run
  * an operator starts moves the job's schedule. A job with no run on record is due at once. Each run
  * is started on one of the nodes that hold the system jobs, chosen in turn; a node that does not

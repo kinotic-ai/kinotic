@@ -20,7 +20,6 @@ import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.grind.api.services.SystemJob;
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.ReplayEntry;
 import org.kinotic.grind.internal.model.RunCancelledException;
@@ -82,25 +81,24 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final Vertx vertx;
     private final Kinotic kinotic;
 
-    // The node's system jobs by the name of their definition, in name order
-    private final Map<String, SystemJob> systemJobs = new TreeMap<>();
+    // The node's system jobs by name, in name order
+    private final Map<String, JobDefinition> systemJobs = new TreeMap<>();
 
     private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
     public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx, Kinotic kinotic,
-                             List<SystemJob> systemJobs) {
+                             List<JobDefinition> systemJobs) {
         this.repository = repository;
         this.stateSerializer = new StateSerializer(objectMapper);
         this.runThreads = new RunThreadFactory(vertx);
         this.vertx = vertx;
         this.kinotic = kinotic;
-        for (SystemJob job : systemJobs) {
-            String name = job.createJobDefinition().getName();
-            Validate.validState(StringUtils.isNotBlank(name), "System job %s builds a definition with no name", job);
-            SystemJob other = this.systemJobs.put(name, job);
-            Validate.validState(other == null, "Two system jobs named %s: %s and %s", name, other, job);
+        for (JobDefinition job : systemJobs) {
+            String name = job.getName();
+            Validate.validState(StringUtils.isNotBlank(name), "The system job \"%s\" has no name", job.getDescription());
+            Validate.validState(this.systemJobs.put(name, job) == null, "Two system jobs are named %s", name);
         }
     }
 
@@ -179,15 +177,15 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     @Override
     public List<JobDefinition> findSystemJobs() {
-        return systemJobs.values().stream().map(SystemJob::createJobDefinition).toList();
+        return List.copyOf(systemJobs.values());
     }
 
     @Override
     public JobRunHandle runSystemJob(String name) {
         Validate.notBlank(name, "name cannot be blank");
-        SystemJob job = systemJobs.get(name);
+        JobDefinition job = systemJobs.get(name);
         Validate.isTrue(job != null, "No system job named %s", name);
-        return run(job.createJobDefinition(), JobOwner.system());
+        return run(job, JobOwner.system());
     }
 
     @Override

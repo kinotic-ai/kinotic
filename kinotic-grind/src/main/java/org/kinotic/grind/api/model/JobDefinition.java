@@ -11,9 +11,10 @@ import java.time.Duration;
  * {@link JobDefinition}s, executed by a {@link JobService}. Tasks share a {@link JobContext}
  * scope, so values stored by earlier tasks can be injected into later ones.
  *
- * A definition is one run's worth of bound tasks: its {@link Task} instances receive
- * injection per execution, so build a fresh definition for each run - executing the same
- * instance concurrently is not supported.
+ * A definition holds nothing of a run, so one instance serves any number of runs, including runs
+ * that execute at the same time. The exception is a definition with a task built from an object
+ * whose members are injected, as {@link Tasks#fromCallable(String, java.util.concurrent.Callable)}
+ * describes: that object serves one execution at a time, so such a definition is built for each run.
  */
 public interface JobDefinition {
 
@@ -107,8 +108,8 @@ public interface JobDefinition {
     /**
      * Makes a run of this job due once every period, counted from the start of its latest run,
      * whoever started that run. The cluster's job manager starts the due run of each
-     * {@link org.kinotic.grind.api.services.SystemJob} whose definition declares a period. A
-     * definition with a period is {@link #exclusive()}.
+     * {@link JobService#findSystemJobs() system job} that declares a period. A definition with a
+     * period is {@link #exclusive()}.
      * @param period between the start of one run and the next, more than zero
      * @return this for fluent use
      */

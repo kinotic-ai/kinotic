@@ -49,11 +49,11 @@ public interface JobService {
      * resume is recorded as a new {@link JobRun} referencing the original, owned by the
      * original run's owner.
      *
-     * The given {@link JobDefinition} must be freshly built by the same code that built the
+     * The given {@link JobDefinition} must be built by the same code that built the
      * original run's definition: its name and version must match the recorded run, and its
      * task structure must be unchanged, or replayed tasks will not line up with their records.
      * @param jobRunId the id of the FAILED or CANCELLED run to resume
-     * @param jobDefinition the freshly built definition to execute
+     * @param jobDefinition the definition to execute
      * @return the prepared {@link JobRunHandle}
      * @throws IllegalStateException when called by a task of a run
      */
@@ -71,14 +71,18 @@ public interface JobService {
     Flux<JobRunEvent> watchRun(String jobRunId);
 
     /**
-     * Lists this node's {@link SystemJob}s.
-     * @return a fresh definition of each system job, ordered by name
+     * Lists this node's system jobs, the jobs of the system's own: every {@link JobDefinition} that
+     * is a bean of the node's Spring context. A system job's name identifies it, so each has a name
+     * that is unique among them. One that declares a period with
+     * {@link JobDefinition#every(java.time.Duration)} is started by the cluster's job manager each
+     * time it is due.
+     * @return the definition of each system job, ordered by name
      */
     List<JobDefinition> findSystemJobs();
 
     /**
-     * Prepares a recorded execution of the named {@link SystemJob} on behalf of the system, as
-     * {@link #run(JobDefinition, JobOwner)} does for a fresh definition of it.
+     * Prepares a recorded execution of the named {@link #findSystemJobs() system job} on behalf of
+     * the system, as {@link #run(JobDefinition, JobOwner)} does for its definition.
      * @param name the name of the system job to run
      * @return the prepared {@link JobRunHandle}
      * @throws IllegalArgumentException when this node has no system job of the given name
@@ -88,7 +92,7 @@ public interface JobService {
 
     /**
      * Requests the cluster's job manager: one singleton, hosted by one of the given nodes, that has a
-     * run of each {@link SystemJob} whose definition declares a {@link JobDefinition#getPeriod() period}
+     * run of each {@link #findSystemJobs() system job} that declares a {@link JobDefinition#getPeriod() period}
      * started on one of those nodes whenever a period has passed since the job's latest run started.
      * Every node that holds the system jobs requests it, and the cluster keeps one.
      * @param hosts the nodes that hold the system jobs
