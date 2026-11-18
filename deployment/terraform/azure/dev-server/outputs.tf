@@ -28,6 +28,19 @@ output "portal_hostname" {
   value       = local.portal_hostname
 }
 
+output "turnstile_site_key" {
+  description = "The site key of the Turnstile site the portal's find-my-organizations form presents; public"
+  value       = cloudflare_turnstile_widget.portal.sitekey
+}
+
+# The operator places this in the management server's secrets.yml as
+# kinotic.managementServer.turnstile.secretKey (generate-secrets.sh in the proxmox root)
+output "turnstile_secret_key" {
+  description = "The secret key of the portal's Turnstile site, with which the management server verifies each token"
+  value       = cloudflare_turnstile_widget.portal.secret
+  sensitive   = true
+}
+
 output "console_hostname" {
   description = "The system console's hostname, served the same way"
   value       = local.console_hostname

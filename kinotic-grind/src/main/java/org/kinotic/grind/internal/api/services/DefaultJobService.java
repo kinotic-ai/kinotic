@@ -1,7 +1,13 @@
 package org.kinotic.grind.internal.api.services;
 
+import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.apache.ignite.cluster.ClusterGroup;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.grind.api.model.ExclusiveJobRunningException;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -25,12 +31,18 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.vertx.core.Future;
@@ -44,8 +56,11 @@ import tools.jackson.databind.ObjectMapper;
  * tasks may block on their results while {@code Vertx.currentContext()} - and the platform
  * services that hang off it - resolve throughout the run. Runs are recorded through the
  * {@link JobRunRepository} and observable through the handle's event stream. Execution begins
- * when the handle's events are first subscribed.
+ * when the handle's events are first subscribed. When the node stops, the runs still executing on it
+ * are ended: each is recorded {@link ExecutionStatus#FAILED} with the condition
+ * {@link StatusConditionType#SERVER_NODE_LEFT} and then cancelled.
  */
+@Slf4j
 @Component
 public class DefaultJobService implements JobService, ApplicationContextAware {
 
@@ -53,22 +68,38 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     // completion of the previous one waits this long for the lock before it is refused
     private static final long EXCLUSIVE_LOCK_TIMEOUT_MS = 1_000;
 
+    // How long a stopping node waits for the end of its runs to be recorded, well inside the time a
+    // stopping pod is given
+    private static final long STOP_TIMEOUT_MS = 10_000;
+
+    private static final String STARTED_BY_TASK = "A task cannot start a run. Return the JobDefinition from the task, "
+            + "and it executes as a step of the task's own run";
+
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
     private final RunThreadFactory runThreads;
     private final Vertx vertx;
     private final Kinotic kinotic;
 
+    // The node's system jobs by name, in name order
+    private final Map<String, JobDefinition> systemJobs = new TreeMap<>();
+
     private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
-    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx, Kinotic kinotic) {
+    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx, Kinotic kinotic,
+                             List<JobDefinition> systemJobs) {
         this.repository = repository;
         this.stateSerializer = new StateSerializer(objectMapper);
         this.runThreads = new RunThreadFactory(vertx);
         this.vertx = vertx;
         this.kinotic = kinotic;
+        for (JobDefinition job : systemJobs) {
+            String name = job.getName();
+            Validate.validState(StringUtils.isNotBlank(name), "The system job \"%s\" has no name", job.getDescription());
+            Validate.validState(this.systemJobs.put(name, job) == null, "Two system jobs are named %s", name);
+        }
     }
 
     @Override
@@ -81,6 +112,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notNull(jobDefinition, "jobDefinition cannot be null");
         Validate.notNull(owner, "owner cannot be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to run");
+        Validate.validState(!JobInterpreter.calledByTask(), STARTED_BY_TASK);
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
@@ -101,6 +133,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         Validate.notNull(jobDefinition, "jobDefinition cannot be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to resume");
+        Validate.validState(!JobInterpreter.calledByTask(), STARTED_BY_TASK);
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
@@ -143,8 +176,56 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     @Override
+    public List<JobDefinition> findSystemJobs() {
+        return List.copyOf(systemJobs.values());
+    }
+
+    @Override
+    public JobRunHandle runSystemJob(String name) {
+        Validate.notBlank(name, "name cannot be blank");
+        JobDefinition job = systemJobs.get(name);
+        Validate.isTrue(job != null, "No system job named %s", name);
+        return run(job, JobOwner.system());
+    }
+
+    @Override
+    public void deployJobManager(ClusterGroup hosts) {
+        Validate.notNull(hosts, "hosts cannot be null");
+        hosts.ignite().services(hosts).deployClusterSingleton(JobManager.SINGLETON_NAME, new JobManager(hosts.predicate()));
+    }
+
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = (ConfigurableApplicationContext) applicationContext;
+    }
+
+    @PreDestroy
+    void endActiveRuns() {
+        String nodeId = kinotic.serverInfo().getNodeId();
+        StatusCondition stopped = new StatusCondition(StatusConditionType.SERVER_NODE_LEFT,
+                                                      "Node " + nodeId + " stopped while the run was live",
+                                                      new Date());
+        List<Future<Boolean>> ended = new ArrayList<>();
+        // The end is recorded before the run is cancelled, so the run's own CANCELLED outcome is the
+        // one declined, and whatever made the run reads that it ended with its node. A run whose end
+        // could not be recorded is left executing, for the cluster's membership watch to end
+        activeRuns.forEach((runId, handle) -> ended.add(
+                repository.recordAbandoned(runId, stopped, "node " + nodeId + " stopping")
+                          .onFailure(error -> log.warn("Run {} could not be recorded as ended by this node stopping", runId, error))
+                          .onSuccess(recorded -> handle.cancel())));
+        if (!ended.isEmpty()) {
+            log.info("Ending {} run(s) still executing as this node stops", ended.size());
+            try {
+                Future.join(ended).toCompletionStage().toCompletableFuture().get(STOP_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (TimeoutException e) {
+                log.warn("Not every run executing on this node was recorded as ended within {}ms of it stopping; "
+                                 + "the cluster's membership watch ends the rest", STOP_TIMEOUT_MS);
+            } catch (ExecutionException e) {
+                // each write that failed is logged above, and the cluster's membership watch ends those runs
+            }
+        }
     }
 
     /**

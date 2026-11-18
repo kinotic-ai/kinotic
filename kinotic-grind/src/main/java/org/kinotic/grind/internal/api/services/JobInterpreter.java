@@ -34,8 +34,10 @@ import tools.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,6 +50,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@link RunCancelledException} without recording task failures.
  */
 public class JobInterpreter {
+
+    // The run contexts a task is in flight on, across every run of this process
+    private static final Set<Context> TASK_CONTEXTS = ConcurrentHashMap.newKeySet();
 
     private final ConfigurableApplicationContext applicationContext;
     private final String runId;
@@ -73,6 +78,15 @@ public class JobInterpreter {
         this.replay = replay;
         this.stateSerializer = stateSerializer;
         this.runThreads = runThreads;
+    }
+
+    /**
+     * @return true when the caller is a task of a run: its body, or a callback one of the task's
+     *         futures dispatched on the run's context while the task is in flight
+     */
+    public static boolean calledByTask() {
+        Context context = runContext();
+        return context != null && TASK_CONTEXTS.contains(context);
     }
 
     /**
@@ -187,13 +201,16 @@ public class JobInterpreter {
         // the result is awaited so callbacks of the task's futures report for it; only a Task or
         // JobDefinition the task returns directly is dynamic work, one a future completes with is a value
         AtomicBoolean inFlight = new AtomicBoolean(true);
+        Context context = runContext();
         Object raw;
         Object result;
+        TASK_CONTEXTS.add(context);
         try {
-            raw = taskToRun.execute(scope.createTaskScope(taskReporter(path, node.description(), runContext(), inFlight)));
+            raw = taskToRun.execute(scope.createTaskScope(taskReporter(path, node.description(), context, inFlight)));
             result = raw instanceof Task<?> || raw instanceof JobDefinition ? raw : awaitValue(raw);
         } finally {
             inFlight.set(false);
+            TASK_CONTEXTS.remove(context);
         }
         if (raw instanceof Task<?> dynamicTask) {
             // A dynamic task that declares no store of its own keeps the value as this task's store does
@@ -251,7 +268,7 @@ public class JobInterpreter {
     }
 
     // A duplicate of the run context shares the run's task, so it resolves to the context it wraps
-    private Context runContext() {
+    private static Context runContext() {
         Context current = Vertx.currentContext();
         return current instanceof ContextInternal internal ? internal.unwrap() : current;
     }

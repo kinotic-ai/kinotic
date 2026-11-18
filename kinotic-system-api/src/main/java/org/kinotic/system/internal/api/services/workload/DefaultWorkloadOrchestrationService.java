@@ -8,7 +8,6 @@ import org.kinotic.domain.api.model.StatusConditionType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.apache.ignite.Ignite;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.telemetry.LokiClient;
@@ -19,8 +18,6 @@ import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -47,13 +44,6 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final VmNodeRepository vmNodeRepository;
     private final WorkloadRepository workloadRepository;
     private final LokiClient lokiClient;
-    private final Ignite ignite;
-
-    // Every node requests the deployment; Ignite elects a single host for it
-    @EventListener(ApplicationReadyEvent.class)
-    public void deployRetentionSweep() {
-        WorkloadCleanupService.deploy(ignite);
-    }
 
     // A call the bus could not deliver, or whose serving node left, is the earliest sign a node is gone;
     // the orchestrator checks the node at once instead of waiting for the heartbeat timeout

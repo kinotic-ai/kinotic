@@ -4,14 +4,15 @@ import org.kinotic.grind.api.services.JobService;
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.api.services.TaskClassCompiler;
 
+import java.time.Duration;
+
 /**
  * A {@link JobDefinition} is a unit of work comprised of {@link Task}s and nested
  * {@link JobDefinition}s, executed by a {@link JobService}. Tasks share a {@link JobContext}
  * scope, so values stored by earlier tasks can be injected into later ones.
  *
- * A definition is one run's worth of bound tasks: its {@link Task} instances receive
- * injection per execution, so build a fresh definition for each run - executing the same
- * instance concurrently is not supported.
+ * A definition holds nothing of a run, so one instance serves any number of runs, including runs
+ * that execute at the same time.
  */
 public interface JobDefinition {
 
@@ -61,6 +62,12 @@ public interface JobDefinition {
     boolean isExclusive();
 
     /**
+     * How long after one run of this job starts the next is due.
+     * @return the period, or null for a job that runs only when it is started
+     */
+    Duration getPeriod();
+
+    /**
      * Sets the stable name identifying this job across runs.
      * @param name to use
      * @return this for fluent use
@@ -95,6 +102,16 @@ public interface JobDefinition {
      * @return this for fluent use
      */
     JobDefinition exclusive();
+
+    /**
+     * Makes a run of this job due once every period, counted from the start of its latest run,
+     * whoever started that run. The cluster's job manager starts the due run of each
+     * {@link JobService#findSystemJobs() system job} that declares a period. A definition with a
+     * period is {@link #exclusive()}.
+     * @param period between the start of one run and the next, more than zero
+     * @return this for fluent use
+     */
+    JobDefinition every(Duration period);
 
     /**
      * Seeds the given values into the job scope before the first task runs, each stored as a

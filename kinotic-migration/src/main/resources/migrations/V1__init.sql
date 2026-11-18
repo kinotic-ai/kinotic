@@ -598,9 +598,9 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     updated DATE
 );
 
--- Create the job_run table for the persistent history of grind job executions. A run carries
--- SERVER_NODE_LEFT in its state once the cluster membership watch sees its node leave, and the
--- deployment the run was made by as its parent.
+-- Create the job_run table for the persistent history of grind job executions. A run whose node
+-- leaves the cluster is ended FAILED by the cluster membership watch, with SERVER_NODE_LEFT in its
+-- state. A run carries the deployment it was made by as its parent.
 CREATE TABLE IF NOT EXISTS kinotic_job_run (
     id KEYWORD,
     name KEYWORD,
