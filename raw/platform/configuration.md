@@ -1722,8 +1722,8 @@ request and verifies it with the site's secret, under `kinotic.managementServer.
 </tbody>
 </table>
 
-The `dev-server` profile uses Cloudflare's always-passing test site, so the form works with no site of
-its own.
+The development server's site is created by the `dev-server` Terraform root, which gives the management
+server the site key; its secret key is in the server's `secrets.yml`.
 
 ## LLM configurations
 

@@ -8163,8 +8163,8 @@ request and verifies it with the site's secret, under `kinotic.managementServer.
 </tbody>
 </table>
 
-The `dev-server` profile uses Cloudflare's always-passing test site, so the form works with no site of
-its own.
+The development server's site is created by the `dev-server` Terraform root, which gives the management
+server the site key; its secret key is in the server's `secrets.yml`.
 
 ## LLM configurations
 
@@ -10778,11 +10778,17 @@ What differs between the three:
     </td>
     
     <td>
-      Cloudflare's always-passing Turnstile test site, from the <code>
+      the portal's Turnstile site, which the <code>
         dev-server
       </code>
       
-       profile: the find-my-organizations form renders the widget and every token verifies
+       Azure root creates for <code>
+        dev-portal.kinotic.ai
+      </code>
+      
+      : its site key from that root, its secret key from <code>
+        secrets.yml
+      </code>
     </td>
     
     <td>

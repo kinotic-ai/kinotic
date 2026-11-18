@@ -1066,11 +1066,17 @@ What differs between the three:
     </td>
     
     <td>
-      Cloudflare's always-passing Turnstile test site, from the <code>
+      the portal's Turnstile site, which the <code>
         dev-server
       </code>
       
-       profile: the find-my-organizations form renders the widget and every token verifies
+       Azure root creates for <code>
+        dev-portal.kinotic.ai
+      </code>
+      
+      : its site key from that root, its secret key from <code>
+        secrets.yml
+      </code>
     </td>
     
     <td>
