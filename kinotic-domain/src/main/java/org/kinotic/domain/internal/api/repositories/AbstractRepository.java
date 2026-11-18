@@ -112,14 +112,27 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     /**
      * Deletes every document the query matches, visible to search when the future completes; a document another
      * writer changes while the request runs is skipped rather than failing the cascade. Subclasses use this
-     * overload to cascade a deletion over the documents that name a deleted parent.
+     * overload to cascade a deletion over the documents that name a deleted parent. The future fails when the
+     * request timed out or could not delete a document it matched.
      */
     protected Future<Void> deleteByQuery(Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
         return crudServiceTemplate.deleteByQuery(indexName, builder -> {
                                       builder.refresh(true).conflicts(Conflicts.Proceed);
                                       builderConsumer.accept(builder);
                                   })
-                                  .mapEmpty();
+                                  .compose(response -> {
+                                      // The client hands back a response Elasticsearch answered with an error
+                                      // status, as it does one that timed out or holds failures
+                                      Future<Void> ret;
+                                      if (Boolean.TRUE.equals(response.timedOut()) || !response.failures().isEmpty()) {
+                                          ret = Future.failedFuture(new IllegalStateException(
+                                                  "Delete by query on " + indexName + " left documents: timed out " + response.timedOut()
+                                                          + ", failures " + response.failures()));
+                                      } else {
+                                          ret = Future.succeededFuture();
+                                      }
+                                      return ret;
+                                  });
     }
 
     public Future<Page<T>> findAll(Pageable pageable) {

@@ -3,7 +3,9 @@ package org.kinotic.grind;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
@@ -14,6 +16,8 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -27,6 +31,12 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     public final Map<String, JobRun> savedRuns = new LinkedHashMap<>();
     public final Map<String, TaskRecord> savedTasks = new LinkedHashMap<>();
 
+    /**
+     * The name of a job whose latest run cannot be read, as when the store does not answer; null
+     * when every read succeeds.
+     */
+    public volatile String unreadableJob;
+
     public InMemoryJobRunRepository() {
         super(null, null, null, null);
     }
@@ -38,18 +48,74 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     }
 
     @Override
-    public synchronized Future<Void> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
+    public synchronized Future<Boolean> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
         JobRun run = savedRuns.get(jobRunId);
-        run.setStatus(status).setError(error).setFinished(finished);
-        run.getState().getConditions().removeIf(condition -> condition.type() == StatusConditionType.SERVER_NODE_LEFT);
-        run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
-        return completedOffThread(null);
+        Future<Boolean> ret;
+        if (run == null) {
+            // the store fails a write to a record it does not hold
+            ret = Future.failedFuture(new IllegalStateException("No run " + jobRunId + " is recorded"));
+        } else {
+            boolean executing = run.getStatus() == ExecutionStatus.RUNNING;
+            if (executing) {
+                run.setStatus(status).setError(error).setFinished(finished);
+                run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+            }
+            ret = completedOffThread(executing);
+        }
+        return ret;
+    }
+
+    @Override
+    public synchronized Future<Boolean> recordAbandoned(String jobRunId, StatusCondition condition, String source) {
+        JobRun run = savedRuns.get(jobRunId);
+        boolean executing = run.getStatus() == ExecutionStatus.RUNNING;
+        if (executing) {
+            run.setStatus(ExecutionStatus.FAILED).setError(condition.message()).setFinished(condition.since());
+            run.getState().getConditions().add(condition);
+            run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+        }
+        return completedOffThread(executing);
+    }
+
+    @Override
+    public synchronized Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
+        List<JobRun> elsewhere = savedRuns.values().stream()
+                                          .filter(run -> run.getStatus() == ExecutionStatus.RUNNING)
+                                          .filter(run -> !members.contains(run.getNodeId()))
+                                          .toList();
+        List<JobRun> firstPage = elsewhere.stream().limit(pageable.getPageSize()).toList();
+        return completedOffThread(new Page<>(firstPage, (long) elsewhere.size()));
     }
 
     @Override
     public synchronized Future<TaskRecord> saveTask(TaskRecord taskRecord) {
         savedTasks.put(taskRecord.getId(), taskRecord);
         return completedOffThread(taskRecord);
+    }
+
+    @Override
+    public synchronized Future<JobRun> findLatestRun(String name, String organizationId) {
+        Future<JobRun> ret;
+        if (name.equals(unreadableJob)) {
+            ret = Future.failedFuture(new IllegalStateException("The runs of " + name + " cannot be read"));
+        } else {
+            List<JobRun> runs = savedRuns.values().stream()
+                                         .filter(run -> name.equals(run.getName()) && Objects.equals(organizationId, run.getOrganizationId()))
+                                         .sorted(Comparator.comparing(JobRun::getStarted))
+                                         .toList();
+            ret = completedOffThread(runs.isEmpty() ? null : runs.getLast());
+        }
+        return ret;
+    }
+
+    /**
+     * The captured runs of the named job made on behalf of the system, ordered by when they started.
+     */
+    public synchronized List<JobRun> systemRunsOf(String name) {
+        return savedRuns.values().stream()
+                        .filter(run -> name.equals(run.getName()) && run.getOrganizationId() == null)
+                        .sorted(Comparator.comparing(JobRun::getStarted))
+                        .toList();
     }
 
     @Override
