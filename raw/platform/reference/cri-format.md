@@ -516,12 +516,12 @@ cri.raw()           // 'srv://tenant-123@app.acme-org.orders-app~OrderService/pl
   <tr>
     <td>
       <code>
-        srv://node1@system-api~kinotic-ai.vm-manager.VmManager
+        srv://<machineId>@system-api~kinotic-ai.vm-manager.VmManager
       </code>
     </td>
     
     <td>
-      A scoped system service targeting one node
+      A scoped system service targeting one worker node, whose scope is the id of the machine the node authenticates as
     </td>
   </tr>
 </tbody>

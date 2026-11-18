@@ -1646,7 +1646,7 @@ on the first `ONLINE` node with room for it.
 The vm-manager runs as root under `kinotic-vm-manager.service` with Bun (root for iptables, the
 Docker socket, and project quotas). Its environment is `/etc/kinotic/vm-manager.env`: the
 proxmox root's `vm_manager_env` output, which carries the system server's name and the stores'
-addresses, plus the node's own id. The machine credentials go in `/etc/kinotic/vm-manager.secrets.env`,
+addresses. The machine credentials, which are also the node's identity, go in `/etc/kinotic/vm-manager.secrets.env`,
 which the service waits for:
 
 <table>
@@ -1673,24 +1673,6 @@ which the service waits for:
     <td>
       <code>
         CLOUD_HYPERVISOR
-      </code>
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        KINOTIC_NODE_ID
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        dev-node-1
-      </code>
-      
-      , <code>
-        dev-node-2
       </code>
     </td>
   </tr>
@@ -1743,7 +1725,7 @@ which the service waits for:
     </td>
     
     <td>
-      a SYSTEM-scope machine, created by the Proxmox root's <code>
+      a SYSTEM-scope machine, which is the node (its id the node's id, its name the node's name), created by the Proxmox root's <code>
         bootstrap-identities.sh
       </code>
       

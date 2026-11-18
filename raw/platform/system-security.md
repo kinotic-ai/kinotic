@@ -365,6 +365,8 @@ A client a person authorizes — the CLI through the device-code grant, or an MC
 
 A machine connects like any client, with its identity id as `clientId` and the secret issued at provisioning as `clientSecret`; its scope comes from its own identity. A `clientId` containing `@` is a user's email, so a user's credentials can never authenticate as a machine. The secret is shown once and stored only as a hash, so disabling the machine or rotating the secret takes effect at its next connection.
 
+A worker node is the system machine its vm-manager authenticates as. The node's id is the machine's id and its name the machine's display name, taken each time the node's vm-manager starts, so enrolling a node is creating a machine and installing its credentials. The system server takes the node from the authenticated caller on every registration, heartbeat and workload status report, and a system machine may host a service only at its own id as the scope, which is the address a node's start, stop and destroy calls are sent to. One node's machine can therefore neither speak for another node nor receive its workloads.
+
 <table>
 <thead>
   <tr>
