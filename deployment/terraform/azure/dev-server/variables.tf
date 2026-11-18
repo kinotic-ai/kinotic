@@ -74,7 +74,7 @@ variable "cloudflare_account_id" {
 }
 
 variable "cloudflare_api_token" {
-  description = "The token this root applies the zones with: Workers Scripts edit on the account, DNS, Workers routes and zone settings edit on the customers' zone and the platform zone; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
+  description = "The token this root applies the zones with: Workers Scripts and Turnstile Sites edit on the account, DNS, Workers routes and zone settings edit on the customers' zone and the platform zone; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
   type        = string
   sensitive   = true
 }

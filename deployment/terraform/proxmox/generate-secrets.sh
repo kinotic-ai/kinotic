@@ -10,7 +10,8 @@
 #                                             the secret-storage master key, the same for every
 #                                             server; the org and system servers', which load the
 #                                             GitHub module, also the GitHub App's private key and
-#                                             webhook secret
+#                                             webhook secret; the org server's also the Turnstile
+#                                             site's secret key
 #   kinotic-<org|system|app>-server/platform-secrets/jwt-signing-keys
 #                                             the server's own JWT key set: an activeKeyId and
 #                                             a keys list, so a key can be added at migration
@@ -64,6 +65,14 @@ for server in kinotic-server-management kinotic-server-system; do
 YAML
 done
 
+cat >> "$OUT/kinotic-server-management/secrets.yml" <<YAML
+  managementServer:
+    turnstile:
+      # The portal's Turnstile site's secret key: terraform output -raw turnstile_secret_key, in
+      # deployment/terraform/azure/dev-server
+      secretKey: ""
+YAML
+
 cat > "$OUT/kinotic-servers.env" <<ENV
 # terraform output -raw secrets_env, in deployment/terraform/azure/dev-server
 AZURE_CLIENT_SECRET=
@@ -85,5 +94,6 @@ echo "POSTGRES_PASSWORD=$db_password" > "$OUT/licenses-db.env"
 chmod -R go-rwx "$OUT"
 echo "Written to $OUT. Fill in kinotic-servers.env and license-key-server.env from the dev-server root's secrets_env and"
 echo "license_server_secrets_env outputs, and the GitHub App values"
-echo "in kinotic-server-management/secrets.yml and kinotic-server-system/secrets.yml,"
+echo "in kinotic-server-management/secrets.yml and kinotic-server-system/secrets.yml, the dev-server root's"
+echo "turnstile_secret_key output in kinotic-server-management/secrets.yml,"
 echo "then: ./sync-secrets.sh $OUT"
