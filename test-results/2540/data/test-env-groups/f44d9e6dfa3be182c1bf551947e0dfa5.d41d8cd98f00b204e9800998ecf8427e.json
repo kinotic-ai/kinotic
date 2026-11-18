@@ -1,1 +1,0 @@
-{"id":"f44d9e6dfa3be182c1bf551947e0dfa5.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.common.api.oidc.OidcClientServiceTest.providerWithNoIdTokenSignsInWithItsProfileAndBestEmail","name":"providerWithNoIdTokenSignsInWithItsProfileAndBestEmail()","status":"passed","testResultsByEnv":{"default":"98425077d1f4798260755a798e7be4ba"}}
