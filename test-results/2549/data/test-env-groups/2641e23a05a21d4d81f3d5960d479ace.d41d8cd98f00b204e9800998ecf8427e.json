@@ -1,1 +1,0 @@
-{"id":"2641e23a05a21d4d81f3d5960d479ace.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationServiceTest.rejectsAStateStagedForAnotherOrganization","name":"rejectsAStateStagedForAnotherOrganization()","status":"passed","testResultsByEnv":{"default":"1d55805e305033a9a16fe0675c7b989d"}}
