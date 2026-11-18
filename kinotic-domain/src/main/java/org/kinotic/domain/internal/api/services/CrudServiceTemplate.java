@@ -464,6 +464,19 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Refreshes an index, so every write applied to it before the call is visible to search when the future
+     * completes.
+     *
+     * @param indexName name of the index to refresh
+     * @return a {@link Future} that will complete when the index has been refreshed
+     */
+    public Future<Void> refresh(String indexName) {
+        return KinoticUtil.toFuture(esAsyncClient.indices()
+                                                 .refresh(builder -> builder.index(indexName))
+                                                 .thenApply(response -> null));
+    }
+
+    /**
      * Deletes a data stream
      */
     public Future<Void> deleteDataStream(String dataStreamName) {

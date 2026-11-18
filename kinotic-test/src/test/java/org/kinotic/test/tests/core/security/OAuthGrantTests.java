@@ -91,7 +91,7 @@ public class OAuthGrantTests extends KinoticTestBase {
 
     @Test
     public void aRevocationRacingARotationLeavesTheFamilyWithNoLiveToken() throws Exception {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 50; i++) {
             String token = await(refreshTokens.issue(user.getId(), KinoticAudience.PUBLISHED_SERVICES, null));
             String familyId = await(refreshTokens.findActiveSessions(user.getId())).getFirst().familyId();
 

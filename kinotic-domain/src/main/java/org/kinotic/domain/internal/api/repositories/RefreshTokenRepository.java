@@ -18,7 +18,7 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
 
     private static final String REVOKE_SCRIPT = "ctx._source.revoked = true";
 
-    // a pass skips a token a rotation consumes while it runs, whose replacement the next pass finds
+    // a pass skips a token a rotation changes while it runs, which the next pass reads again
     private static final int MAX_REVOCATION_PASSES = 5;
 
     private static final String CONSUME_SCRIPT = """
@@ -85,8 +85,10 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
                                             termFilter("revoked", false)));
     }
 
-    // A rotation writes its replacement before it consumes the token it replaces, so a token that changed under a
-    // pass was consumed by a rotation whose replacement is already searchable and is revoked by the pass that follows
+    // A rotation writes its replacement before it consumes the token it replaces, or deletes the replacement when
+    // the consume fails. A token that changed under a pass is one of those, so the pass that follows finds the
+    // replacement, and the consumed or deleted token no longer matches. The index is refreshed in between: a pass
+    // that changed nothing refreshes nothing, and the next would read the same stale tokens and skip them again.
     private Future<Void> revokeMatching(Query live) {
         return revokeMatching(live, 1);
     }
@@ -99,7 +101,8 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
                                       if (response.versionConflicts() == null || response.versionConflicts() == 0) {
                                           ret = Future.succeededFuture();
                                       } else if (pass < MAX_REVOCATION_PASSES) {
-                                          ret = revokeMatching(live, pass + 1);
+                                          ret = crudServiceTemplate.refresh(indexName)
+                                                                   .compose(v -> revokeMatching(live, pass + 1));
                                       } else {
                                           ret = Future.failedFuture(new IllegalStateException(
                                                   "The refresh tokens could not be revoked while they were being rotated; try again"));
