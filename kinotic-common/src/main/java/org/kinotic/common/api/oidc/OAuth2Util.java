@@ -1,11 +1,7 @@
-package org.kinotic.domain.api.rest.support;
+package org.kinotic.common.api.oidc;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
-import org.kinotic.domain.api.model.security.OidcProviderType;
-import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.services.security.OidcConfigurationService;
-import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -14,7 +10,7 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Claim validation and PKCE helpers shared by the OIDC flows.
+ * Claim validation and PKCE helpers for OpenID Connect sign-ins.
  */
 public final class OAuth2Util {
 
@@ -67,22 +63,6 @@ public final class OAuth2Util {
             ret = isEmailVerified(claims, provider);
         }
         return ret;
-    }
-
-    /**
-     * Whether {@code claims} prove the email strongly enough to create or claim a user under it through a sign-in
-     * by {@code configuration}: as {@link #isEmailProven(Map, OidcProviderType)} where the configuration
-     * {@link OidcConfigurationService#admitsEveryDirectory admits every directory} at its provider, and as
-     * {@link #isEmailVerified} where it names one directory, whose administrator its owner chose to trust.
-     *
-     * @param claims        the verified claims of the identity
-     * @param configuration the configuration the identity signed in through
-     * @return {@code true} when a user may be created or claimed under the claims' email
-     */
-    public static boolean isEmailProven(Map<String, Object> claims, OidcConfiguration configuration) {
-        return OidcConfigurationService.admitsEveryDirectory(configuration)
-                ? isEmailProven(claims, configuration.getProvider())
-                : isEmailVerified(claims, configuration.getProvider());
     }
 
     // a boolean claim some providers send as a string, "true" in any case or "1"
@@ -150,7 +130,7 @@ public final class OAuth2Util {
      * <p>Most OIDC providers (Google, Keycloak, Auth0, Okta, generic) state
      * {@code email_verified} as a boolean and we require it to be {@code true}. Okta states it
      * at its userinfo endpoint rather than in the id_token of a code exchange, and
-     * {@link OidcFlowOrchestrator#handleCallback} adds it to the claims from there.
+     * {@link OidcClient#verifiedClaims} adds it to the claims from there.
      *
      * <p>Microsoft Entra ({@code azure-ad}) and Apple ({@code apple}) <b>do not emit</b>
      * {@code email_verified}. Their convention is "if the email claim is present at all,
@@ -161,9 +141,8 @@ public final class OAuth2Util {
      * the IdP's JWKS, so we know the token is genuine.
      *
      * <p><b>Apple gotcha:</b> the {@code email} claim is only present on the user's
-     * <i>first</i> sign-in — subsequent tokens omit it entirely. We rely on the
-     * {@code (sub, configId)} key on {@link ParticipantIdentity} to
-     * recognise returning users by their stable Apple {@code sub}, so the missing email
+     * <i>first</i> sign-in — subsequent tokens omit it entirely. A caller recognises
+     * returning users by their stable Apple {@code sub}, so the missing email
      * on later sign-ins doesn't matter for login. Signup, however, requires email and
      * will simply fail-closed here on a non-first Apple flow (which would only happen
      * if a user had previously revoked Sign in with Apple for the kinotic-platform app
@@ -172,8 +151,7 @@ public final class OAuth2Util {
      * we treat them as ordinary verified emails.
      *
      * <p>Returns {@code false} when the email is missing entirely (regardless of
-     * provider) — a token without an email claim cannot drive an
-     * {@link ParticipantIdentity} lookup or creation.
+     * provider) — a token without an email claim cannot drive an account lookup or creation.
      */
     public static boolean isEmailVerified(Map<String, Object> claims, OidcProviderType provider) {
         if (claims == null) return false;

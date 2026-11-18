@@ -1,0 +1,15 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    api 'io.vertx:vertx-core'
+
+    implementation 'io.vertx:vertx-auth-oauth2'
+    implementation 'io.vertx:vertx-web-client'
+
+    implementation 'org.springframework:spring-context'
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.common.api.oidc.OidcClientSettings;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.Date;
@@ -34,7 +36,7 @@ import java.util.Date;
         @JsonSubTypes.Type(value = ApplicationOidcConfiguration.class, name = "APPLICATION"),
         @JsonSubTypes.Type(value = TenantOidcConfiguration.class, name = "TENANT")
 })
-public abstract sealed class OidcConfiguration implements Identifiable<String>
+public abstract sealed class OidcConfiguration implements Identifiable<String>, OidcClientSettings
         permits ManagedOidcConfiguration, OwnedOidcConfiguration {
 
     private String id;

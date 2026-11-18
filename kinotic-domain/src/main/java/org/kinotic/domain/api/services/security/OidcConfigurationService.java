@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
+import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
@@ -10,13 +11,14 @@ import org.kinotic.domain.api.model.security.ClientRegistrationType;
 import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
 import org.kinotic.domain.api.model.security.ManagedSignIn;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.model.security.OidcProviderType;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Collection;
 
 /**
@@ -53,12 +55,28 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * ({@link #isManaged}), and an organization's own configuration whose account at its provider
      * {@link OidcProviderType#admitsEveryDirectory(String) admits every directory}. Where every directory is
      * admitted, the email the provider vouches for may be one a stranger's directory set, so only an email the
-     * token proves ({@code OAuth2Util.isEmailProven}) signs anyone up or claims a user.
+     * token proves ({@link #isEmailProven}) signs anyone up or claims a user.
      */
     static boolean admitsEveryDirectory(OidcConfiguration configuration) {
         return !(configuration instanceof OwnedOidcConfiguration owned)
                 || isManaged(owned)
                 || owned.getProvider().admitsEveryDirectory(owned.getProviderAccount());
+    }
+
+    /**
+     * Whether {@code claims} prove the email strongly enough to create or claim a user under it through a sign-in
+     * by {@code configuration}: as {@link OAuth2Util#isEmailProven(Map, OidcProviderType)} where the configuration
+     * {@link #admitsEveryDirectory admits every directory} at its provider, and as
+     * {@link OAuth2Util#isEmailVerified} where it names one directory, whose administrator its owner chose to trust.
+     *
+     * @param claims        the verified claims of the identity
+     * @param configuration the configuration the identity signed in through
+     * @return {@code true} when a user may be created or claimed under the claims' email
+     */
+    static boolean isEmailProven(Map<String, Object> claims, OidcConfiguration configuration) {
+        return admitsEveryDirectory(configuration)
+                ? OAuth2Util.isEmailProven(claims, configuration.getProvider())
+                : OAuth2Util.isEmailVerified(claims, configuration.getProvider());
     }
 
     /** The configurations among {@code ids} that exist, of any kind, in one read. */

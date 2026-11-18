@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.OrganizationScoped;
 

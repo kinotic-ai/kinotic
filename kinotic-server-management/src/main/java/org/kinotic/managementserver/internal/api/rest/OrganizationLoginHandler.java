@@ -18,7 +18,7 @@ import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.LoginProviderType;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
-import org.kinotic.domain.api.rest.support.OAuth2Util;
+import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.core.api.security.Participant;

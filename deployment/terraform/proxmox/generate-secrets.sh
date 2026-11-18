@@ -16,6 +16,11 @@
 #                                             a keys list, so a key can be added at migration
 #   kinotic-<org|system|app>-server/certs/    certbot's fullchain.pem and privkey.pem for the
 #                                             server's names, which certbot places on the host itself
+#   license-key-server.env                    the license key server's Azure secrets and its
+#                                             database password
+#   licenses-db.env                           the same password, as the database's POSTGRES_PASSWORD
+#   license-key-server/certs/, edge/          certbot's certificate for the license key server's
+#                                             names, and the same as the PEM the edge terminates with
 set -euo pipefail
 umask 077
 
@@ -65,7 +70,20 @@ AZURE_CLIENT_SECRET=
 KINOTIC_DOMAIN_PUBLISHEDSITES_CLOUDFLARE_APITOKEN=
 ENV
 
+# The license key server and its database share the database's password; the server's Azure
+# half is the dev-server root's license_server_secrets_env output
+db_password="$(password)"
+mkdir -p "$OUT/license-key-server/certs" "$OUT/edge"
+cat > "$OUT/license-key-server.env" <<ENV
+# terraform output -raw license_server_secrets_env, in deployment/terraform/azure/dev-server
+AZURE_CLIENT_SECRET=
+KINOTIC_LICENSES_STAFFOIDC_CLIENTSECRET=
+KINOTIC_LICENSES_DATABASE_PASSWORD=$db_password
+ENV
+echo "POSTGRES_PASSWORD=$db_password" > "$OUT/licenses-db.env"
+
 chmod -R go-rwx "$OUT"
-echo "Written to $OUT. Fill in kinotic-servers.env from the dev-server root's secrets_env output and the GitHub App values"
+echo "Written to $OUT. Fill in kinotic-servers.env and license-key-server.env from the dev-server root's secrets_env and"
+echo "license_server_secrets_env outputs, and the GitHub App values"
 echo "in kinotic-server-management/secrets.yml and kinotic-server-system/secrets.yml,"
 echo "then: ./sync-secrets.sh $OUT"

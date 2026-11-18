@@ -172,16 +172,16 @@ if (project.name != 'kinotic-idl') {
     }
 }
 
-// Kinotic RPC, the modules LICENSE.md licenses under the Apache License 2.0, is usable without Kinotic OS, so none of
-// its modules may declare a project dependency on a module outside it
-def kinoticRpcModules = ['kinotic-core', 'kinotic-api-gateway', 'kinotic-client', 'kinotic-idl'] as Set
-project.ext.kinoticRpc = project.name in kinoticRpcModules
-if (project.ext.kinoticRpc) {
+// Kinotic RPC and kinotic-common, the modules LICENSE.md licenses under the Apache License 2.0, are usable without
+// Kinotic OS, so none of them may declare a project dependency on a module outside them
+def apacheLicensedModules = ['kinotic-core', 'kinotic-api-gateway', 'kinotic-client', 'kinotic-idl', 'kinotic-common'] as Set
+project.ext.apacheLicensed = project.name in apacheLicensedModules
+if (project.ext.apacheLicensed) {
     configurations.configureEach { configuration ->
         configuration.dependencies.withType(ProjectDependency).configureEach { dependency ->
-            if (!(dependency.path.substring(1) in kinoticRpcModules)) {
-                throw new GradleException("${project.path} is part of Kinotic RPC and may not depend on ${dependency.path}"
-                                                  + " (${configuration.name})")
+            if (!(dependency.path.substring(1) in apacheLicensedModules)) {
+                throw new GradleException("${project.path} is licensed under the Apache License 2.0 and may not depend on"
+                                                  + " ${dependency.path} (${configuration.name})")
             }
         }
     }
@@ -195,15 +195,15 @@ if (project.ext.kinoticRpc) {
 }
 
 // A module with an ee package holds Enterprise Implementations, which LICENSE.md licenses under the Kinotic Enterprise
-// License; Kinotic RPC must stay usable under the Apache License 2.0 alone, so it may hold none
+// License; an Apache-licensed module must stay usable under the Apache License 2.0 alone, so it may hold none
 def mainJavaDir = file('src/main/java')
 project.ext.kinoticEnterprise = mainJavaDir.isDirectory() && java.nio.file.Files.walk(mainJavaDir.toPath()).withCloseable { paths ->
     paths.anyMatch { path -> path.fileName.toString() == 'ee' && java.nio.file.Files.isDirectory(path) }
 }
-if (project.ext.kinoticRpc && project.ext.kinoticEnterprise) {
-    throw new GradleException("${project.path} is part of Kinotic RPC and may not hold an ee package")
+if (project.ext.apacheLicensed && project.ext.kinoticEnterprise) {
+    throw new GradleException("${project.path} is licensed under the Apache License 2.0 and may not hold an ee package")
 }
-if (!project.ext.kinoticRpc) {
+if (!project.ext.apacheLicensed) {
     // Every published jar, the sources and javadoc jars included, carries the root LICENSE.md that routes its
     // packages, and the Kinotic Enterprise License when it holds Enterprise Implementations
     tasks.withType(Jar).configureEach {

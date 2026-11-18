@@ -1,4 +1,4 @@
-Hi {{displayName}},
+Hi,
 
 Welcome to Kinotic. Verify your email address to activate your account:
 

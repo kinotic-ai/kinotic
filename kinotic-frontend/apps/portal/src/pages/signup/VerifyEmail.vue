@@ -8,7 +8,16 @@
             <span class="pi pi-shield"></span>
           </span>
           <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Create your organization</h2>
-          <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Name your organization and set a password to finish.</p>
+          <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Enter your name, name your organization and set a password to finish.</p>
+        </div>
+
+        <div class="login-field">
+          <InputText
+            v-model="request.displayName"
+            class="login-input"
+            placeholder="Your name"
+            @keyup.enter="focusOrgName"
+          />
         </div>
 
         <div class="login-field">
@@ -61,16 +70,19 @@ const route = useRoute()
 
 const request = ref<SignUpCompleteRequest>({
   token: '',
+  displayName: '',
   orgName: '',
   password: '',
 })
 const confirmPassword = ref('')
 const loading = ref(false)
 
+const orgNameInput = ref<InstanceType<typeof InputText>>()
 const passwordFields = ref<InstanceType<typeof SetPasswordFields>>()
 
 const canSubmit = computed<boolean>(() => {
-  return !!request.value.orgName
+  return !!request.value.displayName
+      && !!request.value.orgName
       && !!request.value.password
       && !!confirmPassword.value
       && request.value.password === confirmPassword.value
@@ -83,6 +95,10 @@ onMounted(() => {
   }
 })
 
+function focusOrgName() {
+  (orgNameInput.value as any)?.$el?.focus()
+}
+
 function focusPassword() {
   passwordFields.value?.focus()
 }
@@ -90,6 +106,11 @@ function focusPassword() {
 async function handleSubmit() {
   if (!request.value.token) {
     displayAlert('No verification token provided.')
+    return
+  }
+  request.value.displayName = request.value.displayName.trim()
+  if (!request.value.displayName) {
+    displayAlert('Your name is required')
     return
   }
   request.value.orgName = request.value.orgName.trim()

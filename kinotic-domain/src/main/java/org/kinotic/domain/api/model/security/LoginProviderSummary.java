@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
+import org.kinotic.common.api.oidc.OidcProviderType;
+
 /**
  * What a sign-in page or an administrator's picker needs to know of a configuration a scope offers:
  * enough to render and choose it, and nothing of how the server reaches or authenticates to the

@@ -1,7 +1,7 @@
 package org.kinotic.management.api.model;
 
+import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.AuthType;
-import org.kinotic.domain.api.model.security.OidcProviderType;
 
 import java.util.Date;
 

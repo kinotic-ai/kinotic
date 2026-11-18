@@ -18,17 +18,6 @@
       <div class="login-form__step">
         <div class="login-field">
           <InputText
-            ref="displayName"
-            v-model="request.displayName"
-            class="login-input"
-            placeholder="Your name"
-            @keyup.enter="focusNext('email')"
-          />
-        </div>
-
-        <div class="login-field">
-          <InputText
-            ref="email"
             v-model="request.email"
             class="login-input"
             placeholder="Your email"
@@ -61,7 +50,7 @@
         </p>
         <p class="mt-1 mb-4 font-semibold break-all">{{ request.email }}</p>
         <p class="my-1 leading-normal">
-          Click the link to name your organization and finish setting up.
+          Click the link to enter your name, name your organization and finish setting up.
         </p>
         <p class="mt-4 leading-normal text-muted-color text-sm">
           The link expires in 24 hours.
@@ -72,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, type Ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
@@ -86,14 +75,10 @@ const toast = useToast()
 
 const request = ref<SignUpRequest>({
   email: '',
-  displayName: '',
 })
 const loading = ref(false)
 const submitted = ref(false)
 const providers = ref<string[]>([])
-
-const displayName = ref<InstanceType<typeof InputText>>()
-const email = ref<InstanceType<typeof InputText>>()
 
 onMounted(async () => {
   try {
@@ -107,29 +92,11 @@ onMounted(async () => {
   }
 })
 
-function focusNext(refName: string) {
-  const refs: Record<string, Ref<InstanceType<typeof InputText> | undefined>> = {
-    displayName,
-    email,
-  }
-  const el = refs[refName]?.value as any
-  if (el?.$el) {
-    el.$el.querySelector('input')?.focus()
-  } else if (el?.focus) {
-    el.focus()
-  }
-}
-
 async function handleSubmit() {
   request.value.email = request.value.email.trim()
-  request.value.displayName = request.value.displayName.trim()
 
   if (!request.value.email || !request.value.email.includes('@')) {
     displayAlert('Please enter a valid email address')
-    return
-  }
-  if (!request.value.displayName) {
-    displayAlert('Your name is required')
     return
   }
 

@@ -339,6 +339,7 @@ The repository contains the major components required to build and operate Kinot
 |---|---|
 | [`kinotic-core`](kinotic-core) | Runtime kernel: the registry of `@Publish` services, RPC over the clustered event bus, the service directory, the security context, secrets |
 | [`kinotic-idl`](kinotic-idl) | Schema model behind the application model: type schemas, decorators, converters, and the `@McpTool` contract |
+| [`kinotic-common`](kinotic-common) | Server code shared with servers built on Kinotic RPC alone: sign-in through OpenID Connect and OAuth 2.0 providers |
 | [`kinotic-domain`](kinotic-domain) | Platform domain: organizations, participants and identities, security services |
 | [`kinotic-persistence`](kinotic-persistence) | Declarative persistence: entity definitions, CRUD repositories, named queries over Elasticsearch |
 | [`kinotic-sql`](kinotic-sql) | The SQL grammar used for migrations and named queries, parsed and executed against the entity stores |
@@ -383,8 +384,8 @@ Kinotic provides the higher-level abstractions while allowing developers and org
 
 The project is licensed under the Elastic License 2.0 with the Kinotic Additional Limitations,
 except Kinotic RPC, the service and event layer in `kinotic-core`, `kinotic-api-gateway`,
-`kinotic-client`, `kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, which is licensed under the
-Apache License 2.0, and the Enterprise Features in Java packages named `ee`, which are licensed
+`kinotic-client`, `kinotic-idl` and the `@kinotic-ai/core` and `@kinotic-ai/idl` packages, and `kinotic-common`, which are
+licensed under the Apache License 2.0, and the Enterprise Features in Java packages named `ee`, which are licensed
 under the Kinotic Enterprise License ([LICENSE-ENTERPRISE](LICENSE-ENTERPRISE)) and need an agreement with Minds Ignited for production use. See
 [LICENSE.md](LICENSE.md) for the terms governing the project, and [CLA.md](CLA.md) for the
 agreement contributors accept.

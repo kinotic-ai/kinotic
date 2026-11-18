@@ -364,10 +364,9 @@ public class GraphSyncTests extends KinoticTestBase {
         pending.setCreated(new Date());
         pending.setExpiresAt(new Date(System.currentTimeMillis() + 3_600_000));
         pending.setEmail("graph-admin-" + suffix + "@kinotic.test");
-        pending.setDisplayName("Graph Admin");
         pending.setAuthType(AuthType.PASSWORD);
         await(pendingSignUps.saveSync(pending));
-        OrganizationParticipant admin = (OrganizationParticipant) await(signUpService.completeLocalSignUp(token, "Graph Org " + suffix, "graph sync", "Graph-sync-1"));
+        OrganizationParticipant admin = (OrganizationParticipant) await(signUpService.completeLocalSignUp(token, "Graph Admin", "Graph Org " + suffix, "graph sync", "Graph-sync-1"));
         return new DefaultOrganizationParticipant(admin.getId(), admin.getOrganizationId(),
                                                   Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                   List.of("ADMIN"));

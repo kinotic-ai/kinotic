@@ -38,9 +38,9 @@ publishing {
                 url = 'https://kinotic.ai'
 
                 licenses {
-                    // Kinotic RPC is Apache-2.0; every other module is ELv2, routed by the root LICENSE.md, and a
+                    // Kinotic RPC and kinotic-common are Apache-2.0; every other module is ELv2, routed by the root LICENSE.md, and a
                     // module with ee packages also carries the Kinotic Enterprise License that governs them
-                    if (project.ext.kinoticRpc) {
+                    if (project.ext.apacheLicensed) {
                         license {
                             name = 'The Apache License, Version 2.0'
                             url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
