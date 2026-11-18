@@ -594,9 +594,14 @@ When an id_token has an email but no `email_verified` (other than Entra or Apple
 
 ## System Authentication
 
-System users sign in to the system console with an email and password (`POST /api/auth/system/login`), or through a provider the deployment registers for them: a `SYSTEM` configuration, the registration with the identity provider of the people who run the deployment. Such a configuration names one directory of its provider and an email domain, and every account of that directory whose verified email is on the domain signs in as the system user with that email, which is created on the account's first sign-in. A system user holds the system's full authority, so the domain admits only the people meant to run the deployment. The login page lists the configurations above the password form, which stays available whatever the configurations say.
+System users sign in to the system console with the methods the people who run the deployment configure for it, under **Sign-in providers** in the console, as an organization's administrators configure their organization's login:
 
-There is no sign-up for system users: beside those a `SYSTEM` configuration admits, they are created by migration fixtures or the deployment's bootstrap, and all are listed read-only under **Members → Users**. The system login authenticates only system users, and every organization login only organization users, so the same email signs in to each with that scope's own user.
+- **An email and a password.** A new cluster takes one from the start, so the first system user signs in with nothing configured. It is turned off, and on again, like any other provider.
+- **Their own identity providers**, each a `SYSTEM` configuration: Google, or their own Microsoft Entra ID or Okta directory, which are Enterprise Features as they are for an organization. The provider's client secret is held in the system's scope of the secret storage, and the configuration names one directory.
+
+A provider signs in the system users an operator added, never a stranger: **Members → Users** adds a system user by email, who is pending until the provider first verifies an account of that email, and from then on signs in by that identity. An added user may instead be given a password there, where the login takes one. A system user who already signs in connects a provider to their own account from **Profile**. A system user holds the system's full authority, so adding one is the decision that matters; Users also disables one.
+
+A method that is some enabled system user's only way in cannot be turned off or removed, so the console always keeps someone who can sign in. The system login authenticates only system users, and every organization login only organization users, so the same email signs in to each with that scope's own user.
 
 ## Endpoint Reference
 
@@ -1196,7 +1201,7 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      System user email and password (system server)
+      System user email and password, while the system console's login takes one (system server)
     </td>
   </tr>
   
@@ -1214,11 +1219,11 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      The <code>
+      What the system console's login offers: its password and its enabled <code>
         SYSTEM
       </code>
       
-       configurations the system console's login offers (system server)
+       configurations (system server)
     </td>
   </tr>
   
@@ -1241,6 +1246,28 @@ The app server answers at each application's own API host, `<organizationId>--<a
       </code>
       
        configuration (system server)
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        POST
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        /api/auth/system/methods/start/:configId
+      </code>
+    </td>
+    
+    <td>
+      Connect a <code>
+        SYSTEM
+      </code>
+      
+       configuration's provider to the signed-in system user (system server)
     </td>
   </tr>
   

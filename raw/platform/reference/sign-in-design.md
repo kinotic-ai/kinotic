@@ -23,7 +23,7 @@ A system user and an organization administrator each write their own kind of con
 
 Each owner's kind reaches the vault by its own key. The red path is the point of the design: an organization's row has nowhere to write a system secret's name.
 
-- `OidcConfiguration` is sealed: `ManagedOidcConfiguration` (`ORG_SIGNUP` for GitHub sign-up, `APP_SOCIAL` for Google and Microsoft, `SYSTEM` for the deployment's operators) and `OwnedOidcConfiguration`, whose concrete kind is the scope it is offered at: `ORGANIZATION`, `APPLICATION`, `TENANT`. All are documents in one index, `kinotic_oidc_configuration`, read back by their `type`.
+- `OidcConfiguration` is sealed: `ManagedOidcConfiguration` (`ORG_SIGNUP` for GitHub sign-up, `APP_SOCIAL` for Google and Microsoft) and `OwnedOidcConfiguration`, whose concrete kind is the scope it is offered at: `ORGANIZATION`, `APPLICATION`, `TENANT`, and `SYSTEM` for the system console's login, whose owner is the system under the id `system`, which no organization holds. All are documents in one index, `kinotic_oidc_configuration`, read back by their `type`.
 - An organization names its account at a provider, never a URL. The issuer is derived from the provider's template on every save, so the server only ever connects to the provider's own hosts. The organization's configurations are managed on the Authentication providers tab of its settings page, an application's and a tenant's on the application's settings page, or through `OwnedOidcConfigurationService`.
 - Deleting an organization's configuration deletes its secret. A save without a secret keeps the one held; `deleteClientSecret` removes it, which makes the configuration a public client whose sign-in never reads the vault. A copy to another scope (`copy`) gets its own callback URL and its own copy of the secret.
 
@@ -104,7 +104,7 @@ Two rows, one per organization: the methods that sign the user in, the user, and
 
 - Disabling or removing a member touches that organization's user alone. Removing a member deletes the user with its credential, bindings and delegates, the device-code and authorization-code grants it approved, and revokes its refresh tokens, and the person's users of other organizations stay as they are.
 - A delegate (the CLI, an MCP host) is unique per owner and client, carries its owner's organization, and authenticates only while its owner may still act there.
-- The system console signs in system users, a separate row for the same person with a password of its own. A `SYSTEM` configuration signs one in by the email its provider verifies, with no binding: the configuration names one directory, whose administrator issues its addresses, and an email domain the address must be on. The system user is created on the first such sign-in.
+- The system console signs in system users, a separate row for the same person, by the same rules as an organization's own login: a password while the system's `PasswordConfiguration` is enabled, and its `SYSTEM` configurations, each binding the provider identity to a system user an operator added. The system's configurations, password configuration, bindings and client secrets are all kept under the id `system`.
 
 ## The doors on the management server
 
