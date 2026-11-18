@@ -1,19 +1,19 @@
 <template>
   <AuthPageShell>
     <div class="login-form">
-      <div v-if="providers.length > 0" class="login-providers">
+      <div v-if="oidcProviders.length > 0" class="login-providers">
         <SocialAuthButton
-          v-for="provider in providers"
+          v-for="provider in oidcProviders"
           :key="provider.id"
-          :provider="provider.provider"
+          :provider="provider.provider!"
           :name="provider.name"
           :action="startUrl(provider.id)"
           intent="sign-in"
         />
-        <div class="login-divider"><span>or</span></div>
+        <div v-if="passwordSignIn" class="login-divider"><span>or</span></div>
       </div>
 
-      <div class="login-form__step">
+      <div v-if="passwordSignIn" class="login-form__step">
         <IconField class="login-field">
           <InputText
             ref="emailInput"
@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
@@ -66,14 +66,20 @@ const email = ref<string>('')
 const password = ref<string>('')
 const loading = ref<boolean>(false)
 
-/** A registration the login offers, as `GET /api/auth/system/login/providers` lists it. */
+/** A way to sign in the login offers, as `GET /api/auth/system/login/providers` lists it. */
 interface SignInProvider {
   id: string
+  type: 'OIDC' | 'PASSWORD'
   name: string
-  provider: string
+  provider: string | null
 }
 
 const providers = ref<SignInProvider[]>([])
+// the list could not be read, so the form is offered anyway; the server still refuses a password its login does not take
+const providersUnavailable = ref(false)
+// the form shows only while the console's login takes a password
+const passwordSignIn = computed(() => providersUnavailable.value || providers.value.some(provider => provider.type === 'PASSWORD'))
+const oidcProviders = computed(() => providers.value.filter(provider => provider.type === 'OIDC'))
 
 const emailInput = ref<any>()
 
@@ -82,10 +88,6 @@ const route = useRoute()
 const router = useRouter()
 
 onMounted(() => {
-  nextTick(() => {
-    const input = emailInput.value
-    input?.$el?.focus?.() ?? input?.focus?.()
-  })
   consumeUrlError()
   void loadProviders()
 })
@@ -105,12 +107,19 @@ async function loadProviders() {
     const res = await fetch(apiUrl('/api/auth/system/login/providers'), { credentials: 'same-origin' })
     if (res.ok) {
       providers.value = await res.json()
+      if (passwordSignIn.value) {
+        // the form renders once the list says it is offered
+        await nextTick()
+        const input = emailInput.value
+        input?.$el?.focus?.() ?? input?.focus?.()
+      }
     } else {
       debug('Provider list returned %d', res.status)
+      providersUnavailable.value = true
     }
   } catch (err) {
-    // the password form still signs in
     debug('Failed to load providers: %O', err)
+    providersUnavailable.value = true
   }
 }
 
@@ -130,8 +139,8 @@ function consumeUrlError() {
 
 function errorCodeToMessage(code: string, provider: string | undefined): string {
   switch (code) {
-    case 'account_not_allowed': return 'That account cannot sign in to the system console.'
-    case 'no_user':             return 'Your access to the system console is disabled.'
+    case 'no_user':             return 'No system user is added under that account. Ask a system user to add you under Members.'
+    case 'user_disabled':       return 'Your access to the system console is disabled.'
     case 'email_not_verified':  return emailNotVerifiedMessage(provider)
     case 'state_mismatch':      return 'The sign-in expired. Please try again.'
     case 'access_denied':       return 'You declined to authorize Kinotic. Please try again to continue.'

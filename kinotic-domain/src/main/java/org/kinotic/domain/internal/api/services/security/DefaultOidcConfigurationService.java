@@ -1,5 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.utils.DomainUtil;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -29,9 +31,6 @@ import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
-import java.util.regex.Pattern;
-import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -43,14 +42,12 @@ import java.util.stream.Collectors;
 @Component
 public class DefaultOidcConfigurationService extends AbstractCrudService<OidcConfiguration> implements OidcConfigurationService {
 
-    private static final Pattern EMAIL_DOMAIN = Pattern.compile("[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)+");
-
     private final OidcConfigurationRepository oidcRepository;
     private final ApplicationRepository applicationRepository;
     private final TenantRepository tenantRepository;
     private final SecretStorageService secretStorageService;
     private final SecurityContext securityContext;
-    private final OrganizationSignInGuard signInGuard;
+    private final MemberSignInGuard signInGuard;
     private final GoogleIdentityProvider googleIdentityProvider;
     private final EnterpriseIdentityProviders enterpriseIdentityProviders;
 
@@ -59,7 +56,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                            TenantRepository tenantRepository,
                                            SecretStorageService secretStorageService,
                                            SecurityContext securityContext,
-                                           OrganizationSignInGuard signInGuard,
+                                           MemberSignInGuard signInGuard,
                                            GoogleIdentityProvider googleIdentityProvider,
                                            EnterpriseIdentityProviders enterpriseIdentityProviders) {
         super(repository);
@@ -94,15 +91,15 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                 "%s needs the client id of its registration with the provider", owned.getClass().getSimpleName());
                 owned.setAuthority(authorityOf(owned.getProvider(), owned.getProviderAccount()));
             }
-            if (owned instanceof OrganizationOidcConfiguration) {
-                // an organization's members are added by its administrators, whom its provider then signs in
+            if (signsInAddedUsers(owned)) {
+                // an organization's members and the system's users are added by its administrators, whom its provider then signs in
                 Validate.isTrue(!owned.isCreateUserOnSignIn(),
-                                "An organization's own login admits the members its administrators added; createUserOnSignIn"
+                                "An organization's own login and the system's admit the users their administrators added; createUserOnSignIn"
                                         + " applies to an application's or a tenant's configuration");
                 // the organization's login claims a pending member on the email the provider asserts, which only the
                 // organization's own directory may vouch for
                 Validate.isTrue(!owned.getProvider().admitsEveryDirectory(owned.getProviderAccount()),
-                                "An organization's own login names one directory of its own, not '%s', which admits every directory",
+                                "An organization's own login and the system's name one directory of their own, not '%s', which admits every directory",
                                 owned.getProviderAccount());
             } else if (owned instanceof ApplicationOidcConfiguration forApplication) {
                 Validate.isTrue(StringUtils.isNotBlank(forApplication.getApplicationId()), "Application id must be set on ApplicationOidcConfiguration");
@@ -113,15 +110,6 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             }
         } else if (entity instanceof ApplicationSocialOidcConfiguration social && social.isEnabled()) {
             ret = requireOnlyEnabledRegistration(social);
-        } else if (entity instanceof SystemOidcConfiguration system) {
-            // every account of the directory on the domain becomes a system user, so the domain is named and the
-            // registration is one directory's own: an authority admitting every directory would admit anyone's
-            // account that claims an address on it
-            Validate.isTrue(system.getAllowedEmailDomain() != null && EMAIL_DOMAIN.matcher(system.getAllowedEmailDomain()).matches(),
-                            "SystemOidcConfiguration needs the email domain whose accounts sign in, as in example.com");
-            Validate.isTrue(admitsOneDirectory(system),
-                            "SystemOidcConfiguration signs in the accounts of one directory, which authority '%s' does not name",
-                            system.getAuthority());
         }
         Future<OidcConfiguration> existing;
         if (entity.getId() == null) {
@@ -150,8 +138,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         return existing.compose(found -> (OidcConfigurationService.isManaged(entity) && !OidcConfigurationService.isManaged(found)
                 ? requireManagedRegistration(entity.getProvider())
                 : Future.<Void>succeededFuture())
-                .compose(v -> offeredAtOrganizationLogin(found) && !entity.isEnabled()
-                        ? signInGuard.requireMembersKeepSignInWithout(((OrganizationOidcConfiguration) found).getOrganizationId(), found.getId())
+                .compose(v -> found instanceof OwnedOidcConfiguration offered && signsInAddedUsers(offered) && found.isEnabled() && !entity.isEnabled()
+                        ? signInGuard.requireMembersKeepSignInWithout(offered.getOrganizationId(), found.getId())
                         : Future.succeededFuture()));
     }
 
@@ -162,15 +150,15 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         } else if (enterpriseIdentityProviders.supports(provider)) {
             ret = enterpriseIdentityProviders.authority(provider, providerAccount);
         } else {
-            throw new IllegalArgumentException(("An organization cannot configure a %s provider with a client of its own on this server;"
+            throw new IllegalArgumentException(("A %s provider cannot be configured with a client of its own on this server;"
                     + " Okta and Microsoft Entra are Kinotic Enterprise Features").formatted(provider.key()));
         }
         return ret;
     }
 
-    // whether configuration is one the organization's own login offers, which members may sign in through
-    private static boolean offeredAtOrganizationLogin(OidcConfiguration configuration) {
-        return configuration instanceof OrganizationOidcConfiguration && configuration.isEnabled();
+    // whether configuration is of an organization's own login or the system's, whose users sign in through it once added
+    private static boolean signsInAddedUsers(OwnedOidcConfiguration configuration) {
+        return configuration instanceof OrganizationOidcConfiguration || configuration instanceof SystemOidcConfiguration;
     }
 
     @Override
@@ -181,8 +169,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                 ret = Future.succeededFuture();
             } else {
                 requireOwner(existing);
-                ret = (offeredAtOrganizationLogin(existing)
-                        ? signInGuard.requireMembersKeepSignInWithout(((OrganizationOidcConfiguration) existing).getOrganizationId(), id)
+                ret = (existing instanceof OwnedOidcConfiguration offered && signsInAddedUsers(offered) && existing.isEnabled()
+                        ? signInGuard.requireMembersKeepSignInWithout(offered.getOrganizationId(), id)
                         : Future.<Void>succeededFuture())
                         .compose(v -> existing instanceof OwnedOidcConfiguration owned
                                 ? secretStorageService.deleteSecret(owned.getOrganizationId(), id)
@@ -192,25 +180,11 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         });
     }
 
-    // whether the registration's authority is the issuer of one directory of its provider
-    private static boolean admitsOneDirectory(SystemOidcConfiguration system) {
-        boolean ret = StringUtils.isNotBlank(system.getAuthority());
-        if (ret && system.getProvider() == OidcProviderType.AZURE_AD) {
-            // https://login.microsoftonline.com/<directory>/v2.0, whose path Entra reads without regard to case
-            String path = URI.create(system.getAuthority()).getPath();
-            String[] segments = path != null ? path.toLowerCase(Locale.ROOT).split("/") : new String[0];
-            ret = segments.length > 1 && !segments[1].isBlank()
-                  && !system.getProvider().admitsEveryDirectory(segments[1])
-                  // every personal Microsoft account
-                  && !"consumers".equals(segments[1]);
-        }
-        return ret;
-    }
-
     /**
      * Requires the bound participant to be the owner of {@code configuration}'s kind: a system participant
      * for a managed registration, since that row names a secret of the system's and is offered to
-     * every organization; a participant of the named organization for an organization's.
+     * every organization; a participant of the named organization for an organization's; a system participant
+     * for the system's own, which alone is kept under the system's id.
      *
      * @throws IllegalStateException  if no participant is bound to the current context
      * @throws AuthorizationException if the participant is not the owner
@@ -220,7 +194,10 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             case ManagedOidcConfiguration _ -> securityContext.requireParticipant(SystemParticipant.class);
             case OwnedOidcConfiguration owned -> {
                 Validate.notBlank(owned.getOrganizationId(), "Organization id must be set on %s", owned.getClass().getSimpleName());
-                String orgId = requireOrganizationId();
+                String orgId = DomainUtil.signInOwnerIdOf(securityContext.requireParticipant(Participant.class));
+                // the system's kind is the only one kept under the system's id, so neither owner can write the other's
+                Validate.isTrue(DomainUtil.SYSTEM_ID.equals(owned.getOrganizationId()) == (owned instanceof SystemOidcConfiguration),
+                                "%s cannot be kept under '%s'", owned.getClass().getSimpleName(), owned.getOrganizationId());
                 if (!orgId.equals(owned.getOrganizationId())) {
                     throw new AuthorizationException("Cannot write " + owned.getClass().getSimpleName() + " with organizationId '"
                                                      + owned.getOrganizationId() + "' while authenticated as organization '"
@@ -282,17 +259,6 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     }
 
     @Override
-    public Future<List<SystemOidcConfiguration>> findEnabledSystemProviders() {
-        return oidcRepository.findEnabledSystem();
-    }
-
-    @Override
-    public Future<SystemOidcConfiguration> findSystemById(String id) {
-        Validate.notBlank(id, "id cannot be blank");
-        return oidcRepository.findSystemById(id);
-    }
-
-    @Override
     public Future<List<ApplicationSocialOidcConfiguration>> findEnabledAppSocialRegistrations() {
         return oidcRepository.findEnabledSocial();
     }
@@ -306,7 +272,9 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         Future<List<? extends OidcConfiguration>> own = oidcRepository.findEnabledOwnedByScope(organizationId, applicationId, tenantId)
                                                                        .map(owned -> owned);
         Future<List<OidcConfiguration>> ret;
-        if (applicationId == null) {
+        if (DomainUtil.SYSTEM_ID.equals(organizationId)) {
+            ret = own.map(List::copyOf);
+        } else if (applicationId == null) {
             // an organization's login offers the system's org sign-up registrations before its own
             ret = concat(oidcRepository.findEnabledOrgSignup().map(signup -> signup), own);
         } else if (tenantId == null) {
@@ -344,7 +312,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
         return oidcRepository.findById(configurationId)
                              .compose(configuration -> {
                                  Future<Boolean> offered = switch (configuration) {
-                                     case OrganizationOidcConfiguration owned ->
+                                     case OwnedOidcConfiguration owned when signsInAddedUsers(owned) ->
                                              Future.succeededFuture(applicationId == null && organizationId.equals(owned.getOrganizationId()));
                                      // offered at the application's login and at every one of its tenants'
                                      // one using Kinotic's registration while the system holds an enabled one of its kind,
@@ -359,7 +327,8 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
                                                                     && owned.getApplicationId().equals(applicationId)
                                                                     && owned.getTenantId().equals(tenantId));
                                      // every organization's own login offers the system's org sign-up registrations
-                                     case OrgSignupOidcConfiguration signup -> Future.succeededFuture(applicationId == null);
+                                     case OrgSignupOidcConfiguration signup ->
+                                             Future.succeededFuture(applicationId == null && !DomainUtil.SYSTEM_ID.equals(organizationId));
                                      case null, default -> Future.succeededFuture(false);
                                  };
                                  return offered.map(yes -> yes && configuration.isEnabled() ? configuration : null);
@@ -447,7 +416,7 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     @Override
     public Future<OwnedOidcConfiguration> deleteClientSecret(String id) {
         Validate.notBlank(id, "id cannot be blank");
-        String orgId = requireOrganizationId();
+        String orgId = DomainUtil.signInOwnerIdOf(securityContext.requireParticipant(Participant.class));
         return oidcRepository.findOwnedById(id, orgId)
                              .compose(existing -> existing == null
                                      ? Future.succeededFuture()

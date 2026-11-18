@@ -206,8 +206,8 @@ locals {
       hostnames   = [local.azure.system_api_hostname]
       description = "the system's own API: the system console, the nodes' vm-manager"
       env = {
-        KINOTIC_SYSTEMSERVER_APIBASEURL     = "https://${local.azure.system_api_hostname}"
-        KINOTIC_SYSTEMSERVER_CONSOLEBASEURL = "https://${local.azure.console_hostname}"
+        KINOTIC_MANAGEMENTAPI_SYSTEMAPIBASEURL = "https://${local.azure.system_api_hostname}"
+        KINOTIC_SYSTEMSERVER_CONSOLEBASEURL    = "https://${local.azure.console_hostname}"
         # What a workload dials, by the name its certificate carries, and the one destination its
         # egress policy permits; the node pins every server's name to the edge's LAN address
         # (hosts_entry)

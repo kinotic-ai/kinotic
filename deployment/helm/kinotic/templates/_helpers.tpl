@@ -95,7 +95,7 @@ KINOTIC_MANAGEMENTSERVER_TURNSTILE_SITEKEY: "{{ .siteKey }}"
 {{- end }}
 {{- end }}
 {{- with $server.systemServer }}
-KINOTIC_SYSTEMSERVER_APIBASEURL: "{{ .apiBaseUrl }}"
+KINOTIC_MANAGEMENTAPI_SYSTEMAPIBASEURL: "{{ .apiBaseUrl }}"
 KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: "{{ .consoleBaseUrl }}"
 {{- end }}
 KINOTIC_DOMAIN_EMAIL_ENABLED: "{{ $root.Values.kinotic.domain.email.enabled }}"

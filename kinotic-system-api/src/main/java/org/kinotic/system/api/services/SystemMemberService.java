@@ -36,6 +36,35 @@ public interface SystemMemberService {
     Future<Page<SystemParticipantIdentity>> searchUsers(String searchText, Pageable pageable);
 
     /**
+     * Adds a system user, who holds the system's full authority once signed in. The user is
+     * {@link SystemParticipantIdentity#isPending() pending} until it first signs in: through one of the providers
+     * the system console's login offers, which signs in the account whose verified email is {@code email}, or with
+     * a password {@link #resetUserPassword} issues, whichever comes first.
+     *
+     * @param email       the user's email, unique among system users
+     * @param displayName how the user is listed, or {@code null} to list it by its email
+     * @return the added user
+     */
+    Future<SystemParticipantIdentity> addUser(String email, String displayName);
+
+    /**
+     * Enables or disables a system user. A disabled user cannot sign in; a session it already holds lasts until it
+     * expires. Callers cannot disable themselves.
+     *
+     * @param userId a system user
+     */
+    Future<Void> setUserEnabled(String userId, boolean enabled);
+
+    /**
+     * Replaces a system user's password with a generated one, returned exactly once: only a hash is stored. Refused
+     * while the system console's login takes no password.
+     *
+     * @param userId a system user
+     * @return the new password in plaintext, shown exactly once
+     */
+    Future<String> resetUserPassword(String userId);
+
+    /**
      * Lists the system's machines, disabled ones included.
      *
      * @param pageable the page settings to use

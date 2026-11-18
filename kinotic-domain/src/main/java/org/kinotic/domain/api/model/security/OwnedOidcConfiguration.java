@@ -34,7 +34,7 @@ import org.kinotic.domain.api.model.OrganizationScoped;
 @Accessors(chain = true)
 @NoArgsConstructor
 public abstract sealed class OwnedOidcConfiguration extends OidcConfiguration implements OrganizationScoped<String>
-        permits OrganizationOidcConfiguration, ApplicationOidcConfiguration, TenantOidcConfiguration {
+        permits OrganizationOidcConfiguration, ApplicationOidcConfiguration, TenantOidcConfiguration, SystemOidcConfiguration {
 
     /**
      * Owning organization: the one of the participant saving the configuration, which the service

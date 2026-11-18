@@ -1,8 +1,6 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import {
-    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, KeyRound, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, Network, ScrollText, Server, Users
-} from '@lucide/vue'
+import { Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, KeyRound, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, LogIn, Network, ScrollText, Server, User, Users } from '@lucide/vue'
 import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
 
@@ -164,6 +162,12 @@ const routes: RouteRecordRaw[] = [
                 meta: { sidebar: consoleItem('License', KeyRound, 68, 'System') }
             },
             {
+                name: 'sign-in-providers',
+                path: 'sign-in-providers',
+                component: () => import('./pages/SignInProvidersPage.vue'),
+                meta: { sidebar: consoleItem('Sign-in providers', LogIn, 69, 'System') }
+            },
+            {
                 name: 'organizations',
                 path: 'organizations',
                 component: () => import('./pages/OrganizationsPage.vue'),
@@ -252,6 +256,12 @@ const routes: RouteRecordRaw[] = [
             },
             ...runtimeRoutes(PROJECT, 'project-', projectItem, 'project', 30, false),
 
+            {
+                name: 'account-profile',
+                path: 'account/profile',
+                component: () => import('./pages/ProfilePage.vue'),
+                meta: { sidebar: accountItem('Profile', User, 5) }
+            },
             {
                 name: 'account-connected-apps',
                 path: 'account/connected-apps',

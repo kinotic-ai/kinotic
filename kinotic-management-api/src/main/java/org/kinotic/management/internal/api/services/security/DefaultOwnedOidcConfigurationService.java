@@ -1,5 +1,8 @@
 package org.kinotic.management.internal.api.services.security;
 
+import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.core.api.security.Participant;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
@@ -11,7 +14,6 @@ import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
-import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
@@ -31,12 +33,12 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
 
     @Override
     public Future<Page<OwnedOidcConfiguration>> findAll(Pageable pageable) {
-        return oidcConfigurationService.findOwnedByOrganization(requireOrganizationId(), pageable);
+        return oidcConfigurationService.findOwnedByOrganization(requireOwnerId(), pageable);
     }
 
     @Override
     public Future<List<OidcProviderType>> findManagedProviders() {
-        requireOrganizationId();
+        requireOwnerId();
         return oidcConfigurationService.findEnabledAppSocialRegistrations()
                                        .map(registrations -> registrations.stream().map(OidcConfiguration::getProvider).toList());
     }
@@ -44,7 +46,7 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
     @Override
     public Future<OwnedOidcConfiguration> findById(String id) {
         Validate.notBlank(id, "id is required");
-        return oidcConfigurationService.findOwnedById(id, requireOrganizationId());
+        return oidcConfigurationService.findOwnedById(id, requireOwnerId());
     }
 
     @Override
@@ -55,6 +57,9 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
                 ret = OidcCallbacks.applicationCallbackUrl(scoped.applicationKey(),
                                                            domainProperties.getDomain().getAppApiBaseUrl(),
                                                            configuration.getId());
+            } else if (configuration instanceof SystemOidcConfiguration) {
+                ret = OidcCallbacks.systemCallbackUrl(managementApiProperties.getManagementApi().getSystemApiBaseUrl(),
+                                                      configuration.getId());
             } else if (configuration != null) {
                 ret = OidcCallbacks.ssoCallbackUrl(managementApiProperties.getManagementApi().getApiBaseUrl(),
                                                    configuration.getId());
@@ -66,7 +71,7 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
     @Override
     public Future<OwnedOidcConfiguration> save(OwnedOidcConfiguration configuration, String clientSecret) {
         Validate.notNull(configuration, "configuration is required");
-        configuration.setOrganizationId(requireOrganizationId());
+        configuration.setOrganizationId(requireOwnerId());
         return oidcConfigurationService.save(configuration, clientSecret);
     }
 
@@ -82,13 +87,13 @@ public class DefaultOwnedOidcConfigurationService implements OwnedOidcConfigurat
 
     @Override
     public Future<Void> deleteById(String id) {
-        // looked up as the organization's first, so an id of another owner's row is a no-op rather than a refusal
+        // looked up as the caller's own first, so an id of another owner's row is a no-op rather than a refusal
         return findById(id).compose(found -> found == null
                 ? Future.succeededFuture()
                 : oidcConfigurationService.deleteById(id));
     }
 
-    private String requireOrganizationId() {
-        return securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
+    private String requireOwnerId() {
+        return DomainUtil.signInOwnerIdOf(securityContext.requireParticipant(Participant.class));
     }
 }

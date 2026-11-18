@@ -26,9 +26,12 @@
       :headers="headers"
       :data-source="dataSource"
       :search="tableSearch"
-      :is-show-add-new="false"
-      :disable-modifications="true"
+      :is-show-add-new="systemScope"
+      :disable-modifications="!systemScope"
+      create-new-button-text="Add user"
+      :row-actions="systemScope ? rowActions : undefined"
       empty-state-text="No members"
+      @add-item="openAddForm"
       :selected-id="highlightedMember?.id"
       @update:search="tableSearch = $event"
       @row-hover="row => hoverMember(row as MemberSummary)"
@@ -60,13 +63,42 @@
       </template>
       <MemberDetail v-if="selectedMember" :member="selectedMember" :tint="scopeTint(scope)" :index="position - 1" />
     </SteppingDrawer>
+
+    <FormDrawer :visible="addFormVisible" title="Add user"
+                description="A system user holds the system's full authority over every organization."
+                @close="addFormVisible = false">
+      <form id="add-system-user-form" class="flex flex-col gap-6" @submit.prevent="addUser">
+        <div>
+          <label for="system-user-email" class="mb-2 block text-sm font-medium">Email</label>
+          <InputText id="system-user-email" v-model="newEmail" type="email" autocomplete="off" autofocus class="w-full" />
+          <p class="mt-1.5 text-[0.8125rem] text-muted-color">
+            The user signs in through a sign-in provider whose account has this email, or with a password you reset for them.
+          </p>
+        </div>
+        <div>
+          <label for="system-user-name" class="mb-2 block text-sm font-medium">Name <span class="font-normal text-muted-color">(optional)</span></label>
+          <InputText id="system-user-name" v-model="newDisplayName" autocomplete="off" class="w-full" />
+        </div>
+      </form>
+      <template #footer>
+        <Button type="button" label="Cancel" severity="secondary" outlined @click="addFormVisible = false" />
+        <Button type="submit" form="add-system-user-form" label="Add user" :loading="adding" :disabled="newEmail.trim() === ''" />
+      </template>
+    </FormDrawer>
+
+    <MachineSecretDialog v-model="resetPassword" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Users } from '@lucide/vue'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
+import type { MenuItem } from 'primevue/menuitem'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 
 import {
   FunctionalIterablePage,
@@ -78,7 +110,9 @@ import {
 import type { ApplicationParticipantIdentity, OrganizationParticipantIdentity, SystemParticipantIdentity } from '@kinotic-ai/management-api'
 import {
   CrudTable,
+  FormDrawer,
   InitialsTile,
+  MachineSecretDialog,
   PageHeader,
   TimePill,
   statusSeverity,
@@ -86,6 +120,8 @@ import {
   SteppingDrawer,
   useCrudTablePage,
   useSteppingDrawer,
+  showErrorToast,
+  type MachineSecret,
   type MemberSummary,
   type CrudHeader,
   type DescriptiveIdentifiable
@@ -116,7 +152,7 @@ const title = computed(() => props.organizationId && !props.applicationId ? 'Mem
 const description = computed(() => {
   let ret: string
   if (!props.organizationId) {
-    ret = 'System users who sign in to this console.'
+    ret = 'System users who sign in to this console. A user you add signs in through a sign-in provider, or with a password you reset for them.'
   } else if (props.applicationId) {
     ret = 'Everyone who signs in to this application, including people who have not signed in yet. Adding, disabling and removing are the organization\'s to do.'
   } else {
@@ -127,11 +163,22 @@ const description = computed(() => {
 
 const scope = computed<Scope>(() => ({ organizationId: props.organizationId, applicationId: props.applicationId }))
 
+// the system's own users are added, disabled and given a password here; an organization's are its own to manage
+const systemScope = computed(() => !props.organizationId)
+
 /** The server's totals behind the summary: the people, and the invitations still pending. */
 const peopleTotal = ref<number | null>(null)
 const inviteTotal = ref(0)
 
-const { tableSearch, dataSource, refreshTable, shownRows } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, run, shownRows } = useCrudTablePage(load)
+
+const toast = useToast()
+const confirm = useConfirm()
+const addFormVisible = ref(false)
+const newEmail = ref('')
+const newDisplayName = ref('')
+const adding = ref(false)
+const resetPassword = ref<MachineSecret | null>(null)
 
 const shownMembers = computed(() => shownRows.value as MemberSummary[])
 const { selected: selectedMember, visible: drawerVisible, position, open: openMember, step: stepMember,
@@ -146,7 +193,7 @@ async function load(pageable: Pageable, searchText: string | null): Promise<Iter
   return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
 }
 
-/** The system users; SYSTEM scope is not invited into, so there is nothing to fold in. */
+/** The system users; SYSTEM scope is added to, not invited into, so there are no invitations to fold in. */
 async function systemUsers(pageable: Pageable, searchText: string | null): Promise<Page<DescriptiveIdentifiable>> {
   const users = searchText
       ? await Kinotic.systemMembers.searchUsers(searchText, pageable)
@@ -198,6 +245,77 @@ async function scopeMembers(organizationId: string,
   return ret
 }
 
+function openAddForm(): void {
+  newEmail.value = ''
+  newDisplayName.value = ''
+  addFormVisible.value = true
+}
+
+async function addUser(): Promise<void> {
+  adding.value = true
+  try {
+    await Kinotic.systemMembers.addUser(newEmail.value.trim(), newDisplayName.value.trim() || null)
+    addFormVisible.value = false
+    toast.add({ severity: 'success', summary: 'User added', life: 4000 })
+    refreshTable()
+  } catch (err) {
+    showErrorToast(toast, 'Failed to add the user', err, { life: 8000 })
+  } finally {
+    adding.value = false
+  }
+}
+
+function rowActions(member: MemberSummary): MenuItem[] {
+  const disabling = member.status !== 'Disabled'
+  return [
+    { label: 'Reset password', icon: 'pi pi-key', command: () => confirmResetPassword(member) },
+    {
+      label: disabling ? 'Disable' : 'Enable',
+      icon: disabling ? 'pi pi-ban' : 'pi pi-check-circle',
+      command: () => confirmSetEnabled(member, !disabling)
+    }
+  ]
+}
+
+function confirmSetEnabled(member: MemberSummary, enabled: boolean): void {
+  confirm.require({
+    header: enabled ? 'Enable user' : 'Disable user',
+    message: enabled
+      ? `Enable ${member.email}? They can sign in to this console again.`
+      : `Disable ${member.email}? They can no longer sign in to this console.`,
+    icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: enabled ? 'Enable' : 'Disable', severity: enabled ? 'primary' : 'danger' },
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    accept: () => run(() => Kinotic.systemMembers.setUserEnabled(member.id, enabled),
+                      enabled ? 'User enabled' : 'User disabled', 'Failed to update the user')
+  })
+}
+
+function confirmResetPassword(member: MemberSummary): void {
+  confirm.require({
+    header: 'Reset password',
+    message: `Give ${member.email} a new password? The one they have stops working, and the new one is shown once for you to pass on.`,
+    icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: 'Reset password', severity: 'danger' },
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    accept: async () => {
+      try {
+        const password = await Kinotic.systemMembers.resetUserPassword(member.id)
+        resetPassword.value = {
+          title: `Password reset — ${member.email}`,
+          clientId: member.email,
+          clientSecret: password,
+          idLabel: 'Email',
+          secretLabel: 'Password'
+        }
+        refreshTable()
+      } catch (err) {
+        showErrorToast(toast, 'Failed to reset the password', err, { life: 8000 })
+      }
+    }
+  })
+}
+
 function toMemberSummary(member: OrganizationParticipantIdentity): MemberSummary {
   return {
     id: member.id ?? '',
@@ -223,7 +341,7 @@ function toUserSummary(user: SystemParticipantIdentity): MemberSummary {
     id: user.id ?? '',
     email: user.email,
     displayName: user.displayName,
-    status: user.enabled ? 'Active' : 'Disabled',
+    status: !user.enabled ? 'Disabled' : user.pending ? 'Pending' : 'Active',
     created: user.created
   }
 }

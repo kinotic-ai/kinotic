@@ -1,5 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
@@ -7,7 +9,6 @@ import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.OidcBinding;
-import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.internal.api.model.IdentityCredential;
 import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
@@ -23,14 +24,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Refuses a change to what an organization's own login takes that would leave an enabled member who signs in there
- * today with no way in: turning off its password, or disabling or deleting one of its OIDC configurations.
+ * Refuses a change to what an organization's own login, or the system's, takes that would leave an enabled user who
+ * signs in there today with no way in: turning off its password, or disabling or deleting one of its OIDC
+ * configurations. The system's login is named by the system's id, {@code DomainUtil.SYSTEM_ID}.
  */
 @Component
 @RequiredArgsConstructor
-public class OrganizationSignInGuard {
+public class MemberSignInGuard {
 
-    // the most members of one organization the guard reads
+    // the most users of one login the guard reads
     private static final int MAX_MEMBERS = 10_000;
 
     private final IdentityCredentialRepository credentialRepository;
@@ -40,29 +42,28 @@ public class OrganizationSignInGuard {
     private final PasswordConfigurationRepository passwordRepository;
 
     /**
-     * Fails with an {@link IllegalStateException} naming the members who would be locked out of organization
-     * {@code organizationId} once its login takes no password.
+     * Fails with an {@link IllegalStateException} naming the users who would be locked out of the login of
+     * {@code organizationId} once it takes no password.
      */
     public Future<Void> requireMembersKeepSignInWithoutPassword(String organizationId) {
         return requireMembersKeepSignIn(organizationId, true, null);
     }
 
     /**
-     * Fails with an {@link IllegalStateException} naming the members who would be locked out of organization
-     * {@code organizationId} once its login no longer offers the OIDC configuration {@code configurationId}.
+     * Fails with an {@link IllegalStateException} naming the users who would be locked out of the login of
+     * {@code organizationId} once it no longer offers the OIDC configuration {@code configurationId}.
      */
     public Future<Void> requireMembersKeepSignInWithout(String organizationId, String configurationId) {
         return requireMembersKeepSignIn(organizationId, false, configurationId);
     }
 
     private Future<Void> requireMembersKeepSignIn(String organizationId, boolean removesPassword, String removedConfigurationId) {
-        Future<List<OrganizationParticipantIdentity>> members = identityRepository.findOrganizationUsers(organizationId, Pageable.ofSize(MAX_MEMBERS))
-                                                                                  .map(Page::getContent);
+        Future<List<? extends UserParticipantIdentity>> members = members(organizationId);
         Future<List<String>> offered = offeredConfigurationIds(organizationId);
         Future<PasswordConfiguration> password = passwordRepository.findById(PasswordConfiguration.idOf(organizationId, null, null), organizationId);
         return Future.all(members, offered, password)
                      .compose(v -> {
-                         List<OrganizationParticipantIdentity> enabled = members.result().stream().filter(ParticipantIdentity::isEnabled).toList();
+                         List<? extends UserParticipantIdentity> enabled = members.result().stream().filter(ParticipantIdentity::isEnabled).toList();
                          List<String> memberIds = enabled.stream().map(ParticipantIdentity::getId).toList();
                          boolean passwordBefore = password.result() != null && password.result().isEnabled();
                          boolean passwordAfter = passwordBefore && !removesPassword;
@@ -87,20 +88,30 @@ public class OrganizationSignInGuard {
                              ret = Future.succeededFuture();
                          } else {
                              String emails = lockedOut.stream()
-                                                      .map(OrganizationParticipantIdentity::getEmail)
+                                                      .map(UserParticipantIdentity::getEmail)
                                                       .sorted()
                                                       .collect(Collectors.joining(", "));
                              ret = Future.failedFuture(new IllegalStateException(
-                                     "These members would have no way to sign in to the organization: " + emails
+                                     "These users would have no way to sign in: " + emails
                                              + ". Each must first connect another of the sign-in methods its login offers."));
                          }
                          return ret;
                      });
     }
 
-    // the configurations the organization's own login offers: the system's org sign-up registrations and its own enabled ones
+    private Future<List<? extends UserParticipantIdentity>> members(String organizationId) {
+        Pageable all = Pageable.ofSize(MAX_MEMBERS);
+        return DomainUtil.SYSTEM_ID.equals(organizationId)
+                ? identityRepository.findSystemUsers(all).map(Page::getContent)
+                : identityRepository.findOrganizationUsers(organizationId, all).map(Page::getContent);
+    }
+
+    // the configurations the login offers: its own enabled ones, and at an organization's the system's org sign-up registrations
     private Future<List<String>> offeredConfigurationIds(String organizationId) {
-        return Future.all(oidcRepository.findEnabledOrgSignup(), oidcRepository.findEnabledOwnedByScope(organizationId, null, null))
+        Future<List<? extends OidcConfiguration>> signup = DomainUtil.SYSTEM_ID.equals(organizationId)
+                ? Future.succeededFuture(List.of())
+                : oidcRepository.findEnabledOrgSignup().map(found -> found);
+        return Future.all(signup, oidcRepository.findEnabledOwnedByScope(organizationId, null, null))
                      .map(v -> v.<List<? extends OidcConfiguration>>list().stream()
                                 .flatMap(List::stream)
                                 .map(OidcConfiguration::getId)

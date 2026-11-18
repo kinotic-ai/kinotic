@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import org.kinotic.domain.api.utils.DomainUtil;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
@@ -10,7 +11,6 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfigurationType;
 import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -68,25 +68,6 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     }
 
     /**
-     * Every enabled registration the system console's login offers.
-     */
-    public Future<List<SystemOidcConfiguration>> findEnabledSystem() {
-        return findAll(Pageable.ofSize(100), b -> b.query(composeFilter(
-                termFilter(TYPE_FIELD, OidcConfigurationType.SYSTEM.name()),
-                termFilter(ENABLED_FIELD, true))))
-                .map(page -> page.map(SystemOidcConfiguration.class::cast))
-                .map(Page::getContent);
-    }
-
-    /**
-     * The system console's registration {@code id}, enabled or not, or {@code null} when no
-     * {@link SystemOidcConfiguration} has that id.
-     */
-    public Future<SystemOidcConfiguration> findSystemById(String id) {
-        return findById(id).map(config -> config instanceof SystemOidcConfiguration system ? system : null);
-    }
-
-    /**
      * Every enabled social registration the system holds for applications, oldest first.
      */
     public Future<List<ApplicationSocialOidcConfiguration>> findEnabledSocial() {
@@ -122,7 +103,8 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     /**
      * The enabled configurations organization {@code orgId} made for one of its sign-in scopes, oldest first: its
      * {@link org.kinotic.domain.api.model.security.OrganizationOidcConfiguration}s when {@code applicationId} is
-     * null, the {@link org.kinotic.domain.api.model.security.ApplicationOidcConfiguration}s of that application
+     * null (the system's {@link org.kinotic.domain.api.model.security.SystemOidcConfiguration}s when {@code orgId}
+     * is the system's id), the {@link org.kinotic.domain.api.model.security.ApplicationOidcConfiguration}s of that application
      * when {@code tenantId} is null, else the {@link org.kinotic.domain.api.model.security.TenantOidcConfiguration}s
      * of that tenant of the application.
      */
@@ -140,7 +122,8 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     private Query scopeFilter(String orgId, String applicationId, String tenantId) {
         Query ret;
         if (applicationId == null) {
-            ret = composeFilter(termFilter(TYPE_FIELD, OidcConfigurationType.ORGANIZATION.name()),
+            OidcConfigurationType type = DomainUtil.SYSTEM_ID.equals(orgId) ? OidcConfigurationType.SYSTEM : OidcConfigurationType.ORGANIZATION;
+            ret = composeFilter(termFilter(TYPE_FIELD, type.name()),
                                 termFilter(ORGANIZATION_ID_FIELD, orgId));
         } else if (tenantId == null) {
             ret = composeFilter(termFilter(TYPE_FIELD, OidcConfigurationType.APPLICATION.name()),

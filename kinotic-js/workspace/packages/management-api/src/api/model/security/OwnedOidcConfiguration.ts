@@ -13,8 +13,8 @@ export interface OwnedOidcConfiguration {
     /** The configuration's id, minted on the first save; the last segment of the callback URL the provider is given. */
     id: string | null
     /** The kind, which is the sign-in scope the configuration is offered at. */
-    type: OidcConfigurationType.ORGANIZATION | OidcConfigurationType.APPLICATION | OidcConfigurationType.TENANT
-    /** The owning organization; set to the caller's on save, whatever was sent. */
+    type: OidcConfigurationType.ORGANIZATION | OidcConfigurationType.APPLICATION | OidcConfigurationType.TENANT | OidcConfigurationType.SYSTEM
+    /** The owner: the caller's organization, or the system's id for a `SYSTEM` kind; set on save, whatever was sent. */
     organizationId: string | null
     /** The application whose login offers the configuration, for an `APPLICATION` or `TENANT` kind. */
     applicationId?: string | null

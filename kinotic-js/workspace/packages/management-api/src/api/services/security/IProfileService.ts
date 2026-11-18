@@ -22,10 +22,9 @@ export interface IProfileService {
     findMySignInMethods(): Promise<SignInMethod[]>
 
     /**
-     * The configurations an organization's user may connect as further sign-in methods and has not yet: those its
-     * organization's login offers, the system's registrations and the organization's own; none for a system user,
-     * which holds no binding. Connecting one
-     * is a form POST to `/api/auth/org/methods/start/<configurationId>`.
+     * The configurations the calling user may connect as further sign-in methods and has not yet: those its own login
+     * offers. Connecting one is a form POST to `/api/auth/org/methods/start/<configurationId>` for an organization's
+     * user and to `/api/auth/system/methods/start/<configurationId>` for a system user.
      */
     findConnectableProviders(): Promise<LoginProviderSummary[]>
 

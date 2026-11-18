@@ -1,5 +1,8 @@
 package org.kinotic.domain.api.utils;
 
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -479,6 +482,20 @@ public class DomainUtil {
         if (organizationId == null && applicationId == null) return "SYSTEM";
         if (applicationId == null) return "ORGANIZATION/" + organizationId;
         return "APPLICATION/" + organizationId + "/" + applicationId;
+    }
+
+    /**
+     * The id {@code participant}'s scope keeps its own sign-in configuration and its users' sign-in methods under:
+     * its organization's for an organization's participant, {@link #SYSTEM_ID} for a system participant.
+     *
+     * @throws AuthorizationException if the participant is of neither scope
+     */
+    public static String signInOwnerIdOf(Participant participant) {
+        return switch (participant) {
+            case OrganizationParticipant member -> member.getOrganizationId();
+            case SystemParticipant _ -> SYSTEM_ID;
+            default -> throw new AuthorizationException("Access denied");
+        };
     }
 
     /** The scope a participant acts in: its own for a scoped participant, the system's (all null) otherwise. */

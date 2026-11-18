@@ -27,7 +27,15 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
     @Override
     public Future<SystemParticipantIdentity> authenticateSystemUser(String email, String password) {
         requireCredentials(email, password);
-        return identityRepository.findSystemUserByEmail(email).compose(user -> verify(user, password));
+        return passwordConfigurationService.findOffered(DomainUtil.SYSTEM_ID, null, null)
+                                           .compose(offered -> offered == null
+                                                   ? Future.succeededFuture()
+                                                   : identityRepository.findSystemUserByEmail(email).compose(user -> verify(user, password)))
+                                           // a system user an operator added and gave a password is pending until this, its first
+                                           // sign-in; from then on a provider no longer claims it by its email
+                                           .compose(user -> user != null && user.isPending()
+                                                   ? identityRepository.clearPending(user.getId(), null).map(user)
+                                                   : Future.succeededFuture(user));
     }
 
     @Override

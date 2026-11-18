@@ -73,9 +73,17 @@ az keyvault secret set --vault-name kv-kinotic-dev --name github-platform --valu
 ```
 
 System users sign in to the system console through the single-tenant registration `kinotic-dev-system-console`
-(`system-console.tf`). Its client secret is placed in `kv-kinotic-dev` as `entra-system`, and the `system_sign_in`
-output is the `SYSTEM` row of `kinotic_oidc_configuration` that the proxmox root's `bootstrap-system-sign-in.sh`
-writes: every account of this tenant with an address on `mindsignited.com` signs in as a system user.
+(`system-console.tf`), which a system user adds in the console under **Sign-in providers** as a Microsoft Entra ID
+provider:
+
+```bash
+terraform output -raw system_sign_in_directory_id    # the provider's account
+terraform output -raw system_sign_in_client_id
+terraform output -raw system_sign_in_client_secret
+```
+
+The console then shows the provider's callback URL. Its last segment is the provider's id, which goes in
+`system_sign_in_provider_id` (`local.auto.tfvars`) for the next apply to list that URL on the registration.
 
 `terraform destroy` removes the resource group with everything in it, the records in both
 zones, the service principal, and its role assignments. The snapshot account goes with the group, so

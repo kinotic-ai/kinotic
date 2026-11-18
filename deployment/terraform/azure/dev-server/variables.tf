@@ -84,3 +84,9 @@ variable "cloudflare_dns_api_token" {
   type        = string
   sensitive   = true
 }
+
+variable "system_sign_in_provider_id" {
+  description = "The id the system console gave its Entra sign-in provider, the last segment of the callback URL it shows; empty until the provider is added there"
+  type        = string
+  default     = ""
+}

@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.rest.support;
 
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.common.api.oidc.OidcCallbackException;
 import org.kinotic.common.api.oidc.OidcErrorCodes;
 import java.net.URLEncoder;
@@ -62,6 +63,8 @@ public abstract class AuthEndpointSupport {
      * exactly, so it cannot ride in the callback URL.
      */
     private static final String RETURN_PATH_SESSION_KEY = "loginReturnPath";
+    /** The identity a connect flow asserted is bound to another user already. */
+    private static final String IDENTITY_IN_USE = "identity_in_use";
 
     private final KinoticJwtIssuer jwtIssuer;
     private final OidcConfigurationService oidcConfigurationService;
@@ -346,6 +349,45 @@ public abstract class AuthEndpointSupport {
                     .put("provider", c.getProvider() == null ? null : c.getProvider().key()));
         }
         return arr;
+    }
+
+    /**
+     * The {@code [{id, type, name, provider}]} array a login page chooses from: the email and password
+     * {@code passwordConfiguration} first, of type {@code PASSWORD}, when the login takes one, then {@code configs} as
+     * {@link #providersJson(List)} lists them.
+     *
+     * @param passwordConfiguration the login's password configuration, or {@code null} when it takes no password
+     */
+    public JsonArray providersJson(List<? extends OidcConfiguration> configs, PasswordConfiguration passwordConfiguration) {
+        JsonArray ret = providersJson(configs);
+        if (passwordConfiguration != null) {
+            ret.add(0, new JsonObject().put("id", passwordConfiguration.getId())
+                                       .put("type", LoginProviderType.PASSWORD.name())
+                                       .put("name", PasswordConfiguration.NAME)
+                                       .putNull("provider"));
+        }
+        return ret;
+    }
+
+    /**
+     * Finishes a {@link OidcFlowPurpose#CONNECT} flow: binds the identity the provider asserted to the user that
+     * started the flow, then sends the browser back to {@code profilePath} on this server's UI with
+     * {@code connected=<the configuration's name>}, or with {@code error=identity_in_use} when the identity already
+     * signs in another user, and {@code error=email_not_verified&provider=<key>} when the provider has not verified
+     * the identity's email.
+     */
+    public void completeConnect(RoutingContext ctx, CallbackResult<? extends OidcConfiguration> result, String profilePath) {
+        Future.succeededFuture(result)
+              .map(this::requireVerifiedSubject)
+              .compose(sub -> identityService.bindOidcIdentity(result.organizationUserId(), result.config().getId(), sub))
+              .onSuccess(binding -> redirectToUi(ctx, profilePath + "?connected="
+                      + URLEncoder.encode(result.config().getName(), StandardCharsets.UTF_8)))
+              .onFailure(err -> {
+                  String code = err instanceof IllegalArgumentException ? IDENTITY_IN_USE : callbackErrorCode(err);
+                  log.warn("Could not connect a sign-in method to user {}: {}", result.organizationUserId(), err.getMessage());
+                  String provider = err instanceof OidcCallbackException oce ? providerParameter(oce.getProvider()) : "";
+                  redirectToUi(ctx, profilePath + "?error=" + code + provider);
+              });
     }
 
     // ── Composite flows ───────────────────────────────────────────────────────
