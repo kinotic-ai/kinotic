@@ -140,6 +140,14 @@ class UpdateStatementParserTest {
     }
 
     @Test
+    void whenTheRightOperandIsParenthesized_thenItIsReadAsItsValue() {
+        UpdateStatement statement = parseUpdate("UPDATE products SET quantity = quantity + (1), reserved = reserved - ((:sold)) WHERE sku = 'WDG-001';");
+
+        assertEquals(1, ((Number) assertInstanceOf(BinaryExpression.class, statement.assignments().get("quantity")).right()).intValue());
+        assertEquals(new NamedParameter("sold"), assertInstanceOf(BinaryExpression.class, statement.assignments().get("reserved")).right());
+    }
+
+    @Test
     void whenBinaryAssignmentReadsAField_thenRejected() {
         assertThrows(IllegalArgumentException.class,
                      () -> parseUpdate("UPDATE products SET quantity = quantity + reserved WHERE sku = 'WDG-001';"));

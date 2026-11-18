@@ -11,6 +11,7 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.github.jknack.handlebars.Context;
 import com.github.jknack.handlebars.EscapingStrategy;
 import com.github.jknack.handlebars.Handlebars;
+import com.github.jknack.handlebars.TagType;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.context.MapValueResolver;
 import com.github.jknack.handlebars.io.AbstractTemplateLoader;
@@ -40,7 +41,9 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 /**
  * Sends transactional emails via Azure Communication Services. Bodies are rendered
@@ -67,6 +70,12 @@ public class EmailService {
 
     // the built-in helpers that iterate, or that declare and render partials
     private static final List<String> REPEATING_HELPERS = List.of("each", "block", "partial", "embedded", "precompile");
+
+    // the sections a caller's template may open besides one named for a variable: none of them repeats its body
+    private static final Set<String> CONDITIONAL_SECTIONS = Set.of("if", "unless", "with");
+
+    // a partial tag, plain or block, with or without whitespace control
+    private static final Pattern PARTIAL_TAG = Pattern.compile("\\{\\{~?#?>");
 
     private static final TemplateLoader NO_PARTIALS = new AbstractTemplateLoader() {
         @Override
@@ -319,12 +328,29 @@ public class EmailService {
         sample.put("expiresInDays", 7L);
         sample.put("verificationUrl", "https://example.invalid/signup/verify?token=sample");
         try {
-            renderInline(CALLER_TEXT_TEMPLATES, subject, sample);
-            renderInline(CALLER_HTML_TEMPLATES, htmlBody, sample);
-            renderInline(CALLER_TEXT_TEMPLATES, textBody, sample);
+            validateSource(CALLER_TEXT_TEMPLATES, subject, sample);
+            validateSource(CALLER_HTML_TEMPLATES, htmlBody, sample);
+            validateSource(CALLER_TEXT_TEMPLATES, textBody, sample);
         } catch (RuntimeException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             throw new IllegalArgumentException("Invalid email template: " + cause.getMessage(), e);
+        }
+    }
+
+    // Rendering the sample runs one branch of each conditional, so what a caller's template may not use is looked
+    // for in the parsed template and its source, which hold every branch, before the sample is rendered
+    private static void validateSource(Handlebars engine, String source, Map<String, Object> sample) {
+        try {
+            Template template = engine.compileInline(source);
+            for (String section : template.collect(TagType.SECTION)) {
+                Validate.isTrue(CONDITIONAL_SECTIONS.contains(section) || sample.containsKey(section),
+                                "An email template cannot use the %s section", section);
+            }
+            Validate.isTrue(template.collect(TagType.START_SECTION).isEmpty() && !PARTIAL_TAG.matcher(source).find(),
+                            "An email template cannot declare or include a partial");
+            render(template, sample);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed compiling email template", e);
         }
     }
 

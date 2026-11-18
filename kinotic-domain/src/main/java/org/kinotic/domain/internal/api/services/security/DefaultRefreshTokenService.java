@@ -119,8 +119,10 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                             .compose(plaintext -> refreshTokenRepository.consume(current.getId(), replacementId)
                                     .compose(consumed -> consumed
                                                      ? Future.succeededFuture(new RefreshTokenRotation(identity, plaintext, current.getAudience()))
+                                                     // the lineage is revoked whether or not the replacement could
+                                                     // be deleted, which revokes a replacement left behind as well
                                                      : refreshTokenRepository.deleteByIdSync(replacementId)
-                                                                             .compose(v -> reused(current)),
+                                                                             .transform(deleted -> reused(current)),
                                              err -> refreshTokenRepository.deleteByIdSync(replacementId)
                                                                           .onFailure(deleteErr -> log.warn("Could not delete the unused replacement {} of family {}: {}",
                                                                                                            replacementId, current.getFamilyId(), deleteErr.getMessage()))
