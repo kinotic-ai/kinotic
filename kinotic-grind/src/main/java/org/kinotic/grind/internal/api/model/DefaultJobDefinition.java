@@ -10,6 +10,7 @@ import org.kinotic.grind.api.model.JobScope;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Task;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +41,9 @@ public class DefaultJobDefinition implements JobDefinition {
 
     @Getter
     private boolean exclusive;
+
+    @Getter
+    private Duration period;
 
     private final List<JobNode> tasks = new ArrayList<>();
 
@@ -72,6 +76,15 @@ public class DefaultJobDefinition implements JobDefinition {
 
     @Override
     public JobDefinition exclusive() {
+        this.exclusive = true;
+        return this;
+    }
+
+    @Override
+    public JobDefinition every(Duration period) {
+        Validate.notNull(period, "period cannot be null");
+        Validate.isTrue(period.isPositive(), "period must be more than zero");
+        this.period = period;
         this.exclusive = true;
         return this;
     }

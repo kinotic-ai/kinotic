@@ -129,7 +129,7 @@ cross-plane call path.
 
 ```text
 GitHub → webhook handler (management plane) → JobDispatchService → grind engine
-       → WorkloadOrchestrationService → VmManagerProxy(@Scope nodeId) → vm-manager → workload
+       → WorkloadOrchestrationService → VmManagerProxy(@Scope nodeId, the node's machine id) → vm-manager → workload
 ```
 
 All hops are on the OS bus. Although the shared bus makes the orchestration

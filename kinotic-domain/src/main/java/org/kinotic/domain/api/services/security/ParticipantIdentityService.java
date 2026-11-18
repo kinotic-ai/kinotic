@@ -47,6 +47,9 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      */
     Future<OrganizationParticipantIdentity> findOrganizationUserByOidcIdentity(String oidcConfigId, String subject, String organizationId);
 
+    /** The system user the OIDC identity {@code (oidcConfigId, subject)} is bound to, or {@code null}. */
+    Future<SystemParticipantIdentity> findSystemUserByOidcIdentity(String oidcConfigId, String subject);
+
     /** The users of every organization the OIDC identity {@code (oidcConfigId, subject)} is bound to a user of, one of each. */
     Future<List<OrganizationParticipantIdentity>> findOrganizationUsersByOidcIdentity(String oidcConfigId, String subject);
 
@@ -90,6 +93,16 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      *         disabled
      */
     Future<Participant> claimProvisionedOrganizationUser(String oidcConfigId, String subject, String verifiedEmail, String organizationId);
+
+    /**
+     * Signs the identity {@code (oidcConfigId, subject)}, verified by one of the system's own providers, in as the
+     * system user added under {@code verifiedEmail}, as {@link #claimProvisionedOrganizationUser} does an
+     * organization's member.
+     *
+     * @return the system user's participant, or {@code null} when there is no pending system user under the email;
+     *         fails with {@link UserDisabledException} when the user is disabled
+     */
+    Future<Participant> claimProvisionedSystemUser(String oidcConfigId, String subject, String verifiedEmail);
 
     /**
      * Signs the identity {@code (oidcConfigId, subject)}, verified by one of the application's providers, in as the

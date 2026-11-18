@@ -82,7 +82,6 @@ configurations {
 
 dependencyManagement {
     imports {
-        mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
         mavenBom("org.springframework.boot:spring-boot-dependencies:${springBootVersion}") {
             // Raised above the Boot-managed versions to clear known vulnerabilities; Vert.x also requires Netty 4.2.17
@@ -92,6 +91,7 @@ dependencyManagement {
             bomProperty 'jackson-bom.version', jacksonVersion
             bomProperty 'log4j2.version', log4j2Version
             bomProperty 'netty.version', nettyVersion
+            bomProperty 'opentelemetry.version', otelVersion
         }
         mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
     }
@@ -107,6 +107,8 @@ dependencyManagement {
 
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
+
+        dependency "com.google.guava:guava:${guavaVersion}"
 
         dependency "commons-io:commons-io:${commonsIoVersion}"
 
@@ -140,6 +142,11 @@ dependencyManagement {
 
         dependency "org.antlr:antlr4:${antlrVersion}"
         dependency "org.antlr:antlr4-runtime:${antlrVersion}"
+
+        // Raised above ignite-calcite's 1.40.0 to drop its transitive commons-lang 2.4; Calcite 1.42 fails ignite-calcite 2.18 at
+        // node start because IgniteTypeSystem overrides RelDataTypeSystemImpl.getMaxNumericPrecision, which 1.42 made final
+        dependency "org.apache.calcite:calcite-core:${calciteVersion}"
+        dependency "org.apache.calcite:calcite-linq4j:${calciteVersion}"
 
         dependency "org.apache.commons:commons-compress:${apacheCommonsCompressVersion}"
         dependency "org.apache.commons:commons-lang3:${apacheCommonsLangVersion}"

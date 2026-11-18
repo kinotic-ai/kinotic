@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.config;
 
-import co.elastic.clients.elasticsearch._types.FieldValue;
 import org.kinotic.persistence.internal.serializer.*;
 import tools.jackson.core.Version;
 import tools.jackson.databind.module.SimpleAbstractTypeResolver;
@@ -20,10 +19,6 @@ public class PersistenceJacksonConfig {
     @Bean
     public SimpleModule persistenceJacksonModule(){
         SimpleModule ret = new SimpleModule("PersistenceModule", Version.unknownVersion());
-
-        // register internal serializer deserializers
-        ret.addDeserializer(FieldValue.class, new FieldValueDeserializer());
-        ret.addSerializer(FieldValue.class, new FieldValueSerializer());
 
         ret.addSerializer(FastestType.class, new FastestTypeSerializer());
 

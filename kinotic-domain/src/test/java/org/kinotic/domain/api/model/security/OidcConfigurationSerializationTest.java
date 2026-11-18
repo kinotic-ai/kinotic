@@ -42,6 +42,25 @@ class OidcConfigurationSerializationTest {
     }
 
     @Test
+    void systemConfigurationRoundTripsThroughBaseClassWithTypeDiscriminator() {
+        SystemOidcConfiguration system = new SystemOidcConfiguration();
+        system.setOrganizationId("system")
+              .setProviderAccount("11111111-1111-1111-1111-111111111111")
+              .setName("Microsoft")
+              .setProvider(OidcProviderType.AZURE_AD)
+              .setClientId("client")
+              .setId("entra");
+
+        String json = jsonMapper.writeValueAsString(system);
+        assertTrue(json.contains("\"type\":\"SYSTEM\""), "document must carry the discriminator: " + json);
+
+        OidcConfiguration read = jsonMapper.readValue(json, OidcConfiguration.class);
+        SystemOidcConfiguration readSystem = assertInstanceOf(SystemOidcConfiguration.class, read);
+        assertEquals("system", readSystem.getOrganizationId());
+        assertEquals("11111111-1111-1111-1111-111111111111", readSystem.getProviderAccount());
+    }
+
+    @Test
     void applicationSocialConfigurationRoundTripsThroughBaseClassWithTypeDiscriminator() {
         ApplicationSocialOidcConfiguration social = new ApplicationSocialOidcConfiguration();
         social.setSecretNameRef("google-platform")

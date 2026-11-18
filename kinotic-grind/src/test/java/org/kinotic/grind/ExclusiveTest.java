@@ -12,6 +12,7 @@ import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.grind.internal.api.services.DefaultJobService;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -34,7 +35,7 @@ public class ExclusiveTest extends AbstractGrindTest {
     @BeforeEach
     void setUpOtherJobService() {
         otherJobService = new DefaultJobService(repository, new ObjectMapper(), vertx,
-                                                () -> new ServerInfo("other-node", "grind test node"));
+                                                () -> new ServerInfo("other-node", "grind test node"), List.of());
         otherJobService.setApplicationContext(appCtx);
     }
 

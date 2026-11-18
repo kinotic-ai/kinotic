@@ -38,6 +38,13 @@ public class ManagementApiProperties {
     private String apiBaseUrl;
 
     /**
+     * Base URL of the system server's API as a browser reaches it (no trailing slash): the base of the system
+     * server's OIDC {@code redirect_uri}s, including the callback of each of the system's own OIDC configurations,
+     * and its OAuth issuer. Set where the system server runs.
+     */
+    private String systemApiBaseUrl;
+
+    /**
      * Base URL of the Loki HTTP API the {@code LogService} reads workload logs from; override per
      * environment via {@code kinotic.managementApi.lokiUrl} (env {@code KINOTIC_MANAGEMENTAPI_LOKIURL}).
      */

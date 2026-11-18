@@ -1,18 +1,20 @@
 package org.kinotic.domain.api.rest.support;
 
+import org.kinotic.common.api.oidc.OidcCallbackException;
+import org.kinotic.common.api.oidc.OidcErrorCodes;
 import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.Session;
+import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.common.api.oidc.InvalidIdTokenException;
-import org.kinotic.common.api.oidc.OidcAuthorization;
 import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientService;
+import org.kinotic.common.api.oidc.OidcFlowState;
+import org.kinotic.common.api.oidc.OidcSignInFlow;
 import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -23,10 +25,8 @@ import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.security.ManagedOidcConfiguration;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.springframework.stereotype.Component;
-import org.kinotic.domain.internal.api.rest.support.OidcFlowSession;
 
 import java.time.Duration;
-import java.util.regex.Pattern;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -44,8 +44,14 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class OidcFlowOrchestrator {
 
-    private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
-    private static final Pattern OAUTH_ERROR_CODE = Pattern.compile("^[a-z0-9_]{1,64}$");
+    private static final String PURPOSE = "purpose";
+    private static final String ORG_ID = "orgId";
+    private static final String APPLICATION_ID = "applicationId";
+    private static final String TENANT_ID = "tenantId";
+    private static final String INVITE_TOKEN = "inviteToken";
+    private static final String ORGANIZATION_USER_ID = "organizationUserId";
+
+    private final OidcSignInFlow signInFlow = new OidcSignInFlow("oidcFlow");
 
     private final AsyncCache<String, OidcClient> oidcClientCache =
             Caffeine.newBuilder()
@@ -82,55 +88,38 @@ public class OidcFlowOrchestrator {
             String callbackUrl,
             FlowConfigResolver<C> configResolver) {
 
-        String code = ctx.request().getParam("code");
-        String state = ctx.request().getParam("state");
-        String idpError = ctx.request().getParam("error");
-
-        // consumed first, so a flow the IdP refused or a malformed return cannot be completed by a later callback
-        Session session = ctx.session();
-        OidcFlowSession flowSession = session.remove(OIDC_FLOW_SESSION_KEY);
-
-        if (idpError != null) {
-            // an OAuth error is a short code (RFC 6749 §4.1.2.1); anything else arriving on the public callback is
-            // reflected into neither the log nor the browser
-            String error = OAUTH_ERROR_CODE.matcher(idpError).matches() ? idpError : OidcErrorCodes.INVALID_CALLBACK;
-            log.info("OIDC callback error from config {}: {}", pathConfigId, error);
-            return Future.failedFuture(new OidcCallbackException(error));
+        Future<CallbackResult<C>> ret;
+        try {
+            OidcFlowState flow = signInFlow.consume(ctx);
+            JsonObject scope = flow.context();
+            if (!flow.registrationId().equals(pathConfigId)) {
+                log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
+                ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
+            } else {
+                ret = configResolver.resolve(scope.getString(ORG_ID), scope.getString(APPLICATION_ID), scope.getString(TENANT_ID))
+                                    .compose(config -> {
+                                        // Re-checked here rather than in each resolver: a config disabled while the
+                                        // user was at the IdP must not complete the flow it started.
+                                        if (config == null || !config.isEnabled()) {
+                                            return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
+                                        }
+                                        return getOidcClient(config)
+                                                .compose(client -> signInFlow.verifiedClaims(ctx, client, callbackUrl, flow))
+                                                .map(claims -> new CallbackResult<>(config, claims, purposeOf(flow), scope.getString(ORG_ID),
+                                                                                  scope.getString(APPLICATION_ID), scope.getString(TENANT_ID),
+                                                                                  scope.getString(INVITE_TOKEN),
+                                                                                  scope.getString(ORGANIZATION_USER_ID), flow.origin()));
+                                    });
+            }
+        } catch (OidcCallbackException refused) {
+            log.warn("OIDC callback for config {} refused: {}", pathConfigId, refused.getErrorCode());
+            ret = Future.failedFuture(refused);
         }
-        if (code == null || state == null) {
-            return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_CALLBACK));
-        }
+        return ret;
+    }
 
-        if (flowSession == null || !flowSession.authorization().state().equals(state)
-                || !flowSession.configId().equals(pathConfigId)) {
-            log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
-            return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
-        }
-
-        return configResolver.resolve(flowSession.orgId(), flowSession.applicationId(), flowSession.tenantId())
-                     .compose(config -> {
-                         // Re-checked here rather than in each resolver: a config disabled while the
-                         // user was at the IdP must not complete the flow it started.
-                         if (config == null || !config.isEnabled()) {
-                             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
-                         }
-                         return getOidcClient(config)
-                                 .compose(client -> client.verifiedClaims(code, callbackUrl, flowSession.authorization()))
-                                 .recover(err -> {
-                                     Future<Map<String, Object>> failed;
-                                     if (err instanceof InvalidIdTokenException) {
-                                         log.warn("OIDC id token rejected for config {}: {}", config.getId(), err.getMessage());
-                                         failed = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
-                                     } else {
-                                         failed = Future.failedFuture(err);
-                                     }
-                                     return failed;
-                                 })
-                                 .map(claims -> new CallbackResult<>(config, claims, flowSession.purpose(), flowSession.orgId(),
-                                                                   flowSession.applicationId(), flowSession.tenantId(),
-                                                                   flowSession.inviteToken(), flowSession.organizationUserId(),
-                                                                   flowSession.origin()));
-                     });
+    private static OidcFlowPurpose purposeOf(OidcFlowState flow) {
+        return OidcFlowPurpose.valueOf(flow.context().getString(PURPOSE));
     }
 
     /**
@@ -138,9 +127,10 @@ public class OidcFlowOrchestrator {
      * a handler to route a failed callback by; {@link #handleCallback} consumes the flow itself.
      */
     public PendingFlow pendingFlow(RoutingContext ctx) {
-        OidcFlowSession flowSession = ctx.session().get(OIDC_FLOW_SESSION_KEY);
-        return flowSession == null ? null : new PendingFlow(flowSession.purpose(), flowSession.orgId(), flowSession.applicationId(),
-                                                            flowSession.origin(), flowSession.inviteToken());
+        OidcFlowState flow = signInFlow.pending(ctx);
+        return flow == null ? null : new PendingFlow(purposeOf(flow), flow.context().getString(ORG_ID),
+                                                     flow.context().getString(APPLICATION_ID), flow.origin(),
+                                                     flow.context().getString(INVITE_TOKEN));
     }
 
     /**
@@ -232,16 +222,15 @@ public class OidcFlowOrchestrator {
                 ? List.of(social.getScopes().split(" "))
                 : List.of("openid", "email", "profile");
 
-        OidcAuthorization authorization = OidcAuthorization.create();
-        return getOidcClient(config)
-                .map(client -> client.authorizationUrl(authorization, callbackUrl, scopes))
-                // stored once the provider is reachable, so a start that fails leaves the session's pending flow intact
-                .onSuccess(url -> {
-                    Session session = ctx.session();
-                    session.regenerateId();
-                    session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(authorization, config.getId(), purpose, orgId, applicationId,
-                                                                           tenantId, inviteToken, organizationUserId, origin));
-                });
+        OidcFlowState flow = OidcFlowState.create(config.getId(), origin, new JsonObject()
+                .put(PURPOSE, purpose.name())
+                .put(ORG_ID, orgId)
+                .put(APPLICATION_ID, applicationId)
+                .put(TENANT_ID, tenantId)
+                .put(INVITE_TOKEN, inviteToken)
+                .put(ORGANIZATION_USER_ID, organizationUserId));
+        // the flow is kept once the provider is reachable, so a start that fails leaves the session's pending flow intact
+        return getOidcClient(config).map(client -> signInFlow.start(ctx, client, callbackUrl, scopes, flow));
     }
 
     /**

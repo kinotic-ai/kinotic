@@ -5,6 +5,8 @@ import org.kinotic.grind.api.model.TaskReporter;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.support.MergedBeanDefinitionPostProcessor;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.CommonAnnotationBeanPostProcessor;
 import org.springframework.context.annotation.ContextAnnotationAutowireCandidateResolver;
@@ -23,6 +25,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * beans and configuration.
  */
 public class DefaultJobContext implements JobContext {
+
+    // The processors every scope injects with, held here only to report the members they act on
+    private static final List<MergedBeanDefinitionPostProcessor> MEMBER_FINDERS =
+            List.of(new AutowiredAnnotationBeanPostProcessor(), new CommonAnnotationBeanPostProcessor());
 
     private final DefaultJobContext parent;
     // The scope stored values and managed instances belong to: this one, or for a task scope the
@@ -72,6 +78,21 @@ public class DefaultJobContext implements JobContext {
 
         beanFactory.addEmbeddedValueResolver(this::resolvePlaceholders);
         beanFactory.registerResolvableDependency(JobContext.class, this);
+    }
+
+    /**
+     * @param type the class of an instance
+     * @return true if {@link #autowire(Object)} injects a field or a method of an instance of the
+     *         given type, or invokes a lifecycle callback on it
+     */
+    public static boolean injects(Class<?> type) {
+        RootBeanDefinition definition = new RootBeanDefinition(type);
+        for (MergedBeanDefinitionPostProcessor finder : MEMBER_FINDERS) {
+            finder.postProcessMergedBeanDefinition(definition, type, type.getName());
+        }
+        return !definition.getExternallyManagedConfigMembers().isEmpty()
+                || !definition.getExternallyManagedInitMethods().isEmpty()
+                || !definition.getExternallyManagedDestroyMethods().isEmpty();
     }
 
     @Override

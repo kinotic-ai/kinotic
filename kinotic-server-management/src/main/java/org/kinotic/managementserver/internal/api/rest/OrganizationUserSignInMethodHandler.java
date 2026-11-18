@@ -14,7 +14,6 @@ import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.api.rest.support.CallbackResult;
-import org.kinotic.domain.api.rest.support.OidcCallbackException;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
 import org.kinotic.domain.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.rest.support.OidcFlowPurpose;
@@ -22,9 +21,6 @@ import org.kinotic.domain.api.rest.support.PendingFlow;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.springframework.stereotype.Component;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Connects a provider identity to the signed-in organization user as a further sign-in method: one of the
@@ -40,9 +36,6 @@ import java.nio.charset.StandardCharsets;
 public class OrganizationUserSignInMethodHandler implements SuppliesGatewayRoutes, OidcFlowCompleter {
 
     private static final String PROFILE_PATH = "/account/profile";
-
-    /** The identity is bound to another organization user already. */
-    private static final String IDENTITY_IN_USE = "identity_in_use";
 
     private final AuthEndpointSupport authEndpointSupport;
     private final OidcConfigurationService oidcConfigurationService;
@@ -112,17 +105,7 @@ public class OrganizationUserSignInMethodHandler implements SuppliesGatewayRoute
      */
     @Override
     public void complete(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
-        Future.succeededFuture(result)
-              .map(authEndpointSupport::requireVerifiedSubject)
-              .compose(sub -> identityService.bindOidcIdentity(result.organizationUserId(), result.config().getId(), sub))
-              .onSuccess(binding -> authEndpointSupport.redirectToUi(ctx, PROFILE_PATH + "?connected="
-                      + URLEncoder.encode(result.config().getName(), StandardCharsets.UTF_8)))
-              .onFailure(err -> {
-                  String code = err instanceof IllegalArgumentException ? IDENTITY_IN_USE : authEndpointSupport.callbackErrorCode(err);
-                  log.warn("Could not connect a sign-in method to organization user {}: {}", result.organizationUserId(), err.getMessage());
-                  String provider = err instanceof OidcCallbackException oce ? AuthEndpointSupport.providerParameter(oce.getProvider()) : "";
-                  authEndpointSupport.redirectToUi(ctx, PROFILE_PATH + "?error=" + code + provider);
-              });
+        authEndpointSupport.completeConnect(ctx, result, PROFILE_PATH);
     }
 
     @Override

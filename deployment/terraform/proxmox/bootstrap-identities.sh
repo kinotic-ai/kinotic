@@ -2,7 +2,7 @@
 # Creates the identities an empty cluster needs before anyone can sign in: the first system user,
 # and a SYSTEM machine for each node's vm-manager. The production-profile migration seeds neither.
 #
-#   bootstrap-identities.sh <admin email> [<user@node>=<node id>...]
+#   bootstrap-identities.sh <admin email> [<user@node>=<node name>...]
 #
 #   bootstrap-identities.sh you@example.com navid@192.168.1.11=dev-node-1 kinotic@192.168.1.30=dev-node-2
 #
@@ -15,7 +15,7 @@
 # The machines are written before the system user, which the seed job reads first and takes as the
 # sign that the identities are all there. The system user's identity is the last write, after its
 # credential and the password file. A run that fails before it can be made again as it was: a
-# machine's id is derived from its node's and the system user's from its email, so each is written
+# machine's id is derived from its node's name and the system user's from its email, so each is written
 # over. When the write of that identity reports a failure the system user is read back: the run
 # carries on when it is there, and otherwise stops with the password file kept, since the write may
 # still land.
@@ -27,7 +27,7 @@
 # Runs from the machine that applies this root: terraform, htpasswd, ssh to the host and the nodes.
 set -euo pipefail
 
-ADMIN_EMAIL="${1:?usage: $0 <admin email> [<user@node>=<node id>...]}"
+ADMIN_EMAIL="${1:?usage: $0 <admin email> [<user@node>=<node name>...]}"
 shift
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="$(terraform -chdir="$HERE" output -raw proxmox_host)"
@@ -85,7 +85,7 @@ for arg in "$@"; do
   {
     credential_row "$machine_id" "$(bcrypt "$machine_secret")"
     identity_row "$machine_id" \
-      "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineType\":\"CLIENT\",\"displayName\":\"$node vm-manager\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}"
+      "{\"id\":\"$machine_id\",\"type\":\"MACHINE\",\"machineType\":\"CLIENT\",\"displayName\":\"$node\",\"enabled\":true,\"created\":\"$NOW\",\"updated\":\"$NOW\"}"
   } | bulk
   printf 'KINOTIC_CLIENT_ID=%s\nKINOTIC_CLIENT_SECRET=%s\n' "$machine_id" "$machine_secret" \
     | ssh "$target" "sudo sh -c 'umask 077 && rm -f /etc/kinotic/vm-manager.secrets.env && cat > /etc/kinotic/vm-manager.secrets.env' && sudo systemctl restart kinotic-vm-manager"

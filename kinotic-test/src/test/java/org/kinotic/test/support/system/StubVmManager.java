@@ -49,16 +49,22 @@ public class StubVmManager implements VmManager {
 
     @Override
     public Future<Workload> startWorkload(Workload workload) {
-        reached.countDown();
         Future<Workload> ret;
         if (failStartWith != null) {
+            reached.countDown();
             ret = Future.failedFuture(failStartWith);
         } else {
             workload.setStatus(WorkloadStatus.RUNNING);
             started.put(workload.getId(), workload);
             lastStarted = workload;
+            // the reply a test settles exists before the start counts as reached, so a test woken by it never finds none
+            Promise<Workload> held = workload.isDetached() ? null : Promise.promise();
+            if (held != null) {
+                pendingReply = held;
+            }
+            reached.countDown();
             Future<Void> before = onStart == null ? Future.succeededFuture() : onStart.apply(workload);
-            ret = before.compose(v -> reply(workload));
+            ret = before.compose(v -> held == null ? Future.succeededFuture(workload) : held.future());
         }
         return ret;
     }
@@ -99,17 +105,6 @@ public class StubVmManager implements VmManager {
         finished.setStatus(status);
         finished.setExitCode(exitCode);
         pendingReply.complete(finished);
-    }
-
-    private Future<Workload> reply(Workload running) {
-        Future<Workload> ret;
-        if (running.isDetached()) {
-            ret = Future.succeededFuture(running);
-        } else {
-            pendingReply = Promise.promise();
-            ret = pendingReply.future();
-        }
-        return ret;
     }
 
     private static Workload copy(Workload workload) {

@@ -159,11 +159,11 @@ import { PageHeader, TimePill } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
-import CopyableUrl from '@/components/CopyableUrl.vue'
+import { CopyableUrl } from '@kinotic-ai/frontend-common/management'
 import { KinoticStates } from '@/states'
 import { findLoginProviders, type LoginProvider } from '@/pages/login/organizationLogin'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { PROVIDER_LOGOS } from '@/util/oidcConfigurations'
+import { PROVIDER_LOGOS } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 /** One table row: a member, or an application's user, pending while nobody has signed in as them yet. */

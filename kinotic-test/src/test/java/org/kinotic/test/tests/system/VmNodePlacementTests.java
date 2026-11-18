@@ -108,8 +108,8 @@ public class VmNodePlacementTests extends KinoticTestBase {
      */
     @Test
     public void findsANodeThatJustRegisteredItselfTheWayAVmManagerDoes() throws Exception {
-        VmNode registered = await(vmNodeOrchestrationService.registerNode(
-                registration("placement-live", 16, 131072, 1902788)));
+        VmNode registered = await(runAsNode("placement-live", () -> vmNodeOrchestrationService.registerNode(
+                registration("placement-live", 16, 131072, 1902788))));
         created.add(registered.getId());
         Assertions.assertTrue(registered.getState().isReconciled(),
                               "a freshly registered node must be in its desired state to be placeable");
@@ -130,7 +130,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
      */
     @Test
     public void reRegisteringWithNewCapacityKeepsPlacedWorkloadsAccountedFor() throws Exception {
-        VmNode registered = await(vmNodeOrchestrationService.registerNode(registration("placement-rereg", 8, 8192, 20480)));
+        VmNode registered = await(runAsNode("placement-rereg", () -> vmNodeOrchestrationService.registerNode(registration("placement-rereg", 8, 8192, 20480))));
         created.add(registered.getId());
         Assertions.assertEquals(8, registered.getFreeCpus());
         Workload running = await(workloadService.saveSync(workload("placement-rereg", 2.5, 1024, 2048, WorkloadStatus.RUNNING)));
@@ -139,7 +139,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
 
         VmNode grown;
         try {
-            grown = await(vmNodeOrchestrationService.registerNode(registration("placement-rereg", 16, 8192, 20480)));
+            grown = await(runAsNode("placement-rereg", () -> vmNodeOrchestrationService.registerNode(registration("placement-rereg", 16, 8192, 20480))));
         } finally {
             await(workloadService.deleteById(running.getId()));
             await(workloadService.deleteById(ended.getId()));

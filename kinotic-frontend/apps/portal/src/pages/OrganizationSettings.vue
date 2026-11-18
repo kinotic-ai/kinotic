@@ -22,7 +22,7 @@
           </p>
         </TabPanel>
         <TabPanel value="authentication">
-          <SignInProvidersPanel :application-id="null" />
+          <SignInProvidersPanel owner="organization" :application-id="null" />
         </TabPanel>
         <TabPanel value="roles">
           <RolesTab />
@@ -100,7 +100,7 @@ import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
 import { KinoticStates } from '@/states'
 import { RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
 import { repositoryHost } from '@/util/repositoryHost'
-import SignInProvidersPanel from '@/components/SignInProvidersPanel.vue'
+import { SignInProvidersPanel } from '@kinotic-ai/frontend-common/management'
 import { useQueryTab } from '@/composables/useQueryTab'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
 

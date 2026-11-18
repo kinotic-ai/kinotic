@@ -32,6 +32,7 @@ import java.util.Date;
 @JsonSubTypes({
         @JsonSubTypes.Type(value = OrgSignupOidcConfiguration.class, name = "ORG_SIGNUP"),
         @JsonSubTypes.Type(value = ApplicationSocialOidcConfiguration.class, name = "APP_SOCIAL"),
+        @JsonSubTypes.Type(value = SystemOidcConfiguration.class, name = "SYSTEM"),
         @JsonSubTypes.Type(value = OrganizationOidcConfiguration.class, name = "ORGANIZATION"),
         @JsonSubTypes.Type(value = ApplicationOidcConfiguration.class, name = "APPLICATION"),
         @JsonSubTypes.Type(value = TenantOidcConfiguration.class, name = "TENANT")

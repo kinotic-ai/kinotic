@@ -18,7 +18,8 @@ export class VmNodeOrchestrationServiceProxy {
     }
 
     /**
-     * Registers this node with the orchestrator.
+     * Registers the machine this client authenticated as with the orchestrator, as a node whose id is the
+     * machine's id and whose name is the machine's display name.
      * @param registration the node registration info
      * @return a Promise resolving to the registered VmNode
      */
@@ -29,27 +30,25 @@ export class VmNodeOrchestrationServiceProxy {
     /**
      * Sends a heartbeat to indicate this node is still alive, carrying what it can still
      * guarantee. A node reporting problems stops receiving workloads until it reports none.
-     * @param nodeId the id of this node
      * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a Promise resolving to the updated VmNode
      */
-    public heartbeat(nodeId: string, problems: string[]): Promise<VmNode> {
-        return this.serviceProxy.invoke('heartbeat', [nodeId, problems])
+    public heartbeat(problems: string[]): Promise<VmNode> {
+        return this.serviceProxy.invoke('heartbeat', [problems])
     }
 
     /**
      * Reports the actual status of workloads on this node so the server's records track
      * transitions the orchestrator did not initiate.
-     * @param nodeId the id of this node
      * @param reports one report per workload
      */
-    public reportWorkloadStatus(nodeId: string, reports: WorkloadStatusReport[]): Promise<void> {
-        return this.serviceProxy.invoke('reportWorkloadStatus', [nodeId, reports])
+    public reportWorkloadStatus(reports: WorkloadStatusReport[]): Promise<void> {
+        return this.serviceProxy.invoke('reportWorkloadStatus', [reports])
     }
 
     /**
-     * Deregisters this node from the orchestrator.
-     * @param nodeId the id of this node
+     * Asks for a node's removal from the orchestrator.
+     * @param nodeId the id of the node
      */
     public deregisterNode(nodeId: string): Promise<void> {
         return this.serviceProxy.invoke('deregisterNode', [nodeId])

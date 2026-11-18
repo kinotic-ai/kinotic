@@ -5,7 +5,6 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -21,11 +20,13 @@ import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.domain.api.model.WatchedType;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.workload.Workload;
@@ -81,60 +82,34 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     @Override
     public Future<VmNode> registerNode(VmNodeRegistration registration) {
         Validate.notNull(registration, "Registration cannot be null");
-        Validate.notNull(registration.getId(), "Node id cannot be null");
-        String nodeId = registration.getId();
-        Participant registrar = securityContext.currentParticipant();
-        log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
+        return asNodeMachine(machine -> register(machine, registration));
+    }
 
-        // two machines registering one id together would each find the node without an agent
-        return relationships.exclusively(AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> requireAgentOrNone(nodeId, registrar)
-                .compose(v -> recordInventory(registration, 1))
+    private Future<VmNode> register(Participant machine, VmNodeRegistration registration) {
+        String nodeId = machine.getId();
+        String name = Objects.requireNonNullElse(DomainUtil.displayNameOf(machine), nodeId);
+        log.info("Registering VmNode: {} ({})", name, nodeId);
+
+        return recordInventory(nodeId, name, registration, 1)
                 // a registered node should be taking workloads; a node registering again holds that intent already
                 .compose(v -> vmNodeRepository.updateDesired(nodeId, ONLINE, null, "registration"))
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
                 .compose(node -> vmNodeRepository.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
                 .compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
-                .compose(v -> contained(nodeId, registrar))
-                .compose(v -> vmNodeRepository.findById(nodeId)));
-    }
-
-    // The registrar role is held on the system, by every node's machine, so it alone would let one node's machine
-    // register another node's id, write that node's inventory and report as it. A node that has an agent is
-    // registered again by one of its agents only; a registration made from inside the server carries no participant
-    private Future<Void> requireAgentOrNone(String nodeId, Participant registrar) {
-        Future<Void> ret;
-        if (registrar == null) {
-            ret = Future.succeededFuture();
-        } else {
-            // the user the agent is bound as, which for a delegate is its owner
-            String machine = AuthzGraphUtil.authzUser(registrar);
-            ret = relationships.findGrants(AuthzStoreService.SYSTEM, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId)).map(grants -> {
-                List<Grant> agents = grants.stream().filter(grant -> AGENT_ROLE.equals(grant.roleId())).toList();
-                if (!agents.isEmpty() && agents.stream().noneMatch(agent -> machine.equals(AuthzGraphUtil.authzSubject(agent.subject())))) {
-                    throw new AuthorizationException("Node " + nodeId + " is registered by another machine; deregister the node to register it from this one");
-                }
-                return null;
-            });
-        }
-        return ret;
+                .compose(v -> contained(nodeId, machine))
+                .compose(v -> vmNodeRepository.findById(nodeId));
     }
 
     /**
      * The node's place in the graph, written once its record is: the node is on the system, so a grant made
-     * there reaches it, and the machine that registered it is its agent, which is what its heartbeats and
-     * reports are checked for. A registration made from inside the server carries no participant and binds
-     * no agent.
+     * there reaches it, and its machine is its agent, which is what a request to remove the node is checked for.
      */
-    private Future<Void> contained(String nodeId, Participant registrar) {
+    private Future<Void> contained(String nodeId, Participant machine) {
         RelationshipTuple onSystem = containment(nodeId);
-        Future<Void> ret = relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem));
-        if (registrar != null) {
-            // one binding per node and agent, so a node registering again, or on another server, binds nothing twice
-            String agent = AuthzGraphUtil.authzUser(registrar);
-            String bindingId = nodeId + "-agent-" + AuthzUtil.idOf(agent);
-            ret = ret.compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, bindingId, AGENT_ROLE, agent, onSystem.object()));
-        }
-        return ret;
+        // one binding per node, so a node registering again, or on another server, binds nothing twice
+        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem))
+                            .compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, nodeId + "-agent", AGENT_ROLE,
+                                                                    AuthzGraphUtil.authzUser(machine), onSystem.object()));
     }
 
     /**
@@ -154,13 +129,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      * overwrites, so a reservation or a release landing between the reads and the write is answered by
      * a declined write, and the rebuild runs again on what is there.
      */
-    private Future<Void> recordInventory(VmNodeRegistration registration, int attempt) {
-        String nodeId = registration.getId();
+    private Future<Void> recordInventory(String nodeId, String name, VmNodeRegistration registration, int attempt) {
         return vmNodeRepository.findById(nodeId)
                 .compose(asRead -> workloadRepository.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                         .compose(placed -> {
                             List<Workload> open = placed.getContent().stream().filter(workload -> workload.getStatus().isOpen()).toList();
-                            VmNode inventory = new VmNode(nodeId, registration.getName(), registration.getHostname())
+                            VmNode inventory = new VmNode(nodeId, name, registration.getHostname())
                                     .setProviderType(registration.getProviderType())
                                     .setTotalCpus(registration.getTotalCpus())
                                     .setTotalMemoryMb(registration.getTotalMemoryMb())
@@ -177,7 +151,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         ret = Future.succeededFuture();
                     } else if (attempt < INVENTORY_ATTEMPTS) {
                         log.info("Room on node {} was taken or returned while it registered, rebuilding its free capacity again", nodeId);
-                        ret = recordInventory(registration, attempt + 1);
+                        ret = recordInventory(nodeId, name, registration, attempt + 1);
                     } else {
                         ret = Future.failedFuture(new IllegalStateException("Node " + nodeId + " kept taking and returning room through "
                                 + INVENTORY_ATTEMPTS + " rebuilds of its free capacity"));
@@ -187,8 +161,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public Future<VmNode> heartbeat(String nodeId, List<String> problems) {
-        Validate.notNull(nodeId, "Node id cannot be null");
+    public Future<VmNode> heartbeat(List<String> problems) {
+        return asNodeMachine(machine -> heartbeat(machine.getId(), problems));
+    }
+
+    private Future<VmNode> heartbeat(String nodeId, List<String> problems) {
         List<String> found = problems == null ? List.of() : problems;
         String message = found.isEmpty() ? null : String.join("; ", found);
         VmNodeState reported = found.isEmpty() ? ONLINE : DRAINING;
@@ -232,14 +209,28 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports) {
-        Validate.notNull(nodeId, "Node id cannot be null");
+    public Future<Void> reportWorkloadStatus(List<WorkloadStatusReport> reports) {
         Validate.notNull(reports, "Reports cannot be null");
+        return asNodeMachine(machine -> Future.all(reports.stream()
+                                                          .map(report -> applyStatusReport(machine.getId(), report))
+                                                          .toList())
+                                              .mapEmpty());
+    }
 
-        return Future.all(reports.stream()
-                                 .map(report -> applyStatusReport(nodeId, report))
-                                 .toList())
-                     .mapEmpty();
+    // runs action as the system machine the caller authenticated as, which is the node it speaks for; any other
+    // caller is refused as a failed future
+    private <T> Future<T> asNodeMachine(Function<Participant, Future<T>> action) {
+        Future<T> ret;
+        try {
+            Participant caller = securityContext.requireParticipant(SystemParticipant.class);
+            if (!DomainUtil.isMachineParticipant(caller)) {
+                throw new AuthorizationException("Only a worker node's own machine speaks for it");
+            }
+            ret = action.apply(caller);
+        } catch (RuntimeException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
     }
 
     private Future<Void> applyStatusReport(String nodeId, WorkloadStatusReport report) {

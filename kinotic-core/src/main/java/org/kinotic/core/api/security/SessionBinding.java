@@ -101,6 +101,32 @@ public final class SessionBinding {
     }
 
     /**
+     * Signs {@code participant} in to the page at {@code origin}: binds it as {@link #bind} does, under a new
+     * session id, so an id issued before the sign-in cannot ride the signed-in session.
+     */
+    public static void establish(RoutingContext ctx, String origin, Participant participant) {
+        ctx.session().regenerateId();
+        ConnectedInfo connectedInfo = new ConnectedInfo();
+        connectedInfo.setParticipant(participant);
+        bind(ctx, origin, connectedInfo);
+    }
+
+    /**
+     * The path within a page that a completed sign-in returns to, or {@code null} when {@code referer} is
+     * {@code null} or is not a path within the page.
+     */
+    public static String safeReturnPath(String referer) {
+        String ret = null;
+        // concatenated onto the page's URL, so a value that could open an authority ("//host") or break out of
+        // the Location header is dropped rather than sanitized
+        if (referer != null && referer.startsWith("/") && !referer.startsWith("//")
+                && referer.indexOf('\\') < 0 && referer.chars().noneMatch(Character::isISOControl)) {
+            ret = referer;
+        }
+        return ret;
+    }
+
+    /**
      * Ends the login of the page that sent the request. The session, and its cookie, end once it holds
      * nothing else: no page's login and no sign-in another page has in progress.
      */

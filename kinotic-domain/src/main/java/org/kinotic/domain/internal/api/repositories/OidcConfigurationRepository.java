@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import org.kinotic.domain.api.utils.DomainUtil;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
@@ -102,7 +103,8 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     /**
      * The enabled configurations organization {@code orgId} made for one of its sign-in scopes, oldest first: its
      * {@link org.kinotic.domain.api.model.security.OrganizationOidcConfiguration}s when {@code applicationId} is
-     * null, the {@link org.kinotic.domain.api.model.security.ApplicationOidcConfiguration}s of that application
+     * null (the system's {@link org.kinotic.domain.api.model.security.SystemOidcConfiguration}s when {@code orgId}
+     * is the system's id), the {@link org.kinotic.domain.api.model.security.ApplicationOidcConfiguration}s of that application
      * when {@code tenantId} is null, else the {@link org.kinotic.domain.api.model.security.TenantOidcConfiguration}s
      * of that tenant of the application.
      */
@@ -120,7 +122,8 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
     private Query scopeFilter(String orgId, String applicationId, String tenantId) {
         Query ret;
         if (applicationId == null) {
-            ret = composeFilter(termFilter(TYPE_FIELD, OidcConfigurationType.ORGANIZATION.name()),
+            OidcConfigurationType type = DomainUtil.SYSTEM_ID.equals(orgId) ? OidcConfigurationType.SYSTEM : OidcConfigurationType.ORGANIZATION;
+            ret = composeFilter(termFilter(TYPE_FIELD, type.name()),
                                 termFilter(ORGANIZATION_ID_FIELD, orgId));
         } else if (tenantId == null) {
             ret = composeFilter(termFilter(TYPE_FIELD, OidcConfigurationType.APPLICATION.name()),

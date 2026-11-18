@@ -48,7 +48,8 @@ servers:
       repository: kinoticai/kinotic-server-system
       sha: ""
     gatewayPort: 58504
-    # kinotic.systemServer.*: the URLs this server is reached at (no trailing slashes)
+    # the URLs this server is reached at (no trailing slashes): kinotic.managementApi.systemApiBaseUrl and
+    # kinotic.systemServer.consoleBaseUrl
     systemServer:
       # this server's REST endpoints, the base of its OIDC redirect_uris and its OAuth issuer
       apiBaseUrl: "http://localhost:58504"

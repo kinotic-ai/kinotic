@@ -37,10 +37,11 @@ public interface ProfileService {
     Future<List<SignInMethod>> findMySignInMethods(Participant participant);
 
     /**
-     * The configurations an organization's user may connect as further sign-in methods and has not yet: those its
-     * organization's login offers, the system's org sign-up registrations and the organization's own; none for a
-     * system user, which signs in with a password alone. Connecting one starts at
-     * {@code POST /api/auth/org/methods/start/<configurationId>}.
+     * The configurations the calling user may connect as further sign-in methods and has not yet: those its own login
+     * offers. For an organization's user these are the system's org sign-up registrations and the organization's own,
+     * and connecting one starts at {@code POST /api/auth/org/methods/start/<configurationId>}; for a system user they
+     * are the system's own, and connecting one starts at
+     * {@code POST /api/auth/system/methods/start/<configurationId>}.
      */
     Future<List<LoginProviderSummary>> findConnectableProviders(Participant participant);
 

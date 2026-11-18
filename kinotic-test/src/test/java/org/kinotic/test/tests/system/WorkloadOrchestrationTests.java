@@ -1,5 +1,9 @@
 package org.kinotic.test.tests.system;
 
+import org.kinotic.system.api.model.workload.VmNodeRegistration;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -126,7 +130,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     @Test
     public void markingUnreachableLeavesLastSeenAlone() throws Exception {
         unregisterVmManager(NODE_ID);
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
         Date heartbeatAt = node().getLastSeen();
 
         assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
@@ -185,7 +189,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         assertThrows(Exception.class, () -> call(() -> orchestration.deployWorkload(newWorkload())));
         assertTrue(awaitNodeUnreachable(true));
 
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
 
         assertFalse(nodeUnreachable());
         assertTrue(node().getState().isReconciled());
@@ -193,13 +197,13 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     @Test
     public void heartbeatWithProblemsDrainsTheNodeUntilItReportsNone() throws Exception {
-        VmNode draining = call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of("disk limits unenforced", "metadata endpoint open")));
+        VmNode draining = await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of("disk limits unenforced", "metadata endpoint open"))));
 
         assertEquals(DRAINING, draining.getState().getObserved());
         assertEquals("disk limits unenforced; metadata endpoint open", draining.getHealthMessage());
         assertFalse(draining.getState().isReconciled(), "nothing more is placed on it");
 
-        VmNode fit = call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+        VmNode fit = await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
 
         assertEquals(ONLINE, fit.getState().getObserved());
         assertNull(fit.getHealthMessage());
@@ -210,7 +214,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void silentNodeIsMarkedUnreachableWhateverItReportedLast() throws Exception {
         properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of("telemetry shipping lost")));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of("telemetry shipping lost"))));
         silentFor(Duration.ofSeconds(10));
 
         Requeue requeue = await(nodeWorker.reconcile(node()));
@@ -244,7 +248,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         VmNode asRead = node();
         // the worker read the node silent; its heartbeat landed before the worker's mark, and that
         // heartbeat's own read found no mark to clear
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
 
         assertFalse(await(nodes.setCondition(asRead, unreachableCondition(), "heartbeat timeout")));
 
@@ -274,7 +278,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     @Test
     public void nodeHeardWithinTheTimeoutIsLookedAtAgainWhenItsHeartbeatWouldBeOverdue() throws Exception {
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
 
         Requeue requeue = await(nodeWorker.reconcile(node()));
 
@@ -396,7 +400,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         Workload deployed = markedUnreachableBySilence();
 
         // the removal is intent; the node's worker, called by the master, carries it out
-        call(() -> nodeOrchestration.deregisterNode(NODE_ID));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.deregisterNode(NODE_ID)));
 
         awaitNodeGone(NODE_ID);
         assertEquals(WorkloadStatus.FAILED, workload(deployed.getId()).getStatus());
@@ -405,7 +409,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     @Test
     public void aReportOfARunAlreadyEndedReturnsNoRoom() throws Exception {
         Workload deployed = markedUnreachableBySilence();
-        call(() -> nodeOrchestration.deregisterNode(NODE_ID));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.deregisterNode(NODE_ID)));
         awaitNodeGone(NODE_ID);
         assertEquals(WorkloadStatus.FAILED, workload(deployed.getId()).getStatus());
 
@@ -422,7 +426,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     @Test
     public void deregisteringAReachableIdleNodeIsFinalizedByItsWorker() throws Exception {
-        call(() -> nodeOrchestration.deregisterNode(NODE_ID));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.deregisterNode(NODE_ID)));
 
         awaitNodeGone(NODE_ID);
     }
@@ -431,7 +435,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void deregisteringAReachableNodeWithRunningWorkloadsIsRefused() throws Exception {
         call(() -> orchestration.deployWorkload(newWorkload()));
 
-        assertThrows(Exception.class, () -> call(() -> nodeOrchestration.deregisterNode(NODE_ID)));
+        assertThrows(Exception.class, () -> await(runAsNode(NODE_ID, () -> nodeOrchestration.deregisterNode(NODE_ID))));
 
         assertNull(node().getState().getDeletionRequested());
         assertTrue(node().getState().isReconciled());
@@ -490,8 +494,8 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void detachedReplyDoesNotClobberTerminalReport() throws Exception {
         // A short-lived detached workload: the node's terminal report is applied before the
         // start reply is processed, so the RUNNING reply must not overwrite it
-        vmManager.onStart = started -> nodeOrchestration.reportWorkloadStatus(NODE_ID, List.of(statusReport(started.getId(), WorkloadStatus.STOPPED, 0,
-                                                                                                                System.currentTimeMillis() + 1000)));
+        vmManager.onStart = started -> runAsNode(NODE_ID, () -> nodeOrchestration.reportWorkloadStatus(List.of(statusReport(started.getId(), WorkloadStatus.STOPPED, 0,
+                                                                                                                System.currentTimeMillis() + 1000))));
 
         Workload deployed = call(() -> orchestration.deployWorkload(newWorkload()));
 
@@ -589,12 +593,12 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     @Test
     public void reservationDeclinesANodeThatLeftItsDesiredStateSinceItWasPicked() throws Exception {
         // placement read the node taking workloads; it reported a problem before the reservation was written
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of("disk limits unenforced")));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of("disk limits unenforced"))));
 
         assertFalse(await(nodes.reserveSync(NODE_ID, newWorkload())));
         assertEquals(4, node().getFreeCpus(), "a node not in its desired state grants no room");
 
-        call(() -> nodeOrchestration.heartbeat(NODE_ID, List.of()));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
 
         assertTrue(await(nodes.reserveSync(NODE_ID, newWorkload())));
         assertEquals(3, node().getFreeCpus());
@@ -726,9 +730,29 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         assertEquals("<redacted>", stored.getSecrets().get("GIT_TOKEN"));
     }
 
+    @Test
+    public void onlyASystemMachineRegistersAndSpeaksAsItsOwnNode() throws Exception {
+        VmNodeRegistration registration = NodeFixtures.registration("impostor", 4, 4096, 10240);
+        DefaultSystemParticipant systemUser = new DefaultSystemParticipant(
+                "system-user-" + suffix(),
+                Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER), List.of());
+
+        assertInstanceOf(AuthorizationException.class,
+                         assertThrows(Exception.class, () -> await(runAsOrganization(() -> nodeOrchestration.registerNode(registration)))).getCause());
+        assertInstanceOf(AuthorizationException.class,
+                         assertThrows(Exception.class, () -> await(runAs(systemUser, () -> nodeOrchestration.registerNode(registration)))).getCause());
+        assertInstanceOf(AuthorizationException.class,
+                         assertThrows(Exception.class, () -> await(runAs(systemUser, () -> nodeOrchestration.heartbeat(List.of())))).getCause());
+
+        // a machine's heartbeat is its own node's: another machine's leaves this node's lastSeen as it was
+        Date before = node().getLastSeen();
+        assertThrows(Exception.class, () -> await(runAsNode("never-registered-" + suffix(), () -> nodeOrchestration.heartbeat(List.of()))));
+        assertEquals(before, node().getLastSeen());
+    }
+
     /** Registers the node the way a vm-manager does at startup, taking workloads and heard just now. */
     private VmNode registered(String nodeId, int cpus, int memoryMb, int diskMb) throws Exception {
-        return call(() -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, cpus, memoryMb, diskMb)));
+        return await(runAsNode(nodeId, () -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, cpus, memoryMb, diskMb))));
     }
 
     /** Serves a stand-in vm-manager at the node's address, the one the platform's proxy sends to. */
@@ -842,7 +866,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     /** The node pushes a status report stamped by its own clock. */
     private void reportAt(String workloadId, WorkloadStatus status, Integer exitCode, long updated) throws Exception {
-        await(nodeOrchestration.reportWorkloadStatus(NODE_ID, List.of(statusReport(workloadId, status, exitCode, updated))));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.reportWorkloadStatus(List.of(statusReport(workloadId, status, exitCode, updated)))));
     }
 
     private static WorkloadStatusReport statusReport(String workloadId, WorkloadStatus status, Integer exitCode, long updated) {

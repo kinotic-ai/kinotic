@@ -1,7 +1,6 @@
-package org.kinotic.domain.api.rest.support;
+package org.kinotic.common.api.oidc;
 
 import lombok.Getter;
-import org.kinotic.common.api.oidc.OidcProviderType;
 
 /**
  * Signals a recoverable failure in the OIDC callback flow with a stable error code that

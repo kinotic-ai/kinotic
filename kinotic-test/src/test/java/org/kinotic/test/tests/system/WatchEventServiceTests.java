@@ -51,8 +51,8 @@ public class WatchEventServiceTests extends KinoticTestBase {
 
     @Test
     public void listsEveryRecordsEntriesNewestFirst() throws Exception {
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(NodeFixtures.registration(firstNode, 4, 4096, 10240))));
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(NodeFixtures.registration(secondNode, 4, 4096, 10240))));
+        await(runAsNode(firstNode, () -> nodeOrchestration.registerNode(NodeFixtures.registration(firstNode, 4, 4096, 10240))));
+        await(runAsNode(secondNode, () -> nodeOrchestration.registerNode(NodeFixtures.registration(secondNode, 4, 4096, 10240))));
 
         // the ledger is visible to search after its next refresh
         long deadline = System.currentTimeMillis() + 30_000;

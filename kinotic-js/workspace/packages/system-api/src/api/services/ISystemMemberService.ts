@@ -17,6 +17,25 @@ export interface ISystemMemberService {
 
     searchUsers(searchText: string, pageable: Pageable): Promise<Page<SystemParticipantIdentity>>
 
+    /**
+     * Adds a system user, who holds the system's full authority once signed in. The user is pending until it first
+     * signs in: through one of the providers the system console's login offers, which signs in the account whose
+     * verified email is `email`, or with a password `resetUserPassword` issues.
+     */
+    addUser(email: string, displayName: string | null): Promise<SystemParticipantIdentity>
+
+    /**
+     * Enables or disables a system user. A disabled user cannot sign in; a session it already holds lasts until it
+     * expires. Callers cannot disable themselves.
+     */
+    setUserEnabled(userId: string, enabled: boolean): Promise<void>
+
+    /**
+     * Replaces a system user's password with a generated one, returned exactly once. Refused while the system
+     * console's login takes no password.
+     */
+    resetUserPassword(userId: string): Promise<string>
+
     /** Lists the system's machines, disabled ones included. */
     findMachines(pageable: Pageable): Promise<Page<MachineParticipantIdentity>>
 
@@ -61,6 +80,18 @@ export class SystemMemberService implements ISystemMemberService {
 
     public searchUsers(searchText: string, pageable: Pageable): Promise<Page<SystemParticipantIdentity>> {
         return this.serviceProxy.invoke('searchUsers', [searchText, pageable])
+    }
+
+    public addUser(email: string, displayName: string | null): Promise<SystemParticipantIdentity> {
+        return this.serviceProxy.invoke('addUser', [email, displayName])
+    }
+
+    public setUserEnabled(userId: string, enabled: boolean): Promise<void> {
+        return this.serviceProxy.invoke('setUserEnabled', [userId, enabled])
+    }
+
+    public resetUserPassword(userId: string): Promise<string> {
+        return this.serviceProxy.invoke('resetUserPassword', [userId])
     }
 
     public findMachines(pageable: Pageable): Promise<Page<MachineParticipantIdentity>> {

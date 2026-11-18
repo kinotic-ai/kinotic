@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     api 'io.vertx:vertx-core'
+    api 'io.vertx:vertx-web'
 
     implementation 'io.vertx:vertx-auth-oauth2'
     implementation 'io.vertx:vertx-web-client'

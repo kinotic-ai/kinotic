@@ -1,5 +1,7 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.core.api.security.Participant;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
@@ -9,7 +11,6 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
-import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
@@ -25,7 +26,7 @@ public class DefaultPasswordConfigurationService implements PasswordConfiguratio
     private final PasswordConfigurationRepository passwordRepository;
     private final ApplicationRepository applicationRepository;
     private final TenantRepository tenantRepository;
-    private final OrganizationSignInGuard signInGuard;
+    private final MemberSignInGuard signInGuard;
     private final SecurityContext securityContext;
 
     @Override
@@ -93,17 +94,17 @@ public class DefaultPasswordConfigurationService implements PasswordConfiguratio
                                  });
     }
 
-    // whether turning existing off takes the password away from the organization's members
+    // whether turning existing off takes the password away from the users of an organization's own login or the system's
     private static boolean disables(PasswordConfiguration existing) {
         return existing != null && existing.isEnabled() && existing.getApplicationId() == null;
     }
 
     private void requireOwner(String organizationId) {
         Validate.notBlank(organizationId, "Organization id must be set on PasswordConfiguration");
-        String callerOrganizationId = securityContext.requireParticipant(OrganizationParticipant.class).getOrganizationId();
+        String callerOrganizationId = DomainUtil.signInOwnerIdOf(securityContext.requireParticipant(Participant.class));
         if (!callerOrganizationId.equals(organizationId)) {
-            throw new AuthorizationException("Cannot write the PasswordConfiguration of organization '" + organizationId
-                                             + "' while authenticated as organization '" + callerOrganizationId + "'");
+            throw new AuthorizationException("Cannot write the PasswordConfiguration of '" + organizationId
+                                             + "' while authenticated as '" + callerOrganizationId + "'");
         }
     }
 

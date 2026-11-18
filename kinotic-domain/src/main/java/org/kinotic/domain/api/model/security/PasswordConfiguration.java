@@ -28,7 +28,10 @@ public class PasswordConfiguration implements OrganizationScoped<String> {
 
     private String id;
 
-    /** Owning organization: the one of the participant saving the configuration, which the service enforces. */
+    /**
+     * Owning organization: the one of the participant saving the configuration, which the service enforces. The
+     * system's id, {@code DomainUtil.SYSTEM_ID}, for the system console's login, which a system participant saves.
+     */
     private String organizationId;
 
     /** The application whose login, or whose tenant's login, the configuration is offered at; {@code null} for the organization's own login. */

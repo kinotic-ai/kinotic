@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.utils;
 
+import org.kinotic.core.api.security.ParticipantConstants;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.ZonePartitioningService;
@@ -106,6 +107,23 @@ public class DomainUtilZoneRulesTest {
 
         ZoneRules organization = organizationRules("acme-org");
         assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org-2.orders-app~OrderService#1.0.0")));
+    }
+
+    @Test
+    public void systemMachineSubscribesUnderItsOwnIdAlone() {
+        DefaultSystemParticipant machine = DefaultSystemParticipant.builder()
+                                                                   .id("machine-1")
+                                                                   .metadata(Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                                    ParticipantConstants.PARTICIPANT_TYPE_MACHINE))
+                                                                   .roles(List.of())
+                                                                   .build();
+        ZoneRules rules = DomainUtil.zoneRules(machine, List.of()).restrictedTo(partitioning);
+
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://machine-1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://machine-2@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        // a system user's subscriptions carry any scope
+        assertTrue(systemRules().subscribeAllowed(CRI.create("srv://machine-2@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
     }
 
     @Test
