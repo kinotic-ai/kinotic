@@ -212,9 +212,10 @@ outside Kubernetes has no cluster id and runs only on a key bound to no cluster,
 
 Once the installed key expires within ten days, one system server signs in to the license server at
 `wss://licenses.kinotic.ai` with it and asks for the cluster's newest key, which it installs when it differs; it checks
-when it starts and once a day after, so a cluster that can reach the license server picks up the key each payment
-issues by itself. A cluster that cannot reach it logs a
-warning and keeps its key; its customer copies each new key from the account and installs it on the License page.
+once a day, as the `license-renewal` [system job](https://kinotic.ai/platform/reference/grind-jobs#system-jobs), so a cluster that can
+reach the license server picks up the key each payment issues by itself. A cluster that cannot reach it keeps its key,
+and that day's run is recorded as failed on the system console's Jobs page; its customer copies each new key from the
+account and installs it on the License page.
 A key bound to no cluster is not renewed.
 
 Keys are verified offline, and each server logs the licensee, expiry and features a key turns on, or why the key is

@@ -1548,13 +1548,17 @@ the runtime VMs are only ever signaled after a successful sync. The build VM of 
 is kept (not discarded) so its logs can be inspected from the workload logs view; it is
 cleaned up on the next successful deployment of the project.
 
+A deployment whose server node stops or leaves the cluster while its job runs is not a failed
+build. The run is recorded `FAILED` with the condition `SERVER_NODE_LEFT`, and the commit is
+deployed again by a new run, without waiting for another push.
+
 ## Concurrent pushes
 
 A push writes the project's intent, `state.desired`, and the reconcile master, one elected server
 node, runs the deployment for it. Deployments are serialized per project with **latest-wins**:
 pushes arriving while a deployment is running collapse to the newest commit, because the record
 holds only the latest intent and the master calls the deployment worker once more when the run
-ends. Intermediate
+ends, which reports the run's outcome and then starts the run of the newer commit. Intermediate
 commits are skipped rather than queued — the checkout converges to the newest push, and
 each skipped commit is still reachable in git history. Redeliveries of the same push are
 harmless: syncing a commit twice converges to the same checkout.
@@ -6269,7 +6273,7 @@ Kinotic OS is a full-stack application platform that handles service communicati
 ## Core Components
 
 - **Management server** (`kinotic-server-management`) — The API the portal, the Kinotic CLI and organization members' MCP hosts call: sign-up, logins and invitations, the `management-api` services, and the GitHub App's webhook.
-- **System server** (`kinotic-server-system`) — The API the system console and the vm-managers call: the `system-api` services, project deployments, and the cluster singletons that reconcile deployments and delete old workload runs.
+- **System server** (`kinotic-server-system`) — The API the system console and the vm-managers call: the `system-api` services, project deployments, and the cluster singletons that reconcile deployments and start the scheduled system jobs.
 - **App server** (`kinotic-server-app`) — The API every application's users, UIs and microservices call: the `app-api` persistence services and the services applications publish in their own zones, each application at its own API host.
 - **RPC Gateway** — Each server's gateway routes remote procedure calls between its clients and published services over STOMP/WebSocket, and serves the server's REST and MCP endpoints.
 - **Persistence Layer** — Provides automatic CRUD operations for entities backed by Elasticsearch.
@@ -8565,7 +8569,7 @@ A workload writes to two places the node must bound: the directories it mounts, 
 
 ## Workload retention
 
-A workload's record is the only link to its logs, so nothing deletes one as a side effect: destroying a workload removes its VM and its disk from the node and records the run `STOPPED`, and the record and its logs stay. Deleting a workload, from the console or through `WorkloadOrchestrationService.deleteWorkload`, is the one way either goes: it deletes every log line the workload wrote from the organization's Loki tenant (the system's own, `kinotic-system`, for a system workload), then the record, and refuses a run still open on its node — stop or destroy it first. The retention sweep, one cluster singleton beside the reconcile master, runs hourly and deletes the records of runs that ended longer ago than the retention period the same way, a page of a hundred at a time, up to fifty pages a sweep; what one sweep leaves, the next one takes. An operator runs the same sweep on demand as the `workload-retention-sweep` system job, with **Run system job** on the system console's **Jobs** page (see [System jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs)).
+A workload's record is the only link to its logs, so nothing deletes one as a side effect: destroying a workload removes its VM and its disk from the node and records the run `STOPPED`, and the record and its logs stay. Deleting a workload, from the console or through `WorkloadOrchestrationService.deleteWorkload`, is the one way either goes: it deletes every log line the workload wrote from the organization's Loki tenant (the system's own, `kinotic-system`, for a system workload), then the record, and refuses a run still open on its node — stop or destroy it first. The retention sweep is the `workload-retention-sweep` system job, which the cluster's job manager runs hourly (see [System jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs)). It deletes the records of runs that ended longer ago than the retention period the same way, a page of a hundred at a time, up to fifty pages a sweep; what one sweep leaves, the next one takes. An operator runs the same sweep on demand with **Run system job** on the system console's **Jobs** page; one sweep runs at a time, so a run started while another is going is refused.
 
 Configured under `kinotic.systemApi.workload.*`:
 
@@ -12313,9 +12317,10 @@ outside Kubernetes has no cluster id and runs only on a key bound to no cluster,
 
 Once the installed key expires within ten days, one system server signs in to the license server at
 `wss://licenses.kinotic.ai` with it and asks for the cluster's newest key, which it installs when it differs; it checks
-when it starts and once a day after, so a cluster that can reach the license server picks up the key each payment
-issues by itself. A cluster that cannot reach it logs a
-warning and keeps its key; its customer copies each new key from the account and installs it on the License page.
+once a day, as the `license-renewal` [system job](https://kinotic.ai/platform/reference/grind-jobs#system-jobs), so a cluster that can
+reach the license server picks up the key each payment issues by itself. A cluster that cannot reach it keeps its key,
+and that day's run is recorded as failed on the system console's Jobs page; its customer copies each new key from the
+account and installs it on the License page.
 A key bound to no cluster is not renewed.
 
 Keys are verified offline, and each server logs the licensee, expiry and features a key turns on, or why the key is
@@ -15756,11 +15761,13 @@ JobDefinition job = JobDefinition.create("Deploy project")
 
 `name` identifies the job across runs and is required to run it. `version` names the shape of its tasks and is recorded on every run: change it whenever the tasks, their order or what they store changes, since a run recorded with a version is [resumed](#resuming-a-run) only by a definition of that version. `input(...)` stores values in the scope as beans, so the first task's dependencies resolve the same way as any other.
 
+A definition holds nothing of a run, so one definition serves any number of runs, including runs that execute at the same time. The two tasks above declare what they take from the scope as `@Autowired` fields, and every execution is given an instance of its own to hold them (see [Task factories](#task-factories)).
+
 Definitions nest: `jobDefinition(...)` adds a whole `JobDefinition` as one task of another. A nested definition declares a `JobScope` — `CHILD` (the default) gives it a scope of its own that is destroyed when it finishes, while `PARENT` lets it store directly into its parent's scope. Passing `parallel = true` to `JobDefinition.create` makes the definition's tasks execute concurrently; the first failure cancels the in-flight siblings. A sequential definition stops at its first failure, unless it is built with `continueOnFailure()`: then every task runs, and the definition fails once all have run, with the first failure — for tasks that do not depend on one another, such as one import per source.
 
 ### Task factories
 
-The `Tasks` class adapts plain functional types into tasks. Each factory takes what every task needs, its description and its work; everything else is set with the fluent methods of the returned `Task`. A `Task` is immutable: each fluent method returns a copy, so one instance can be added to several definitions, or serve as a step and as another step's reload task, without either seeing the other's settings. The instance-taking factories inject the given instance's `@Autowired` and `@Value` members against the job scope before each invocation, so one instance serves one execution at a time; a task that runs concurrently, in a parallel definition or in concurrent runs, is built with `Tasks.fromClass`, which constructs an instance per execution:
+The `Tasks` class adapts plain functional types into tasks. Each factory takes what every task needs, its description and its work; everything else is set with the fluent methods of the returned `Task`. A `Task` is immutable: each fluent method returns a copy, so one instance can be added to several definitions, or serve as a step and as another step's reload task, without either seeing the other's settings. An instance the job scope injects, through an `@Autowired` or `@Value` field, an injected method or a lifecycle callback, written inline as an anonymous class, is the pattern of its task: every execution invokes a new instance of that class, holding what the given one captured and injected against the job scope, so executions that run at the same time, in a parallel definition or in concurrent runs, each hold their own values. A lambda or a method reference has nothing to inject and is invoked by every execution. An injected instance of a named class, or of an inline subclass of a class (`new BaseTask() { ... }`), is refused when the task is built; such a task is written as a named `Callable` class and the class is given to `Tasks.fromClass`, which constructs an instance per execution:
 
 - `Tasks.fromCallable(description, callable)` — the result is the callable's return value
 - `Tasks.fromSupplier(description, supplier)` / `Tasks.fromRunnable(description, runnable)`
@@ -15877,6 +15884,8 @@ The stream emits the sealed `JobRunEvent` family, each carrying the task's `task
 
 The stream completes when the run does, and errors with the run's failure.
 
+A task never starts a run. `run` and `resume` throw an `IllegalStateException` when a task calls them, from its body or from a callback that one of its futures runs on the run's context while the task is in flight, which fails the task. A task with more work to do returns it as a `Task` or a `JobDefinition` ([Dynamic tasks](#dynamic-tasks)), and it executes as a step of the task's own run, so one run shows the whole of its work.
+
 A run's live stream exists only in the process executing it. The run records the executing
 node's id as `JobRun.nodeId`, so remote watchers route their watch request to that node - in a
 cluster, any node can serve the persisted runs and records, while the live stream comes from
@@ -15959,7 +15968,9 @@ One run of an exclusive job executes at a time across the cluster for an owner. 
 
 Every run persists a `JobRun` — name, version, owner, status, timestamps, error, `resumedFrom`, and the `nodeId` of the executing node — and one `TaskRecord` per task: its `taskPath`, description, icon, status, timestamps, `storeType` and `storedName` (recorded from discovery when the definition names the store, so a watcher can tell the tasks apart before they complete), the serialized `STATE` value in `stateValue`, the wired value in `wireValue`, the latest view in `view`, and the failure message when it failed. The records are the run's durable history: what a dashboard renders after the event stream is gone, and what a resume replays from.
 
-The ledger is written ahead of execution. Each transition is acknowledged by the store before the run moves past it: the `JobRun` and the `PENDING` records of the task tree before the first task starts, a task's `RUNNING` record before its body executes, its `COMPLETED` or `FAILED` record before the next task starts, and the terminal records before the event stream terminates — so a subscriber that sees the stream end can read the final ledger immediately. A node that goes down mid-run therefore leaves a `RUNNING` run whose records name exactly the task that was in flight, rather than losing the run. Every node watches the cluster membership, and a run still `RUNNING` on a node that is no longer a member is marked with the condition `SERVER_NODE_LEFT` on its `state.conditions`, since no node will report its end; the deployment that made the run, named in `state.parent`, is told, and its worker runs the deployment again. A run's terminal status is written in place, leaving that state as it is, and entered in the `kinotic_watch_event` ledger.
+The ledger is written ahead of execution. Each transition is acknowledged by the store before the run moves past it: the `JobRun` and the `PENDING` records of the task tree before the first task starts, a task's `RUNNING` record before its body executes, its `COMPLETED` or `FAILED` record before the next task starts, and the terminal records before the event stream terminates — so a subscriber that sees the stream end can read the final ledger immediately, unless the store refused the run's terminal status three times (below). A node that goes down mid-run therefore leaves a `RUNNING` run whose records name exactly the task that was in flight, rather than losing the run. Every node watches the cluster membership, and a run still `RUNNING` on a node that is no longer a member is ended, since no node will report its end: it is recorded `FAILED` with the condition `SERVER_NODE_LEFT` on its `state.conditions` and the condition's message as its error. The runs are searched for when the membership changes and once more five seconds later, which finds a run recorded as its node left, and a search or a write that fails is made again, a second later and then at twice the previous wait up to five minutes, until it succeeds. The deployment that made the run, named in `state.parent`, is told, and its worker runs the deployment again. A node that is stopping ends its own runs the same way, before it leaves: each run still executing is recorded `FAILED` with `SERVER_NODE_LEFT` and, once that is written, cancelled, so its event stream fails with a `CancellationException`. A run whose end the stopping node could not write keeps executing, and the other nodes end it when the node has left. A run's terminal status is written in place, leaving that state as it is, and entered in the `kinotic_watch_event` ledger. Only a `RUNNING` run takes a terminal status, so a run has one end: a node that was cut off from the cluster and finishes a run after it was ended leaves the run `FAILED`.
+
+A run with no record does not execute. When the `JobRun` cannot be written at the start, the run's event stream fails with an `IllegalStateException` carrying the store's failure, and no task starts. The node then reads the run's record and, when the store took it in spite of the failure, ends it `FAILED` with the store's failure as its error, so it does not stay `RUNNING`; a read or a write that fails is made again the way a terminal status is. When the terminal status cannot be written, the node writes it again, a second after the first failure and then at twice the previous wait up to five minutes, until the store takes it or the node stops; the event stream waits for the first three attempts and then terminates, so for that time a finished run can still read `RUNNING`.
 
 ## Watching a run remotely
 
@@ -15998,32 +16009,44 @@ Every call is authorized against the run's recorded owner: an organization or ap
 }
 ```
 
+A run is kept for 30 days after it ends, as long as the `kinotic_watch_event` ledger keeps the entries of its changes; the `job-run-retention-sweep` [system job](#system-jobs) then deletes it with its task records. The latest run of each job, by the job's name and the organization it ran for, is kept however long ago it ended, so a deployment's latest run can always be read.
+
 A run that is no longer live is rendered from `findJobRun` and `findTasks` alone, so a watcher that reaches a finished run sees the same history the stream would have delivered. The records `findTasks` returns carry a task's value only as its `wireValue`; their `stateValue` and `stateValueType` are cleared, so durable state a task did not wire stays on the server.
 
 ## System jobs
 
-A system job is a grind job system users can start on demand; some also run on a schedule, and every run, started either way, is listed with its results. Each is a Spring bean implementing `SystemJob`, whose one method builds a fresh, named and versioned definition for each run; its name identifies the job and is recorded on every run, so it must be unique among the system jobs:
+A system job is a grind job of the system's own: system users can start it on demand, a job that declares a period also runs on that schedule, and every run, started either way, is listed with its results. Each is a named and versioned `JobDefinition` declared as a Spring bean, and that one definition serves every run of the job; its name identifies the job and is recorded on every run, so it must be unique among the system jobs:
 
 ```java
 @Component
 @RequiredArgsConstructor
-public class WorkloadRetentionJob implements SystemJob {
+public class WorkloadRetentionJob {
 
-    private final Ignite ignite;
+    private final WorkloadRetentionSweeper sweeper;
 
-    @Override
-    public JobDefinition createJobDefinition() {
+    @Bean
+    public JobDefinition workloadRetentionSweep() {
         return JobDefinition.create("Deletes the records and logs of workload runs that ended more than 30 days ago")
-                            .name("workload-retention-sweep").version("1")
-                            .task(Tasks.fromCallable("Delete expired workloads", () -> {
-                                WorkloadCleanupService.proxy(ignite).sweep();
-                                return null;
-                            }));
+                            .name("workload-retention-sweep").version("2")
+                            .every(Duration.ofHours(1))
+                            .task(Tasks.fromCallable("Delete expired workloads", sweeper::sweep));
     }
 }
 ```
 
-The retention sweep runs on the cluster singleton that runs the hourly sweep, which runs one sweep at a time: a run started while a sweep is in progress joins it and completes when it ends.
+`JobService` holds the node's system jobs, every `JobDefinition` bean of its Spring context: `findSystemJobs()` returns the definition of each, ordered by name, and `runSystemJob(name)` prepares a run of one on behalf of the system (`JobOwner.system()`), or throws an `IllegalArgumentException` for a name no job has. Two system jobs with one name fail the server's start.
+
+### Schedules
+
+`every(period)` makes a run of the job due once every period, counted from the start of its latest run, and makes the job [exclusive](#exclusive-jobs). The cluster's job manager starts the due runs. It is one cluster singleton, hosted by one of the nodes that hold the system jobs, which the system server requests with `JobService.deployJobManager`. It keeps the time each scheduled job is next due in memory, with one timer set to the earliest of them, and stores nothing: each node that comes to host it works the due times out again from the recorded runs.
+
+- A job is due a period after its latest run on record started, whoever started that run, and at once when it has no run on record. A run an operator starts therefore moves the schedule: the next run is a period after it. A run that fails counts as well, and the next is a period later.
+- When a job is due the manager reads its latest run once more and, if a period has passed, has a run started on one of the nodes that hold the system jobs, taking the nodes in turn. The node answers once the run is on record. A node that does not answer is followed by the next one, once the recorded runs show that no run was started.
+- A job that comes due while its latest run is still executing is refused its run, as any run of an exclusive job is, and is due again a period later. The manager logs a warning naming that run.
+- A job whose latest run cannot be read, whose run no node started, or whose run was refused while its latest run on record is not executing, is due again a minute later. The other jobs keep their schedules.
+- After the manager's node fails, or the whole cluster restarts, a job that came due meanwhile runs once, however many periods passed.
+
+Periods are constants in code. During a rolling upgrade the manager schedules the jobs of the node it sits on; once that node restarts, its next host schedules its own.
 
 `SystemJobService`, published in the system zone, lists them and starts them:
 
@@ -16038,7 +16061,7 @@ public interface SystemJobService {
 }
 ```
 
-`findSystemJobs` describes each job by its definition's `name`, `version` and `description`, ordered by name; each job's definition is built once when the server starts to read them, and two jobs with one name fail the start. `startSystemJob` runs the named job on behalf of the system (`JobOwner.system()`) on the node that received the call, and completes with the `JobRun` once the run and its task ledger are recorded; it fails for a name no job has. From then on the run is an ordinary job run: listed, read and watched through `JobMonitoringService`.
+`findSystemJobs` describes each job by its definition's `name`, `version` and `description`, ordered by name. `startSystemJob` runs the named job on behalf of the system (`JobOwner.system()`) on the node that received the call, and completes with the `JobRun` once the run and its task ledger are recorded; it fails for a name no job has. From then on the run is an ordinary job run: listed, read and watched through `JobMonitoringService`.
 
 The system console's **Jobs** page starts them: **Run system job** opens a drawer listing the jobs, and running one opens the new run's page. The page lists every run, the system jobs' runs among them, each marked as the system's. A run's page shows the run as the deployment pages do — its top-level tasks as a pipeline and its whole task tree, including every task a task generated as the run went.
 
@@ -16081,7 +16104,11 @@ Kinotic ships these system jobs:
         OSV
       </a>
       
-       changed since the last import, one step per ecosystem, and updates the alerts of the advisories that changed; each step shows how many advisories it stored and removed and how many of their alerts it raised, updated and cleared; a step that fails leaves the others to run. Runs hourly, one run at a time
+       changed since the last import, one step per ecosystem, and updates the alerts of the advisories that changed; each step shows how many advisories it stored and removed and how many of their alerts it raised, updated and cleared; a step that fails leaves the others to run. Its last step runs the steps of <code>
+        sbom-scan
+      </code>
+      
+       as part of the same run when a scan is due: once a day, and after an import that stored advisories without updating their alerts. Runs hourly
     </td>
   </tr>
   
@@ -16093,7 +16120,11 @@ Kinotic ships these system jobs:
     </td>
     
     <td>
-      Scans every project's SBOM, showing how many SBOMs it scanned and alerts it cleared, then reads again the advisories OSV no longer lists, one step per ecosystem; a step that fails leaves the others to run. Runs daily, one run at a time
+      Scans every project's SBOM, showing how many SBOMs it scanned and alerts it cleared, then reads again the advisories OSV no longer lists, one step per ecosystem; a step that fails leaves the others to run. Has no schedule of its own: it runs inside <code>
+        osv-import
+      </code>
+      
+       once a day, and on demand, one such run at a time
     </td>
   </tr>
   
@@ -16109,7 +16140,35 @@ Kinotic ships these system jobs:
         workload retention
       </a>
       
-       sweep now
+       sweep. Runs hourly
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        license-renewal
+      </code>
+    </td>
+    
+    <td>
+      Renews the cluster's <a href="https://kinotic.ai/platform/enterprise-license">
+        license key
+      </a>
+      
+       with the license server once the key nears its expiry. Runs daily
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        job-run-retention-sweep
+      </code>
+    </td>
+    
+    <td>
+      Deletes the job runs that ended more than 30 days ago, each with its task records. A run still executing is kept, and so is the latest run of each job. Runs daily
     </td>
   </tr>
 </tbody>
@@ -16548,8 +16607,8 @@ keyword list of package URLs, so the projects holding a package are one term que
 `dependencyHash`, the hash it was recorded with. The portal's SBOM page reads the tree through
 `ProjectService.findDependencies` and builds the CycloneDX document it downloads in the
 browser. A project's deletion deletes the tree, and its vulnerability alerts, with its deployment.
-- **Vulnerability alerts.** `OsvAdvisoryImporter`, run hourly by the `OsvImportScheduler`
-cluster singleton on the system-api nodes, reads OSV's export for each `PackageEcosystem` (npm
+- **Vulnerability alerts.** `OsvAdvisoryImporter`, run hourly by the `osv-import`
+system job on one of the system-api nodes, reads OSV's export for each `PackageEcosystem` (npm
 and Maven): `<ecosystem>/all.zip`, downloaded to a temporary file on the system server that is deleted once
 read, the first time, then the
 advisories `<ecosystem>/modified_id.csv` lists as changed since two days before
@@ -16578,22 +16637,22 @@ severity or a package the stored one lists at no version, which unacknowledges i
 operation that stores the finding. A scan works from the trees it read, so once its alerts are written
 it reads the `dependencyHash` of each project it wrote alerts for: a project whose tree was
 replaced meanwhile is scanned again from the stored tree, and the alerts written for a project
-whose tree was deleted meanwhile are deleted. A full archive read makes the scan of every tree due. The singleton
-runs both as [system jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs), `osv-import` hourly (one
-step per ecosystem, showing how many advisories it stored and removed and how many of their alerts
-it raised, updated and cleared) and `sbom-scan` daily (the scan of every tree as a backstop, also deleting the alerts
-of projects without a tree, then one step per ecosystem reading again the advisories
-`modified_id.csv` no longer lists and dropping those OSV no longer serves, or reading the archive
-again when more than 2,000 are unlisted), the day counted by a
-cluster atomic, so it survives the singleton moving. Both jobs are
-[exclusive](https://kinotic.ai/platform/reference/grind-jobs#exclusive-jobs): one import and one scan run at a time
-across the cluster, so a run an operator starts while the scheduled one is going is refused, as is
-the scheduled one while an operator's is going, and a run still going on the node the singleton
-leaves finishes there before its next host's starts. Every run is kept with its results on the
-system console's Jobs page. A step that fails fails its run like any job's, the other ecosystem's
-step running all the same: the next hourly import reads from the same point, an import that fails
-after storing advisories makes the scan of every tree due, and a failed daily run is followed by the
-next day's. Versions are ordered as the ecosystem orders them,
+whose tree was deleted meanwhile are deleted. A full archive read makes the scan of every tree due. Both
+are [system jobs](https://kinotic.ai/platform/reference/grind-jobs#system-jobs). The cluster's job manager starts
+`osv-import` hourly (one step per ecosystem, showing how many advisories it stored and removed and
+how many of their alerts it raised, updated and cleared). The import's last step runs the steps of
+`sbom-scan` as part of the same run when a scan is due, once a day (the scan of every tree as a
+backstop, also deleting the alerts of projects without a tree, then one step per ecosystem reading
+again the advisories `modified_id.csv` no longer lists and dropping those OSV no longer serves, or
+reading the archive again when more than 2,000 are unlisted), the day counted by a cluster atomic,
+so it is counted across the nodes the import runs on. `osv-import` is
+[exclusive](https://kinotic.ai/platform/reference/grind-jobs#exclusive-jobs): one import runs at a time across the
+cluster, so a run an operator starts while the scheduled one is going is refused, as is the
+scheduled one while an operator's is going. An operator can also start `sbom-scan` as a job of its
+own, one such run at a time. Every run is kept with its results on the system console's Jobs page.
+A step that fails fails its run like any job's, the other steps running all the same: the next
+hourly import reads from the same point, an import that fails after storing advisories makes the
+scan of every tree due in that same run, and a failed daily scan is followed by the next day's. Versions are ordered as the ecosystem orders them,
 semver for npm and Maven's `ComparableVersion`; a version neither can order, such as a git
 source, is affected only when an advisory lists it. The entries an advisory holds for one package
 are matched as one, so the fix reported for a version is one no entry affects, and a range
@@ -16607,7 +16666,7 @@ convention, the OpenTelemetry agent among them) as its row of `kinotic_server_sb
 Ignite id, deletes that row when it shuts down, and deletes the rows of nodes that left the cluster
 without shutting down; the page reads the rows of the nodes running and groups the nodes
 listing the same libraries into one build. `kinotic.systemApi.disableOsvImport` stops OSV being read,
-and removes the singleton and both system jobs with it, so only `recordSbom` scans.
+and removes both system jobs with it, so only `recordSbom` scans.
 - **Sites on Cloudflare.** Terraform's `modules/cloudflare-sites` owns everything a site needs, once
 per environment: the zone's settings and Total TLS, the app server's proxied hosts, and the
 sites Worker that serves `sites/<hostname>/` from the sites account, which `modules/sites`
