@@ -185,6 +185,8 @@ locals {
     KINOTIC_MANAGEMENTAPI_LOKIURL    = local.service_urls["http://loki:3100"]
     KINOTIC_MANAGEMENTAPI_TEMPOURL   = local.service_urls["http://tempo:3200"]
     KINOTIC_MANAGEMENTAPI_MIMIRURL   = local.service_urls["http://mimir:9009"]
+    # the Turnstile site the portal's find-my-organizations form presents; its secret is in secrets.yml
+    KINOTIC_MANAGEMENTSERVER_TURNSTILE_SITEKEY = local.azure.turnstile_site_key
   }
 
   # The three servers, and Summit 42 when the dev-server root enables it. Each serves on its own

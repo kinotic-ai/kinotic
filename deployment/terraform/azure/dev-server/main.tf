@@ -209,3 +209,13 @@ resource "cloudflare_dns_record" "public" {
     ignore_changes = [content]
   }
 }
+
+# The Turnstile site the portal's find-my-organizations form presents; the proxmox root gives the management
+# server its site key, and the operator places its secret in the management server's secrets.yml
+resource "cloudflare_turnstile_widget" "portal" {
+  account_id = var.cloudflare_account_id
+  name       = "${local.name_prefix} portal"
+  domains    = [local.portal_hostname]
+  mode       = "managed"
+  region     = "world"
+}
