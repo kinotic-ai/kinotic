@@ -12,9 +12,7 @@ import java.time.Duration;
  * scope, so values stored by earlier tasks can be injected into later ones.
  *
  * A definition holds nothing of a run, so one instance serves any number of runs, including runs
- * that execute at the same time. The exception is a definition with a task built from an object
- * whose members are injected, as {@link Tasks#fromCallable(String, java.util.concurrent.Callable)}
- * describes: that object serves one execution at a time, so such a definition is built for each run.
+ * that execute at the same time.
  */
 public interface JobDefinition {
 
