@@ -143,7 +143,7 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
 
     /**
      * The runs still executing on nodes other than the given ones: what a node that left the cluster
-     * leaves behind.
+     * leaves behind. Fails when the store could not search every run.
      *
      * @param members  the nodes in the cluster
      * @param pageable the page to return
@@ -151,7 +151,9 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     public Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
         Validate.notNull(members, "members cannot be null");
         List<FieldValue> nodeIds = members.stream().map(FieldValue::of).toList();
-        return findAll(pageable, b -> b.query(q -> q.bool(bool -> bool
+        // a search that a failed or timed out shard left incomplete fails, so runs it did not read
+        // are not taken for runs that ended
+        return findAll(pageable, b -> b.allowPartialSearchResults(false).query(q -> q.bool(bool -> bool
                 .filter(termFilter("status", ExecutionStatus.RUNNING.name()))
                 .mustNot(mn -> mn.terms(t -> t.field("nodeId").terms(v -> v.value(nodeIds)))))));
     }

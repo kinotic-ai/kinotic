@@ -31,7 +31,7 @@ public final class TaskInstanceFactory<T> {
 
     private static final SpringObjenesis OBJENESIS = new SpringObjenesis();
     private static final String NOT_REPEATABLE = "%s cannot be constructed again from what it captured: "
-            + "give its class a name and give the class to Tasks.fromClass";
+            + "write it as a named Callable class and give the class to Tasks.fromClass";
 
     private final T template;
     // Constructs the instance of one execution, or null when the template serves every execution
@@ -52,7 +52,7 @@ public final class TaskInstanceFactory<T> {
         if (DefaultJobContext.injects(type)) {
             Validate.isTrue(type.isAnonymousClass(),
                             "An instance of %s holds what one execution injects, so each execution needs an "
-                                    + "instance of its own: give the class to Tasks.fromClass", type.getName());
+                                    + "instance of its own: give the class, as a Callable, to Tasks.fromClass", type.getName());
             // an anonymous subclass passes its constructor arguments on to its superclass and keeps no
             // field for them, so they cannot be read back
             Validate.isTrue(type.getSuperclass() == Object.class, NOT_REPEATABLE, type.getName());
@@ -125,10 +125,12 @@ public final class TaskInstanceFactory<T> {
         }
     }
 
+    // The fields the compiler added to hold what an instance captured. A static one, such as the
+    // flag of an assert statement, belongs to the class and no constructor parameter fills it.
     private static List<Field> syntheticFields(Class<?> type) {
         List<Field> ret = new ArrayList<>();
         for (Field field : type.getDeclaredFields()) {
-            if (field.isSynthetic()) {
+            if (field.isSynthetic() && !Modifier.isStatic(field.getModifiers())) {
                 field.setAccessible(true);
                 ret.add(field);
             }

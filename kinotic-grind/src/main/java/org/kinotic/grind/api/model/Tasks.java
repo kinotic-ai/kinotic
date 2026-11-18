@@ -53,7 +53,8 @@ public class Tasks {
      * @param <R> the result type
      * @return the task
      * @throws IllegalArgumentException if the job scope injects the callable and it is an instance
-     *         of a named class, which {@link #fromClass(String, Class)} takes
+     *         of a named class or of an inline subclass of a class: {@link #fromClass(String, Class)}
+     *         takes such a task as a named class
      */
     public static <R> Task<R> fromCallable(String description, Callable<R> callable) {
         Validate.notNull(callable, "callable cannot be null");

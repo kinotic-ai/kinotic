@@ -36,6 +36,7 @@ public class ReusedDefinitionTest extends AbstractGrindTest {
     public void runsAtTheSameTimeEachInjectTheirOwnValues() throws Exception {
         AtomicInteger made = new AtomicInteger();
         List<String> held = Collections.synchronizedList(new ArrayList<>());
+        CountDownLatch injected = new CountDownLatch(RUNS);
         JobDefinition job = JobDefinition.create("reused")
                 .name("reused").version("1")
                 .task(Tasks.fromCallable("make widget", () -> new Widget("w" + made.incrementAndGet())).store(Store.result()))
@@ -49,10 +50,13 @@ public class ReusedDefinitionTest extends AbstractGrindTest {
 
                     @Override
                     public Future<Void> call() {
-                        // the other runs reach this task while this one waits
-                        return vertx.timer(200)
-                                    .onSuccess(id -> held.add(widget.name() + " in the run of " + context.getBean(Widget.class).name()))
-                                    .mapEmpty();
+                        // reads its fields only once every run has been injected, so the runs overlap
+                        return vertx.executeBlocking(() -> {
+                            injected.countDown();
+                            assertTrue(injected.await(10, TimeUnit.SECONDS), "the runs did not reach this task together");
+                            held.add(widget.name() + " in the run of " + context.getBean(Widget.class).name());
+                            return null;
+                        }, false);
                     }
                 }));
 
@@ -135,6 +139,7 @@ public class ReusedDefinitionTest extends AbstractGrindTest {
 
             @Override
             public void run() {
+                assert widget != null;
                 seen.add("static method " + widget.name());
             }
         });
