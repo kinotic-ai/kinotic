@@ -62,7 +62,9 @@ function failedRuns(runs: JobRun[], scope: Scope): AttentionItem[] {
                }))
 }
 
-function failedWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
+// nodes are the worker nodes whose names a failure is placed by; a workload on any other is shown without its node
+function failedWorkloads(workloads: Workload[], scope: Scope, nodes: VmNode[]): AttentionItem[] {
+    const nodeNames = new Map(nodes.map(node => [node.id, node.name]))
     return workloads.filter(workload => workload.status === WorkloadStatus.FAILED)
                     .slice(0, MAX_PER_KIND)
                     .map(workload => ({
@@ -72,7 +74,7 @@ function failedWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
                         owner: ownerOf(workload, scope),
                         reason: [
                             workload.exitCode !== null ? `Exited with code ${workload.exitCode}` : null,
-                            workload.nodeId ? `on ${workload.nodeId}` : null
+                            workload.nodeId && nodeNames.has(workload.nodeId) ? `on ${nodeNames.get(workload.nodeId)}` : null
                         ].filter(Boolean).join(' ') || null,
                         when: relative(workload.created),
                         to: `${scopePath(scope)}/workloads/${encodeURIComponent(workload.id ?? '')}`
@@ -155,7 +157,7 @@ export function systemAttention(cluster: KinoticClusterInfo | null, nodes: VmNod
     const scope: Scope = {}
     return [
         ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope),
+        ...failedWorkloads(workloads, scope, nodes),
         ...unreachableWorkloads(workloads, scope),
         ...unfitNodes(nodes),
         ...versionSkew(cluster)
@@ -167,7 +169,7 @@ export function organizationAttention(organization: Organization, workloads: Wor
     const scope: Scope = { organizationId: organization.id ?? '' }
     return [
         ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope),
+        ...failedWorkloads(workloads, scope, []),
         ...unreachableWorkloads(workloads, scope)
     ]
 }

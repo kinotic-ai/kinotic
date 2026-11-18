@@ -46,7 +46,8 @@ resource "azurerm_role_assignment" "license_server_email" {
 
 # Staff sign in to the console with their Minds Ignited account
 resource "azuread_application" "license_console" {
-  display_name     = "${var.project}-license-console"
+  # what Microsoft's sign-in page names as the application being signed in to
+  display_name     = "Kinotic, Inc"
   sign_in_audience = "AzureADMyOrg"
 
   api {

@@ -6,7 +6,8 @@
 # in var.system_sign_in_provider_id so the registration lists that URL.
 
 resource "azuread_application" "system_console" {
-  display_name     = "${var.project}-${var.environment}-system-console"
+  # what Microsoft's sign-in page names as the application being signed in to
+  display_name     = "Kinotic, Inc"
   sign_in_audience = "AzureADMyOrg"
 
   api {

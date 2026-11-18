@@ -208,7 +208,7 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
     private static String participantDisplayName(OrganizationParticipant participant) {
         String ret = participant.getId();
         if (participant.getMetadata() != null) {
-            String name = participant.getMetadata().get("displayName");
+            String name = DomainUtil.displayNameOf(participant);
             String email = participant.getMetadata().get("email");
             if (name != null && !name.isBlank()) {
                 ret = name;

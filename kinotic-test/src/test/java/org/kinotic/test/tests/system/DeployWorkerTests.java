@@ -303,7 +303,7 @@ public class DeployWorkerTests extends KinoticTestBase {
      * with one microservice, {@code api}: everything the microservice worker needs to run a VM.
      */
     private void deployable(String projectId) throws Exception {
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(NodeFixtures.registration(NODE_ID, 4, 4096, 10240))));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.registerNode(NodeFixtures.registration(NODE_ID, 4, 4096, 10240))));
         vmManager = new StubVmManager();
         await(serviceRegistry.register(NodeFixtures.vmManagerAddress(NODE_ID), VmManager.class, vmManager));
         projectIds.add(projectId);

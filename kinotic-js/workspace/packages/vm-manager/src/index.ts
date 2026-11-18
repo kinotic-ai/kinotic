@@ -19,21 +19,8 @@ import { join } from 'node:path'
 
 const config = new VmManagerConfig()
 
-const nodeId = config.nodeId ?? Bun.argv[2]
-if (!nodeId) {
-    console.error('Error: KINOTIC_NODE_ID environment variable or command line argument is required')
-    process.exit(1)
-}
-
-const alloyManager = config.lokiUrl || config.tempoUrl || config.mimirUrl
-    ? new AlloyManager({
-        lokiUrl: config.lokiUrl || null,
-        tempoUrl: config.tempoUrl || null,
-        mimirUrl: config.mimirUrl || null,
-        nodeId,
-        dataDir: config.alloyDataDir,
-    })
-    : null
+// Created once the server has said which machine this node is, whose id labels what it ships
+let alloyManager: AlloyManager | null = null
 if (!config.lokiUrl) {
     console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
 }
@@ -176,13 +163,13 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
     const beat = async () => {
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
-            await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
-                                                      ...shippingProblems()])
+            await nodeOrchestrator.heartbeat([...await provider.checkNodeHealth(),
+                                             ...shippingProblems()])
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()
             if (workloads.length > 0) {
-                await nodeOrchestrator.reportWorkloadStatus(nodeId!, workloads.map(toStatusReport))
+                await nodeOrchestrator.reportWorkloadStatus(workloads.map(toStatusReport))
                 for (const workload of workloads) {
                     await cleanUpIfEnded(vmManager, workload)
                 }
@@ -204,9 +191,21 @@ async function start() {
     Kinotic.zonePrefix = SYSTEM_API_ZONE
 
     // Server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL
-    // and KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET (or KINOTIC_TOKEN).
+    // and KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET (or KINOTIC_TOKEN), the node's machine.
     ensureNodeWebSocket()
-    await Kinotic.connect()
+    const connected = await Kinotic.connect()
+    // The node is the system machine the server authenticated: its id is the node's id, the scope the
+    // VmManager service is hosted under, and the label on what the node ships
+    const nodeId = connected.participant.id
+    if (config.lokiUrl || config.tempoUrl || config.mimirUrl) {
+        alloyManager = new AlloyManager({
+            lokiUrl: config.lokiUrl || null,
+            tempoUrl: config.tempoUrl || null,
+            mimirUrl: config.mimirUrl || null,
+            nodeId,
+            dataDir: config.alloyDataDir,
+        })
+    }
     const server = Kinotic.eventBus.serverInfo
     console.log(`Connected to Kinotic server at ${server?.host}:${server?.port}`)
 
@@ -222,7 +221,7 @@ async function start() {
     // cleans up what ended meanwhile.
     let vmManager: DefaultVmManager | null = null
     const reportStatus = (workload: Workload) => {
-        nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(workload)])
+        nodeOrchestrator.reportWorkloadStatus([toStatusReport(workload)])
                         .then(() => vmManager ? cleanUpIfEnded(vmManager, workload) : undefined)
                         .catch(error => console.error('Failed to report workload status:', error))
     }
@@ -230,14 +229,14 @@ async function start() {
     await provider.recover()
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
+    vmManager = new DefaultVmManager(nodeId, provider, alloyManager)
 
     // Resume shipping the recovered workloads' telemetry, which also downloads and launches
     // Alloy here rather than inside whichever startWorkload call arrives first
     await vmManager.refreshShipping()
 
     // Build registration info from system resources
-    const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
+    const registration = new VmNodeRegistration(os.hostname())
     registration.providerType = provider.type
     registration.totalCpus = os.cpus().length
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
@@ -269,7 +268,7 @@ async function endWorkloads(vmManager: DefaultVmManager, nodeOrchestrator: VmNod
             if (workload.status !== WorkloadStatus.STOPPED && workload.status !== WorkloadStatus.FAILED) {
                 await vmManager.stopWorkload(workload.id!)
                 // a server already gone answers no report, so the wait is capped as the disconnect's is
-                await Promise.race([nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(await vmManager.getWorkload(workload.id!))]),
+                await Promise.race([nodeOrchestrator.reportWorkloadStatus([toStatusReport(await vmManager.getWorkload(workload.id!))]),
                                     Bun.sleep(DISCONNECT_TIMEOUT_MS)])
             }
             await vmManager.destroyWorkload(workload.id!)

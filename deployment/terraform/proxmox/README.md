@@ -257,16 +257,18 @@ uploaded them.
 2. **The nodes.** Each is Ubuntu 22.04 on its own machine with the kit from
    `deployment/vm-node` (its README: the two XFS `prjquota` partitions, then `setup-node.sh`,
    egress default-deny, `install-vm-manager.sh`, `verify-node.sh`). Its configuration is this
-   root's output plus the node's own id:
+   root's output:
 
    ```bash
    # Every server by its certificate's name, at the edge on the LAN; dnsmasq reads /etc/hosts on start and reload only
    terraform output -raw hosts_entry | ssh kinotic@<node ip> 'sudo tee -a /etc/hosts >/dev/null && sudo systemctl reload dnsmasq'
-   { terraform output -raw vm_manager_env; echo KINOTIC_NODE_ID=dev-node-1; } | ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.env >/dev/null'
+   terraform output -raw vm_manager_env | ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.env >/dev/null'
    ```
 
    The migration runs with the `dev-server` profile, which seeds no identities, so
-   `bootstrap-identities.sh` creates the first system user and a SYSTEM machine for each node.
+   `bootstrap-identities.sh` creates the first system user and a SYSTEM machine for each node,
+   named as given. A node is its machine: the machine's id is the node's id and its name the
+   node's name, which a rename under **Members → Machines** changes when the node's vm-manager next starts.
    Each machine's credentials go straight into its node's `vm-manager.secrets.env`, which starts
    its vm-manager; the system user's password goes to a temporary file whose path it prints.
    It refuses a cluster that already has that system user:
@@ -284,7 +286,7 @@ uploaded them.
    The node appears `ONLINE` in the console with no health message. A first deployment lands
    on the first `ONLINE` node with room for it.
 
-   A node can also be a VM on this host. Each entry in `workers` is one, by its node id, and
+   A node can also be a VM on this host. Each entry in `workers` is one, by its hostname, and
    its `ip` is a free static address on the LAN:
 
    ```hcl

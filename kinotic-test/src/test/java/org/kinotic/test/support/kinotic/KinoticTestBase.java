@@ -1,5 +1,6 @@
 package org.kinotic.test.support.kinotic;
 
+import org.kinotic.test.support.system.NodeFixtures;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -117,6 +118,11 @@ public abstract class KinoticTestBase {
             }
         });
         return promise.future();
+    }
+
+    /** Runs the supplied operation as the machine of node {@code nodeId}, the way its vm-manager calls the server. */
+    protected <T> Future<T> runAsNode(String nodeId, Supplier<Future<T>> supplier) {
+        return runAs(NodeFixtures.machine(nodeId), supplier);
     }
 
     /** The result of {@code future}, waited for as long as a test's call to a service may take. */
