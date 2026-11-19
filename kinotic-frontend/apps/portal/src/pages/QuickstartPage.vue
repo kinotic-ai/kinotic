@@ -140,9 +140,15 @@ const debug = createDebug('quickstart')
 
 // This deployment's MCP server
 const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
-// The plugin's own MCP server is Kinotic Cloud's, so a Kinotic running on this machine is added beside it
-const LOCAL_MCP_SERVER = ['localhost', '127.0.0.1'].includes(new URL(MCP_URL).hostname)
-const LOCAL_SERVER_NAME = 'kinotic-local'
+// The MCP server the Kinotic plugin connects to by itself
+const PLUGIN_MCP_URL = 'https://dev-api.kinotic.ai/mcp'
+const MCP_HOST = new URL(MCP_URL).hostname
+const LOCAL_KINOTIC = ['localhost', '127.0.0.1'].includes(MCP_HOST)
+// A Kinotic the plugin does not connect to by itself is added to the agent as an MCP server of its own
+const OWN_SERVER = MCP_URL !== PLUGIN_MCP_URL
+const OWN_SERVER_NAME = LOCAL_KINOTIC ? 'kinotic-local' : `kinotic-${MCP_HOST.replaceAll('.', '-')}`
+// How the page refers to this Kinotic where the plugin's own server is another one
+const OWN_KINOTIC = LOCAL_KINOTIC ? 'local Kinotic' : `Kinotic at ${MCP_HOST}`
 // How many projects the page reads to find the most recently updated one
 const PROJECT_SAMPLE_SIZE = 20
 // How many of the user's delegates the page reads to find an authorized MCP client
@@ -164,8 +170,8 @@ interface Assistant {
   agent: string
   /** Shell commands that install the Kinotic plugin into the agent. */
   installCommands: string[]
-  /** How this deployment's MCP server is added to the agent beside the plugin's own. */
-  localServer: { how: string, lines: string[] }
+  /** How this Kinotic's MCP server is added to the agent beside the plugin's own. */
+  ownServer: { how: string, lines: string[] }
   /** The plugin's MCP server as the agent lists it. */
   pluginServer: string
   /** What the person does to sign the agent in to the given MCP server. */
@@ -178,7 +184,7 @@ const ASSISTANTS: Assistant[] = [
     name: 'Claude',
     agent: 'Claude Code',
     installCommands: ['claude plugin marketplace add kinotic-ai/agent-plugin', 'claude plugin install kinotic@kinotic'],
-    localServer: { how: 'by running', lines: [`claude mcp add -s user --transport http ${LOCAL_SERVER_NAME} ${MCP_URL}`] },
+    ownServer: { how: 'by running', lines: [`claude mcp add -s user --transport http ${OWN_SERVER_NAME} ${MCP_URL}`] },
     pluginServer: 'plugin:kinotic:kinotic-os',
     signIn: server => `Run /mcp in Claude Code, select ${server} and authenticate, then approve the consent screen that opens in your browser. If ${server} isn't listed, run /reload-plugins first.`
   },
@@ -187,7 +193,7 @@ const ASSISTANTS: Assistant[] = [
     name: 'ChatGPT',
     agent: 'Codex',
     installCommands: ['codex plugin marketplace add kinotic-ai/agent-plugin', 'codex plugin add kinotic@kinotic'],
-    localServer: { how: 'by running', lines: [`codex mcp add ${LOCAL_SERVER_NAME} --url ${MCP_URL}`] },
+    ownServer: { how: 'by running', lines: [`codex mcp add ${OWN_SERVER_NAME} --url ${MCP_URL}`] },
     pluginServer: 'kinotic-os',
     signIn: server => `Run codex mcp login ${server} in a terminal, then approve the consent screen that opens in your browser.`
   },
@@ -196,10 +202,10 @@ const ASSISTANTS: Assistant[] = [
     name: 'Grok',
     agent: 'Grok Build',
     installCommands: ['grok plugin install kinotic-ai/agent-plugin --trust'],
-    localServer: {
+    ownServer: {
       how: 'by adding this to ~/.grok/config.toml',
       // Grok Build has no client metadata document of its own, so it signs in as the one Kinotic publishes
-      lines: [`[mcp_servers.${LOCAL_SERVER_NAME}]`, `url = "${MCP_URL}"`, 'oauth_client_id = "https://kinotic.ai/oauth/grok-build-client.json"']
+      lines: [`[mcp_servers.${OWN_SERVER_NAME}]`, `url = "${MCP_URL}"`, 'oauth_client_id = "https://kinotic.ai/oauth/grok-build-client.json"']
     },
     pluginServer: 'kinotic-os',
     signIn: server => `Run /mcps in Grok Build, select ${server} and press i, then approve the consent screen that opens in your browser.`
@@ -236,11 +242,11 @@ const assistant = computed(() => ASSISTANTS.find(option => option.id === assista
 /** The message the person pastes into their coding agent. */
 const message = computed(() => {
   const tasks = [`Install the Kinotic plugin by running:\n${indented(assistant.value.installCommands)}`]
-  if (LOCAL_MCP_SERVER) {
-    tasks.push(`Add my local Kinotic ${assistant.value.localServer.how}:\n${indented(assistant.value.localServer.lines)}`)
+  if (OWN_SERVER) {
+    tasks.push(`Add my ${OWN_KINOTIC} ${assistant.value.ownServer.how}:\n${indented(assistant.value.ownServer.lines)}`)
   }
-  tasks.push(LOCAL_MCP_SERVER
-      ? `Tell me what I need to do to sign in to my local Kinotic, the ${LOCAL_SERVER_NAME} server.`
+  tasks.push(OWN_SERVER
+      ? `Tell me what I need to do to sign in to my ${OWN_KINOTIC}, the ${OWN_SERVER_NAME} server.`
       : 'Tell me what I need to do to sign in to Kinotic.')
   tasks.push('Then ask me what I want to build.')
   return `I want to build and deploy an app on Kinotic. Set yourself up first:\n\n${tasks.map((task, index) => `${index + 1}. ${task}`).join('\n')}`
@@ -249,8 +255,8 @@ const message = computed(() => {
 /** The same setup for a person who would rather do it by hand. */
 const manualSetup = computed(() => {
   const blocks = [{ caption: 'Install the Kinotic plugin by running these in a terminal:', text: assistant.value.installCommands.join('\n') }]
-  if (LOCAL_MCP_SERVER) {
-    blocks.push({ caption: `Add your local Kinotic ${assistant.value.localServer.how}:`, text: assistant.value.localServer.lines.join('\n') })
+  if (OWN_SERVER) {
+    blocks.push({ caption: `Add your ${OWN_KINOTIC} ${assistant.value.ownServer.how}:`, text: assistant.value.ownServer.lines.join('\n') })
   }
   return blocks
 })
@@ -274,7 +280,7 @@ const steps = computed<Step[]>(() => [
   {
     id: 'signIn',
     title: 'Sign in to Kinotic',
-    description: assistant.value.signIn(LOCAL_MCP_SERVER ? LOCAL_SERVER_NAME : assistant.value.pluginServer),
+    description: assistant.value.signIn(OWN_SERVER ? OWN_SERVER_NAME : assistant.value.pluginServer),
     done: mcpClient.value !== null,
     doneDetail: mcpClient.value?.displayName ? `${mcpClient.value.displayName} connected` : 'Connected',
     link: mcpClient.value ? { label: 'Connected apps', to: '/account/connected-apps' } : undefined
