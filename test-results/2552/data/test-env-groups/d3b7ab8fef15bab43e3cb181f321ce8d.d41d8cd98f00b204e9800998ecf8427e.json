@@ -1,1 +1,0 @@
-{"id":"d3b7ab8fef15bab43e3cb181f321ce8d.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.vulnerability.AffectedVersionsTest.aRangeWithSeveralLimitsAffectsTheVersionsBelowAnyOfThem","name":"aRangeWithSeveralLimitsAffectsTheVersionsBelowAnyOfThem()","status":"passed","testResultsByEnv":{"default":"27603682168440d1060c275929503d4a"}}

@@ -1,1 +1,0 @@
-{"id":"62073a3d275e1c82789d0e23c35a8f3b.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.system.VulnerabilityAlertTests.alertsWrittenFromAnSbomSinceRemovedAreDeleted","name":"alertsWrittenFromAnSbomSinceRemovedAreDeleted()","status":"passed","testResultsByEnv":{"default":"45d84be167a28e253fbccbe517c08f6c"}}
