@@ -8,7 +8,8 @@ import java.util.Set;
 /**
  * The zones a participant may address: the zones it may send to and the zones it may subscribe in. Zones come from
  * the CRI itself, so an un-zoned address is only ever sendable by a participant that may send to any zone.
- * {@link #restrictedTo(ZonePartitioningService)} narrows the rules to what one server serves. A server derives each
+ * {@link #restrictedTo(ZonePartitioningService)} narrows the rules to what one server serves, and
+ * {@link #subscribingUnderScope(String)} to the one scope a participant hosts services under. A server derives each
  * participant's rules with its {@link ZoneRulesResolver}.
  */
 public class ZoneRules {
@@ -19,12 +20,16 @@ public class ZoneRules {
     private final Set<String> sendZones;
     private final Set<String> subscribableZones;
     private final ZonePartitioningService partitioning;
+    // the one scope a subscription must carry, or null when any scope and none are allowed
+    private final String subscribeScope;
 
-    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartitioningService partitioning) {
+    private ZoneRules(boolean sendAnyZone, Set<String> sendZones, Set<String> subscribableZones, ZonePartitioningService partitioning,
+                      String subscribeScope) {
         this.sendAnyZone = sendAnyZone;
         this.sendZones = sendZones;
         this.subscribableZones = subscribableZones;
         this.partitioning = partitioning;
+        this.subscribeScope = subscribeScope;
     }
 
     /**
@@ -35,7 +40,7 @@ public class ZoneRules {
      */
     public static ZoneRules sendingToAnyZone(Set<String> subscribableZones) {
         Validate.notNull(subscribableZones, "subscribableZones must not be null");
-        return new ZoneRules(true, Set.of(), Set.copyOf(subscribableZones), EVERY_ZONE);
+        return new ZoneRules(true, Set.of(), Set.copyOf(subscribableZones), EVERY_ZONE, null);
     }
 
     /**
@@ -48,7 +53,7 @@ public class ZoneRules {
     public static ZoneRules of(Set<String> sendZones, Set<String> subscribableZones) {
         Validate.notNull(sendZones, "sendZones must not be null");
         Validate.notNull(subscribableZones, "subscribableZones must not be null");
-        return new ZoneRules(false, Set.copyOf(sendZones), Set.copyOf(subscribableZones), EVERY_ZONE);
+        return new ZoneRules(false, Set.copyOf(sendZones), Set.copyOf(subscribableZones), EVERY_ZONE, null);
     }
 
     /**
@@ -60,7 +65,19 @@ public class ZoneRules {
      */
     public ZoneRules restrictedTo(ZonePartitioningService partitioning) {
         Validate.notNull(partitioning, "partitioning must not be null");
-        return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partitioning);
+        return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partitioning, subscribeScope);
+    }
+
+    /**
+     * These rules narrowed to a participant that hosts services under one scope alone: a subscription only to an
+     * address that carries {@code scope}, so the participant answers no other instance's calls.
+     *
+     * @param scope the scope every address the participant subscribes to must carry
+     * @return the narrowed rules
+     */
+    public ZoneRules subscribingUnderScope(String scope) {
+        Validate.notBlank(scope, "scope must not be blank");
+        return new ZoneRules(sendAnyZone, sendZones, subscribableZones, partitioning, scope);
     }
 
     public boolean sendAllowed(CRI cri) {
@@ -76,7 +93,8 @@ public class ZoneRules {
     public boolean subscribeAllowed(CRI cri) {
         boolean ret;
         if (isRoutableScheme(cri.scheme())) {
-            ret = zoneAllowed(cri.zone(), subscribableZones) && partitioning.hosts(cri.baseResource());
+            ret = zoneAllowed(cri.zone(), subscribableZones) && partitioning.hosts(cri.baseResource())
+                    && (subscribeScope == null || subscribeScope.equals(cri.scope()));
         } else {
             ret = false;
         }

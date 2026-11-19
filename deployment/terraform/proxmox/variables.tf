@@ -240,7 +240,7 @@ variable "vm_manager_version" {
 # ── Workload nodes ────────────────────────────────────────────────────────────
 
 variable "workers" {
-  description = "The workload nodes this host runs as VMs, by node id (KINOTIC_NODE_ID): each an Ubuntu VM on the LAN with its own XFS disks for Docker's data root and the workload data, which the node kit (deployment/vm-node) provisions"
+  description = "The workload nodes this host runs as VMs, by hostname: each an Ubuntu VM on the LAN with its own XFS disks for Docker's data root and the workload data, which the node kit (deployment/vm-node) provisions"
   type = map(object({
     vm_id            = number
     ip               = string

@@ -36,3 +36,7 @@ export { default as AccessCheckPanel } from './components/access/AccessCheckPane
 export { default as GrantAccessDrawer } from './components/access/GrantAccessDrawer.vue'
 export { default as GrantsTable } from './components/access/GrantsTable.vue'
 export { default as SubjectPicker } from './components/access/SubjectPicker.vue'
+export { default as CopyableUrl } from './components/signin/CopyableUrl.vue'
+export { default as SignInProvidersPanel } from './components/signin/SignInProvidersPanel.vue'
+export * from './components/signin/signInProviders'
+export { default as SignInMethodsSection } from './components/signin/SignInMethodsSection.vue'

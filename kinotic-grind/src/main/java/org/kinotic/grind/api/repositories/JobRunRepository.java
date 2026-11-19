@@ -4,10 +4,11 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Order;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.StatusCondition;
-import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.WatchEventType;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractWatchedRepository;
@@ -44,25 +45,31 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
 
     // The run's outcome is the executing node's; the state the platform keeps is touched the way
     // every other write touches it, in the same shard operation
-    // An outcome disproves a SERVER_NODE_LEFT mark: the node that left came back and finished the run
+    // Only a run still executing takes an outcome: one ended as abandoned keeps that end, since
+    // whatever watches the run may have acted on it already
     private static final String RECORD_OUTCOME = WatchedStateRepository.STATE_FUNCTIONS + """
-            ctx._source.status = params.status;
-            ctx._source.error = params.error;
-            ctx._source.finished = params.finished;
-            def s = state(ctx._source);
-            def left = condition(s, params.nodeLeft);
-            if (left != null) {
-                s.conditions.remove(s.conditions.indexOf(left));
+            if (ctx._source.status == params.executing) {
+                ctx._source.status = params.status;
+                ctx._source.error = params.error;
+                ctx._source.finished = params.finished;
+                touched(ctx._source, state(ctx._source), params);
+            } else {
+                ctx.op = 'noop';
             }
-            touched(ctx._source, s, params);
             """;
 
-    // A mark says the run is still executing on a node that left, so a run that has finished declines
-    // it: the watcher marks the runs a search found executing, and a run that finished between the
-    // search and the write keeps its outcome
-    private static final String SET_CONDITION_ON_EXECUTING_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
+    // The watcher ends the runs a search found executing, so a run that finished between the search
+    // and the write keeps its outcome, and of several nodes seeing one departure the first ends the run
+    private static final String RECORD_ABANDONED = WatchedStateRepository.STATE_FUNCTIONS + """
             if (ctx._source.status == params.executing) {
-            """ + WatchedStateRepository.ADD_CONDITION + """
+                ctx._source.status = params.status;
+                ctx._source.error = params.message;
+                ctx._source.finished = params.since;
+                def s = state(ctx._source);
+                if (condition(s, params.type) == null) {
+                    s.conditions.add(['type': params.type, 'message': params.message, 'since': params.since]);
+                }
+                touched(ctx._source, s, params);
             } else {
                 ctx.op = 'noop';
             }
@@ -84,49 +91,59 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     }
 
     /**
-     * Sets the condition on the run while it is executing and records it; a run that has finished
-     * keeps its outcome and declines the condition, as does a run already carrying one of its type.
+     * Ends a run no node will report the end of: records it {@link ExecutionStatus#FAILED} with the
+     * condition beside it as the reason, its message as the run's error, and enters the change in
+     * the ledger. Only a run still executing is ended; one that has finished keeps its outcome.
      * Visible to search on completion.
      *
-     * @param id        the run
-     * @param condition the condition to set
+     * @param jobRunId  the run
+     * @param condition why no node will report the run's end
      * @param source    what caused it, for the ledger
-     * @return true when the condition was set
+     * @return true when the run was ended, false when it had already finished
      */
-    @Override
-    public Future<Boolean> setCondition(String id, StatusCondition condition, String source) {
-        return watchedStateRepository.setCondition(document(id), condition, source, SET_CONDITION_ON_EXECUTING_RUN,
-                                                   Map.of("executing", ExecutionStatus.RUNNING.name()));
+    public Future<Boolean> recordAbandoned(String jobRunId, StatusCondition condition, String source) {
+        Validate.notBlank(jobRunId, "jobRunId cannot be blank");
+        Validate.notNull(condition, "condition cannot be null");
+        Map<String, Object> params = new HashMap<>();
+        params.put("executing", ExecutionStatus.RUNNING.name());
+        params.put("status", ExecutionStatus.FAILED.name());
+        params.put("type", condition.type().name());
+        params.put("message", condition.message());
+        params.put("since", condition.since().toInstant().toString());
+        return watchedStateRepository.write(document(jobRunId), RECORD_ABANDONED, params,
+                                            new WatchedChange(WatchEventType.STATUS_CHANGED, source, condition.message(), ExecutionStatus.FAILED))
+                                     .map(written -> written != null);
     }
 
     /**
-     * Records the run's terminal status, its error and when it finished, and enters the change in the
-     * ledger, leaving every other field as it is; visible to search on completion.
+     * Records the terminal status of a run still executing, its error and when it finished, and
+     * enters the change in the ledger, leaving every other field as it is. A run already ended keeps
+     * the end it has. Visible to search on completion.
      *
-     * A SERVER_NODE_LEFT mark goes with it: the node that left came back and finished the run.
      * @param jobRunId the run
      * @param status   the run's terminal status
      * @param error    why it failed, or null
      * @param finished when it finished
      * @param source   what caused it, for the ledger
+     * @return true when the outcome was recorded, false when the run had already been ended
      */
-    public Future<Void> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
+    public Future<Boolean> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         Validate.notNull(status, "status cannot be null");
         Validate.notNull(finished, "finished cannot be null");
         Map<String, Object> params = new HashMap<>();
+        params.put("executing", ExecutionStatus.RUNNING.name());
         params.put("status", status.name());
         params.put("error", error);
         params.put("finished", finished.toInstant().toString());
-        params.put("nodeLeft", StatusConditionType.SERVER_NODE_LEFT.name());
         return watchedStateRepository.write(document(jobRunId), RECORD_OUTCOME, params,
                                             new WatchedChange(WatchEventType.STATUS_CHANGED, source, "Run " + status, status))
-                                     .mapEmpty();
+                                     .map(written -> written != null);
     }
 
     /**
      * The runs still executing on nodes other than the given ones: what a node that left the cluster
-     * leaves behind.
+     * leaves behind. Fails when the store could not search every run.
      *
      * @param members  the nodes in the cluster
      * @param pageable the page to return
@@ -134,7 +151,9 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     public Future<Page<JobRun>> findRunningElsewhere(Set<String> members, Pageable pageable) {
         Validate.notNull(members, "members cannot be null");
         List<FieldValue> nodeIds = members.stream().map(FieldValue::of).toList();
-        return findAll(pageable, b -> b.query(q -> q.bool(bool -> bool
+        // a search that a failed or timed out shard left incomplete fails, so runs it did not read
+        // are not taken for runs that ended
+        return findAll(pageable, b -> b.allowPartialSearchResults(false).query(q -> q.bool(bool -> bool
                 .filter(termFilter("status", ExecutionStatus.RUNNING.name()))
                 .mustNot(mn -> mn.terms(t -> t.field("nodeId").terms(v -> v.value(nodeIds)))))));
     }
@@ -174,6 +193,49 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
     public Future<List<TaskRecord>> findTasks(String jobRunId) {
         List<TaskRecord> collected = new ArrayList<>();
         return readTaskPage(jobRunId, 0, collected).map(collected);
+    }
+
+    /**
+     * Returns a page of the runs that ended before the given time.
+     *
+     * @param cutoff   the time the runs ended before
+     * @param pageable the page to return
+     */
+    public Future<Page<JobRun>> findEndedBefore(Date cutoff, Pageable pageable) {
+        Validate.notNull(cutoff, "cutoff cannot be null");
+        String before = cutoff.toInstant().toString();
+        return findAll(pageable, b -> b.query(q -> q.range(r -> r.date(d -> d.field("finished").lt(before)))));
+    }
+
+    /**
+     * Deletes the given runs with their task records. Visible to search on completion.
+     *
+     * @param jobRunIds the ids of the runs to delete
+     * @return a future completing once the runs and their task records are gone
+     */
+    public Future<Void> deleteRuns(List<String> jobRunIds) {
+        Validate.notNull(jobRunIds, "jobRunIds cannot be null");
+        // The task records go first: a run left without them is found again by when it ended, and
+        // records left without their run would never be
+        return taskRecordRepository.deleteAllForJobRuns(jobRunIds)
+                                   .compose(v -> Future.all(jobRunIds.stream().map(id -> deleteById(id)).toList()))
+                                   .compose(v -> syncIndex());
+    }
+
+    /**
+     * Finds the run of the named job that started last, among the runs made for the organization, or
+     * for the system when the organization is null.
+     *
+     * @param name           the name of the job
+     * @param organizationId the organization the runs were made for, or null for the system's
+     * @return a future that will complete with the run, or {@code null} when there is none
+     */
+    public Future<JobRun> findLatestRun(String name, String organizationId) {
+        Validate.notBlank(name, "name cannot be blank");
+        Query owner = organizationId != null ? termFilter("organizationId", organizationId) : missingFilter("organizationId");
+        return findAll(Pageable.create(0, 1, Sort.by(Order.desc("started"))),
+                       b -> b.query(composeFilter(termFilter("name", name), owner)))
+                .map(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     /**

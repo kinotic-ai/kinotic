@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.rest.support;
+package org.kinotic.common.api.oidc;
 
 /**
  * The {@code ?error=} codes the auth flows surface back to the SPA on failure. The SPA
@@ -36,6 +36,9 @@ public final class OidcErrorCodes {
      * their ids, which the login page reads from {@code GET /api/auth/org/login/choices}.
      */
     public static final String MULTIPLE_ORGANIZATIONS = "multiple_organizations";
+
+    /** The verified identity's email is outside the domain whose accounts the configuration signs in. */
+    public static final String ACCOUNT_NOT_ALLOWED = "account_not_allowed";
 
     /** Found the user, but it has {@code enabled=false}. */
     public static final String USER_DISABLED = "user_disabled";

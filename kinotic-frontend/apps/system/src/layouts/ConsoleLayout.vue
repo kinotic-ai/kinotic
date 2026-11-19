@@ -34,6 +34,7 @@ const initials = computed(() => avatarInitials(profileName.value, profile.value?
 
 // lucideIcon is rendered by SidebarUserMenu's item slot
 const accountMenuItems: MenuItem[] = [
+    { label: 'Profile', lucideIcon: markRaw(User), command: () => router.push('/account/profile') },
     { label: 'Connected apps', lucideIcon: markRaw(Link), command: () => router.push('/account/connected-apps') },
     { separator: true },
     { label: 'Log out', lucideIcon: markRaw(LogOut), command: logout }

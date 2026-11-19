@@ -178,6 +178,39 @@ never build, keep or refuse something because the docs say so. When a request co
 docs, or the docs claim a behaviour the code does not have, say so and ask which way to go; do not
 pick the docs' side on your own. The only authority a doc has is over the docs.
 
+## Reconciler or Grind job
+
+Kinotic OS has two frameworks for work nobody waits on, and both are needed. The reconciler
+(`ReconcileMaster` and its workers) is a run loop that keeps the system's state stable. Grind runs
+a procedure once and records the run. **The reconciler owns state, Grind owns attempts.**
+
+- **Reconciler worker.** A `Reconcilable` record says what should be: a deployment, a VM node. Its
+  worker makes one move per pass and is called again until the record matches its intent, so a
+  failed pass is retried without anyone asking. Deletion is intent too, and the worker finalizes it.
+  Its history is the change log (`kinotic_watch_event`).
+- **Grind job.** One attempt at a procedure with steps and an outcome: an import, a scan, a
+  retention sweep, a project deploy. The clock, a person or a new intent starts it, and a failed
+  run stays failed, for someone to read, until one of them starts another. Its history is the run
+  and its task records.
+
+To choose, ask what makes the work due and what follows a failure. Due because a record differs
+from its intent, and retried until it works: a worker. Due by the clock or because someone asked,
+and a failure is an attempt a person inspects: a job.
+
+Where the two meet, a worker that needs an attempt starts a job and returns, and a job may write
+desired state and wait for the worker to answer it (the deploy job's "Ensure runtime workloads").
+A job never loops to keep something true, and a pass never waits on a procedure.
+
+Only background work that gains from a recorded run or from being restarted becomes a job. A
+health check or any other node-local loop is not one, and neither is work the caller is better
+served waiting on, which stays a request that answers when it is done.
+
+Every job is self-contained. A job runs nested and parallel tasks, and a task with more work
+returns it as a `Task` or a `JobDefinition`, which executes as a step of the same run. No job calls
+`JobService` directly, or triggers a process that calls it (a workload, a completion callback, a
+flag another service polls); `JobService` refuses a start made by a task. One run shows the whole
+of its work.
+
 ## Avoid these code smells
 
 These are the named smells from Martin Fowler and Kent Beck's catalog in *Refactoring: Improving the Design of Existing Code*, grouped by Mäntylä's taxonomy — decades of industry consensus on what makes code hard to change, not house style or one reviewer's taste. That is why they bind: each one is a pattern the field has repeatedly watched turn into maintenance cost. Check every diff against this list before presenting it. The bar for any new abstraction is YAGNI (Beck and Jeffries, Extreme Programming) and the Rule of Three (Don Roberts, in Refactoring): it must carry information or remove duplication **today** — not that it might someday.

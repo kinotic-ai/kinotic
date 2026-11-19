@@ -9,7 +9,8 @@
       <template #create-hint>
         A machine connects with the Kinotic client, using the client id and secret shown after
         creation — the <code>KINOTIC_CLIENT_ID</code> and <code>KINOTIC_CLIENT_SECRET</code> a
-        vm-manager is configured with.
+        vm-manager is configured with. A vm-manager's machine is its worker node: name the machine
+        what the node should be called; a rename shows once its vm-manager restarts.
       </template>
     </MachinesTable>
   </div>

@@ -16,7 +16,7 @@ import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
  */
 public interface LocalAuthenticationService {
 
-    /** Verifies {@code password} against the system user with {@code email}. */
+    /** Verifies {@code password} against the system user with {@code email}, while the system console's login takes a password. */
     Future<SystemParticipantIdentity> authenticateSystemUser(String email, String password);
 
     /**

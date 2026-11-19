@@ -13,12 +13,13 @@ the sites Worker at hostnames of the platform zone, and a hostname for each serv
 | Cloudflare sites Worker and routes | `kinotic-dev-sites` | Serves every published UI at `<app>--<ui>.<org>.dev.kinotic.io` from the account, with the zone's settings and Total TLS (`modules/cloudflare-sites`) |
 | Cloudflare records and Worker routes | `dev-portal.kinotic.ai`, `dev-console.kinotic.ai`, and `dev-summit42.kinotic.ai` when `summit42_enabled` | The portal, the system console and Summit 42's UI, served by the Worker from `sites/<hostname>/` in the sites account, on the platform zone and never the customers' (`modules/cloudflare-sites`, as the cluster's portal and console) |
 | Cloudflare records | `apps-api.dev.kinotic.io`, `*.apps-api.dev.kinotic.io` | The app server and every application's API host `<organizationId>--<applicationId>.apps-api.dev.kinotic.io`, proxied to the router's public address |
+| Cloudflare Turnstile site | `kinotic-dev portal` | The challenge the portal's find-my-organizations form presents at `dev-portal.kinotic.ai`; the management server takes its site key from the proxmox root and its secret key from `secrets.yml` (`turnstile_secret_key`) |
 | Key vault | `kv-kinotic-dev` | The servers' secret storage (`kinotic.domain.secretStorage.backend: AZURE`) |
 | Storage account + container | `stkinoticdevsnapshots` / `elasticsearch-snapshots` | The nightly Elasticsearch snapshot repository, and the migration vehicle |
 | Cloudflare records | `dev-api.kinotic.ai`, `dev-system-api.kinotic.ai`, and `dev-summit42-api.kinotic.ai` when `summit42_enabled` | The router's public address, unproxied, for the management server, the system server and the Summit 42 server; `kinotic-dyndns.timer` on the host keeps them current with the DNS token |
 | Service principal | `kinotic-dev-server` | The identity the servers run as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev` |
 | Service principal | `kinotic-dev-license-server` | The identity the license key server runs as: Key Vault Crypto User on `kinotic-license-signing` in `kv-kinotic-platform` alone, which signs license keys, and Contributor on the email service (`license-server.tf`) |
-| App registration | `kinotic-license-console` | Staff sign-in to the license key server's console, single-tenant, returning to `https://licenses-console.kinotic.ai/api/auth/staff/callback` |
+| App registration | `Kinotic, Inc` (`azuread_application.license_console`) | Staff sign-in to the license key server's console, single-tenant, returning to `https://licenses-console.kinotic.ai/api/auth/staff/callback` |
 | Cloudflare records | `licenses.kinotic.ai`, `licenses-console.kinotic.ai` | The router's public address, unproxied, for the license key server's two sites; kept current like the servers' |
 | Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh`; Key Vault Secrets Officer on `kv-kinotic-dev`, to place the social sign-in client secrets |
 
@@ -71,6 +72,19 @@ there once, and its registration lists the management server's callback URLs und
 ```bash
 az keyvault secret set --vault-name kv-kinotic-dev --name github-platform --value "$(cat)" >/dev/null   # the App's client secret on stdin
 ```
+
+System users sign in to the system console through a single-tenant registration, shown as `Kinotic, Inc` at sign-in
+(`azuread_application.system_console` in `system-console.tf`), which a system user adds in the console under **Sign-in providers** as a Microsoft Entra ID
+provider:
+
+```bash
+terraform output -raw system_sign_in_directory_id    # the provider's account
+terraform output -raw system_sign_in_client_id
+terraform output -raw system_sign_in_client_secret
+```
+
+The console then shows the provider's callback URL. Its last segment is the provider's id, which goes in
+`system_sign_in_provider_id` (`local.auto.tfvars`) for the next apply to list that URL on the registration.
 
 `terraform destroy` removes the resource group with everything in it, the records in both
 zones, the service principal, and its role assignments. The snapshot account goes with the group, so

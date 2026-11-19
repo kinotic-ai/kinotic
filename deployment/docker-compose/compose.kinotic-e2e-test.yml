@@ -77,7 +77,7 @@ services:
       KINOTIC_SYSTEMAPI_DEPLOYMENT_MANAGEMENTSERVER_HOST: localhost
       KINOTIC_SYSTEMAPI_DEPLOYMENT_APPSERVER_HOST: localhost
       # The URLs the system server is reached at; validated at boot. No console runs in the e2e stack
-      KINOTIC_SYSTEMSERVER_APIBASEURL: http://localhost:58504
+      KINOTIC_MANAGEMENTAPI_SYSTEMAPIBASEURL: http://localhost:58504
       KINOTIC_SYSTEMSERVER_CONSOLEBASEURL: http://localhost:5174
     volumes:
       - ./jwt-signing-keys.e2e-test.json:/system-secrets/jwt-signing-keys:ro

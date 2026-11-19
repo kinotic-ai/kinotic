@@ -29,7 +29,6 @@ import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipan
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.ServerLogQuery;
@@ -62,8 +61,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  * Verifies the system tier is authorized as the gateway authorizes it, against the system store: the
  * system's seeded administrator and vm-manager are bound once; a support system user reads every organization,
  * the cluster and the servers' logs and is refused the system's writes; a maintainer manages workloads and is
- * refused access, machines and a node's reports; a machine granted the registrar role registers a node, reports
- * for that node alone, and loses its agent grant when the node is deregistered; a system grant names only
+ * refused access, machines and a node's removal; a machine granted the registrar role registers itself as a node, is that
+ * node's agent alone, and loses its agent grant when the node is deregistered; a system grant names only
  * the system's own staff; and the telemetry tenant a system participant may read follows its grant.
  */
 @SpringBootTest
@@ -144,6 +143,7 @@ public class SystemTierTests extends KinoticTestBase {
         // the administrator holds everything on the system and inside it
         Participant admin = userParticipant(SEEDED_ADMIN_ID);
         authorize(MEMBER_SERVICE, "createMachine", admin, List.of("a machine"));
+        authorize(MEMBER_SERVICE, "addUser", admin, Arrays.asList("newcomer@kinotic.test", null));
         authorize(ACCESS_SERVICE, "grant", admin, List.of(new Subject(SubjectType.USER, SEEDED_ADMIN_ID), AuthzConstants.SYSTEM_SUPPORT_ROLE));
         authorize(ORGANIZATION_SERVICE, "findMembers", admin, Arrays.asList(organization().getId(), null, PAGE));
         authorize(NODE_SERVICE, "registerNode", admin, List.of(NodeFixtures.registration("any-node", 1, 1024, 1024)));
@@ -219,6 +219,9 @@ public class SystemTierTests extends KinoticTestBase {
                       "system_can_manage_access");
         assertRefused(MEMBER_SERVICE, "createMachine", caller, List.of("a machine"), "system_can_manage_machines");
         assertRefused(MEMBER_SERVICE, "rotateSecret", caller, List.of(SEEDED_VM_MANAGER_ID), "system_can_manage_machines");
+        // so would an administrator's new password
+        assertRefused(MEMBER_SERVICE, "resetUserPassword", caller, List.of(SEEDED_ADMIN_ID), "system_can_manage_members");
+        assertRefused(MEMBER_SERVICE, "addUser", caller, Arrays.asList("newcomer@kinotic.test", null), "system_can_manage_members");
         authorize(ORGANIZATION_SERVICE, "findOrganizations", caller, List.of(PAGE));
         // a listing of nodes with room is a read of nodes, checked on the system
         authorize(NODE_SERVICE, "findAvailableNode", caller, List.of(1, 1024, 1024));
@@ -226,7 +229,7 @@ public class SystemTierTests extends KinoticTestBase {
     }
 
     @Test
-    public void aRegistrarRegistersANodeAndReportsForItAlone() throws Exception {
+    public void aRegistrarRegistersItselfAsANodeAndIsItsAgent() throws Exception {
         MachineParticipantIdentity registrar = machine("tier registrar");
         MachineParticipantIdentity other = machine("tier bystander");
         SystemParticipantIdentity maintainer = systemUser("system-user");
@@ -234,26 +237,28 @@ public class SystemTierTests extends KinoticTestBase {
         await(access.grant(new Subject(SubjectType.USER, maintainer.getId()), AuthzConstants.SYSTEM_MAINTAINER_ROLE));
         Participant registrarCaller = machineParticipant(registrar.getId());
         Participant otherCaller = machineParticipant(other.getId());
-        VmNodeRegistration node = NodeFixtures.registration("tier-" + suffix(), 4, 4096, 10240);
-        nodes.add(node.getId());
-        String nodeObject = AuthzUtil.object(VmNodeService.RESOURCE_TYPE, node.getId());
+        // a node is its machine, so the node the registrar registers carries the registrar's id
+        String nodeId = registrar.getId();
+        VmNodeRegistration node = NodeFixtures.registration(nodeId, 4, 4096, 10240);
+        nodes.add(nodeId);
+        String nodeObject = AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId);
 
+        // the registrar role admits a machine to register itself and to report as itself
         assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "registerNode", registrarCaller, List.of(node))), "the registrar never registered");
+        authorize(NODE_SERVICE, "heartbeat", registrarCaller, List.of(List.of()));
+        authorize(NODE_SERVICE, "reportWorkloadStatus", registrarCaller, List.of(List.of()));
         assertRefused(NODE_SERVICE, "registerNode", otherCaller, List.of(node), "vm_node_can_register_node");
-        // before the registration nothing reports for the node, the registrar included
-        assertRefused(NODE_SERVICE, "heartbeat", registrarCaller, List.of(node.getId(), List.of()), "vm_node_can_report");
+        assertRefused(NODE_SERVICE, "heartbeat", otherCaller, List.of(List.of()), "vm_node_can_register_node");
+        // before the registration the machine is no node's agent
+        assertRefused(NODE_SERVICE, "deregisterNode", registrarCaller, List.of(nodeId), "vm_node_can_report");
 
         // registered by the machine, the node is on the system and the machine is its agent
         await(runAs(registrarCaller, () -> nodeOrchestration.registerNode(node)));
-        assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "heartbeat", registrarCaller, List.of(node.getId(), List.of()))), "the agent never reported");
-        authorize(NODE_SERVICE, "reportWorkloadStatus", registrarCaller, List.of(node.getId(), List.of()));
-        authorize(NODE_SERVICE, "deregisterNode", registrarCaller, List.of(node.getId()));
-        assertRefused(NODE_SERVICE, "heartbeat", registrarCaller, List.of("tier-other-" + suffix(), List.of()), "vm_node_can_report");
-        assertRefused(NODE_SERVICE, "heartbeat", otherCaller, List.of(node.getId(), List.of()), "vm_node_can_report");
-        // the system's administrator reaches the node through the system, a maintainer reads it and reports nothing
-        assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "heartbeat", userParticipant(SEEDED_ADMIN_ID), List.of(node.getId(), List.of()))), "the administrator never reached the node");
-        assertTrue(awaitUntil(() -> admitted(NODE_RECORD_SERVICE, "findHistory", userParticipant(maintainer.getId()), List.of(node.getId(), PAGE))), "the maintainer never read the node");
-        assertRefused(NODE_SERVICE, "heartbeat", userParticipant(maintainer.getId()), List.of(node.getId(), List.of()), "vm_node_can_report");
+        assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "deregisterNode", registrarCaller, List.of(nodeId))), "the agent was never admitted to its node");
+        // the system's administrator reaches the node through the system, a maintainer reads it and removes nothing
+        assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "deregisterNode", userParticipant(SEEDED_ADMIN_ID), List.of(nodeId))), "the administrator never reached the node");
+        assertTrue(awaitUntil(() -> admitted(NODE_RECORD_SERVICE, "findHistory", userParticipant(maintainer.getId()), List.of(nodeId, PAGE))), "the maintainer never read the node");
+        assertRefused(NODE_SERVICE, "deregisterNode", userParticipant(maintainer.getId()), List.of(nodeId), "vm_node_can_report");
         List<Grant> grants = await(relationships.findGrants(SYSTEM, nodeObject));
         assertEquals(1, grants.size());
         assertEquals(VmNodeOrchestrationService.AGENT_ROLE, grants.getFirst().roleId());
@@ -262,22 +267,19 @@ public class SystemTierTests extends KinoticTestBase {
         // a node registering again binds nothing twice
         await(runAs(registrarCaller, () -> nodeOrchestration.registerNode(node)));
         assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
-        // nor does a delegate of the agent, which registers the node as the agent would
-        Participant delegate = new DefaultSystemParticipant("delegate-" + suffix(),
-                                                            Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_MACHINE,
-                                                                   DomainUtil.ON_BEHALF_OF_METADATA_KEY, registrar.getId()),
-                                                            List.of());
-        await(runAs(delegate, () -> nodeOrchestration.registerNode(node)));
-        assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
 
-        // another machine holding the registrar role is refused the node's id, and the node keeps its one agent
+        // another machine holding the registrar role registers itself, and is refused the first machine's node
         await(access.grant(new Subject(SubjectType.USER, other.getId()), VmNodeOrchestrationService.REGISTRAR_ROLE));
-        assertInstanceOf(AuthorizationException.class, failure(() -> runAs(otherCaller, () -> nodeOrchestration.registerNode(node))));
+        assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "registerNode", otherCaller, List.of(node))), "the second registrar never registered");
+        assertRefused(NODE_SERVICE, "deregisterNode", otherCaller, List.of(nodeId), "vm_node_can_report");
+        // only a machine is a node
+        assertInstanceOf(AuthorizationException.class,
+                         failure(() -> runAs(userParticipant(SEEDED_ADMIN_ID), () -> nodeOrchestration.registerNode(node))));
         assertEquals(grants, await(relationships.findGrants(SYSTEM, nodeObject)));
 
         // the deregistration's finalizer takes the node out of the graph with its agent's grant
-        await(nodeOrchestration.deregisterNode(node.getId()));
-        assertTrue(awaitUntil(() -> await(vmNodeService.findById(node.getId())) == null), "the node was never finalized");
+        await(nodeOrchestration.deregisterNode(nodeId));
+        assertTrue(awaitUntil(() -> await(vmNodeService.findById(nodeId)) == null), "the node was never finalized");
         assertTrue(awaitUntil(() -> await(relationships.read(SYSTEM, nodeObject)).isEmpty()), "the node is still in the graph");
         assertTrue(await(relationships.read(SYSTEM, AuthzUtil.bindingObject(nodeObject, grants.getFirst().id()))).isEmpty());
     }

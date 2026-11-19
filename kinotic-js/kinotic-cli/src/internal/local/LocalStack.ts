@@ -26,7 +26,6 @@ const NODE_STOP_TIMEOUT_MS = 120_000
 // workloads' logs, traces and metrics to the stack's Loki and OTLP collector, and ends every workload when it stops
 const NODE_ENVIRONMENT = {
     KINOTIC_STOP_WORKLOADS_ON_SHUTDOWN: 'true',
-    KINOTIC_NODE_ID: 'local-node',
     KINOTIC_SERVER_HOST: '127.0.0.1',
     KINOTIC_SERVER_PORT: '58504',
     KINOTIC_CLIENT_ID: '00000000-0000-0000-0000-000000000011',

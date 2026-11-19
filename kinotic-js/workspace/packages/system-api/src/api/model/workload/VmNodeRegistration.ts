@@ -1,20 +1,10 @@
 import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
- * DTO sent by a vm-manager process when it registers with the server.
- * Contains only the information the node knows about itself.
+ * DTO sent by a vm-manager process when it registers with the server. Contains only the information the node
+ * knows about itself: the node's id and name are those of the machine it authenticates as.
  */
 export class VmNodeRegistration {
-
-    /**
-     * Unique identifier for this node.
-     */
-    public id: string
-
-    /**
-     * Human-readable name for the node.
-     */
-    public name: string
 
     /**
      * The hostname or address of the node.
@@ -46,9 +36,7 @@ export class VmNodeRegistration {
      */
     public workloadDataDir: string | null = null
 
-    constructor(id: string, name: string, hostname: string) {
-        this.id = id
-        this.name = name
+    constructor(hostname: string) {
         this.hostname = hostname
     }
 }

@@ -10,13 +10,15 @@ import org.kinotic.domain.api.utils.HostLabelUtil;
  * configuration, whatever its purpose, starts with this URL and returns to it. An organization's login serves the
  * social callback for the system's org sign-up registrations and the SSO callback for an organization's own
  * configurations under the management server's API base URL; an application's login serves the OIDC callback for
- * the organization's application and tenant configurations on the application's own API host.
+ * the organization's application and tenant configurations on the application's own API host; the system console's
+ * login serves the callback for the system's own registrations under the system server's API base URL.
  */
 public final class OidcCallbacks {
 
     public static final String SOCIAL_CALLBACK_PATH = "/api/auth/org/login/social/callback/";
     public static final String SSO_CALLBACK_PATH = "/api/auth/org/login/sso/callback/";
     public static final String APPLICATION_CALLBACK_PATH = "/api/auth/app/login/oidc/callback/";
+    public static final String SYSTEM_CALLBACK_PATH = "/api/auth/system/login/oidc/callback/";
 
     private OidcCallbacks() {}
 
@@ -35,6 +37,11 @@ public final class OidcCallbacks {
         return config instanceof OrgSignupOidcConfiguration
                 ? socialCallbackUrl(apiBaseUrl, config.getId())
                 : ssoCallbackUrl(apiBaseUrl, config.getId());
+    }
+
+    /** The callback of the system console's registration {@code configId}, under the system server's {@code apiBaseUrl}. */
+    public static String systemCallbackUrl(String apiBaseUrl, String configId) {
+        return apiBaseUrl + SYSTEM_CALLBACK_PATH + configId;
     }
 
     /**

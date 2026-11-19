@@ -1,5 +1,8 @@
 package org.kinotic.domain.api.rest.support;
 
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
+import org.kinotic.common.api.oidc.OidcCallbackException;
+import org.kinotic.common.api.oidc.OidcErrorCodes;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -60,6 +63,8 @@ public abstract class AuthEndpointSupport {
      * exactly, so it cannot ride in the callback URL.
      */
     private static final String RETURN_PATH_SESSION_KEY = "loginReturnPath";
+    /** The identity a connect flow asserted is bound to another user already. */
+    private static final String IDENTITY_IN_USE = "identity_in_use";
 
     private final KinoticJwtIssuer jwtIssuer;
     private final OidcConfigurationService oidcConfigurationService;
@@ -71,27 +76,11 @@ public abstract class AuthEndpointSupport {
     // ── Browser session login ─────────────────────────────────────────────────
 
     /**
-     * Authenticates the page at {@code origin} by binding the logged-in {@link Participant} to it in the
-     * Vert.x session (see {@link SessionBinding}). The subsequent STOMP WebSocket handshake from that page
-     * reads it back, so the browser is authenticated by its session cookie and never handles a token. The
-     * participant's type is what scopes its authority: a system user signs in as a SystemParticipant, an
-     * organization's user as an OrganizationParticipant, an application's user as an ApplicationParticipant.
-     */
-    public void establishSession(RoutingContext ctx, String origin, Participant participant) {
-        // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
-        // id cannot be reused to ride the now-authenticated session.
-        ctx.session().regenerateId();
-        ConnectedInfo connectedInfo = new ConnectedInfo();
-        connectedInfo.setParticipant(participant);
-        SessionBinding.bind(ctx, origin, connectedInfo);
-    }
-
-    /**
      * Establishes the browser session for {@code participant}, bound to the page that sent the request,
      * and writes {@code 204 No Content}.
      */
     public void respondSuccess(RoutingContext ctx, Participant participant) {
-        establishSession(ctx, SessionBinding.origin(ctx), participant);
+        SessionBinding.establish(ctx, SessionBinding.origin(ctx), participant);
         ctx.response().setStatusCode(204).end();
     }
 
@@ -115,9 +104,9 @@ public abstract class AuthEndpointSupport {
      * travels in the URL — the browser is authenticated by its session cookie.
      */
     public void redirectSuccess(RoutingContext ctx, String origin, Participant participant) {
-        // read before establishSession, which regenerates the session id
+        // read before the session is established, which regenerates its id
         String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
-        establishSession(ctx, origin, participant);
+        SessionBinding.establish(ctx, origin, participant);
         redirectToPage(ctx, origin, returnPath != null ? returnPath : "/");
     }
 
@@ -129,21 +118,6 @@ public abstract class AuthEndpointSupport {
         uiUrl(ctx, path)
                 .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
                 .onFailure(ctx::fail);
-    }
-
-    /**
-     * The SPA path a completed login returns to, or {@code null} when the request named none or
-     * named one that is not a path within the SPA.
-     */
-    private static String safeReturnPath(String referer) {
-        String ret = null;
-        // concatenated onto the UI's URL, so a value that could open an authority ("//host") or
-        // break out of the Location header is dropped rather than sanitized
-        if (referer != null && referer.startsWith("/") && !referer.startsWith("//")
-                && referer.indexOf('\\') < 0 && referer.chars().noneMatch(Character::isISOControl)) {
-            ret = referer;
-        }
-        return ret;
     }
 
     /**
@@ -377,6 +351,45 @@ public abstract class AuthEndpointSupport {
         return arr;
     }
 
+    /**
+     * The {@code [{id, type, name, provider}]} array a login page chooses from: the email and password
+     * {@code passwordConfiguration} first, of type {@code PASSWORD}, when the login takes one, then {@code configs} as
+     * {@link #providersJson(List)} lists them.
+     *
+     * @param passwordConfiguration the login's password configuration, or {@code null} when it takes no password
+     */
+    public JsonArray providersJson(List<? extends OidcConfiguration> configs, PasswordConfiguration passwordConfiguration) {
+        JsonArray ret = providersJson(configs);
+        if (passwordConfiguration != null) {
+            ret.add(0, new JsonObject().put("id", passwordConfiguration.getId())
+                                       .put("type", LoginProviderType.PASSWORD.name())
+                                       .put("name", PasswordConfiguration.NAME)
+                                       .putNull("provider"));
+        }
+        return ret;
+    }
+
+    /**
+     * Finishes a {@link OidcFlowPurpose#CONNECT} flow: binds the identity the provider asserted to the user that
+     * started the flow, then sends the browser back to {@code profilePath} on this server's UI with
+     * {@code connected=<the configuration's name>}, or with {@code error=identity_in_use} when the identity already
+     * signs in another user, and {@code error=email_not_verified&provider=<key>} when the provider has not verified
+     * the identity's email.
+     */
+    public void completeConnect(RoutingContext ctx, CallbackResult<? extends OidcConfiguration> result, String profilePath) {
+        Future.succeededFuture(result)
+              .map(this::requireVerifiedSubject)
+              .compose(sub -> identityService.bindOidcIdentity(result.organizationUserId(), result.config().getId(), sub))
+              .onSuccess(binding -> redirectToUi(ctx, profilePath + "?connected="
+                      + URLEncoder.encode(result.config().getName(), StandardCharsets.UTF_8)))
+              .onFailure(err -> {
+                  String code = err instanceof IllegalArgumentException ? IDENTITY_IN_USE : callbackErrorCode(err);
+                  log.warn("Could not connect a sign-in method to user {}: {}", result.organizationUserId(), err.getMessage());
+                  String provider = err instanceof OidcCallbackException oce ? providerParameter(oce.getProvider()) : "";
+                  redirectToUi(ctx, profilePath + "?error=" + code + provider);
+              });
+    }
+
     // ── Composite flows ───────────────────────────────────────────────────────
 
     /**
@@ -426,7 +439,7 @@ public abstract class AuthEndpointSupport {
     // the browser goes to the authorization URL the flow {@code started} yields, to land on the request's
     // referer path once the flow completes
     private void redirectToIdp(RoutingContext ctx, OidcConfiguration config, Future<String> started) {
-        String returnPath = safeReturnPath(ctx.request().getParam("referer"));
+        String returnPath = SessionBinding.safeReturnPath(ctx.request().getParam("referer"));
         started
               .onSuccess(url -> {
                   // written after startFlow, which regenerates the session id. each start

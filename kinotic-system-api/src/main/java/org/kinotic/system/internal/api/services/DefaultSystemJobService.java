@@ -2,77 +2,61 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.Validate;
-import org.kinotic.grind.api.model.JobDefinition;
-import org.kinotic.grind.api.model.JobOwner;
+import org.apache.ignite.Ignite;
+import org.kinotic.core.api.event.ZonePartitioningService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.system.api.model.SystemJobDescriptor;
 import org.kinotic.system.api.services.SystemJobService;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultSystemJobService implements SystemJobService {
 
-    private final List<SystemJob> systemJobs;
     private final JobService jobService;
     private final JobRunRepository jobRunRepository;
     private final Vertx vertx;
-    private final Map<String, SystemJob> jobsByName = new HashMap<>();
-    private final List<SystemJobDescriptor> descriptors = new ArrayList<>();
+    private final Ignite ignite;
 
-    // A system job's name, version and description are facts of its bean, so each definition is built
-    // once here to read them, and the names are checked unique before any is listed or started
-    @PostConstruct
-    void describeJobs() {
-        for (SystemJob job : systemJobs) {
-            JobDefinition definition = job.createJobDefinition();
-            SystemJob other = jobsByName.put(definition.getName(), job);
-            if (other != null) {
-                throw new IllegalStateException("Two system jobs named " + definition.getName() + ": " + other + " and " + job);
-            }
-            descriptors.add(new SystemJobDescriptor(definition.getName(), definition.getVersion(), definition.getDescription()));
-        }
-        descriptors.sort(Comparator.comparing(SystemJobDescriptor::getName));
+    // Every node requests the deployment; Ignite elects a single host for the manager among the nodes
+    // hosting system-api, the only ones whose context holds the system jobs
+    @EventListener(ApplicationReadyEvent.class)
+    public void deployJobManager() {
+        jobService.deployJobManager(ignite.cluster().forAttribute(ZonePartitioningService.hostsAttribute(DomainUtil.SYSTEM_API_ZONE), true));
     }
 
     @Override
     public Future<List<SystemJobDescriptor>> findSystemJobs() {
-        return Future.succeededFuture(descriptors);
+        return Future.succeededFuture(jobService.findSystemJobs().stream()
+                                                .map(job -> new SystemJobDescriptor(job.getName(), job.getVersion(), job.getDescription()))
+                                                .toList());
     }
 
     @Override
     public Future<JobRun> startSystemJob(String name) {
-        Validate.notBlank(name, "name cannot be blank");
-        SystemJob job = jobsByName.get(name);
-        Future<JobRun> ret;
-        if (job == null) {
-            ret = Future.failedFuture(new IllegalArgumentException("No system job named " + name));
-        } else {
-            JobRunHandle handle = jobService.run(job.createJobDefinition(), JobOwner.system());
-            String jobRunId = handle.getJobRunId();
-            log.info("Starting system job {} as run {}", name, jobRunId);
-            // The outcome is recorded on the run; the subscription is what starts it
-            handle.completion().onFailure(error -> log.warn("System job {} run {} failed", name, jobRunId, error));
-            // The run and its PENDING task records are written before its first event is emitted, so
-            // the run can be read back once that event arrives
-            ret = Future.fromCompletionStage(handle.getEvents().next().toFuture(), vertx.getOrCreateContext())
-                        .compose(firstEvent -> jobRunRepository.findRun(jobRunId));
-        }
-        return ret;
+        // mapped from a succeeded future, so a name the job service refuses fails the returned future
+        return Future.succeededFuture()
+                     .map(v -> jobService.runSystemJob(name))
+                     .compose(handle -> {
+                         String jobRunId = handle.getJobRunId();
+                         log.info("Starting system job {} as run {}", name, jobRunId);
+                         // The outcome is recorded on the run; the subscription is what starts it
+                         handle.completion().onFailure(error -> log.warn("System job {} run {} failed", name, jobRunId, error));
+                         // The run and its PENDING task records are written before its first event is emitted, so
+                         // the run can be read back once that event arrives
+                         return Future.fromCompletionStage(handle.getEvents().next().toFuture(), vertx.getOrCreateContext())
+                                      .compose(firstEvent -> jobRunRepository.findRun(jobRunId));
+                     });
     }
 
 }

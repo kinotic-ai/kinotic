@@ -1,5 +1,7 @@
 package org.kinotic.test.tests.core.security;
 
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
@@ -222,6 +224,35 @@ public class MemberProvisioningTests extends KinoticTestBase {
         // with the password taken again, the provider may go
         await(asAdministrator(() -> passwordConfigurations.save(passwordSignIn(true))));
         assertFalse(await(asAdministrator(() -> ownedConfigurations.save(disabled, null))).isEnabled());
+    }
+
+    @Test
+    public void aSystemUserIsClaimedOnceByTheProviderIdentityOfItsEmail() throws Exception {
+        String email = "system-added-" + suffix() + "@example.test";
+        SystemParticipantIdentity added = new SystemParticipantIdentity();
+        added.setEmail(email)
+             .setPending(true);
+        SystemParticipantIdentity created = await(identities.createUser(added, null));
+        String configurationId = "system-provider-" + suffix();
+
+        assertNull(await(identities.claimProvisionedSystemUser(configurationId, "sub-stranger", "nobody-" + suffix() + "@example.test")));
+
+        Participant claimed = await(identities.claimProvisionedSystemUser(configurationId, "sub-first", email));
+        assertEquals(created.getId(), claimed.getId());
+        assertEquals(created.getId(), await(identities.findSystemUserByOidcIdentity(configurationId, "sub-first")).getId());
+        // the user signs in through its binding from then on, so another identity under the same email claims nothing
+        assertNull(await(identities.claimProvisionedSystemUser(configurationId, "sub-second", email)));
+    }
+
+    @Test
+    public void theSystemsPasswordStaysWhileItIsASystemUsersOnlyWayIn() throws Exception {
+        // the seeded system user signs in with its password alone
+        PasswordConfiguration off = new PasswordConfiguration().setOrganizationId(DomainUtil.SYSTEM_ID).setEnabled(false);
+        Future<PasswordConfiguration> saved = runAs(new DefaultSystemParticipant("provisioning-system-" + suffix(), Map.of(), List.of()),
+                                                    () -> passwordConfigurations.save(off));
+
+        assertInstanceOf(IllegalStateException.class, assertThrows(ExecutionException.class, () -> await(saved)).getCause());
+        assertNotNull(await(passwordConfigurations.findOffered(DomainUtil.SYSTEM_ID, null, null)));
     }
 
     private PasswordConfiguration passwordSignIn(boolean enabled) {

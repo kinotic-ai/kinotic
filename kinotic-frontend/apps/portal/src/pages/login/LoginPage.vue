@@ -1,53 +1,56 @@
 <template>
   <AuthPageShell>
     <div class="login-form">
-      <div v-if="providers.length > 0" class="login-providers">
-        <SocialAuthButton
-          v-for="provider in providers"
-          :key="provider"
-          :provider="provider"
-          :action="socialStartUrl(provider)"
-          intent="sign-in"
-        />
-        <div class="login-divider"><span>or</span></div>
-      </div>
-
-      <!-- The organizations a social sign-in found the identity signs in to; the person picks one. -->
-      <div v-if="organizationChoices.length > 0" class="login-choices">
-        <p class="login-choices__hint">You belong to several organizations. Choose one to sign in to.</p>
-        <Button
-          v-for="choice in organizationChoices"
-          :key="choice.id"
-          :label="choice.name"
-          class="login-submit login-choices__choice"
-          severity="secondary"
-          @click="continueTo(choice.id)"
-        />
-        <div class="login-divider"><span>or</span></div>
-      </div>
-
-      <!-- A login is addressed to an organization: its page, /login/<organization>, offers the
-           methods that organization's login supports. -->
-      <div class="login-form__step">
-        <IconField class="login-field login-field--last">
-          <InputText
-            ref="organizationInput"
-            v-model="organization"
-            class="login-input"
-            placeholder="Organization"
-            autocapitalize="none"
-            autocorrect="off"
-            spellcheck="false"
-            @keyup.enter="continueToOrganization"
+      <!-- Finding an organization takes the place of the ways to sign in, until it is done or dismissed -->
+      <template v-if="!finding">
+        <div v-if="providers.length > 0" class="login-providers">
+          <SocialAuthButton
+            v-for="provider in providers"
+            :key="provider"
+            :provider="provider"
+            :action="socialStartUrl(provider)"
+            intent="sign-in"
           />
-        </IconField>
+          <div class="login-divider"><span>or</span></div>
+        </div>
 
-        <Button
-          label="Continue"
-          class="login-submit"
-          @click="continueToOrganization"
-        />
-      </div>
+        <!-- The organizations a social sign-in found the identity signs in to; the person picks one. -->
+        <div v-if="organizationChoices.length > 0" class="login-choices">
+          <p class="login-choices__hint">You belong to several organizations. Choose one to sign in to.</p>
+          <Button
+            v-for="choice in organizationChoices"
+            :key="choice.id"
+            :label="choice.name"
+            class="login-submit login-choices__choice"
+            severity="secondary"
+            @click="continueTo(choice.id)"
+          />
+          <div class="login-divider"><span>or</span></div>
+        </div>
+
+        <!-- A login is addressed to an organization: its page, /login/<organization>, offers the
+             methods that organization's login supports. -->
+        <div class="login-form__step">
+          <IconField class="login-field login-field--last">
+            <InputText
+              ref="organizationInput"
+              v-model="organization"
+              class="login-input"
+              placeholder="Organization"
+              autocapitalize="none"
+              autocorrect="off"
+              spellcheck="false"
+              @keyup.enter="continueToOrganization"
+            />
+          </IconField>
+
+          <Button
+            label="Continue"
+            class="login-submit"
+            @click="continueToOrganization"
+          />
+        </div>
+      </template>
 
       <div class="login-find">
         <!-- The organizations a server that shows links in the UI answered with, in place of an email -->
@@ -83,6 +86,7 @@
             :disabled="turnstileSiteKey !== null && !turnstileToken"
             @click="findOrganizations"
           />
+          <a href="#" class="login-link login-find__back" @click.prevent="finding = false">Back to sign in</a>
         </template>
       </div>
 
@@ -105,9 +109,9 @@ import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import SocialAuthButton from '@/components/SocialAuthButton.vue'
+import { SocialAuthButton } from '@kinotic-ai/frontend-common'
 import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath, organizationSlug, rememberedOrganization, UNKNOWN_ORGANIZATION_STATE } from '@/pages/login/organizationLogin'
-import { emailNotVerifiedMessage, providerDisplayName } from '@/util/oidcConfigurations'
+import { emailNotVerifiedMessage, providerDisplayName } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('login')
 
@@ -426,6 +430,11 @@ function displayError(text: string) {
 .login-find__hint {
   margin: 0 0 1rem;
   color: var(--lp-text);
+}
+
+.login-find__back {
+  display: block;
+  margin-top: 1.25rem;
 }
 
 .login-find__found {

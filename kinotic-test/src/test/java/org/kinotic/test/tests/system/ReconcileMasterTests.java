@@ -54,7 +54,7 @@ public class ReconcileMasterTests extends KinoticTestBase {
         // the registration queues the node's worker, which asks to be called again once the next
         // heartbeat would be overdue; that call finds the node silent
         properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(registration())));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.registerNode(registration())));
 
         assertTrue(awaitUntil(() -> nodeUnreachable()), "the master never marked the silent node");
         assertFalse(await(nodes.findById(NODE_ID)).getState().isReconciled(), "nothing is placed on it");
@@ -62,16 +62,16 @@ public class ReconcileMasterTests extends KinoticTestBase {
         // by the one-second standard the node is silent again a second after any heartbeat, and the
         // master keeps looking; the default standard is back before the heartbeat that ends the silence
         properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(DEFAULT_HEARTBEAT_TIMEOUT_SECONDS);
-        await(runAsOrganization(() -> nodeOrchestration.heartbeat(NODE_ID, List.of())));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.heartbeat(List.of())));
 
         assertFalse(nodeUnreachable(), "the heartbeat ends the silence");
     }
 
     @Test
     public void aNodeWhoseDeregistrationWasAskedForIsFinalizedByTheMaster() throws Exception {
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(registration())));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.registerNode(registration())));
 
-        await(runAsOrganization(() -> nodeOrchestration.deregisterNode(NODE_ID)));
+        await(runAsNode(NODE_ID, () -> nodeOrchestration.deregisterNode(NODE_ID)));
 
         assertTrue(awaitUntil(() -> await(nodes.findById(NODE_ID)) == null), "the master never finalized the deregistration");
         assertNull(await(nodes.findById(NODE_ID)));

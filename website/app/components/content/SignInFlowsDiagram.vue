@@ -74,7 +74,7 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
     </svg>
 
     <!-- ═══════════════════════════ MODEL: the configuration classes ═══════════════════════════ -->
-    <svg v-else-if="figure === 'model'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 600" role="img" aria-label="UML class diagram. OidcConfiguration, sealed and abstract, holds id, name, provider, clientId, authority, audience, enabled and timestamps, and refers to the enums OidcProviderType and OidcConfigurationType. Two sealed abstract subclasses: ManagedOidcConfiguration with secretNameRef and the explicit endpoint fields, and OwnedOidcConfiguration with organizationId, providerAccount, confidentialClient and createUserOnSignIn. Managed has two final leaves, OrgSignupOidcConfiguration and ApplicationSocialOidcConfiguration. Owned has three final leaves: OrganizationOidcConfiguration, ApplicationOidcConfiguration with applicationId and clientRegistrationType, MANAGED or OWN, and TenantOidcConfiguration with applicationId and tenantId. Application and Tenant appear as the entities those ids point at.">
+    <svg v-else-if="figure === 'model'" class="sign-in-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 600" role="img" aria-label="UML class diagram. OidcConfiguration, sealed and abstract, holds id, name, provider, clientId, authority, audience, enabled and timestamps, and refers to the enums OidcProviderType and OidcConfigurationType. Two sealed abstract subclasses: ManagedOidcConfiguration with secretNameRef and the explicit endpoint fields, and OwnedOidcConfiguration with organizationId, providerAccount, confidentialClient and createUserOnSignIn. Managed has two final leaves, OrgSignupOidcConfiguration and ApplicationSocialOidcConfiguration. Owned has four final leaves: SystemOidcConfiguration, whose owner is the system, OrganizationOidcConfiguration, ApplicationOidcConfiguration with applicationId and clientRegistrationType, MANAGED or OWN, and TenantOidcConfiguration with applicationId and tenantId. Application and Tenant appear as the entities those ids point at.">
       <defs>
         <marker id="si2-gen" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><polygon class="mk-gen" points="1,1 11,6 1,11"></polygon></marker>
         <marker id="si2-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon class="mk-mut" points="0,0 10,5 0,10"></polygon></marker>
@@ -194,6 +194,12 @@ defineProps<{ figure: 'owners' | 'model' | 'offering' | 'paths' | 'identity' | '
       <polyline class="gen" points="705,500 705,476 960,476 960,450" marker-end="url(#si2-gen)"></polyline>
       <polyline class="gen" points="895,500 895,476 960,476"></polyline>
       <polyline class="gen" points="1085,500 1085,476 960,476"></polyline>
+
+      <rect class="cls" x="435" y="500" width="170" height="60" rx="4"></rect>
+      <text class="t-name" x="520" y="520" text-anchor="middle">SystemOidc…</text>
+      <line class="sep" x1="435" y1="528" x2="605" y2="528"></line>
+      <text class="t-attr-mut" x="520" y="546" text-anchor="middle">type SYSTEM</text>
+      <polyline class="gen" points="520,500 520,476 705,476"></polyline>
     </svg>
 
     <!-- ═══════════════════════════ OFFERING: which login offers a configuration ═══════════════════════════ -->

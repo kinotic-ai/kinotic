@@ -46,7 +46,7 @@ public abstract class AbstractGrindTest {
         vertx = Vertx.vertx();
         repository = new InMemoryJobRunRepository();
         jobService = new DefaultJobService(repository, new ObjectMapper(), vertx,
-                                           () -> new ServerInfo(TEST_NODE_ID, "grind test node"));
+                                           () -> new ServerInfo(TEST_NODE_ID, "grind test node"), List.of());
         jobService.setApplicationContext(appCtx);
     }
 

@@ -4,7 +4,8 @@ import {E2E_ORGANIZATION_ID, managementServer, restBase, systemServer} from '../
 
 /**
  * Exercises the browser login REST surface: POST /api/auth/system/login must admit only
- * system users (V2 seeds admin@kinotic.local), establish a session cookie that
+ * system users (V2 seeds admin@kinotic.local) while the system console's login takes a password, which V1
+ * seeds enabled, establish a session cookie that
  * /api/auth/me accepts, and reject cross-scope or bad credentials with a generic 401.
  */
 describe('System login route', () => {
@@ -40,6 +41,13 @@ describe('System login route', () => {
             headers: {Cookie: sessionCookie(res)}
         })
         expect(me.status).toBe(204)
+    })
+
+    it('offers an email and a password with nothing configured', async () => {
+        const res = await fetch(`${baseUrl}/api/auth/system/login/providers`)
+        expect(res.status).toBe(200)
+        const providers = await res.json() as {id: string, type: string}[]
+        expect(providers.some(p => p.type === 'PASSWORD')).toBe(true)
     })
 
     it('rejects an ORGANIZATION-scope user with a generic 401', async () => {

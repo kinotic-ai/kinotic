@@ -320,8 +320,11 @@ import { DelegateType, type DelegatingParticipantIdentity, type GitHubAppInstall
 import { apiUrl, createDebug, PageHeader, TINTS } from '@kinotic-ai/frontend-common'
 import { repositoryHost } from '@/util/repositoryHost'
 import { DOCUMENTATION_URL } from '@/util/externalLinks'
-import githubLogo from '@/assets/github-icon.svg'
+import { PROVIDER_LOGOS } from '@kinotic-ai/frontend-common'
+import { OidcProviderType } from '@kinotic-ai/management-api'
 import claudeCodeIcon from '@/assets/claude-code.svg'
+
+const githubLogo = PROVIDER_LOGOS[OidcProviderType.GITHUB]
 
 /**
  * The organization's onboarding checklist: install the Kinotic plugin in Claude Code, authorize its

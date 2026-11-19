@@ -1,5 +1,9 @@
 package org.kinotic.test.tests.core.security;
 
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.rest.support.OidcCallbacks;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -144,6 +148,43 @@ public class OwnedOidcConfigurationServiceTests extends KinoticTestBase {
         appGoogle.setApplicationId(appId);
         appGoogle.setCreateUserOnSignIn(true);
         assertTrue(await(asAdministrator(() -> ownedConfigurations.save(appGoogle, null))).isCreateUserOnSignIn());
+    }
+
+    @Test
+    public void theSystemsConfigurationIsKeptUnderTheSystemsIdAndOfferedAtItsLoginAlone() throws Exception {
+        SystemOidcConfiguration google = google(new SystemOidcConfiguration(), "System Google " + suffix());
+        google.setOrganizationId("globex");
+
+        OwnedOidcConfiguration saved = await(asSystem(() -> ownedConfigurations.save(google, "system-secret")));
+        try {
+            assertEquals(DomainUtil.SYSTEM_ID, assertInstanceOf(SystemOidcConfiguration.class, saved).getOrganizationId());
+            assertEquals("system-secret", await(oidcConfigurations.findClientSecret(saved)));
+            assertTrue(await(asSystem(() -> ownedConfigurations.findCallbackUrl(saved.getId())))
+                               .endsWith(OidcCallbacks.SYSTEM_CALLBACK_PATH + saved.getId()));
+            assertNotNull(await(oidcConfigurations.findOffered(saved.getId(), DomainUtil.SYSTEM_ID, null, null)));
+            assertNull(await(oidcConfigurations.findOffered(saved.getId(), organization.getId(), null, null)));
+            // an organization's administrator neither reads nor copies the system's, and the system's is not copied to an application
+            assertNull(await(asAdministrator(() -> ownedConfigurations.findById(saved.getId()))));
+            assertInstanceOf(AuthorizationException.class,
+                             assertThrows(ExecutionException.class, () -> await(asSystem(() -> ownedConfigurations.copy(saved.getId(), null)))).getCause());
+        } finally {
+            await(asSystem(() -> ownedConfigurations.deleteById(saved.getId())));
+        }
+        assertNull(await(asSystem(() -> ownedConfigurations.findById(saved.getId()))));
+    }
+
+    @Test
+    public void onlyTheSystemKeepsAConfigurationOfTheSystemsKind() {
+        SystemOidcConfiguration asOrganization = google(new SystemOidcConfiguration(), "Not the system's");
+        assertInstanceOf(IllegalArgumentException.class, failure(() -> ownedConfigurations.save(asOrganization, null)));
+
+        OrganizationOidcConfiguration asSystem = google(new OrganizationOidcConfiguration(), "Not an organization's");
+        assertInstanceOf(IllegalArgumentException.class,
+                         assertThrows(ExecutionException.class, () -> await(asSystem(() -> ownedConfigurations.save(asSystem, null)))).getCause());
+    }
+
+    private <T> Future<T> asSystem(Supplier<Future<T>> call) {
+        return runAs(new DefaultSystemParticipant("owned-system-" + suffix(), Map.of(), List.of()), call);
     }
 
     private <C extends OwnedOidcConfiguration> C okta(C configuration, String name) {

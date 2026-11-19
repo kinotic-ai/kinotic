@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.serializer;
+package org.kinotic.domain.internal.serializer;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import tools.jackson.core.JacksonException;
@@ -33,6 +33,7 @@ public class FieldValueSerializer extends ValueSerializer<FieldValue> {
                 break;
             case Any :
                 jsonGenerator.writePOJOProperty("value", field._get());
+                break;
             default :
                 throw new IllegalStateException("Unknown kind " + field._kind());
         }

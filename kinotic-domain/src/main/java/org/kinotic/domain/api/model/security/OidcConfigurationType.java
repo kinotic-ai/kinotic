@@ -19,6 +19,10 @@ public enum OidcConfigurationType {
      */
     APP_SOCIAL,
     /**
+     * A provider the deployment's operators configured for the system console's login.
+     */
+    SYSTEM,
+    /**
      * A provider an organization configured for its own login.
      */
     ORGANIZATION,

@@ -138,7 +138,7 @@ resource "azurerm_role_assignment" "server_key_vault_secrets" {
 }
 
 # The operator places the social sign-in providers' client secrets, which the seeded
-# kinotic_org_signup_oidc_configuration rows name by secretNameRef
+# kinotic_oidc_configuration rows name by secretNameRef
 resource "azurerm_role_assignment" "operator_key_vault_secrets" {
   scope                = azurerm_key_vault.server.id
   role_definition_name = "Key Vault Secrets Officer"
@@ -208,4 +208,14 @@ resource "cloudflare_dns_record" "public" {
   lifecycle {
     ignore_changes = [content]
   }
+}
+
+# The Turnstile site the portal's find-my-organizations form presents; the proxmox root gives the management
+# server its site key, and the operator places its secret in the management server's secrets.yml
+resource "cloudflare_turnstile_widget" "portal" {
+  account_id = var.cloudflare_account_id
+  name       = "${local.name_prefix} portal"
+  domains    = [local.portal_hostname]
+  mode       = "managed"
+  region     = "world"
 }

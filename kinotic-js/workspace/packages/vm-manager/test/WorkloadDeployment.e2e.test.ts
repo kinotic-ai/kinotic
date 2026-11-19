@@ -25,8 +25,8 @@ import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 // environment below — which is the point, and worth keeping true.
 const canRun = process.env.KINOTIC_WORKLOAD_E2E === '1'
 
-/** Node the workload is pinned to — the one the vm-manager under test registered as. */
-const NODE_ID = process.env.KINOTIC_NODE_ID ?? 'lab-node-1'
+/** Node the workload is pinned to: the machine the vm-manager under test authenticates as, which this test connects as too. */
+const NODE_ID = process.env.KINOTIC_CLIENT_ID!
 /** Where the node keeps workload mounts; must be the directory the vm-manager reported. */
 const DATA_DIR = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? join(homedir(), '.kinotic', 'workloads')
 /**

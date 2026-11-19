@@ -2,6 +2,7 @@ package org.kinotic.grind.api.model;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.grind.internal.api.model.DefaultTask;
+import org.kinotic.grind.internal.api.model.TaskInstanceFactory;
 
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -41,54 +42,56 @@ public class Tasks {
     }
 
     /**
-     * Creates a {@link Task} that injects the given instance's annotated members against the
-     * job scope, then invokes {@link Callable#call()} for the result. The instance is injected on
-     * each execution, so it serves one execution at a time; a task that runs concurrently, in
-     * parallel definitions or concurrent runs, is built per execution with {@link #fromClass(String, Class)}.
+     * Creates a {@link Task} that invokes {@link Callable#call()} for the result. A callable the
+     * job scope injects, through an {@code @Autowired} or {@code @Value} field, an injected method
+     * or a lifecycle callback, written inline as an anonymous class, is the pattern of the task:
+     * every execution invokes an instance of its own, a new instance of that class holding what
+     * the given one captured, injected against the job scope. Any other callable, such as a lambda
+     * or a method reference, is invoked by every execution.
      * @param description of the task
-     * @param callable to inject and invoke
+     * @param callable to invoke
      * @param <R> the result type
      * @return the task
+     * @throws IllegalArgumentException if the job scope injects the callable and it is an instance
+     *         of a named class or of an inline subclass of a class: {@link #fromClass(String, Class)}
+     *         takes such a task as a named class
      */
     public static <R> Task<R> fromCallable(String description, Callable<R> callable) {
         Validate.notNull(callable, "callable cannot be null");
-        return DefaultTask.of(description, context -> {
-            context.autowire(callable);
-            return callable.call();
-        });
+        TaskInstanceFactory<Callable<R>> instances = TaskInstanceFactory.of(callable);
+        return DefaultTask.of(description, context -> instances.instanceFor(context).call());
     }
 
     /**
-     * Creates a {@link Task} that injects the given instance's annotated members against the
-     * job scope, then invokes {@link Supplier#get()} for the result. The instance is injected on
-     * each execution, so it serves one execution at a time, as {@link #fromCallable(String, Callable)}
-     * describes.
+     * Creates a {@link Task} that invokes {@link Supplier#get()} for the result. A supplier the
+     * job scope injects is given to every execution as an instance of its own, as
+     * {@link #fromCallable(String, Callable)} describes.
      * @param description of the task
-     * @param supplier to inject and invoke
+     * @param supplier to invoke
      * @param <R> the result type
      * @return the task
+     * @throws IllegalArgumentException as {@link #fromCallable(String, Callable)} describes
      */
     public static <R> Task<R> fromSupplier(String description, Supplier<R> supplier) {
         Validate.notNull(supplier, "supplier cannot be null");
-        return DefaultTask.of(description, context -> {
-            context.autowire(supplier);
-            return supplier.get();
-        });
+        TaskInstanceFactory<Supplier<R>> instances = TaskInstanceFactory.of(supplier);
+        return DefaultTask.of(description, context -> instances.instanceFor(context).get());
     }
 
     /**
-     * Creates a {@link Task} that injects the given instance's annotated members against the
-     * job scope, then invokes {@link Runnable#run()}. The instance is injected on each execution,
-     * so it serves one execution at a time, as {@link #fromCallable(String, Callable)} describes.
+     * Creates a {@link Task} that invokes {@link Runnable#run()}. A runnable the job scope
+     * injects is given to every execution as an instance of its own, as
+     * {@link #fromCallable(String, Callable)} describes.
      * @param description of the task
-     * @param runnable to inject and invoke
+     * @param runnable to invoke
      * @return the task
+     * @throws IllegalArgumentException as {@link #fromCallable(String, Callable)} describes
      */
     public static Task<Void> fromRunnable(String description, Runnable runnable) {
         Validate.notNull(runnable, "runnable cannot be null");
+        TaskInstanceFactory<Runnable> instances = TaskInstanceFactory.of(runnable);
         return DefaultTask.of(description, context -> {
-            context.autowire(runnable);
-            runnable.run();
+            instances.instanceFor(context).run();
             return null;
         });
     }

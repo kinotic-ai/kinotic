@@ -1,5 +1,9 @@
 package org.kinotic.system.internal.api.services;
 
+import org.kinotic.domain.api.services.security.PasswordConfigurationService;
+import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.Participant;
+import org.apache.commons.lang3.StringUtils;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
@@ -18,7 +22,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DefaultSystemMemberService implements SystemMemberService {
 
+    // the bytes of a generated password, 24 characters once encoded
+    private static final int PASSWORD_BYTES = 18;
+
     private final ParticipantIdentityService identityService;
+    private final PasswordConfigurationService passwordConfigurationService;
+    private final SecurityContext securityContext;
 
     @Override
     public Future<Page<SystemParticipantIdentity>> findUsers(Pageable pageable) {
@@ -28,6 +37,38 @@ public class DefaultSystemMemberService implements SystemMemberService {
     @Override
     public Future<Page<SystemParticipantIdentity>> searchUsers(String searchText, Pageable pageable) {
         return identityService.searchSystemUsers(searchText, pageable);
+    }
+
+    @Override
+    public Future<SystemParticipantIdentity> addUser(String email, String displayName) {
+        Validate.notBlank(email, "email is required");
+        SystemParticipantIdentity user = new SystemParticipantIdentity();
+        user.setEmail(email.trim())
+            .setPending(true)
+            .setDisplayName(StringUtils.trimToNull(displayName));
+        return identityService.createUser(user, null);
+    }
+
+    @Override
+    public Future<Void> setUserEnabled(String userId, boolean enabled) {
+        Validate.isTrue(!securityContext.requireParticipant(Participant.class).getId().equals(userId),
+                        "You cannot perform this action on yourself.");
+        return loadSystemUser(userId)
+                // saveSync so the console's immediate re-query sees the change
+                .compose(user -> identityService.saveSync(user.setEnabled(enabled)))
+                .mapEmpty();
+    }
+
+    @Override
+    public Future<String> resetUserPassword(String userId) {
+        String password = DomainUtil.generateUrlSafeToken(PASSWORD_BYTES);
+        return passwordConfigurationService.findOffered(DomainUtil.SYSTEM_ID, null, null)
+                                           .compose(offered -> {
+                                               Validate.isTrue(offered != null, "The system console's login takes no password.");
+                                               return loadSystemUser(userId);
+                                           })
+                                           .compose(user -> identityService.setPassword(user.getId(), password))
+                                           .map(v -> password);
     }
 
     @Override
@@ -65,6 +106,14 @@ public class DefaultSystemMemberService implements SystemMemberService {
                 // Cascades the IdentityCredential; sync so the console's immediate re-query no
                 // longer shows the machine.
                 .compose(machine -> identityService.deleteByIdSync(machine.getId()));
+    }
+
+    /** Loads a system user for mutation. */
+    private Future<SystemParticipantIdentity> loadSystemUser(String userId) {
+        Validate.notBlank(userId, "userId is required");
+        return identityService.findById(userId)
+                              .map(identity -> DomainUtil.requireOwned(identity, SystemParticipantIdentity.class,
+                                                                      user -> true, "User not found."));
     }
 
     /** Loads a SYSTEM-scope machine for inspection or mutation. */

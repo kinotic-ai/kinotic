@@ -71,7 +71,7 @@ public class WatchEventLedgerTests extends KinoticTestBase {
 
     @Test
     public void aRecordsEntriesAreStampedInTheOrderItsWritesLanded() throws Exception {
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, 4, 4096, 10240))));
+        await(runAsNode(nodeId, () -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, 4, 4096, 10240))));
         VmNode node = await(nodes.findById(nodeId));
 
         // the clear follows the set at once, as a heartbeat answering the mark does
@@ -91,7 +91,7 @@ public class WatchEventLedgerTests extends KinoticTestBase {
 
     @Test
     public void aWriteTheLedgerRefusedIsEnteredByTheMasterOnceItAccepts() throws Exception {
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, 4, 4096, 10240))));
+        await(runAsNode(nodeId, () -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, 4, 4096, 10240))));
         VmNode node = await(nodes.findById(nodeId));
 
         blockLedgerWrites(true);
@@ -108,7 +108,7 @@ public class WatchEventLedgerTests extends KinoticTestBase {
 
     @Test
     public void aRecordHoldingAnEntryIsDeletedOnlyOnceTheEntryIsEntered() throws Exception {
-        await(runAsOrganization(() -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, 4, 4096, 10240))));
+        await(runAsNode(nodeId, () -> nodeOrchestration.registerNode(NodeFixtures.registration(nodeId, 4, 4096, 10240))));
         VmNode node = await(nodes.findById(nodeId));
 
         blockLedgerWrites(true);

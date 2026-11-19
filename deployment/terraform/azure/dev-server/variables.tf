@@ -74,7 +74,7 @@ variable "cloudflare_account_id" {
 }
 
 variable "cloudflare_api_token" {
-  description = "The token this root applies the zones with: Workers Scripts edit on the account, DNS, Workers routes and zone settings edit on the customers' zone and the platform zone; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
+  description = "The token this root applies the zones with: Workers Scripts and Turnstile Sites edit on the account, DNS, Workers routes and zone settings edit on the customers' zone and the platform zone; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
   type        = string
   sensitive   = true
 }
@@ -83,4 +83,10 @@ variable "cloudflare_dns_api_token" {
   description = "A token holding DNS edit on the platform zone and the customers' zone and nothing else, placed on the host for the servers to create organizations' sites records with, for certbot's DNS-01 challenges and for kinotic-dyndns; with-dev-server-secrets.sh sets it from the operator keychain (proxmox/README.md, Operator secrets)"
   type        = string
   sensitive   = true
+}
+
+variable "system_sign_in_provider_id" {
+  description = "The id the system console gave its Entra sign-in provider, the last segment of the callback URL it shows; empty until the provider is added there"
+  type        = string
+  default     = ""
 }
