@@ -39,6 +39,10 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -98,7 +102,8 @@ class OpenFgaIntegrationTest {
             Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
                                    "Docker or OPENFGA_URL is required for the OpenFGA integration test");
             openfga = new GenericContainer<>(openFgaImageFromCompose())
-                    .withExposedPorts(8080)
+                    // 2112 serves the engine's Prometheus metrics, which count the datastore queries of each check
+                    .withExposedPorts(8080, 2112)
                     .withCommand("run")
                     // with no cache controller, a cached check answer lives its whole time to live whatever is
                     // written meanwhile, so a check that skips the cache is told apart from one that reads it
@@ -329,6 +334,58 @@ class OpenFgaIntegrationTest {
                                                                  Consistency.HIGHER_CONSISTENCY)).size());
         await(relationshipService.revoke(SYSTEM, grantId, "application:crm-lists"));
         await(relationshipService.remove(SYSTEM, written));
+    }
+
+    @Test
+    void aCheckCostsTheSameHoweverManyHoldARoleOnItsPath() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
+        List<String> path = List.of("project:billing-cost", "application:crm-cost", "organization:acme-cost");
+        await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple(path.get(2), "organization", path.get(1)),
+                                                         new RelationshipTuple(path.get(1), "application", path.get(0)))));
+        for (String object : path) {
+            await(relationshipService.bind(SYSTEM, "project.editor", "user:first-cost", object));
+        }
+        // a refusal reads every path to the object, and higher consistency skips the engine's check cache
+        RelationshipTuple refused = new RelationshipTuple("user:nobody-cost", "project_can_read", path.get(0));
+        double withOne = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, refused, Consistency.HIGHER_CONSISTENCY));
+
+        for (int i = 0; i < 100; i++) {
+            for (String object : path) {
+                await(relationshipService.bind(SYSTEM, "project.editor", "user:member" + i + "-cost", object));
+            }
+        }
+        double withMany = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, refused, Consistency.HIGHER_CONSISTENCY));
+
+        // a check that opened each grant would read hundreds of times more
+        assertTrue(withMany < 2 * withOne,
+                   "a refused check took " + withOne + " datastore queries with one member of the role on each object of its path and "
+                           + withMany + " with 101");
+        for (String object : path) {
+            await(relationshipService.removeObject(SYSTEM, object));
+        }
+    }
+
+    // The datastore queries the engine counts for one check, averaged over ten
+    private double datastoreQueriesOf(Supplier<Future<Boolean>> check) throws Exception {
+        double before = checkQueryCount();
+        for (int i = 0; i < 10; i++) {
+            assertFalse(await(check.get()));
+        }
+        return (checkQueryCount() - before) / 10;
+    }
+
+    // The sum of the engine's histogram of datastore queries per Check request
+    private static double checkQueryCount() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + openfga.getHost() + ":" + openfga.getMappedPort(2112) + "/metrics")).build();
+        String metrics = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).body();
+        double ret = 0;
+        for (String line : metrics.split("\n")) {
+            if (line.startsWith("openfga_datastore_query_count_sum{") && line.toLowerCase().contains("grpc_method=\"check\"")) {
+                ret += Double.parseDouble(line.substring(line.lastIndexOf(' ') + 1));
+            }
+        }
+        return ret;
     }
 
     @Test

@@ -57,7 +57,9 @@ public class OpenFgaService {
 
     public OpenFgaService(KinoticAuthzProperties properties) {
         AuthzProperties authz = properties.getAuthz();
-        Configuration configuration = new Configuration().apiUrl(authz.getApiUrl());
+        // one retry covers an engine replica that went away mid-request; the SDK retries a timed-out request like
+        // any other server error, so each further retry multiplies the load on an engine that is already behind
+        Configuration configuration = new Configuration().apiUrl(authz.getApiUrl()).maxRetries(1);
         if (StringUtils.hasText(authz.getApiToken())) {
             configuration.credentials(new Credentials(new ApiToken(authz.getApiToken())));
         }
