@@ -116,14 +116,14 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                     // session list, read the lineage without the deleted replacement.
                     String replacementId = UUID.randomUUID().toString();
                     return mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(), current.getLabel())
-                            .compose(plaintext -> refreshTokenRepository.consume(current.getId(), replacementId)
+                            .compose(plaintext -> refreshTokenRepository.consume(current, replacementId)
                                     .compose(consumed -> consumed
                                                      ? Future.succeededFuture(new RefreshTokenRotation(identity, plaintext, current.getAudience()))
                                                      // the lineage is revoked whether or not the replacement could
                                                      // be deleted, which revokes a replacement left behind as well
-                                                     : refreshTokenRepository.deleteByIdSync(replacementId)
+                                                     : refreshTokenRepository.deleteSync(replacementId, current.getIdentityId())
                                                                              .transform(deleted -> reused(current)),
-                                             err -> refreshTokenRepository.deleteByIdSync(replacementId)
+                                             err -> refreshTokenRepository.deleteSync(replacementId, current.getIdentityId())
                                                                           .onFailure(deleteErr -> log.warn("Could not delete the unused replacement {} of family {}: {}",
                                                                                                            replacementId, current.getFamilyId(), deleteErr.getMessage()))
                                                                           .transform(v -> Future.failedFuture(err))));

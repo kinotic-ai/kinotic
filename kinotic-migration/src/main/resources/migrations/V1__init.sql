@@ -505,7 +505,8 @@ CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
 -- an already-rotated token (reuse) can revoke the whole family.
 -- audience is the surface access tokens minted from a lineage are valid for; rotation
 -- preserves it, so an MCP host's lineage can never mint a published-services token or the
--- reverse.
+-- reverse. Each token is routed by its identityId, so an identity's tokens share one shard and a
+-- revocation reads them all at one point in time.
 CREATE TABLE IF NOT EXISTS kinotic_refresh_token (
     id KEYWORD,
     tokenHash KEYWORD,

@@ -52,7 +52,7 @@ public class KinoticUtil {
      * @return the text on one line, or null for null
      */
     public static String singleLine(String value) {
-        return value == null ? null : value.replaceAll("[\\p{Cntrl}\\u2028\\u2029]+", " ");
+        return value == null ? null : value.replaceAll("[\\p{Cc}\\u2028\\u2029]+", " ");
     }
 
     /**

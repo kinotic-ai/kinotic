@@ -1,7 +1,10 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -13,8 +16,19 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Stores refresh tokens, each routed by the identity it authenticates, so every token of an identity, and of each
+ * of its rotation lineages, lives on one shard and a revocation reads them all at one point in time.
+ * <p>
+ * Composition (rather than inheritance from {@link AbstractRepository}) is intentional, as in
+ * {@link AbstractOrganizationScopedRepository}: a read or write by id alone cannot address a routed token, so
+ * the forms that take only an id are not offered.
+ */
 @Component
-public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
+@RequiredArgsConstructor
+public class RefreshTokenRepository {
+
+    private static final String INDEX_NAME = "kinotic_refresh_token";
 
     private static final String REVOKE_SCRIPT = "ctx._source.revoked = true";
 
@@ -30,13 +44,17 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
                 ctx._source.lastUsedAt = params.lastUsedAt
             }""";
 
-    public RefreshTokenRepository(CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_refresh_token", RefreshToken.class, crudServiceTemplate);
+    private final CrudServiceTemplate crudServiceTemplate;
+
+    @PostConstruct
+    public void verifyIndexExists() {
+        crudServiceTemplate.verifyIndexExists(INDEX_NAME);
     }
 
     /** Finds the token whose plaintext hashes to {@code tokenHash}, or {@code null} if none matches. */
     public Future<RefreshToken> findByTokenHash(String tokenHash) {
-        return findFirst(b -> b.query(termFilter("tokenHash", tokenHash)));
+        return crudServiceTemplate.findFirst(INDEX_NAME, RefreshToken.class,
+                                             b -> b.query(crudServiceTemplate.termFilter("tokenHash", tokenHash)));
     }
 
     /**
@@ -44,22 +62,38 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
      * of it is under way.
      */
     public Future<List<RefreshToken>> findActiveByIdentityId(String identityId) {
-        return findAll(Pageable.ofSize(1000), b -> b.query(composeFilter(
-                termFilter("identityId", identityId),
-                termFilter("revoked", false))))
-                .map(Page::getContent);
+        return crudServiceTemplate.search(INDEX_NAME, Pageable.ofSize(1000), RefreshToken.class,
+                                          b -> b.routing(identityId).query(liveTokensOf(identityId)))
+                                  .map(Page::getContent);
+    }
+
+    /** Stores {@code token}, visible to search when the future completes. */
+    public Future<RefreshToken> saveSync(RefreshToken token) {
+        Validate.notBlank(token.getIdentityId(), "identityId cannot be blank");
+        return crudServiceTemplate.saveSync(INDEX_NAME, token.getId(), token, b -> b.routing(token.getIdentityId()))
+                                  .map(token);
     }
 
     /**
-     * Redeems token {@code id}: marks it revoked, used now and replaced by {@code replacedById}, which exactly one
+     * Deletes token {@code id} of identity {@code identityId}, gone from search when the future completes.
+     */
+    public Future<Void> deleteSync(String id, String identityId) {
+        Validate.notBlank(id, "id cannot be blank");
+        Validate.notBlank(identityId, "identityId cannot be blank");
+        return crudServiceTemplate.deleteByIdSync(INDEX_NAME, id, b -> b.routing(identityId))
+                                  .mapEmpty();
+    }
+
+    /**
+     * Redeems {@code token}: marks it revoked, used now and replaced by {@code replacedById}, which exactly one
      * caller does, however many present the token at once. False when the token was revoked already, which is a
      * reuse of a rotated token. The change is visible to search when the future completes.
      */
-    public Future<Boolean> consume(String id, String replacedById) {
-        Validate.notBlank(id, "id cannot be blank");
+    public Future<Boolean> consume(RefreshToken token, String replacedById) {
         Validate.notBlank(replacedById, "replacedById cannot be blank");
-        return crudServiceTemplate.scriptedUpdateSync(indexName, id, CONSUME_SCRIPT,
-                                                      Map.of("replacedById", replacedById, "lastUsedAt", new Date()));
+        return crudServiceTemplate.scriptedUpdate(INDEX_NAME, token.getId(), CONSUME_SCRIPT,
+                                                  Map.of("replacedById", replacedById, "lastUsedAt", new Date()),
+                                                  b -> b.routing(token.getIdentityId()).refresh(Refresh.WaitFor));
     }
 
     /**
@@ -70,9 +104,8 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
     public Future<Void> revokeFamily(String identityId, String familyId) {
         Validate.notBlank(identityId, "identityId cannot be blank");
         Validate.notBlank(familyId, "familyId cannot be blank");
-        return revokeMatching(composeFilter(termFilter("identityId", identityId),
-                                            termFilter("familyId", familyId),
-                                            termFilter("revoked", false)));
+        return revokeMatching(identityId, crudServiceTemplate.composeFilter(liveTokensOf(identityId),
+                                                                            crudServiceTemplate.termFilter("familyId", familyId)), 1);
     }
 
     /**
@@ -81,28 +114,30 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
      */
     public Future<Void> revokeAllFor(String identityId) {
         Validate.notBlank(identityId, "identityId cannot be blank");
-        return revokeMatching(composeFilter(termFilter("identityId", identityId),
-                                            termFilter("revoked", false)));
+        return revokeMatching(identityId, liveTokensOf(identityId), 1);
     }
 
-    // A rotation writes its replacement before it consumes the token it replaces, or deletes the replacement when
-    // the consume fails. A token that changed under a pass is one of those, so the pass that follows finds the
-    // replacement, and the consumed or deleted token no longer matches. The index is refreshed in between: a pass
-    // that changed nothing refreshes nothing, and the next would read the same stale tokens and skip them again.
-    private Future<Void> revokeMatching(Query live) {
-        return revokeMatching(live, 1);
+    private Query liveTokensOf(String identityId) {
+        return crudServiceTemplate.composeFilter(crudServiceTemplate.termFilter("identityId", identityId),
+                                                 crudServiceTemplate.termFilter("revoked", false));
     }
 
-    private Future<Void> revokeMatching(Query live, int pass) {
-        return crudServiceTemplate.updateByQuery(indexName, b -> b.query(live)
-                                                                   .script(s -> s.source(src -> src.scriptString(REVOKE_SCRIPT))))
+    // A pass reads the identity's one shard at a single point in time. A rotation writes its replacement before it
+    // consumes the token it replaces, or deletes the replacement when the consume fails, so the pass finds either
+    // the token still live, and a rotation changing it under the pass is a version conflict, or the replacement.
+    // After a conflict the index is refreshed before the next pass: a pass that changed nothing refreshes nothing,
+    // and the next would read the same stale tokens and skip them again.
+    private Future<Void> revokeMatching(String identityId, Query live, int pass) {
+        return crudServiceTemplate.updateByQuery(INDEX_NAME, b -> b.routing(identityId)
+                                                                    .query(live)
+                                                                    .script(s -> s.source(src -> src.scriptString(REVOKE_SCRIPT))))
                                   .compose(response -> {
                                       Future<Void> ret;
                                       if (response.versionConflicts() == null || response.versionConflicts() == 0) {
                                           ret = Future.succeededFuture();
                                       } else if (pass < MAX_REVOCATION_PASSES) {
-                                          ret = crudServiceTemplate.syncIndex(indexName)
-                                                                   .compose(v -> revokeMatching(live, pass + 1));
+                                          ret = crudServiceTemplate.syncIndex(INDEX_NAME)
+                                                                   .compose(v -> revokeMatching(identityId, live, pass + 1));
                                       } else {
                                           ret = Future.failedFuture(new IllegalStateException(
                                                   "The refresh tokens could not be revoked while they were being rotated; try again"));
