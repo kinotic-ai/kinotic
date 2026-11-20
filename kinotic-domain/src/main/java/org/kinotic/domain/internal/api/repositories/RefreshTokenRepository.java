@@ -101,7 +101,7 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
                                       if (response.versionConflicts() == null || response.versionConflicts() == 0) {
                                           ret = Future.succeededFuture();
                                       } else if (pass < MAX_REVOCATION_PASSES) {
-                                          ret = crudServiceTemplate.refresh(indexName)
+                                          ret = crudServiceTemplate.syncIndex(indexName)
                                                                    .compose(v -> revokeMatching(live, pass + 1));
                                       } else {
                                           ret = Future.failedFuture(new IllegalStateException(

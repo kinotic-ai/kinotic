@@ -67,16 +67,21 @@ public abstract class AbstractTokenVerificationRepository<T extends PendingVerif
      *
      * @param pending the record {@link #findValidByToken} returned
      * @return a future emitting the record, failed with an {@link IllegalArgumentException} while another
-     *         completion holds it
+     *         completion holds it or once one has consumed it
      */
     public Future<T> claim(T pending) {
         long now = System.currentTimeMillis();
         return crudServiceTemplate.scriptedUpdate(indexName, pending.getId(), CLAIM_SCRIPT,
                                                   Map.of("now", now, "claimedUntil", now + CLAIM_TTL_MS), null)
                                   .compose(claimed -> claimed
-                                          ? Future.succeededFuture(pending)
-                                          : Future.failedFuture(new IllegalArgumentException(
-                                                  "This link is already being completed. Try again in a moment.")));
+                                                   ? Future.succeededFuture(pending)
+                                                   : Future.failedFuture(new IllegalArgumentException(
+                                                           "This link is already being completed. Try again in a moment.")),
+                                           // the completion that held the record finished and deleted it between
+                                           // the caller's lookup and this claim
+                                           err -> Future.failedFuture(CrudServiceTemplate.isMissingDocument(err)
+                                                                              ? new IllegalArgumentException("Invalid or already consumed token.")
+                                                                              : err));
     }
 
     /** Gives up a claim taken with {@link #claim}, so the token can be presented again at once. */

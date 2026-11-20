@@ -279,6 +279,8 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         Future<ApplicationParticipantIdentity> concurrent = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
         Future.join(completion, concurrent).toCompletionStage().toCompletableFuture().handle((v, e) -> null).get(30, TimeUnit.SECONDS);
         assertTrue(completion.succeeded() ^ concurrent.succeeded(), "exactly one completion creates the user");
+        // the other is refused as a token in use or already consumed, whichever point the first had reached
+        assertInstanceOf(IllegalArgumentException.class, (completion.failed() ? completion : concurrent).cause());
         ApplicationParticipantIdentity user = completion.succeeded() ? completion.result() : concurrent.result();
         assertEquals(email, user.getEmail());
         assertEquals("Pat Signs Up", user.getDisplayName());

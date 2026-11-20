@@ -107,7 +107,7 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                   ctx.response().setStatusCode(302).putHeader("Location", url).end();
               })
               .onFailure(err -> {
-                  log.warn("Social login authorize failed for {}/{}: {}", HostLabelUtil.label(applicationKey), configId, err.getMessage());
+                  log.warn("Social login authorize failed for {}/{}: {}", HostLabelUtil.label(applicationKey), KinoticUtil.singleLine(configId), err.getMessage());
                   // the flow has not started, so the page that asked is still known to send the browser back to
                   authEndpointSupport.redirectError(ctx, origin, err instanceof OidcCallbackException oce
                           ? oce.getErrorCode() : OidcErrorCodes.EXCHANGE_FAILED);

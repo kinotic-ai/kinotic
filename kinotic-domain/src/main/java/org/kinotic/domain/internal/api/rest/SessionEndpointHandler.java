@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
  *       WebSocket: a rejected WS upgrade is opaque to browsers, whereas this HTTP status is
  *       readable, so the SPA can fail fast instead of dialing an unauthenticated socket.</li>
  *   <li>{@code POST /api/auth/logout} — ends the calling page's login and the realtime connections established
- *       on it. The session, and its cookie, end once no page's login remains.</li>
+ *       on it. The session, and its cookie, end once it holds no page's login and no sign-in in progress.</li>
  * </ul>
  */
 @Component
