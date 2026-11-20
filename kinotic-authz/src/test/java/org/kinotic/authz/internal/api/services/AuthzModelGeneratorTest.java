@@ -503,7 +503,7 @@ public class AuthzModelGeneratorTest {
         assertEquals(Set.of("entity_definition_can_read"), model.roles().get("entity_definition.viewer"));
         assertEquals(Set.of("entity_definition_can_edit", "entity_definition_can_read"),
                      model.roles().get("entity_definition.editor"));
-        assertTrue(model.roles().get("tenant.admin").contains("entity_definition_can_delete"));
+        assertFalse(model.roles().containsKey("tenant.admin"));
         assertTrue(model.roles().get("application.admin").contains("entity_definition_can_delete"));
         assertFalse(model.roles().containsKey("tenant_definition.viewer"));
     }
@@ -524,7 +524,8 @@ public class AuthzModelGeneratorTest {
         assertEquals(Set.of("can_delete", "can_edit", "can_read"), model.permissions().get("entity_definition"));
         assertFalse(model.permissions().containsKey("application"));
         assertEquals(Set.of("tenant_can_read_members"), model.roles().get("tenant.viewer"));
-        assertTrue(model.roles().get("tenant.admin").containsAll(Set.of("tenant_can_read_members", "entity_definition_can_delete")));
+        // a tenant's administrator holds the tenant's own permissions and none of the rows'
+        assertEquals(Set.of("tenant_can_read_members"), model.roles().get("tenant.admin"));
     }
 
     @Test

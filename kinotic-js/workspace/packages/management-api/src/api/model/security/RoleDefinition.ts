@@ -25,4 +25,9 @@ export interface RoleDefinition {
      * Empty for every other role.
      */
     definitionPermissions: Record<string, string[]>
+    /**
+     * True for a role the administrators of a tenant may grant to the users of their tenant: a built-in role homed
+     * at the tenant, and a role of an application its developer marked so.
+     */
+    tenantAssignable: boolean
 }

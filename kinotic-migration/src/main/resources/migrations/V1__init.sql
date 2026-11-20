@@ -246,6 +246,7 @@ CREATE TABLE IF NOT EXISTS kinotic_role (
     id KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    tenantAssignable BOOLEAN,
     name KEYWORD,
     description TEXT,
     created DATE,

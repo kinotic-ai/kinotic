@@ -12,6 +12,7 @@ import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -20,7 +21,9 @@ import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.services.security.InviteService;
+import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
@@ -43,6 +46,8 @@ public class DefaultInviteService implements InviteService {
     private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
     private final PasswordConfigurationService passwordConfigurationService;
+    private final OidcConfigurationService oidcConfigurationService;
+    private final ApplicationRepository applicationRepository;
     private final EmailService emailService;
     private final KinoticDomainProperties domainProperties;
 
@@ -76,6 +81,38 @@ public class DefaultInviteService implements InviteService {
                             .compose(saved -> emailService.sendInviteEmail(saved, org.getName(), emailTemplate)
                                                           .map(saved));
                 });
+    }
+
+    @Override
+    public Future<ApplicationParticipantIdentity> inviteApplicationUser(PendingInvite invite, EmailTemplate emailTemplate) {
+        Validate.notBlank(invite.getEmail(), "email is required");
+        Validate.notBlank(invite.getOrganizationId(), "organizationId is required");
+        Validate.notBlank(invite.getApplicationId(), "applicationId is required");
+        // checked before the user the invitation is for is saved
+        emailService.validateTemplate(emailTemplate);
+        invite.setEmail(DomainUtil.normalizeEmail(invite.getEmail()));
+        ApplicationParticipantIdentity user = newApplicationUser(invite, null);
+        user.setPending(true);
+        return requireAcceptable(invite.getOrganizationId(), invite.getApplicationId(), invite.getTenantId())
+                .compose(v -> identityService.createUser(user, null))
+                // the invitation names the tenant the user was created in, which the system chose when it manages them
+                .compose(created -> createInvite(invite.setTenantId(created.getTenantId()), emailTemplate).map(created));
+    }
+
+    @Override
+    public Future<Void> requireAcceptable(String organizationId, String applicationId, String tenantId) {
+        return applicationRepository.requireById(applicationId, organizationId).compose(application -> {
+            Future<Boolean> viaProvider = application.getPrimaryUiUrl() != null
+                    ? oidcConfigurationService.findEnabledForScope(organizationId, applicationId).map(offered -> !offered.isEmpty())
+                    : Future.succeededFuture(false);
+            Future<PasswordConfiguration> password = passwordConfigurationService.findOffered(organizationId, applicationId, tenantId);
+            return Future.all(viaProvider, password).map(v -> {
+                Validate.isTrue(viaProvider.result() || password.result() != null,
+                                "An invitation is accepted with a password, or with one of the application's own sign-in providers at its"
+                                        + " primary UI; add a password, or a provider and a primary UI, first.");
+                return null;
+            });
+        });
     }
 
     /**

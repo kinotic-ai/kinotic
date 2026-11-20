@@ -1,5 +1,6 @@
 package org.kinotic.authz.api.model;
 
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -122,7 +123,8 @@ public record AuthzModel(ObjectNode definition,
             String home = AuthzUtil.roleHome(role.getKey());
             if (tier(root).contains(home)) {
                 ret.add(new RoleDefinition(role.getKey(), AuthzUtil.builtInRoleName(role.getKey()), null, true, home,
-                                           grantableOn(home, root), role.getValue(), Map.of()));
+                                           grantableOn(home, root), role.getValue(), Map.of(),
+                                           AuthzConstants.TENANT_TYPE.equals(home)));
             }
         }
         return ret;

@@ -527,6 +527,19 @@ public class DomainUtil {
         return participant.getMetadata().get(DISPLAY_NAME_METADATA_KEY);
     }
 
+    /** The name an invitation names the participant by as its sender: its display name, else its email, else its id. */
+    public static String senderNameOf(Participant participant) {
+        String ret = participant.getId();
+        String name = displayNameOf(participant);
+        String email = participant.getMetadata().get("email");
+        if (name != null && !name.isBlank()) {
+            ret = name;
+        } else if (email != null && !email.isBlank()) {
+            ret = email;
+        }
+        return ret;
+    }
+
     /** Whether the participant is a machine, as opposed to a person or a delegate acting for one. */
     public static boolean isMachineParticipant(Participant participant) {
         return ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(participant.getMetadata().get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY));

@@ -121,6 +121,9 @@ describe('Kinotic JS', () => {
         expect(ids).toEqual(expect.arrayContaining(['entity_definition.viewer', 'entity_definition.editor', 'entity_definition.admin', 'tenant.admin', 'application.admin']))
         const tenantAdmin = roles.find(role => role.id === 'tenant.admin')
         expect(tenantAdmin?.builtIn).toBe(true)
-        expect(tenantAdmin?.permissions).toEqual(expect.arrayContaining(['entity_definition_can_delete']))
+        // a tenant's administrator decides who is in the tenant and what they hold, and holds none of the rows
+        expect(tenantAdmin?.permissions).toEqual(expect.arrayContaining(['tenant_can_manage_access', 'tenant_can_manage_members']))
+        expect(tenantAdmin?.permissions).not.toContain('entity_definition_can_delete')
+        expect(tenantAdmin?.tenantAssignable).toBe(true)
     })
 })

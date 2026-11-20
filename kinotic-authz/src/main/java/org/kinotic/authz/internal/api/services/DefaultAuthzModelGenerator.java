@@ -127,6 +127,11 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         typeDefinitions.add(roleBindingType(TENANT_DEFINITION, bindable.get(TENANT_DEFINITION), definition.permissionNames(), APPLICATION_MEMBER_TYPES));
         typeDefinitions.add(tenantDefinitionType(definition));
         Map<String, Set<String>> roles = typeRoles(types);
+        // a tenant's administrator decides who is in the tenant and what they hold there; the rows are held through
+        // the roles it grants, so a definition the application keeps from its users is kept from the administrator
+        String tenantAdmin = AuthzUtil.roleId(TENANT, AuthzConstants.ADMIN);
+        roles.remove(tenantAdmin);
+        role(roles, tenantAdmin, types.get(TENANT).permissionNames());
         declaredRoles(roles, types);
         return model(types, typeDefinitions, bindable, roles);
     }

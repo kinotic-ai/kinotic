@@ -21,6 +21,7 @@
                 <Tag v-if="data.builtIn" value="Built-in" severity="secondary" class="!text-[10px]" />
               </span>
               <span v-if="data.description" class="text-xs text-muted-color">{{ data.description }}</span>
+              <span v-if="applicationId && data.tenantAssignable" class="text-xs text-muted-color">Granted by tenant administrators</span>
             </span>
           </template>
         </Column>

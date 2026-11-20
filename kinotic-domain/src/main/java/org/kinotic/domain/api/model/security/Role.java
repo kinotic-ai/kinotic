@@ -25,6 +25,8 @@ public class Role implements OrganizationScoped<String> {
      * organization itself.
      */
     private String applicationId;
+    /** Whether the administrators of a tenant of the application may grant the role to the users of their tenant. */
+    private boolean tenantAssignable;
     private String name;
     private String description;
     private Date created;

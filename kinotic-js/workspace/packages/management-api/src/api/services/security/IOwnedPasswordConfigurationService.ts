@@ -17,7 +17,7 @@ export interface IOwnedPasswordConfigurationService {
     /**
      * Saves the configuration of the sign-in scope it names, replacing that scope's existing one. Its `organizationId` is
      * the caller's and its id is derived from the scope, whatever either carried. `createUserOnSignIn` is taken by an
-     * application's own configuration only, and only while the system manages the application's tenants. Disabling the organization's own configuration rejects, naming the members
+     * application's own configuration only. Disabling the organization's own configuration rejects, naming the members
      * it would lock out, while an enabled member holds a password and no identity of a provider the organization's login
      * offers. Returns the configuration as saved, with its id.
      */

@@ -12,6 +12,7 @@ import org.kinotic.domain.api.model.security.OidcConfigurationType;
 import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
+import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -116,6 +117,19 @@ public class OidcConfigurationRepository extends AbstractRepository<OidcConfigur
                 .sort(s -> s.field(f -> f.field("created"))))
                 .map(page -> page.map(OwnedOidcConfiguration.class::cast))
                 .map(Page::getContent);
+    }
+
+    /**
+     * The {@link TenantOidcConfiguration}s organization {@code orgId} holds for tenant {@code tenantId} of its
+     * application {@code applicationId}, enabled or not, oldest first.
+     */
+    public Future<List<TenantOidcConfiguration>> findOwnedByTenant(String orgId, String applicationId, String tenantId) {
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        Validate.notBlank(tenantId, "tenantId cannot be blank");
+        return findAll(Pageable.ofSize(100), b -> b.query(scopeFilter(orgId, applicationId, tenantId))
+                                                   .sort(s -> s.field(f -> f.field("created"))))
+                .map(page -> page.getContent().stream().map(TenantOidcConfiguration.class::cast).toList());
     }
 
     // the owned kind of a scope is its discriminator, so a scope's configurations are one kind at one owner

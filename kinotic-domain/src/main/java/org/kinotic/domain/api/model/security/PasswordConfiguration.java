@@ -45,8 +45,9 @@ public class PasswordConfiguration implements OrganizationScoped<String> {
 
     /**
      * Whether a new person may sign up with an email and a password, the email verified by a link sent to it, from one
-     * of the application's UIs. Taken only by an application's own configuration, and only while the system manages
-     * the application's tenants, which gives each new user a tenant of its own.
+     * of the application's UIs. Taken only by an application's own configuration: the new user gets a tenant of its
+     * own from the system where it manages the application's tenants, and otherwise founds the tenant of the company
+     * it names.
      */
     private boolean createUserOnSignIn;
 

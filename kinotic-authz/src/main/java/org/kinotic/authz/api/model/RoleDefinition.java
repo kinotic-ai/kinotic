@@ -21,6 +21,8 @@ import java.util.Set;
  * @param definitionPermissions for a role of an application, the permissions it bundles for single entity
  *                     definitions: each definition's id to the model names of the definition's permissions held on
  *                     it alone, such as {@code entity_definition_can_read}; empty for every other role
+ * @param tenantAssignable true for a role the administrators of a tenant may grant to the users of their tenant:
+ *                     a built-in role homed at the tenant, and a role of an application its developer marked so
  * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public record RoleDefinition(String id,
@@ -30,5 +32,6 @@ public record RoleDefinition(String id,
                              String resourceType,
                              Set<String> grantableOn,
                              Set<String> permissions,
-                             Map<String, Set<String>> definitionPermissions) {
+                             Map<String, Set<String>> definitionPermissions,
+                             boolean tenantAssignable) {
 }

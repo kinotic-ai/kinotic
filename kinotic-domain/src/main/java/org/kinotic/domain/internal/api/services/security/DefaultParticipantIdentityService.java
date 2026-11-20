@@ -545,6 +545,14 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public Future<Page<ApplicationParticipantIdentity>> findTenantUsers(String organizationId, String applicationId, String tenantId, Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        Validate.notBlank(tenantId, "tenantId cannot be blank");
+        return identityRepository.findTenantUsers(organizationId, applicationId, tenantId, pageable);
+    }
+
+    @Override
     public Future<Page<ApplicationParticipantIdentity>> searchApplicationUsers(String searchText,
                                                                                   String organizationId,
                                                                                   String applicationId,

@@ -133,7 +133,7 @@ public class DefaultPermissionService implements PermissionService {
                                                                     .compose(v -> reconnected(machines)))
                                   .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
-                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions()), Map.of()));
+                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions()), Map.of(), false));
         });
     }
 
@@ -459,7 +459,7 @@ public class DefaultPermissionService implements PermissionService {
         String home = AuthzUtil.roleHome(role.getId());
         return relationships.findRolePermissions(SYSTEM, role.getId())
                             .map(bundled -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
-                                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), bundled.permissions(), Map.of()));
+                                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), bundled.permissions(), Map.of(), false));
     }
 
     private Future<AuthzModel> model() {

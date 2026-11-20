@@ -242,7 +242,7 @@ class OpenFgaIntegrationTest {
         assertTrue(relationsOf(bridge, "tenant_role").contains("report_can_read"));
         assertFalse(relationsOf(bridge, "tenant").contains("report_can_read"));
         assertTrue(relationsOf(bridge, "tenant").contains("entity_definition_can_read"));
-        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "report_can_read", AuthzUtil.roleObject("tenant.admin")))));
+        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "report_can_read", AuthzUtil.roleObject("application.admin")))));
         // a model in step writes nothing more
         assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)));
         assertEquals(versions.size(), await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().size());
@@ -461,7 +461,7 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureModelWithRoles(store, model));
         String tenant = "tenant:north-carried";
         await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm-carried", "application", tenant))));
-        String administering = await(relationshipService.bind(store, "tenant.admin", "user:sally-carried", tenant));
+        String administering = await(relationshipService.bind(store, "entity_definition.admin", "user:sally-carried", tenant));
 
         AccessExplanation reads = await(relationshipService.explain(
                 store, model, new RelationshipTuple("user:sally-carried", "entity_definition_can_read", tenant), List.of(),

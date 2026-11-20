@@ -156,6 +156,9 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     /** The users of application {@code applicationId} of organization {@code organizationId}. */
     Future<Page<ApplicationParticipantIdentity>> findApplicationUsers(String organizationId, String applicationId, Pageable pageable);
 
+    /** The users of tenant {@code tenantId} of application {@code applicationId} of organization {@code organizationId}. */
+    Future<Page<ApplicationParticipantIdentity>> findTenantUsers(String organizationId, String applicationId, String tenantId, Pageable pageable);
+
     /**
      * The users of the application whose email or display name matches {@code searchText}; blank text lists them
      * all, as {@link #findApplicationUsers} does.

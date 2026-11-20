@@ -17,6 +17,13 @@
           </label>
           <Textarea id="role-description" v-model="description" rows="2" auto-resize placeholder="What the role is for" class="w-full" />
         </div>
+        <div v-if="applicationId">
+          <label class="flex items-center gap-2 text-sm font-medium">
+            <Checkbox v-model="tenantAssignable" binary input-id="role-tenant-assignable" />
+            Tenant administrators can grant this role
+          </label>
+          <p class="mt-1.5 text-[0.8125rem] text-muted-color">A customer's administrator grants it to the users of their own tenant, from your application's UI. Leave it off for a role only your organization grants.</p>
+        </div>
         <div v-if="!applicationId">
           <label for="role-level" class="mb-2 block text-sm font-medium">Level</label>
           <Select id="role-level" v-model="home" :options="homes" option-label="label" option-value="type" :disabled="!!role?.id" class="w-full" />
@@ -118,6 +125,7 @@ const emit = defineEmits<{
 const toast = useToast()
 const name = ref('')
 const description = ref('')
+const tenantAssignable = ref(false)
 const home = ref<string | null>(null)
 const selected = ref<string[]>([])
 // the permissions held on single definitions, by the definition's id
@@ -164,6 +172,7 @@ watch(() => props.visible, visible => {
     opening++
     name.value = props.role?.name ?? ''
     description.value = props.role?.description ?? ''
+    tenantAssignable.value = props.role?.tenantAssignable ?? false
     home.value = props.applicationId ? APPLICATION_ROLE_HOME : props.role?.resourceType ?? homes.value[0]?.type ?? null
     selected.value = [...(props.role?.permissions ?? [])]
     named.value = Object.fromEntries(Object.entries(props.role?.definitionPermissions ?? {}).map(([id, held]) => [id, [...held]]))
@@ -214,7 +223,8 @@ async function submit(): Promise<void> {
       resourceType: home.value,
       grantableOn: [],
       permissions: selected.value,
-      definitionPermissions: definitionPermissions.value
+      definitionPermissions: definitionPermissions.value,
+      tenantAssignable: tenantAssignable.value
     })
     toast.add({ severity: 'success', summary: props.role?.id ? 'Role saved' : 'Role created', life: 4000 })
     emit('saved', saved)

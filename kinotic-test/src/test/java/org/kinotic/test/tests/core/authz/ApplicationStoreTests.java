@@ -142,11 +142,15 @@ public class ApplicationStoreTests extends KinoticTestBase {
                                              AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN),
                                              AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN), AuthzUtil.roleId(AuthzConstants.APPLICATION_TYPE, AuthzConstants.ADMIN))),
                    roles.toString());
-        // a shared definition's rows sit in the tenant, so the tenant's admin holds everything of them
+        // a tenant's administrator decides who is in the tenant and what they hold, and holds none of the rows
         RoleDefinition tenantAdmin = role(AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN));
         assertTrue(tenantAdmin.builtIn());
-        assertTrue(tenantAdmin.permissions().contains(AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_DELETE)),
-                   tenantAdmin.permissions().toString());
+        assertTrue(tenantAdmin.tenantAssignable());
+        assertEquals(Set.of(AuthzUtil.permissionName(AuthzConstants.TENANT_TYPE, AuthzConstants.CAN_MANAGE_ACCESS),
+                            AuthzUtil.permissionName(AuthzConstants.TENANT_TYPE, AuthzConstants.CAN_MANAGE_MEMBERS),
+                            AuthzUtil.permissionName(AuthzConstants.TENANT_TYPE, AuthzConstants.CAN_READ_ACCESS),
+                            AuthzUtil.permissionName(AuthzConstants.TENANT_TYPE, AuthzConstants.CAN_READ_MEMBERS)),
+                     tenantAdmin.permissions());
         assertEquals(Set.of(AuthzConstants.APPLICATION_TYPE, AuthzConstants.TENANT_TYPE), tenantAdmin.grantableOn());
         // the application is placed in its own store, and each definition created is placed under it, which is what
         // lets a grant on the tenant reach the definition's rows there
@@ -242,7 +246,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
         // an accountant reads and edits people and writes cars it does not read
         RoleDefinition accountant = await(runAsOrganization(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
                 null, "Accountant " + suffix(), "keeps the books", false, null, null, Set.of(),
-                Map.of(person.getId(), Set.of(reading, editing), car.getId(), Set.of(editing))))));
+                Map.of(person.getId(), Set.of(reading, editing), car.getId(), Set.of(editing)), false))));
         assertEquals(AuthzConstants.TENANT_TYPE, accountant.resourceType());
         assertEquals(Set.of(AuthzConstants.APPLICATION_TYPE, AuthzConstants.TENANT_TYPE), accountant.grantableOn());
         assertEquals(accountant, role(accountant.id()));
@@ -267,7 +271,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         // an edit takes effect on the grant made already
         RoleDefinition edited = await(runAsOrganization(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
-                accountant.id(), accountant.name(), null, false, null, null, Set.of(deleting), Map.of(car.getId(), Set.of(reading, deleting))))));
+                accountant.id(), accountant.name(), null, false, null, null, Set.of(deleting), Map.of(car.getId(), Set.of(reading, deleting)), false))));
         assertEquals(Set.of(deleting), edited.permissions());
         assertEquals(Map.of(car.getId(), Set.of(reading)), edited.definitionPermissions());
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", caller, carRow)), "the edited role never admitted its holder to the cars");
@@ -276,10 +280,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         // a role names definitions the application holds and permissions of their rows, and is the application's
         assertTrue(failure(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
-                null, "Stray", null, false, null, null, Set.of(), Map.of("no.such.definition", Set.of(reading))))).getMessage()
+                null, "Stray", null, false, null, null, Set.of(), Map.of("no.such.definition", Set.of(reading)), false))).getMessage()
                            .contains("No entity definition of the application"));
         assertTrue(failure(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
-                null, "Reaching", null, false, null, null, Set.of("application_can_manage_access"), Map.of()))).getMessage()
+                null, "Reaching", null, false, null, null, Set.of("application_can_manage_access"), Map.of(), false))).getMessage()
                            .contains("can bundle"));
         assertTrue(failure(() -> access.deleteRole(TEST_APP_ID, accountant.id())).getMessage().contains("still held by grants"));
         assertFalse(await(runAsOrganization(() -> permissions.findRoles())).stream().anyMatch(found -> found.id().equals(accountant.id())));
