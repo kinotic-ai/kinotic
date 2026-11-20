@@ -17,8 +17,9 @@ public interface NamedQueryAuthorizer {
      * @param participant        the caller
      * @param entityDefinitionId the entity definition the statement acts on
      * @param statement          the statement about to run
-     * @param acrossTenants      true for a statement acting on another tenant's rows than the caller's own, which is
-     *                           checked on the definition itself; false for one checked within the caller's tenant
+     * @param acrossTenants      true for a statement acting on another tenant's rows than the caller's own, which a
+     *                           participant of an application is refused; false for one checked within the caller's
+     *                           tenant
      * @return a future completing when the caller holds the permission, failing with an
      *         {@link org.kinotic.core.api.exceptions.AuthorizationException} when it does not
      */

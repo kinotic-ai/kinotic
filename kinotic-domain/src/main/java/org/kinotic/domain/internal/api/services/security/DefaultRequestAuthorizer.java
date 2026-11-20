@@ -352,6 +352,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
         AuthzCheckC3Decorator check = spec.check();
         Future<Void> ret;
         try {
+            requireWithinTenant(participant, check, permission.getPermission());
             requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
             ret = checkedOn(check, participant.getScope(), store)
                     .compose(checked -> checkOn(checked, spec, permission, participant, store, arguments));
@@ -378,10 +379,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             // An application's user is checked on the definition within its tenant, an object no store holds tuples
             // for: its two edges come with the check, the tenant's from the caller's scope and the definition's from
             // the request, and the model reaches it through a grant on the tenant only for a definition placed in the
-            // application. A function acting on every tenant's rows is checked on the definition itself, which a
-            // grant within one tenant does not reach, and so is an application's machine, which belongs to no tenant
-            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null
-                    && !check.isAcrossTenants();
+            // application. A caller in no tenant is checked on the definition itself: an application's machine, and
+            // an organization's member or runtime, which a function acting on every tenant's rows admits alone
+            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
             String object = withinTenant
                     ? AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
                     : AuthzUtil.object(checked.type(), resourceId);
@@ -398,6 +398,16 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             ret = Future.failedFuture(e);
         }
         return ret;
+    }
+
+    // A function acting on the rows of the tenants a call names serves an organization's members and the runtimes
+    // of its applications; a participant of an application is refused it whatever it is granted, so no grant lets
+    // an application's user out of its tenant
+    private void requireWithinTenant(Participant participant, AuthzCheckC3Decorator check, String permission) {
+        if (check.isAcrossTenants() && participant instanceof ApplicationParticipant) {
+            throw securityExceptions.notAuthorized("{} of {} is asked across tenants, which no participant of an application may",
+                                                   permission, check.getPermissionResource());
+        }
     }
 
     // A delegate exercises its owner's permissions within its type's ceiling, so a client the owner authorized reaches

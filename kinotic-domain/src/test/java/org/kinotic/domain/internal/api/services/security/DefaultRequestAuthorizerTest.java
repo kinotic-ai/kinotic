@@ -334,14 +334,16 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void aTenantsUserIsCheckedOnTheDefinitionItselfForAFunctionActingAcrossTenants() throws Exception {
-        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), bob("t1"),
-                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
-                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+    void aParticipantOfAnApplicationIsRefusedAFunctionActingAcrossTenantsWithoutTheEngine() {
+        for (Participant caller : List.of(bob("t1"), bob(null))) {
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                                                      () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), caller,
+                                                                                 EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
+                                                                      .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
-        // no edge is supplied: the definition's object is held by the store, and a grant within the tenant does not reach it
-        assertEquals(new RelationshipTuple("user:bob", "entity_definition_can_read", "entity_definition:acme.crm.person"),
-                     checked("acme.crm", Consistency.MINIMIZE_LATENCY));
+            assertTrue(assertInstanceOf(AuthorizationException.class, failure.getCause()).getMessage().contains("across tenants"));
+        }
+        verify(relationships, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -374,6 +376,16 @@ class DefaultRequestAuthorizerTest {
         assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_edit", "entity_definition:acme.crm.person"),
                      checked(Consistency.MINIMIZE_LATENCY));
         verify(relationships, never()).check(eq("acme.crm"), any(), any(), any());
+    }
+
+    @Test
+    void anOrganizationMemberIsCheckedOnTheDefinitionItselfForAFunctionActingAcrossTenants() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), sally(),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_read", "entity_definition:acme.crm.person"),
+                     checked(Consistency.MINIMIZE_LATENCY));
     }
 
     @Test
