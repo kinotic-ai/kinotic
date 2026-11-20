@@ -83,7 +83,7 @@ public class DefaultPermissionService implements PermissionService {
 
     // In name order, with the id ordering roles that share a name so the paging has a unique order
     private Future<List<Role>> customRoles(String organizationId) {
-        return CursorPaging.readAll(pageable -> roles.findAll(organizationId, pageable), ROLE_PAGE_SIZE, Sort.by("name", "id"));
+        return CursorPaging.readAll(pageable -> roles.findAllOfOrganization(organizationId, pageable), ROLE_PAGE_SIZE, Sort.by("name", "id"));
     }
 
     @Override
@@ -126,14 +126,14 @@ public class DefaultPermissionService implements PermissionService {
                           .compose(saved -> relationships.findRolePermissions(SYSTEM, saved.getId())
                                   // read before the permissions are written, so an edit whose read failed is made
                                   // again as the same edit
-                                  .compose(before -> role.permissions().containsAll(before)
+                                  .compose(before -> role.permissions().containsAll(before.permissions())
                                           ? Future.succeededFuture(List.<String>of())
                                           : holders(saved.getId(), model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE)).compose(this::machines))
                                   .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
                                                                     .compose(v -> reconnected(machines)))
                                   .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
-                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions())));
+                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions()), Map.of()));
         });
     }
 
@@ -399,9 +399,10 @@ public class DefaultPermissionService implements PermissionService {
         return ret;
     }
 
+    // A role of one of the organization's applications is granted in that application's store, never here
     private Future<Role> requireRole(String roleId, String organizationId) {
         return roles.findById(roleId, organizationId).map(role -> {
-            if (role == null) {
+            if (role == null || role.getApplicationId() != null) {
                 throw new IllegalArgumentException("No role of the organization has id " + roleId);
             }
             return role;
@@ -457,8 +458,8 @@ public class DefaultPermissionService implements PermissionService {
     private Future<RoleDefinition> defined(Role role, AuthzModel model) {
         String home = AuthzUtil.roleHome(role.getId());
         return relationships.findRolePermissions(SYSTEM, role.getId())
-                            .map(permissions -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
-                                                                   model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), permissions));
+                            .map(bundled -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
+                                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), bundled.permissions(), Map.of()));
     }
 
     private Future<AuthzModel> model() {

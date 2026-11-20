@@ -122,7 +122,7 @@ public record AuthzModel(ObjectNode definition,
             String home = AuthzUtil.roleHome(role.getKey());
             if (tier(root).contains(home)) {
                 ret.add(new RoleDefinition(role.getKey(), AuthzUtil.builtInRoleName(role.getKey()), null, true, home,
-                                           grantableOn(home, root), role.getValue()));
+                                           grantableOn(home, root), role.getValue(), Map.of()));
             }
         }
         return ret;

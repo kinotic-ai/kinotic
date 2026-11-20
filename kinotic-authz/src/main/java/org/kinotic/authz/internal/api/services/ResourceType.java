@@ -30,6 +30,11 @@ final class ResourceType {
     final Map<String, Set<String>> declaredRoles = new LinkedHashMap<>();
     /** Structural relations reached through the parent, each to the relation of the parent it is read from. */
     final Map<String, String> inherited = new LinkedHashMap<>();
+    /**
+     * True for a type whose resources are granted one by one: each of its permissions stands alone, and a role
+     * bundles one either for every resource of the type or for the resources it names.
+     */
+    boolean granular;
 
     ResourceType(String name, String parent) {
         this.name = name;

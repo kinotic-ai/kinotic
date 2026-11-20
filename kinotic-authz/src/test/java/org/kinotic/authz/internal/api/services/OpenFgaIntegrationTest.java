@@ -16,6 +16,7 @@ import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
@@ -472,6 +473,78 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
+    void aRoleBundlesAPermissionForTheDefinitionsItNames() throws Exception {
+        String store = "acme.crm-named";
+        await(storeService.ensureStore(store));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        await(relationshipService.ensureModelWithRoles(store, model));
+        String application = "application:crm-named";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:*", "placed", application),
+                                                        new RelationshipTuple(application, "application", "tenant:north"),
+                                                        new RelationshipTuple(application, "application", "tenant:south"),
+                                                        new RelationshipTuple(application, "application", "entity_definition:crm.invoice"),
+                                                        new RelationshipTuple(application, "application", "entity_definition:crm.item"),
+                                                        new RelationshipTuple(application, "application", "entity_definition:crm.order"))));
+        RolePermissions accountant = new RolePermissions(Set.of(), Map.of("crm.invoice", Set.of("entity_definition_can_edit", "entity_definition_can_read"),
+                                                                           "crm.item", Set.of("entity_definition_can_read"),
+                                                                           "crm.order", Set.of("entity_definition_can_edit")));
+        await(relationshipService.ensureRole(store, "tenant.accountant", accountant));
+        String granted = await(relationshipService.bind(store, "tenant.accountant", "user:bob-named", "tenant:north"));
+
+        assertEquals(accountant, await(relationshipService.findRolePermissions(store, "tenant.accountant")));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_read", "crm.invoice", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_edit", "crm.invoice", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_delete", "crm.invoice", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_read", "crm.item", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_edit", "crm.item", "north"));
+        // each permission stands alone, so a role writes rows it does not read
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_edit", "crm.order", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_read", "crm.order", "north"));
+        // the grant was made on one tenant
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_read", "crm.invoice", "south"));
+        // asked about no definition, a permission bundled for named ones is not held
+        assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:bob-named", "entity_definition_can_read", "tenant:north"),
+                                                    Consistency.HIGHER_CONSISTENCY)));
+
+        String rows = "tenant_definition:crm.invoice@north";
+        AccessExplanation reads = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:bob-named", "entity_definition_can_read", rows),
+                edgesOf("crm.invoice", "north"), await(relationshipService.findGrants(store, "tenant:north"))));
+        assertTrue(reads.allowed());
+        assertEquals(List.of(granted), reads.through().stream().map(Grant::id).toList());
+        AccessExplanation deletes = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:bob-named", "entity_definition_can_delete", rows),
+                edgesOf("crm.invoice", "north"), await(relationshipService.findGrants(store, "tenant:north"))));
+        assertFalse(deletes.allowed());
+        assertTrue(deletes.through().isEmpty());
+
+        // an edit names other definitions for a permission, takes one away, and bundles one for every definition
+        RolePermissions edited = new RolePermissions(Set.of("entity_definition_can_delete"),
+                                                     Map.of("crm.order", Set.of("entity_definition_can_read")));
+        await(relationshipService.ensureRole(store, "tenant.accountant", edited));
+        assertEquals(edited, await(relationshipService.findRolePermissions(store, "tenant.accountant")));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_read", "crm.invoice", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_edit", "crm.order", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_read", "crm.order", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_delete", "crm.item", "north"));
+        // in step already: nothing is written
+        await(relationshipService.ensureRole(store, "tenant.accountant", edited));
+        await(storeService.deleteStore(store));
+    }
+
+    private boolean holdsOnRows(String store, String user, String permission, String definition, String tenant) throws Exception {
+        return await(relationshipService.check(store,
+                                               new RelationshipTuple(user, "entity_definition_" + permission, "tenant_definition:" + definition + "@" + tenant),
+                                               Consistency.HIGHER_CONSISTENCY, edgesOf(definition, tenant)));
+    }
+
+    private static List<RelationshipTuple> edgesOf(String definition, String tenant) {
+        String rows = "tenant_definition:" + definition + "@" + tenant;
+        return List.of(new RelationshipTuple("entity_definition:" + definition, "definition", rows),
+                       new RelationshipTuple("tenant:" + tenant, "tenant", rows));
+    }
+
+    @Test
     void theGrantsOfAResourceAreAllFoundHoweverManyItHas() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(relationshipService.ensureModelWithRoles(SYSTEM, model));
@@ -752,7 +825,9 @@ class OpenFgaIntegrationTest {
     // the system's entities repository, whose declaration gives a definition's rows their permissions
     private static ServiceDefinition entitiesRepository() {
         return service("JsonEntitiesRepository", "entity_definition", "application",
-                       function("findById", "entity_definition", "entity_definition", "can_read"));
+                       function("findById", "entity_definition", "entity_definition", "can_read"),
+                       function("save", "entity_definition", "entity_definition", "can_edit"),
+                       function("deleteById", "entity_definition", "entity_definition", "can_delete"));
     }
 
     private static ServiceDefinition vmNodeService() {

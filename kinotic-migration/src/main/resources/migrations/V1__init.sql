@@ -239,11 +239,13 @@ CREATE TABLE IF NOT EXISTS kinotic_authz_store (
 
 INSERT INTO kinotic_authz_store (id) VALUES ('system') WITH REFRESH, DOCUMENT_ID 'system';
 
--- A custom role of an organization (Role): a name and a description for the bundle of permissions the role
--- is in the authorization engine, where its grants are made. The built-in roles have no row.
+-- A custom role of an organization or of one of its applications (Role): a name and a description for the
+-- bundle of permissions the role is in the authorization engine, where its grants are made. The built-in roles
+-- have no row.
 CREATE TABLE IF NOT EXISTS kinotic_role (
     id KEYWORD,
     organizationId KEYWORD,
+    applicationId KEYWORD,
     name KEYWORD,
     description TEXT,
     created DATE,

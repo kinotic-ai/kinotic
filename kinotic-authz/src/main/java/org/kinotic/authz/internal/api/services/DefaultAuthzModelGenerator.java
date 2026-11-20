@@ -45,6 +45,13 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final String TENANT_DEFINITION = AuthzConstants.TENANT_DEFINITION_TYPE;
     private static final String DEFINITION = AuthzConstants.DEFINITION_RELATION;
     private static final String PLACED = AuthzConstants.PLACED_RELATION;
+    /**
+     * The condition a role bundles a permission of an entity definition under when it bundles it for the definitions
+     * it names: the tuple carries {@link #NAMED_DEFINITIONS}, the check {@link #CHECKED_DEFINITION}.
+     */
+    static final String FOR_DEFINITION = "for_definition";
+    static final String CHECKED_DEFINITION = "definition";
+    static final String NAMED_DEFINITIONS = "definitions";
     // the types every model defines beside the resource types, which a service's type would define a second time
     private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION);
     // who a binding may be made to in an application's store, and in the system's, which also has organizations
@@ -98,6 +105,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         // by everyone for a definition under the application, by no one for one this store does not hold
         ResourceType definition = new ResourceType(ENTITY_DEFINITION, APPLICATION);
         definition.inherited.put(PLACED, APPLICATION);
+        // a definition's permissions are its rows', so a role of the application says which of them its holders
+        // have on which definitions: reading one definition's rows gives neither writing them nor another's
+        definition.granular = true;
         kernel.put(ENTITY_DEFINITION, definition);
         kernel.put(TENANT, tenant());
         ResourceTypes types = declare(kernel, all);
@@ -166,7 +176,24 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 parents.put(type.name, type.parent);
             }
         }
+        if (types.declared().stream().anyMatch(type -> type.granular)) {
+            definition.set("conditions", definitionCondition());
+        }
         return new AuthzModel(definition, ModelHash.of(definition), catalog, roles, bindable, parents);
+    }
+
+    // Holds for the tuple naming the definition a check is about, among the definitions it names
+    private static ObjectNode definitionCondition() {
+        ObjectNode ret = JsonNodeFactory.instance.objectNode();
+        ObjectNode condition = ret.putObject(FOR_DEFINITION);
+        condition.put("name", FOR_DEFINITION);
+        condition.put("expression", CHECKED_DEFINITION + " in " + NAMED_DEFINITIONS);
+        ObjectNode parameters = condition.putObject("parameters");
+        parameters.putObject(CHECKED_DEFINITION).put("type_name", "TYPE_NAME_STRING");
+        ObjectNode named = parameters.putObject(NAMED_DEFINITIONS);
+        named.put("type_name", "TYPE_NAME_LIST");
+        named.putArray("generic_types").addObject().put("type_name", "TYPE_NAME_STRING");
+        return ret;
     }
 
     /**
@@ -337,11 +364,14 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         }
     }
 
-    // the derived verbs form a ladder: deleting implies editing, editing implies reading, wherever both exist
+    // the derived verbs form a ladder: deleting implies editing, editing implies reading, wherever both exist; a
+    // granular type's stand alone
     private static void deriveLattice(Map<String, ResourceType> types) {
         for (ResourceType type : types.values()) {
-            implyIfBoth(type, AuthzConstants.CAN_DELETE, AuthzConstants.CAN_EDIT);
-            implyIfBoth(type, AuthzConstants.CAN_EDIT, AuthzConstants.CAN_READ);
+            if (!type.granular) {
+                implyIfBoth(type, AuthzConstants.CAN_DELETE, AuthzConstants.CAN_EDIT);
+                implyIfBoth(type, AuthzConstants.CAN_EDIT, AuthzConstants.CAN_READ);
+            }
         }
     }
 
@@ -418,14 +448,20 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     /**
      * A role homed at a type is a bundle of the permissions of that type and of the types it carries: for each,
      * the role holds it for everyone or for nobody, which the binding then narrows to its members, and it holds
-     * every permission a permission it bundles implies. The engine refuses a role bundling a permission from
-     * above its home.
+     * every permission a permission it bundles implies. A permission of a granular type is also held for everyone
+     * on the resources its tuple names. The engine refuses a role bundling a permission from above its home.
      */
     private static ObjectNode roleType(String home, List<ResourceType> carried) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 ObjectNode bundled = direct(List.of(USER + ":*"));
+                if (about.granular) {
+                    ObjectNode named = ((ArrayNode) bundled.get("directly_related_user_types")).addObject();
+                    named.put("type", USER);
+                    named.putObject("wildcard");
+                    named.put("condition", FOR_DEFINITION);
+                }
                 List<ObjectNode> sources = implying(about, permission.getKey());
                 ObjectNode relation = bundled;
                 if (!sources.isEmpty()) {

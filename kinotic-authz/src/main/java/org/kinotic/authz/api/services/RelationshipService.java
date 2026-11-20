@@ -6,6 +6,7 @@ import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.RolePermissions;
 
 import java.util.List;
 import java.util.Map;
@@ -54,9 +55,9 @@ public interface RelationshipService {
      *
      * @param store  the store, named as its record is
      * @param roleId the role, {@code <home type>.<name>}
-     * @return the model names of the permissions, in their natural order; empty for a role the store holds none for
+     * @return the permissions, each set in its natural order; empty for a role the store holds none for
      */
-    Future<Set<String>> findRolePermissions(String store, String roleId);
+    Future<RolePermissions> findRolePermissions(String store, String roleId);
 
     /**
      * The role bindings a role or a subject is part of: one per resource the role is granted on, or one per grant
@@ -138,6 +139,20 @@ public interface RelationshipService {
      * @return completes when every role is in step
      */
     Future<Void> ensureRoles(String store, Map<String, Set<String>> roles);
+
+    /**
+     * Makes one role of the store bundle exactly the given permissions, as {@link #ensureRoles} does for those held
+     * on everything, and for the definitions the role names. A permission whose definitions change is held for
+     * none of them from the moment the change starts until it completes.
+     *
+     * @param store       the store, named as its record is
+     * @param roleId      the role, {@code <home type>.<name>}
+     * @param permissions what the role must bundle; a permission bundled for everything is not also bundled for a
+     *                    definition
+     * @return completes when the role is in step; fails with the engine's validation error for a permission the
+     *         store's model does not let the role bundle that way
+     */
+    Future<Void> ensureRole(String store, String roleId, RolePermissions permissions);
 
     /**
      * Makes the store run the given model with the built-in roles it implies bundling exactly what the model has.

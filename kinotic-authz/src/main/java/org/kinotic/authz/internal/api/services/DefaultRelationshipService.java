@@ -7,6 +7,7 @@ import dev.openfga.sdk.api.model.ConsistencyPreference;
 import dev.openfga.sdk.api.model.ContextualTupleKeys;
 import dev.openfga.sdk.api.model.ListObjectsRequest;
 import dev.openfga.sdk.api.model.ReadRequestTupleKey;
+import dev.openfga.sdk.api.model.RelationshipCondition;
 import dev.openfga.sdk.api.model.Tuple;
 import dev.openfga.sdk.api.model.TupleKey;
 import dev.openfga.sdk.api.model.TupleKeyWithoutCondition;
@@ -22,6 +23,7 @@ import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -32,9 +34,13 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.Set;
@@ -89,12 +95,23 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<Set<String>> findRolePermissions(String store, String roleId) {
-        // every relation of a role is a permission it bundles
-        return read(store, AuthzUtil.roleObject(roleId)).map(held -> {
-            Set<String> ret = new TreeSet<>();
-            held.forEach(tuple -> ret.add(tuple.relation()));
-            return ret;
+    public Future<RolePermissions> findRolePermissions(String store, String roleId) {
+        // every relation of a role is a permission it bundles, for everything or for the definitions its tuple names
+        return stores.storeIdOf(store).compose(id -> fga.read(id, new ReadRequestTupleKey()._object(AuthzUtil.roleObject(roleId)))).map(held -> {
+            Set<String> everywhere = new TreeSet<>();
+            Map<String, Set<String>> named = new TreeMap<>();
+            for (Tuple tuple : held) {
+                RelationshipCondition condition = tuple.getKey().getCondition();
+                if (condition == null || condition.getName() == null || condition.getName().isEmpty()) {
+                    everywhere.add(tuple.getKey().getRelation());
+                } else {
+                    Object definitions = ((Map<?, ?>) condition.getContext()).get(DefaultAuthzModelGenerator.NAMED_DEFINITIONS);
+                    for (Object definition : (Collection<?>) definitions) {
+                        named.computeIfAbsent(String.valueOf(definition), k -> new TreeSet<>()).add(tuple.getKey().getRelation());
+                    }
+                }
+            }
+            return new RolePermissions(everywhere, named);
         });
     }
 
@@ -171,7 +188,14 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Void> ensureRoles(String store, Map<String, Set<String>> roles) {
-        return converging(() -> reconcileRoles(store, roles));
+        Map<String, RolePermissions> bundled = new HashMap<>();
+        roles.forEach((roleId, permissions) -> bundled.put(roleId, new RolePermissions(permissions)));
+        return converging(() -> reconcileRoles(store, bundled));
+    }
+
+    @Override
+    public Future<Void> ensureRole(String store, String roleId, RolePermissions permissions) {
+        return converging(() -> reconcileRoles(store, Map.of(roleId, permissions)));
     }
 
     @Override
@@ -184,28 +208,50 @@ public class DefaultRelationshipService implements RelationshipService {
                      .compose(v -> stores.ensureModel(store, model));
     }
 
-    private Future<Void> reconcileRoles(String store, Map<String, Set<String>> roles) {
+    private Future<Void> reconcileRoles(String store, Map<String, RolePermissions> roles) {
         List<String> ids = new ArrayList<>(roles.keySet());
         return requestEach(ids, roleId -> findRolePermissions(store, roleId)).compose(held -> {
-            List<RelationshipTuple> writes = new ArrayList<>();
-            List<RelationshipTuple> deletes = new ArrayList<>();
+            List<TupleKey> writes = new ArrayList<>();
+            List<TupleKeyWithoutCondition> deletes = new ArrayList<>();
             for (int i = 0; i < ids.size(); i++) {
                 String role = AuthzUtil.roleObject(ids.get(i));
-                Set<String> desired = roles.get(ids.get(i));
-                Set<String> bundled = held.get(i);
-                for (String permission : bundled) {
-                    if (!desired.contains(permission)) {
-                        deletes.add(new RelationshipTuple(AuthzConstants.EVERYONE, permission, role));
-                    }
-                }
-                for (String permission : desired) {
-                    if (!bundled.contains(permission)) {
-                        writes.add(new RelationshipTuple(AuthzConstants.EVERYONE, permission, role));
+                Map<String, Set<String>> desired = definitionsByPermission(roles.get(ids.get(i)));
+                Map<String, Set<String>> bundled = definitionsByPermission(held.get(i));
+                Set<String> permissions = new TreeSet<>(bundled.keySet());
+                permissions.addAll(desired.keySet());
+                for (String permission : permissions) {
+                    if (!Objects.equals(bundled.get(permission), desired.get(permission))) {
+                        if (bundled.containsKey(permission)) {
+                            deletes.add(new TupleKeyWithoutCondition().user(AuthzConstants.EVERYONE).relation(permission)._object(role));
+                        }
+                        if (desired.containsKey(permission)) {
+                            writes.add(roleTuple(role, permission, desired.get(permission)));
+                        }
                     }
                 }
             }
-            return write(store, writes, deletes);
+            // the engine holds one tuple per user, relation and object, so a permission whose definitions change is
+            // its tuple deleted and written again, and every delete is made before the writes
+            return stores.storeIdOf(store).compose(id -> fga.write(id, List.of(), deletes).compose(v -> fga.write(id, writes, List.of())));
         });
+    }
+
+    // The tuple each permission of a role is: the definitions it names, or none for a permission bundled for everything
+    private static Map<String, Set<String>> definitionsByPermission(RolePermissions permissions) {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        permissions.definitionPermissions().forEach((definition, named) -> named.forEach(
+                permission -> ret.computeIfAbsent(permission, k -> new TreeSet<>()).add(definition)));
+        permissions.permissions().forEach(permission -> ret.put(permission, Set.of()));
+        return ret;
+    }
+
+    private static TupleKey roleTuple(String role, String permission, Set<String> definitions) {
+        TupleKey ret = new TupleKey().user(AuthzConstants.EVERYONE).relation(permission)._object(role);
+        if (!definitions.isEmpty()) {
+            ret.condition(new RelationshipCondition().name(DefaultAuthzModelGenerator.FOR_DEFINITION)
+                                                     .context(Map.of(DefaultAuthzModelGenerator.NAMED_DEFINITIONS, List.copyOf(definitions))));
+        }
+        return ret;
     }
 
     @Override
@@ -382,7 +428,7 @@ public class DefaultRelationshipService implements RelationshipService {
         List<Grant> candidates = grants.stream().filter(grant -> model.canHold(grant.roleId(), holds.relation())).toList();
         return stores.modelId(store).compose(modelId -> {
             // an administrator asks after changing access, so the answer must not predate the change
-            Future<Boolean> allowed = check(store, modelId, holds, Consistency.HIGHER_CONSISTENCY, context);
+            Future<Boolean> allowed = check(store, modelId, checkRequest(holds, Consistency.HIGHER_CONSISTENCY, context, holds.object()), holds);
             return requestEach(candidates, grant -> explains(store, modelId, grant, holds))
                     .compose(explains -> allowed.map(held -> {
                         List<Grant> through = new ArrayList<>();
@@ -399,10 +445,10 @@ public class DefaultRelationshipService implements RelationshipService {
     // Whether the grant gives the permission asked about to the user asked about: its role bundles the permission
     // or one implying it, and it was made to the user, or to a group or a tenant the user is a member of
     private Future<Boolean> explains(String store, String modelId, Grant grant, RelationshipTuple holds) {
-        // the role's relation also holds every permission a bundled one implies, which only a check evaluates
-        Future<Boolean> bundled = check(store, modelId, new RelationshipTuple(AuthzConstants.EVERYONE, holds.relation(),
-                                                                              AuthzUtil.roleObject(grant.roleId())),
-                                        Consistency.HIGHER_CONSISTENCY, List.of());
+        // the role's relation also holds every permission a bundled one implies, and one bundled for the definition
+        // asked about, which only a check evaluates
+        RelationshipTuple bundles = new RelationshipTuple(AuthzConstants.EVERYONE, holds.relation(), AuthzUtil.roleObject(grant.roleId()));
+        Future<Boolean> bundled = check(store, modelId, checkRequest(bundles, Consistency.HIGHER_CONSISTENCY, List.of(), holds.object()), bundles);
         Future<Boolean> member;
         if (grant.subject().equals(subjectOf(holds.user()))) {
             member = Future.succeededFuture(true);
@@ -411,7 +457,7 @@ public class DefaultRelationshipService implements RelationshipService {
             RelationshipTuple membership = new RelationshipTuple(holds.user(), AuthzConstants.MEMBER_RELATION,
                                                                  AuthzUtil.object(membersOf, grant.subject().id()));
             // an admin asks after changing a group or moving a user, so the answer must not predate the change
-            member = check(store, modelId, membership, Consistency.HIGHER_CONSISTENCY, List.of());
+            member = check(store, modelId, checkRequest(membership, Consistency.HIGHER_CONSISTENCY, List.of(), membership.object()), membership);
         } else {
             member = Future.succeededFuture(false);
         }
@@ -420,20 +466,43 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<Boolean> check(String store, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context) {
-        return stores.modelId(store).compose(modelId -> check(store, modelId, relationship, consistency, context));
+        CheckRequest request = checkRequest(relationship, consistency, context, relationship.object());
+        return stores.modelId(store).compose(modelId -> check(store, modelId, request, relationship));
     }
 
-    private Future<Boolean> check(String store, String modelId, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context) {
-        CheckRequestTupleKey key = new CheckRequestTupleKey().user(relationship.user())
-                                                             .relation(relationship.relation())
-                                                             ._object(relationship.object());
-        List<TupleKey> contextual = new ArrayList<>();
-        for (RelationshipTuple tuple : context) {
-            contextual.add(new TupleKey().user(tuple.user()).relation(tuple.relation())._object(tuple.object()));
+    /**
+     * A check's request, for whichever version answers it.
+     *
+     * @param about the object the question is about, whose definition a role bundling a permission for the
+     *              definitions it names is compared with
+     */
+    private static CheckRequest checkRequest(RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context, String about) {
+        CheckRequest ret = new CheckRequest().consistency(preference(consistency))
+                                             .tupleKey(new CheckRequestTupleKey().user(relationship.user())
+                                                                                 .relation(relationship.relation())
+                                                                                 ._object(relationship.object()));
+        if (!context.isEmpty()) {
+            List<TupleKey> contextual = new ArrayList<>();
+            for (RelationshipTuple tuple : context) {
+                contextual.add(new TupleKey().user(tuple.user()).relation(tuple.relation())._object(tuple.object()));
+            }
+            ret.contextualTuples(new ContextualTupleKeys().tupleKeys(contextual));
         }
-        return requestCheck(store, modelId, key, contextual, consistency)
-                .recover(e -> onNewestModel(store, modelId, e, newest -> requestCheck(store, newest, key, contextual, consistency),
-                                            false, relationship));
+        // the engine refuses a check that reaches a tuple naming definitions without a definition to compare, so a
+        // question about anything else names the empty one, which no tuple names
+        String type = AuthzUtil.typeOf(about);
+        String definition = "";
+        if (AuthzConstants.ENTITY_DEFINITION_TYPE.equals(type)) {
+            definition = AuthzUtil.idOf(about);
+        } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(type)) {
+            definition = AuthzUtil.definitionOf(AuthzUtil.idOf(about));
+        }
+        return ret.context(Map.of(DefaultAuthzModelGenerator.CHECKED_DEFINITION, definition));
+    }
+
+    private Future<Boolean> check(String store, String modelId, CheckRequest request, RelationshipTuple asked) {
+        return requestCheck(store, modelId, request)
+                .recover(e -> onNewestModel(store, modelId, e, newest -> requestCheck(store, newest, request), false, asked));
     }
 
     // The engine refuses a request for what it names: a version of the store deleted and re-created under its name
@@ -477,11 +546,8 @@ public class DefaultRelationshipService implements RelationshipService {
         return e instanceof ApiException api && api.getStatusCode() == 400;
     }
 
-    private Future<Boolean> requestCheck(String store, String modelId, CheckRequestTupleKey key, List<TupleKey> contextual, Consistency consistency) {
-        CheckRequest request = new CheckRequest().authorizationModelId(modelId).consistency(preference(consistency)).tupleKey(key);
-        if (!contextual.isEmpty()) {
-            request.contextualTuples(new ContextualTupleKeys().tupleKeys(contextual));
-        }
+    private Future<Boolean> requestCheck(String store, String modelId, CheckRequest request) {
+        request.authorizationModelId(modelId);
         return stores.storeIdOf(store).compose(id -> fga.check(id, request)).map(CheckResponse::getAllowed);
     }
 

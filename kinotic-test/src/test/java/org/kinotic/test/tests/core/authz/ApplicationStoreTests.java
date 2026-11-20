@@ -41,6 +41,7 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.TenantService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
+import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +89,9 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     @Autowired
     private ApplicationAccessService access;
+
+    @Autowired
+    private PermissionService permissions;
 
     @Autowired
     private ApplicationRepository applicationRepository;
@@ -220,6 +224,71 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertEquals(List.of(everyTenant, everywhere), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, personHere))));
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, personEverywhere, everyTenant.id())));
         await(runAsOrganization(() -> access.revoke(TEST_APP_ID, new Resource(AuthzConstants.APPLICATION_TYPE, TEST_APP_ID), everywhere.id())));
+    }
+
+    @Test
+    public void aRoleOfTheApplicationsOwnAdmitsItsHoldersToTheEntitiesItNames() throws Exception {
+        EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
+        EntityDefinition car = await(runAsOrganization(() -> testData.createCarEntityDefinitionIfNotExists(null))).getLeft();
+        String tenantId = createTenant(TEST_APP_ID);
+        ApplicationParticipantIdentity bob = endUser(TEST_APP_ID, tenantId);
+        Participant caller = applicationParticipant(tenantId, bob.getId());
+        String reading = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
+        String editing = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_EDIT);
+        String deleting = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_DELETE);
+        assertEquals(Set.of(reading, editing, deleting),
+                     await(runAsOrganization(() -> access.findPermissions(TEST_APP_ID))).get(AuthzConstants.ENTITY_DEFINITION_TYPE));
+
+        // an accountant reads and edits people and writes cars it does not read
+        RoleDefinition accountant = await(runAsOrganization(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
+                null, "Accountant " + suffix(), "keeps the books", false, null, null, Set.of(),
+                Map.of(person.getId(), Set.of(reading, editing), car.getId(), Set.of(editing))))));
+        assertEquals(AuthzConstants.TENANT_TYPE, accountant.resourceType());
+        assertEquals(Set.of(AuthzConstants.APPLICATION_TYPE, AuthzConstants.TENANT_TYPE), accountant.grantableOn());
+        assertEquals(accountant, role(accountant.id()));
+        Resource tenant = new Resource(AuthzConstants.TENANT_TYPE, tenantId);
+        Grant grant = await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()), accountant.id(), tenant)));
+
+        List<Object> personRow = List.of(person.getId(), "row-1");
+        List<Object> carRow = List.of(car.getId(), "row-1");
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", caller, personRow)), "the accountant was never admitted to the people");
+        authorize(ENTITIES_SERVICE, "bulkUpdate", caller, List.of(person.getId(), List.of(Map.of("id", "row-1"))));
+        assertRefused(ENTITIES_SERVICE, "deleteById", caller, personRow, deleting);
+        authorize(ENTITIES_SERVICE, "bulkUpdate", caller, List.of(car.getId(), List.of(Map.of("id", "row-1"))));
+        assertRefused(ENTITIES_SERVICE, "findById", caller, carRow, reading);
+        // the role is held in the tenant it was granted on
+        String otherTenant = "tenant-" + suffix();
+        ApplicationParticipantIdentity alice = endUser(TEST_APP_ID, otherTenant);
+        assertRefused(ENTITIES_SERVICE, "findById", applicationParticipant(otherTenant, alice.getId()), personRow, reading);
+        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));
+        AccessExplanation explained = await(runAsOrganization(() -> access.explain(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()), reading, personHere)));
+        assertTrue(explained.allowed());
+        assertEquals(List.of(grant), explained.through());
+
+        // an edit takes effect on the grant made already
+        RoleDefinition edited = await(runAsOrganization(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
+                accountant.id(), accountant.name(), null, false, null, null, Set.of(deleting), Map.of(car.getId(), Set.of(reading, deleting))))));
+        assertEquals(Set.of(deleting), edited.permissions());
+        assertEquals(Map.of(car.getId(), Set.of(reading)), edited.definitionPermissions());
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", caller, carRow)), "the edited role never admitted its holder to the cars");
+        assertTrue(awaitUntil(() -> !admitted(ENTITIES_SERVICE, "findById", caller, personRow)), "the edited role still admitted its holder to the people");
+        authorize(ENTITIES_SERVICE, "deleteById", caller, personRow);
+
+        // a role names definitions the application holds and permissions of their rows, and is the application's
+        assertTrue(failure(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
+                null, "Stray", null, false, null, null, Set.of(), Map.of("no.such.definition", Set.of(reading))))).getMessage()
+                           .contains("No entity definition of the application"));
+        assertTrue(failure(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
+                null, "Reaching", null, false, null, null, Set.of("application_can_manage_access"), Map.of()))).getMessage()
+                           .contains("can bundle"));
+        assertTrue(failure(() -> access.deleteRole(TEST_APP_ID, accountant.id())).getMessage().contains("still held by grants"));
+        assertFalse(await(runAsOrganization(() -> permissions.findRoles())).stream().anyMatch(found -> found.id().equals(accountant.id())));
+
+        await(runAsOrganization(() -> access.revoke(TEST_APP_ID, tenant, grant.id())));
+        await(runAsOrganization(() -> access.deleteRole(TEST_APP_ID, accountant.id())));
+        assertFalse(roleIds().contains(accountant.id()));
+        assertTrue(failure(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()), accountant.id(), tenant))
+                           .getMessage().contains("No role of the application"));
     }
 
     @Test

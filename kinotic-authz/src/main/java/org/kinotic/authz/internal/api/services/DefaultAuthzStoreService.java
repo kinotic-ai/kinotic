@@ -236,6 +236,10 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
             }
             ret = changed ? bridged : null;
         }
+        // a role relation of the target may admit a tuple under a condition, which the version must then define
+        if (ret != null && target.has("conditions")) {
+            ret.set("conditions", target.get("conditions").deepCopy());
+        }
         return ret;
     }
 

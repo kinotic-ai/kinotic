@@ -488,7 +488,18 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("ttu:role_binding->entity_definition_can_read",
                              "ttu:definition->entity_definition_can_read", "intersection:[ttu:tenant->entity_definition_can_read, computed:placed]"),
                      children(pair, "entity_definition_can_read", "union"));
-        // the rows' permissions are the repository's, with the derived ladder
+        // the rows' permissions are the repository's, each standing alone, and a role bundles one for every
+        // definition or for the definitions its tuple names
+        for (String role : List.of("entity_definition_role", "tenant_role", "application_role")) {
+            for (String permission : List.of("entity_definition_can_read", "entity_definition_can_edit", "entity_definition_can_delete")) {
+                assertEquals("direct", source(type(model, role).get("relations").get(permission)), role + " " + permission);
+                JsonNode admitted = type(model, role).get("metadata").get("relations").get(permission).get("directly_related_user_types");
+                assertEquals(List.of("user:*", "user:*"), directTypes(type(model, role), permission));
+                assertFalse(admitted.get(0).has("condition"));
+                assertEquals("for_definition", admitted.get(1).get("condition").asString());
+            }
+        }
+        assertEquals("definition in definitions", model.definition().get("conditions").get("for_definition").get("expression").asString());
         assertEquals(Set.of("entity_definition_can_read"), model.roles().get("entity_definition.viewer"));
         assertEquals(Set.of("entity_definition_can_edit", "entity_definition_can_read"),
                      model.roles().get("entity_definition.editor"));
@@ -527,6 +538,8 @@ public class AuthzModelGeneratorTest {
         assertTrue(type(model, "entity_definition").get("relations").has("entity_definition_can_read"));
         assertTrue(type(model, "organization").get("relations").has("entity_definition_can_read"));
         assertTrue(model.roles().get("entity_definition.viewer").contains("entity_definition_can_read"));
+        // the system's definition keeps the derived ladder and names no definitions, so its model has no condition
+        assertFalse(model.definition().has("conditions"));
     }
 
     @Test
