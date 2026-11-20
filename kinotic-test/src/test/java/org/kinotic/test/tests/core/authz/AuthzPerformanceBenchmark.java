@@ -264,6 +264,40 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         metrics("app-final");
     }
 
+    /**
+     * Measures grants written as a bulk import writes them: one role on one resource to a different user each time,
+     * which wait their turn on the one binding they join, beside the same grants made on a different resource each.
+     */
+    @Test
+    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    public void measureGrants() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Grant benchmark " + Instant.now());
+        line("");
+        line("warmup " + WARMUP + ", iterations " + ITERATIONS + ", cpus " + Runtime.getRuntime().availableProcessors());
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+        String role = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
+        String run = suffix();
+        // creating the sample definition provisions the sample application's store
+        personDefinition();
+        section("Grants of one role");
+        header();
+        for (int concurrency : CONCURRENCY) {
+            String onTenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency);
+            AtomicInteger next = new AtomicInteger();
+            row(measure("grant: on one tenant, a different user each time c=" + concurrency, concurrency,
+                        () -> relationships.bind(appStore, role, AuthzGraphUtil.authzUser("bg" + next.getAndIncrement()), onTenant)));
+        }
+        for (int concurrency : CONCURRENCY) {
+            AtomicInteger next = new AtomicInteger();
+            row(measure("grant: on a different tenant each time c=" + concurrency, concurrency,
+                        () -> relationships.bind(appStore, role, AuthzGraphUtil.authzUser("bg-" + run),
+                                                 AuthzUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency + "-" + next.getAndIncrement()))));
+        }
+        metrics("grants");
+    }
+
     // ---------------------------------------------------------------- application tier
 
     private void applicationTierFixtures() throws Exception {
