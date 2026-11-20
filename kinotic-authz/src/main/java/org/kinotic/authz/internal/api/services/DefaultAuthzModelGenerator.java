@@ -46,14 +46,32 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final String DEFINITION = AuthzConstants.DEFINITION_RELATION;
     private static final String PLACED = AuthzConstants.PLACED_RELATION;
     /**
-     * The condition a role bundles a permission of an entity definition under when it bundles it for the definitions
-     * it names: the tuple carries {@link #NAMED_DEFINITIONS}, the check {@link #CHECKED_DEFINITION}.
+     * The type of the parts of a role that names definitions. A part holds a permission for everyone under
+     * {@link #FOR_DEFINITION}, and its role holds the part under {@link #IN_PART}.
+     */
+    static final String ROLE_PART = "role_part";
+    /**
+     * The relation a role holds each of its parts by.
+     */
+    static final String PART = "part";
+    /**
+     * The condition a part of a role bundles a permission of an entity definition under: the tuple carries the
+     * definitions the part names as the keys of {@link #NAMED_DEFINITIONS}, the check {@link #CHECKED_DEFINITION}.
      */
     static final String FOR_DEFINITION = "for_definition";
     static final String CHECKED_DEFINITION = "definition";
     static final String NAMED_DEFINITIONS = "definitions";
-    // the types every model defines beside the resource types, which a service's type would define a second time
-    private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION);
+    /**
+     * The condition a role holds a part under, true of the one part a checked definition falls in: the tuple
+     * carries the part's {@link #PART_INDEX} among the role's {@link #PART_COUNT}, the check
+     * {@link #CHECKED_DEFINITION_HASH}.
+     */
+    static final String IN_PART = "in_part";
+    static final String CHECKED_DEFINITION_HASH = "definition_hash";
+    static final String PART_INDEX = "part";
+    static final String PART_COUNT = "parts";
+    // the types a model defines beside the resource types, which a service's type would define a second time
+    private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION, ROLE_PART);
     // who a binding may be made to in an application's store, and in the system's, which also has organizations
     private static final List<String> APPLICATION_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, APPLICATION + "#" + END_USER, TENANT + "#" + MEMBER);
     private static final List<String> SYSTEM_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, ORGANIZATION + "#" + MEMBER,
@@ -124,6 +142,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         Map<String, Set<String>> bindable = bindable(types, Set.of());
         bindable.put(TENANT_DEFINITION, Set.of(ENTITY_DEFINITION));
         ArrayNode typeDefinitions = typeDefinitions(types, bindable, APPLICATION_MEMBER_TYPES);
+        typeDefinitions.add(rolePartType(definition));
         typeDefinitions.add(roleBindingType(TENANT_DEFINITION, bindable.get(TENANT_DEFINITION), definition.permissionNames(), APPLICATION_MEMBER_TYPES));
         typeDefinitions.add(tenantDefinitionType(definition));
         Map<String, Set<String>> roles = typeRoles(types);
@@ -182,22 +201,32 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             }
         }
         if (types.declared().stream().anyMatch(type -> type.granular)) {
-            definition.set("conditions", definitionCondition());
+            definition.set("conditions", definitionConditions());
         }
         return new AuthzModel(definition, ModelHash.of(definition), catalog, roles, bindable, parents);
     }
 
-    // Holds for the tuple naming the definition a check is about, among the definitions it names
-    private static ObjectNode definitionCondition() {
+    // IN_PART holds for the part of a role the checked definition's hash falls in, and FOR_DEFINITION for the tuple
+    // of that part naming the definition
+    private static ObjectNode definitionConditions() {
         ObjectNode ret = JsonNodeFactory.instance.objectNode();
-        ObjectNode condition = ret.putObject(FOR_DEFINITION);
-        condition.put("name", FOR_DEFINITION);
-        condition.put("expression", CHECKED_DEFINITION + " in " + NAMED_DEFINITIONS);
-        ObjectNode parameters = condition.putObject("parameters");
+        ObjectNode inPart = ret.putObject(IN_PART);
+        inPart.put("name", IN_PART);
+        inPart.put("expression", CHECKED_DEFINITION_HASH + " % " + PART_COUNT + " == " + PART_INDEX);
+        ObjectNode partParameters = inPart.putObject("parameters");
+        for (String parameter : List.of(CHECKED_DEFINITION_HASH, PART_COUNT, PART_INDEX)) {
+            partParameters.putObject(parameter).put("type_name", "TYPE_NAME_INT");
+        }
+        ObjectNode forDefinition = ret.putObject(FOR_DEFINITION);
+        forDefinition.put("name", FOR_DEFINITION);
+        forDefinition.put("expression", CHECKED_DEFINITION + " in " + NAMED_DEFINITIONS);
+        ObjectNode parameters = forDefinition.putObject("parameters");
         parameters.putObject(CHECKED_DEFINITION).put("type_name", "TYPE_NAME_STRING");
+        // a map, which the engine looks a key up in at one cost however many definitions the tuple names; a list
+        // is scanned, and the engine stops evaluating a condition past a fixed cost
         ObjectNode named = parameters.putObject(NAMED_DEFINITIONS);
-        named.put("type_name", "TYPE_NAME_LIST");
-        named.putArray("generic_types").addObject().put("type_name", "TYPE_NAME_STRING");
+        named.put("type_name", "TYPE_NAME_MAP");
+        named.putArray("generic_types").addObject().put("type_name", "TYPE_NAME_BOOL");
         return ret;
     }
 
@@ -453,21 +482,21 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     /**
      * A role homed at a type is a bundle of the permissions of that type and of the types it carries: for each,
      * the role holds it for everyone or for nobody, which the binding then narrows to its members, and it holds
-     * every permission a permission it bundles implies. A permission of a granular type is also held for everyone
-     * on the resources its tuple names. The engine refuses a role bundling a permission from above its home.
+     * every permission a permission it bundles implies. A permission of a granular type is also held on the
+     * resources the role's parts name. The engine refuses a role bundling a permission from above its home.
      */
     private static ObjectNode roleType(String home, List<ResourceType> carried) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
+        if (carried.stream().anyMatch(about -> about.granular)) {
+            relate(relations, PART, directUnder(ROLE_PART, IN_PART));
+        }
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 ObjectNode bundled = direct(List.of(USER + ":*"));
-                if (about.granular) {
-                    ObjectNode named = ((ArrayNode) bundled.get("directly_related_user_types")).addObject();
-                    named.put("type", USER);
-                    named.putObject("wildcard");
-                    named.put("condition", FOR_DEFINITION);
-                }
                 List<ObjectNode> sources = implying(about, permission.getKey());
+                if (about.granular) {
+                    sources.add(tupleToUserset(PART, AuthzUtil.permissionName(about.name, permission.getKey())));
+                }
                 ObjectNode relation = bundled;
                 if (!sources.isEmpty()) {
                     // the subject types move from the union's child to the relation, where typeDefinition reads them
@@ -480,6 +509,19 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             }
         }
         return typeDefinition(AuthzUtil.roleType(home), relations);
+    }
+
+    /**
+     * A part of a role names some of the resources of a granular type the role holds a permission on: it holds the
+     * permission for everyone, on the resources its tuple names. A role's resources are spread over its parts by
+     * their hash, so a check reads the one part its resource falls in however many the role names.
+     */
+    private static ObjectNode rolePartType(ResourceType granular) {
+        Map<String, ObjectNode> relations = new LinkedHashMap<>();
+        for (String permission : granular.permissionNames()) {
+            relate(relations, permission, directUnder(USER + ":*", FOR_DEFINITION));
+        }
+        return typeDefinition(ROLE_PART, relations);
     }
 
     /**
@@ -610,6 +652,13 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 }
             }
         }
+        return ret;
+    }
+
+    // A relation assigned by tuples to subjects of one type, each under the condition
+    private static ObjectNode directUnder(String subjectType, String condition) {
+        ObjectNode ret = direct(List.of(subjectType));
+        ((ObjectNode) ret.get("directly_related_user_types").get(0)).put("condition", condition);
         return ret;
     }
 

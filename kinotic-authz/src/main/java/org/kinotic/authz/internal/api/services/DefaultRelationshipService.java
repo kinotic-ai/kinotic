@@ -33,16 +33,16 @@ import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.zip.CRC32;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -56,6 +56,11 @@ public class DefaultRelationshipService implements RelationshipService {
     private static final long OBJECT_LOCK_TIMEOUT_MILLIS = 30_000;
     // the most requests one operation has under way at the engine; the client opens a connection for each
     private static final int MAX_CONCURRENT_REQUESTS = 16;
+    // The engine stores up to 32,768 bytes of condition context in a tuple. The definitions one permission names
+    // are spread over parts of a third of that on average, since hashing fills the parts unevenly.
+    private static final int PART_CONTEXT_BYTES = 11_000;
+    // what the engine counts for a definition named in a tuple, beside the bytes of its id
+    private static final int NAMED_DEFINITION_BYTES = 8;
 
     private final OpenFgaService fga;
     private final DefaultAuthzStoreService stores;
@@ -96,22 +101,39 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<RolePermissions> findRolePermissions(String store, String roleId) {
-        // every relation of a role is a permission it bundles, for everything or for the definitions its tuple names
-        return stores.storeIdOf(store).compose(id -> fga.read(id, new ReadRequestTupleKey()._object(AuthzUtil.roleObject(roleId)))).map(held -> {
+        return stores.storeIdOf(store).compose(id -> readRole(id, roleId)).map(HeldRole::permissions);
+    }
+
+    // Every relation of a role is a permission it bundles for everything, but the one it holds its parts by; every
+    // relation of a part is a permission the role bundles for the definitions the part's tuple names
+    private Future<HeldRole> readRole(String storeId, String roleId) {
+        String role = AuthzUtil.roleObject(roleId);
+        return fga.read(storeId, new ReadRequestTupleKey()._object(role)).compose(held -> {
             Set<String> everywhere = new TreeSet<>();
-            Map<String, Set<String>> named = new TreeMap<>();
+            List<String> parts = new ArrayList<>();
             for (Tuple tuple : held) {
-                RelationshipCondition condition = tuple.getKey().getCondition();
-                if (condition == null || condition.getName() == null || condition.getName().isEmpty()) {
-                    everywhere.add(tuple.getKey().getRelation());
+                if (DefaultAuthzModelGenerator.PART.equals(tuple.getKey().getRelation())) {
+                    parts.add(tuple.getKey().getUser());
                 } else {
-                    Object definitions = ((Map<?, ?>) condition.getContext()).get(DefaultAuthzModelGenerator.NAMED_DEFINITIONS);
-                    for (Object definition : (Collection<?>) definitions) {
-                        named.computeIfAbsent(String.valueOf(definition), k -> new TreeSet<>()).add(tuple.getKey().getRelation());
-                    }
+                    everywhere.add(tuple.getKey().getRelation());
                 }
             }
-            return new RolePermissions(everywhere, named);
+            return requestEach(parts, part -> fga.read(storeId, new ReadRequestTupleKey()._object(part))).map(ofParts -> {
+                Map<String, Set<String>> named = new TreeMap<>();
+                List<TupleKeyWithoutCondition> partTuples = new ArrayList<>();
+                for (int i = 0; i < parts.size(); i++) {
+                    partTuples.add(new TupleKeyWithoutCondition().user(parts.get(i)).relation(DefaultAuthzModelGenerator.PART)._object(role));
+                    for (Tuple tuple : ofParts.get(i)) {
+                        String permission = tuple.getKey().getRelation();
+                        partTuples.add(new TupleKeyWithoutCondition().user(tuple.getKey().getUser()).relation(permission)._object(parts.get(i)));
+                        Object definitions = ((Map<?, ?>) tuple.getKey().getCondition().getContext()).get(DefaultAuthzModelGenerator.NAMED_DEFINITIONS);
+                        for (Object definition : ((Map<?, ?>) definitions).keySet()) {
+                            named.computeIfAbsent(String.valueOf(definition), k -> new TreeSet<>()).add(permission);
+                        }
+                    }
+                }
+                return new HeldRole(new RolePermissions(everywhere, named), partTuples);
+            });
         });
     }
 
@@ -210,48 +232,91 @@ public class DefaultRelationshipService implements RelationshipService {
 
     private Future<Void> reconcileRoles(String store, Map<String, RolePermissions> roles) {
         List<String> ids = new ArrayList<>(roles.keySet());
-        return requestEach(ids, roleId -> findRolePermissions(store, roleId)).compose(held -> {
+        return stores.storeIdOf(store).compose(storeId -> requestEach(ids, roleId -> readRole(storeId, roleId)).compose(held -> {
             List<TupleKey> writes = new ArrayList<>();
             List<TupleKeyWithoutCondition> deletes = new ArrayList<>();
+            List<List<TupleKey>> parts = new ArrayList<>();
             for (int i = 0; i < ids.size(); i++) {
                 String role = AuthzUtil.roleObject(ids.get(i));
-                Map<String, Set<String>> desired = definitionsByPermission(roles.get(ids.get(i)));
-                Map<String, Set<String>> bundled = definitionsByPermission(held.get(i));
-                Set<String> permissions = new TreeSet<>(bundled.keySet());
-                permissions.addAll(desired.keySet());
-                for (String permission : permissions) {
-                    if (!Objects.equals(bundled.get(permission), desired.get(permission))) {
-                        if (bundled.containsKey(permission)) {
-                            deletes.add(new TupleKeyWithoutCondition().user(AuthzConstants.EVERYONE).relation(permission)._object(role));
-                        }
-                        if (desired.containsKey(permission)) {
-                            writes.add(roleTuple(role, permission, desired.get(permission)));
-                        }
+                RolePermissions desired = roles.get(ids.get(i));
+                RolePermissions bundled = held.get(i).permissions();
+                for (String permission : bundled.permissions()) {
+                    if (!desired.permissions().contains(permission)) {
+                        deletes.add(new TupleKeyWithoutCondition().user(AuthzConstants.EVERYONE).relation(permission)._object(role));
                     }
                 }
+                for (String permission : desired.permissions()) {
+                    if (!bundled.permissions().contains(permission)) {
+                        writes.add(new TupleKey().user(AuthzConstants.EVERYONE).relation(permission)._object(role));
+                    }
+                }
+                Map<String, Set<String>> named = namedAlone(desired);
+                // a definition falls in a part by the number of parts, so a change to what a role names is every
+                // part deleted and written again
+                if (!named.equals(bundled.definitionPermissions())) {
+                    deletes.addAll(held.get(i).partTuples());
+                    parts.addAll(partsOf(role, named));
+                }
             }
-            // the engine holds one tuple per user, relation and object, so a permission whose definitions change is
-            // its tuple deleted and written again, and every delete is made before the writes
-            return stores.storeIdOf(store).compose(id -> fga.write(id, List.of(), deletes).compose(v -> fga.write(id, writes, List.of())));
-        });
+            // every delete is made before the writes, so a role is never read holding what it held and what it is
+            // to hold together; a part is written whole in a request of its own, which keeps each request small
+            Future<Void> ret = fga.write(storeId, List.of(), deletes).compose(v -> fga.write(storeId, writes, List.of()));
+            for (List<TupleKey> part : parts) {
+                ret = ret.compose(v -> fga.write(storeId, part, List.of()));
+            }
+            return ret;
+        }));
     }
 
-    // The tuple each permission of a role is: the definitions it names, or none for a permission bundled for everything
-    private static Map<String, Set<String>> definitionsByPermission(RolePermissions permissions) {
+    // The permissions a role holds on each definition it names and does not hold for everything
+    private static Map<String, Set<String>> namedAlone(RolePermissions permissions) {
         Map<String, Set<String>> ret = new TreeMap<>();
-        permissions.definitionPermissions().forEach((definition, named) -> named.forEach(
-                permission -> ret.computeIfAbsent(permission, k -> new TreeSet<>()).add(definition)));
-        permissions.permissions().forEach(permission -> ret.put(permission, Set.of()));
+        permissions.definitionPermissions().forEach((definition, named) -> {
+            Set<String> alone = new TreeSet<>(named);
+            alone.removeAll(permissions.permissions());
+            if (!alone.isEmpty()) {
+                ret.put(definition, alone);
+            }
+        });
         return ret;
     }
 
-    private static TupleKey roleTuple(String role, String permission, Set<String> definitions) {
-        TupleKey ret = new TupleKey().user(AuthzConstants.EVERYONE).relation(permission)._object(role);
-        if (!definitions.isEmpty()) {
-            ret.condition(new RelationshipCondition().name(DefaultAuthzModelGenerator.FOR_DEFINITION)
-                                                     .context(Map.of(DefaultAuthzModelGenerator.NAMED_DEFINITIONS, List.copyOf(definitions))));
-        }
+    // The tuples of each part of a role: one per permission, naming the definitions that fall in the part and hold
+    // it, and the one the role holds the part by. The definitions are spread over the parts by their hash, which a
+    // check carries, so a check reads the one part its definition falls in
+    private static List<List<TupleKey>> partsOf(String role, Map<String, Set<String>> named) {
+        Map<String, Integer> contextBytes = new HashMap<>();
+        named.forEach((definition, permissions) -> permissions.forEach(
+                permission -> contextBytes.merge(permission, definition.getBytes(StandardCharsets.UTF_8).length + NAMED_DEFINITION_BYTES, Integer::sum)));
+        int largest = contextBytes.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        int count = Math.max(1, (largest + PART_CONTEXT_BYTES - 1) / PART_CONTEXT_BYTES);
+        Map<Integer, Map<String, Map<String, Boolean>>> definitionsByPart = new TreeMap<>();
+        named.forEach((definition, permissions) -> {
+            Map<String, Map<String, Boolean>> ofPart = definitionsByPart.computeIfAbsent((int) (definitionHash(definition) % count), k -> new TreeMap<>());
+            permissions.forEach(permission -> ofPart.computeIfAbsent(permission, k -> new TreeMap<>()).put(definition, true));
+        });
+        List<List<TupleKey>> ret = new ArrayList<>();
+        definitionsByPart.forEach((index, ofPart) -> {
+            String part = AuthzUtil.object(DefaultAuthzModelGenerator.ROLE_PART, AuthzUtil.idOf(role) + "/" + index);
+            List<TupleKey> tuples = new ArrayList<>();
+            ofPart.forEach((permission, definitions) -> tuples.add(
+                    new TupleKey().user(AuthzConstants.EVERYONE).relation(permission)._object(part)
+                                  .condition(new RelationshipCondition().name(DefaultAuthzModelGenerator.FOR_DEFINITION)
+                                                                        .context(Map.of(DefaultAuthzModelGenerator.NAMED_DEFINITIONS, definitions)))));
+            tuples.add(new TupleKey().user(part).relation(DefaultAuthzModelGenerator.PART)._object(role)
+                                     .condition(new RelationshipCondition().name(DefaultAuthzModelGenerator.IN_PART)
+                                                                           .context(Map.of(DefaultAuthzModelGenerator.PART_INDEX, index,
+                                                                                           DefaultAuthzModelGenerator.PART_COUNT, count))));
+            ret.add(tuples);
+        });
         return ret;
+    }
+
+    // The hash a definition falls in a part of a role by, which is the same on every node and in every version
+    private static long definitionHash(String definition) {
+        CRC32 ret = new CRC32();
+        ret.update(definition.getBytes(StandardCharsets.UTF_8));
+        return ret.getValue();
     }
 
     @Override
@@ -316,6 +381,10 @@ public class DefaultRelationshipService implements RelationshipService {
                     ret = ret.compose(v -> unbind(store, tuple.user(), object));
                 } else {
                     others.add(tuple);
+                    // a part is its role's alone, so it leaves the store with the role
+                    if (DefaultAuthzModelGenerator.ROLE_PART.equals(AuthzUtil.typeOf(tuple.user()))) {
+                        ret = ret.compose(v -> read(store, tuple.user())).compose(ofPart -> remove(store, ofPart));
+                    }
                 }
             }
             return ret.compose(v -> remove(store, others));
@@ -497,7 +566,8 @@ public class DefaultRelationshipService implements RelationshipService {
         } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(type)) {
             definition = AuthzUtil.definitionOf(AuthzUtil.idOf(about));
         }
-        return ret.context(Map.of(DefaultAuthzModelGenerator.CHECKED_DEFINITION, definition));
+        return ret.context(Map.of(DefaultAuthzModelGenerator.CHECKED_DEFINITION, definition,
+                                  DefaultAuthzModelGenerator.CHECKED_DEFINITION_HASH, definitionHash(definition)));
     }
 
     private Future<Boolean> check(String store, String modelId, CheckRequest request, RelationshipTuple asked) {

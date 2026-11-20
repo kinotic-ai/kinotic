@@ -14,6 +14,7 @@ import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
@@ -79,6 +80,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -110,6 +112,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private static final List<Integer> TENANT_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANTS", "1000");
     private static final List<Integer> TENANT_FAN_IN_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_FAN_IN", "10,100,1000");
     private static final List<Integer> APPLICATION_FAN_IN_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_APPLICATION_FAN_IN", "100");
+    private static final List<Integer> ENTITY_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_ENTITY_ROLES", "1,100,1000,10000");
+    private static final List<Integer> TENANT_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_ROLES", "2,10,25,50");
+    private static final String READING_ROWS = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
     private static final String REPORT_NAMESPACE = "org.kinotic.benchmark";
     private static final String REPORT_SERVICE_NAME = REPORT_NAMESPACE + ".ReportService";
     private static final List<Integer> CONCURRENCY =intsEnv("KINOTIC_AUTHZ_BENCHMARK_CONCURRENCY", "1,8,32,64");
@@ -296,6 +301,99 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                                                  AuthzUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency + "-" + next.getAndIncrement()))));
         }
         metrics("grants");
+    }
+
+    /**
+     * Measures the check an application's user meets reading an entity's rows through a role of the application's
+     * own: as the entities one role names grow in number, where one role names the entity read among the others and
+     * one names only the others, and as the roles granted on one tenant grow in number.
+     */
+    @Test
+    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    public void measureEntityRoles() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Entity role benchmark " + Instant.now());
+        line("");
+        line("warmup " + WARMUP + ", iterations " + ITERATIONS + ", cpus " + Runtime.getRuntime().availableProcessors());
+        person = personDefinition();
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+        for (int entities : ENTITY_ROLE_STAGES) {
+            // a tenant of its own, so the roles of the other stages are not on the path of this one's checks
+            tenant = createTenant(TEST_APP_ID);
+            Map<String, Set<String>> others = namedEntities(entities);
+            Map<String, Set<String>> naming = new HashMap<>(others);
+            naming.remove(TEST_APP_ID + ".benchmarkentity0");
+            naming.put(person.getId(), Set.of(READING_ROWS));
+            String namingRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "naming-" + entities + "-" + suffix());
+            String otherRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + entities + "-" + suffix());
+
+            section("A role naming " + entities + " entities");
+            long start = System.nanoTime();
+            await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming)));
+            line("role written in " + ms(System.nanoTime() - start) + " ms");
+            await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others)));
+            start = System.nanoTime();
+            require(await(relationships.findRolePermissions(appStore, namingRole)).definitionPermissions().size() == entities,
+                    "the role was not read back naming " + entities + " entities");
+            line("role read back in " + ms(System.nanoTime() - start) + " ms");
+            line("");
+            entityRoleRows(holderOf(namingRole), holderOf(otherRole));
+        }
+
+        tenant = createTenant(TEST_APP_ID);
+        String namingRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "naming-" + suffix());
+        String otherRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
+        Map<String, Set<String>> naming = new HashMap<>(namedEntities(100));
+        naming.put(person.getId(), Set.of(READING_ROWS));
+        await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming)));
+        await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100))));
+        ScopedParticipant holder = holderOf(namingRole);
+        ScopedParticipant refused = holderOf(otherRole);
+        int roles = 2;
+        for (int target : TENANT_ROLE_STAGES) {
+            for (; roles < target; roles++) {
+                // each held by a user of the tenant other than the two measured
+                holderOf(roleNamingOthers());
+            }
+            section(roles + " roles granted on one tenant, each naming 100 entities");
+            entityRoleRows(holder, refused);
+        }
+        metrics("entity-roles");
+    }
+
+    private void entityRoleRows(ScopedParticipant holder, ScopedParticipant refused) throws Exception {
+        byte[] count = body(List.of(person.getId()));
+        criOf(ENTITIES_SERVICE, "count", holder);
+        require(awaitUntil(() -> admitted(ENTITIES_SERVICE, "count", holder, List.of(person.getId()))), "the holder never read the rows its role names");
+        require(!admitted(ENTITIES_SERVICE, "count", refused, List.of(person.getId())), "a role read rows it does not name");
+        header();
+        row(measure("request: entities count, named by the role (allow)", 1, () -> request(ENTITIES_SERVICE, "count", holder, count)));
+        row(measure("request: entities count, not named by the role (deny)", 1, () -> refusal(request(ENTITIES_SERVICE, "count", refused, count))));
+        row(measure("request: entities count, named by the role (allow) c=32", 32, () -> request(ENTITIES_SERVICE, "count", holder, count)));
+        row(measure("request: entities count, not named by the role (deny) c=32", 32, () -> refusal(request(ENTITIES_SERVICE, "count", refused, count))));
+    }
+
+    // Reading the rows of entities the sample application does not have, as a role names them
+    private static Map<String, Set<String>> namedEntities(int count) {
+        Map<String, Set<String>> ret = new HashMap<>();
+        for (int i = 0; i < count; i++) {
+            ret.put(TEST_APP_ID + ".benchmarkentity" + i, Set.of(READING_ROWS));
+        }
+        return ret;
+    }
+
+    private String roleNamingOthers() throws Exception {
+        String ret = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
+        await(relationships.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100))));
+        return ret;
+    }
+
+    // A user of the tenant granted the role on it
+    private ScopedParticipant holderOf(String roleId) throws Exception {
+        ApplicationParticipantIdentity identity = endUser(tenant);
+        await(relationships.bind(appStore, roleId, AuthzGraphUtil.authzUser(identity.getId()), AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant)));
+        return applicationParticipant(tenant, identity.getId());
     }
 
     // ---------------------------------------------------------------- application tier

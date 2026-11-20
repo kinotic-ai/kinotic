@@ -48,6 +48,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -530,6 +531,77 @@ class OpenFgaIntegrationTest {
         // in step already: nothing is written
         await(relationshipService.ensureRole(store, "tenant.accountant", edited));
         await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aCheckCostsTheSameHoweverManyDefinitionsARoleNames() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        String store = "acme.crm-many";
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        String application = "application:crm-many";
+        int definitions = 5000;
+        List<String> checked = List.of(definitionOf(0), definitionOf(definitions / 2), definitionOf(definitions - 1), "crm.unnamed", "crm.few");
+        List<RelationshipTuple> placed = new ArrayList<>(List.of(new RelationshipTuple("user:*", "placed", application),
+                                                                 new RelationshipTuple(application, "application", "tenant:north")));
+        checked.forEach(definition -> placed.add(new RelationshipTuple(application, "application", "entity_definition:" + definition)));
+        await(relationshipService.ensure(store, placed));
+
+        Map<String, Set<String>> named = new HashMap<>();
+        for (int i = 0; i < definitions; i++) {
+            // every definition is read and every other one edited, so the permissions name different definitions
+            named.put(definitionOf(i), i % 2 == 0 ? Set.of("entity_definition_can_read", "entity_definition_can_edit") : Set.of("entity_definition_can_read"));
+        }
+        RolePermissions many = new RolePermissions(Set.of(), named);
+        await(relationshipService.ensureRole(store, "tenant.many", many));
+        await(relationshipService.ensureRole(store, "tenant.few", new RolePermissions(Set.of(), Map.of("crm.few", Set.of("entity_definition_can_read")))));
+        String granted = await(relationshipService.bind(store, "tenant.many", "user:mia-many", "tenant:north"));
+        await(relationshipService.bind(store, "tenant.few", "user:fay-many", "tenant:north"));
+
+        assertEquals(many, await(relationshipService.findRolePermissions(store, "tenant.many")));
+        for (String definition : checked.subList(0, 3)) {
+            assertTrue(holdsOnRows(store, "user:mia-many", "can_read", definition, "north"), definition);
+            assertFalse(holdsOnRows(store, "user:mia-many", "can_delete", definition, "north"), definition);
+        }
+        assertTrue(holdsOnRows(store, "user:mia-many", "can_edit", definitionOf(0), "north"));
+        assertFalse(holdsOnRows(store, "user:mia-many", "can_edit", definitionOf(definitions - 1), "north"));
+        assertFalse(holdsOnRows(store, "user:mia-many", "can_read", "crm.few", "north"));
+        assertTrue(holdsOnRows(store, "user:fay-many", "can_read", "crm.few", "north"));
+
+        // a refusal reads every path to the rows, and the holder of either role is refused a definition it does not name
+        double ofFew = datastoreQueriesOf(() -> relationshipService.check(
+                store, new RelationshipTuple("user:fay-many", "entity_definition_can_read", "tenant_definition:crm.unnamed@north"),
+                Consistency.HIGHER_CONSISTENCY, edgesOf("crm.unnamed", "north")));
+        double ofMany = datastoreQueriesOf(() -> relationshipService.check(
+                store, new RelationshipTuple("user:mia-many", "entity_definition_can_read", "tenant_definition:crm.unnamed@north"),
+                Consistency.HIGHER_CONSISTENCY, edgesOf("crm.unnamed", "north")));
+        // the engine answers a branch it need not finish in a different number of reads from one check to the next;
+        // a check that read every part of the role would read ten more
+        assertEquals(ofFew, ofMany, 3, "a refused check took " + ofFew + " datastore queries through a role naming one definition and "
+                + ofMany + " through one naming " + definitions);
+
+        // an edit takes one definition away and leaves the rest
+        named.remove(definitionOf(0));
+        RolePermissions edited = new RolePermissions(Set.of(), named);
+        await(relationshipService.ensureRole(store, "tenant.many", edited));
+        assertEquals(edited, await(relationshipService.findRolePermissions(store, "tenant.many")));
+        assertFalse(holdsOnRows(store, "user:mia-many", "can_read", definitionOf(0), "north"));
+        assertTrue(holdsOnRows(store, "user:mia-many", "can_read", definitionOf(definitions - 1), "north"));
+
+        // the role's parts leave the store with it
+        List<String> parts = await(relationshipService.read(store, "tenant_role:tenant.many", "part")).stream().map(RelationshipTuple::user).toList();
+        assertTrue(parts.size() > 1, "the role named its definitions in " + parts.size() + " part");
+        await(relationshipService.revoke(store, granted, "tenant:north"));
+        await(relationshipService.removeObject(store, "tenant_role:tenant.many"));
+        assertEquals(new RolePermissions(Set.of()), await(relationshipService.findRolePermissions(store, "tenant.many")));
+        for (String part : parts) {
+            assertEquals(List.of(), await(relationshipService.read(store, part)), part);
+        }
+        await(storeService.deleteStore(store));
+    }
+
+    private static String definitionOf(int index) {
+        return "crm.entity" + index;
     }
 
     private boolean holdsOnRows(String store, String user, String permission, String definition, String tenant) throws Exception {

@@ -276,7 +276,7 @@ public class AuthzModelGeneratorTest {
 
     private static Set<String> applicationTypes() {
         Set<String> ret = withRoleTypes("application", "entity_definition", "tenant");
-        ret.addAll(Set.of("tenant_definition", "tenant_definition_role_binding"));
+        ret.addAll(Set.of("tenant_definition", "tenant_definition_role_binding", "role_part"));
         return ret;
     }
 
@@ -489,17 +489,27 @@ public class AuthzModelGeneratorTest {
                              "ttu:definition->entity_definition_can_read", "intersection:[ttu:tenant->entity_definition_can_read, computed:placed]"),
                      children(pair, "entity_definition_can_read", "union"));
         // the rows' permissions are the repository's, each standing alone, and a role bundles one for every
-        // definition or for the definitions its tuple names
-        for (String role : List.of("entity_definition_role", "tenant_role", "application_role")) {
-            for (String permission : List.of("entity_definition_can_read", "entity_definition_can_edit", "entity_definition_can_delete")) {
-                assertEquals("direct", source(type(model, role).get("relations").get(permission)), role + " " + permission);
+        // definition, or for the definitions its parts name
+        JsonNode part = type(model, "role_part");
+        for (String permission : List.of("entity_definition_can_read", "entity_definition_can_edit", "entity_definition_can_delete")) {
+            for (String role : List.of("entity_definition_role", "tenant_role", "application_role")) {
+                assertEquals(List.of("direct", "ttu:part->" + permission), children(type(model, role), permission, "union"), role + " " + permission);
                 JsonNode admitted = type(model, role).get("metadata").get("relations").get(permission).get("directly_related_user_types");
-                assertEquals(List.of("user:*", "user:*"), directTypes(type(model, role), permission));
+                assertEquals(List.of("user:*"), directTypes(type(model, role), permission));
                 assertFalse(admitted.get(0).has("condition"));
-                assertEquals("for_definition", admitted.get(1).get("condition").asString());
             }
+            assertEquals("direct", source(part.get("relations").get(permission)));
+            assertEquals(List.of("user:*"), directTypes(part, permission));
+            assertEquals("for_definition", part.get("metadata").get("relations").get(permission).get("directly_related_user_types").get(0).get("condition").asString());
+        }
+        // a role holds a part under the condition that picks the one part a checked definition falls in
+        for (String role : List.of("entity_definition_role", "tenant_role", "application_role")) {
+            assertEquals(List.of("role_part"), directTypes(type(model, role), "part"));
+            assertEquals("in_part", type(model, role).get("metadata").get("relations").get("part").get("directly_related_user_types").get(0).get("condition").asString());
         }
         assertEquals("definition in definitions", model.definition().get("conditions").get("for_definition").get("expression").asString());
+        assertEquals("TYPE_NAME_MAP", model.definition().get("conditions").get("for_definition").get("parameters").get("definitions").get("type_name").asString());
+        assertEquals("definition_hash % parts == part", model.definition().get("conditions").get("in_part").get("expression").asString());
         assertEquals(Set.of("entity_definition_can_read"), model.roles().get("entity_definition.viewer"));
         assertEquals(Set.of("entity_definition_can_edit", "entity_definition_can_read"),
                      model.roles().get("entity_definition.editor"));
