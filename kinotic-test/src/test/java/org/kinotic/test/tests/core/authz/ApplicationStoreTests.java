@@ -366,7 +366,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
                 .addFunction(new FunctionDefinition().setName("findReports"));
         ServiceDefinition charts = ownTypeService("ChartService", "chart", "report")
                 .addFunction(new FunctionDefinition().setName("createChart").addParameter("reportId", new StringC3Type()));
-        for (ServiceDefinition definition : List.of(reports, charts)) {
+        // and one of a catalog every tenant shares, declared under the application, with its prices
+        ServiceDefinition catalogs = ownTypeService("CatalogService", "catalog", AuthzConstants.APPLICATION_TYPE);
+        ServiceDefinition prices = ownTypeService("PriceService", "price", "catalog");
+        for (ServiceDefinition definition : List.of(reports, charts, catalogs, prices)) {
             await(runAs(runtime, () -> applicationServiceDirectory.register(new ServiceDirectoryEntry().setApplicationId(appId)
                                                                                                        .setZone(zone)
                                                                                                        .setVersion("1.0.0")
@@ -374,6 +377,8 @@ public class ApplicationStoreTests extends KinoticTestBase {
         }
         String reportService = zone + "~com.acme.reports.ReportService";
         String chartService = zone + "~com.acme.reports.ChartService";
+        String catalogService = zone + "~com.acme.reports.CatalogService";
+        String priceService = zone + "~com.acme.reports.PriceService";
         ApplicationParticipantIdentity bob = endUser(appId, null);
         ApplicationParticipantIdentity carol = endUser(appId, null);
         Participant viewer = applicationUser(appId, bob);
@@ -384,17 +389,8 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertRefused(reportService, "findById", viewer, List.of("r-1"), readReports);
 
         // the store defines the types' roles once it reconciles to the model the registrations imply
-        assertTrue(awaitUntil(() -> {
-            boolean granted;
-            try {
-                await(runAsOrganization(() -> access.grant(appId, new Subject(SubjectType.USER, bob.getId()), "report.viewer", bobsTenant)));
-                granted = true;
-            } catch (ExecutionException undefined) {
-                granted = false;
-            }
-            return granted;
-        }), "report.viewer was never grantable in the application's store");
-        await(runAsOrganization(() -> access.grant(appId, new Subject(SubjectType.USER, bob.getId()), "chart.viewer", bobsTenant)));
+        grantOnceDefined(appId, bob, "report.viewer", bobsTenant);
+        grantOnceDefined(appId, bob, "chart.viewer", bobsTenant);
 
         // a report and a chart named by id are read by the viewer of the tenant's reports and charts
         assertTrue(awaitUntil(() -> admitted(reportService, "findById", viewer, List.of("r-1"))), "the reports' viewer was never admitted to a report");
@@ -406,6 +402,17 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertRefused(reportService, "findById", stranger, List.of("r-1"),
                       AuthzUtil.permissionName("report", AuthzConstants.CAN_READ) + " on " + AuthzUtil.object(AuthzConstants.TENANT_TYPE, carol.getTenantId()));
         assertRefused(chartService, "findById", stranger, List.of("c-1"), AuthzUtil.object(AuthzConstants.TENANT_TYPE, carol.getTenantId()));
+
+        // a type declared under the application is checked on the caller's tenant too, so a grant made on the tenant
+        // reaches it as one made on the application does
+        String readCatalogs = AuthzUtil.permissionName("catalog", AuthzConstants.CAN_READ) + " on ";
+        grantOnceDefined(appId, bob, "catalog.viewer", bobsTenant);
+        grantOnceDefined(appId, bob, "price.viewer", bobsTenant);
+        assertTrue(awaitUntil(() -> admitted(catalogService, "findById", viewer, List.of("k-1"))), "the tenant's grant never reached the catalog");
+        authorize(priceService, "findById", viewer, List.of("p-1"));
+        assertRefused(catalogService, "findById", stranger, List.of("k-1"), readCatalogs + AuthzUtil.object(AuthzConstants.TENANT_TYPE, carol.getTenantId()));
+        grantOnceDefined(appId, carol, "catalog.viewer", new Resource(AuthzConstants.APPLICATION_TYPE, appId));
+        assertTrue(awaitUntil(() -> admitted(catalogService, "findById", stranger, List.of("k-1"))), "the application's grant never reached the catalog");
 
         await(runAsOrganization(() -> applicationService.deleteById(appId)));
     }
@@ -578,6 +585,21 @@ public class ApplicationStoreTests extends KinoticTestBase {
         user.setApplicationId(applicationId);
         user.setTenantId(tenantId);
         return await(identityService.createUser(user, "End-User-1"));
+    }
+
+    // grants a user a role of one of the application's own types, which the store defines once it reconciles to the
+    // model the service's registration implies
+    private void grantOnceDefined(String applicationId, ApplicationParticipantIdentity user, String roleId, Resource resource) throws Exception {
+        assertTrue(awaitUntil(() -> {
+            boolean granted;
+            try {
+                await(runAsOrganization(() -> access.grant(applicationId, new Subject(SubjectType.USER, user.getId()), roleId, resource)));
+                granted = true;
+            } catch (ExecutionException undefined) {
+                granted = false;
+            }
+            return granted;
+        }), roleId + " was never grantable in the application's store");
     }
 
     // a service of an application's own resource type, with a function reading one resource by its id

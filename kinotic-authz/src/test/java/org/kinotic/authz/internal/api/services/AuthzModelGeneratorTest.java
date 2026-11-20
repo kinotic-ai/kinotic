@@ -529,6 +529,24 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aTenantCarriesEveryTypeOfItsApplication() {
+        List<ServiceDefinition> services = List.of(service("CatalogService", "catalog", "application",
+                                                           function("findById", "catalog", "catalog", "can_read")),
+                                                   service("PriceService", "price", "catalog",
+                                                           function("findById", "price", "price", "can_read")));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), services);
+
+        // a grant on a tenant reaches a type declared under the application and a type inside that one, as a grant
+        // on the application does
+        for (String permission : List.of("catalog_can_read", "price_can_read")) {
+            assertEquals(List.of("ttu:role_binding->" + permission, "ttu:application->" + permission),
+                         children(type(model, "tenant"), permission, "union"));
+            assertTrue(type(model, "tenant_role").get("relations").has(permission), permission);
+        }
+        assertTrue(model.grantable("price.viewer", "tenant"));
+    }
+
+    @Test
     public void aServiceOnTheDefinitionTypeAddsItsPermissionsToTheSystemsDefinition() {
         ServiceDefinition entities = service("JsonEntitiesRepository", "entity_definition", "application",
                                              function("findById", "entity_definition", "entity_definition", "can_read"));

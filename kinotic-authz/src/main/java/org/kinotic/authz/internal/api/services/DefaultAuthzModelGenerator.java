@@ -111,11 +111,11 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         kernel.put(ENTITY_DEFINITION, definition);
         kernel.put(TENANT, tenant());
         ResourceTypes types = declare(kernel, all);
-        // a tenant is a slice of its application, so it also carries the entity types the application holds for
-        // everyone: a check made on a caller's tenant answers for either kind of row, through the tenant's own
-        // grants and the application's above it
+        // a tenant is a slice of its application, so it carries every type the application holds, the ones declared
+        // beside it too: a check made on a caller's tenant answers for any of them, through the tenant's own grants
+        // and the application's above it
         for (ResourceType type : types.declared()) {
-            if (APPLICATION.equals(type.parent) && !TENANT.equals(type.name)) {
+            if (!APPLICATION.equals(type.name)) {
                 types.carry(TENANT, type.name);
             }
         }

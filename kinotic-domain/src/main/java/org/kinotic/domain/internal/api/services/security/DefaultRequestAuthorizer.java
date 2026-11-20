@@ -8,7 +8,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -24,7 +23,6 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.security.RequestAuthorizer;
-import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -108,7 +106,6 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final ObjectProvider<RequestPermissionResolver> permissionResolvers;
-    private final ObjectProvider<AuthzModelService> models;
     private final RelationshipService relationships;
     private final JsonMapper jsonMapper;
     private final Vertx vertx;
@@ -117,11 +114,6 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                                     .maximumSize(DEFINITION_CAPACITY)
                                                                                     .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
-    // the parent of each type of an application's model, by the application's store, kept as the contracts are
-    private final AsyncCache<String, Map<String, String>> applicationParents = Caffeine.newBuilder()
-                                                                                       .maximumSize(DEFINITION_CAPACITY)
-                                                                                       .expireAfterWrite(DEFINITION_RETENTION)
-                                                                                       .buildAsync();
 
     /**
      * Listens for the directory announcing a contract written, and drops what is kept of it, so a function's
@@ -135,8 +127,6 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     private void forget(String entryId) {
         definitions.synchronous().invalidate(entryId);
-        // a contract can declare a type or move one under another parent, in whichever application registered it
-        applicationParents.synchronous().invalidateAll();
     }
 
     @Override
@@ -354,8 +344,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
         try {
             requireWithinTenant(participant, check, permission.getPermission());
             requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
-            ret = checkedOn(check, participant.getScope(), store)
-                    .compose(checked -> checkOn(checked, spec, permission, participant, store, arguments));
+            ret = checkOn(checkedOn(check, participant.getScope(), store), spec, permission, participant, store, arguments);
         } catch (AuthorizationException e) {
             ret = Future.failedFuture(e);
         }
@@ -427,37 +416,12 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     }
 
     // The resource the check is made on: the one it declares, or, for a resource of an application's own type, the
-    // scope level the application's model places the type under, where the caller holds the type's permissions
+    // caller's tenant, which carries every type of its application and where the caller holds the type's permissions
     // through its grants; either way a scope level is then the caller's own, as scopeLevelOf decides
-    private Future<Resource> checkedOn(AuthzCheckC3Decorator check, ParticipantScope scope, String store) {
+    private Resource checkedOn(AuthzCheckC3Decorator check, ParticipantScope scope, String store) {
         Resource declared = new Resource(check.getResource(), check.getResourceId());
-        Future<Resource> ret;
-        if (SYSTEM.equals(store) || PLACED_APPLICATION_TYPES.contains(declared.type())) {
-            ret = Future.succeededFuture(declared);
-        } else {
-            ret = KinoticUtil.toFuture(applicationParents.get(store, (k, executor) -> models.getObject()
-                                                                                              .findApplicationModel(scope.organizationId(), scope.applicationId())
-                                                                                              .map(AuthzModel::parents)
-                                                                                              .toCompletionStage()
-                                                                                              .toCompletableFuture()))
-                             .map(parents -> scopeLevelAbove(declared.type(), parents));
-        }
-        return ret.map(resource -> scopeLevelOf(resource, scope));
-    }
-
-    // The innermost scope level containing a type, by the parents of an application's model
-    private Resource scopeLevelAbove(String type, Map<String, String> parents) {
-        Resource ret = null;
-        String ancestor = parents.get(type);
-        while (ret == null && ancestor != null) {
-            String reached = ancestor;
-            ret = SCOPE_LEVELS.stream().filter(level -> level.type().equals(reached)).findFirst().orElse(null);
-            ancestor = parents.get(ancestor);
-        }
-        if (ret == null) {
-            throw securityExceptions.notAuthorized("The application's model places the type {} under no tenant or application", type);
-        }
-        return ret;
+        boolean placed = SYSTEM.equals(store) || PLACED_APPLICATION_TYPES.contains(declared.type());
+        return scopeLevelOf(placed ? declared : SCOPE_LEVELS.getFirst(), scope);
     }
 
     /**
