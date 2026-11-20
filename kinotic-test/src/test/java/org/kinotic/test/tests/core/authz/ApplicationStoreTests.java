@@ -70,7 +70,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * one made on the application reaches every definition; the organization's administrator manages the grants
  * through {@code ApplicationAccessService}, which refuses a grant on anything but the application, a tenant, a
  * definition the application holds or a definition within a tenant, and to anyone but the application's own
- * users; a user reaches a resource of a type the application's own services declare through its grant on its
+ * users, or to every user of one of its tenants with one grant, which a user created in the tenant later holds
+ * too; a user reaches a resource of a type the application's own services declare through its grant on its
  * tenant; deleting an application deletes its store with everything in it; and an application created again under
  * the same id is placed in its store whatever model the store was left running.
  */
@@ -335,6 +336,60 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertRefused(chartService, "findById", stranger, List.of("c-1"), AuthzUtil.object(AuthzConstants.TENANT_TYPE, carol.getTenantId()));
 
         await(runAsOrganization(() -> applicationService.deleteById(appId)));
+    }
+
+    @Test
+    public void aRoleGrantedToATenantIsHeldByEveryUserOfItNowAndLater() throws Exception {
+        EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
+        Tenant tenant = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(TEST_APP_ID, "Initech " + suffix(), "A customer")));
+        ApplicationParticipantIdentity bob = endUser(TEST_APP_ID, tenant.getId());
+        Participant early = applicationParticipant(tenant.getId(), bob.getId());
+        Subject everyone = new Subject(SubjectType.TENANT, tenant.getId());
+        Resource onTenant = new Resource(AuthzConstants.TENANT_TYPE, tenant.getId());
+        Resource application = new Resource(AuthzConstants.APPLICATION_TYPE, TEST_APP_ID);
+        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenant.getId()));
+        String viewerRole = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
+        String canRead = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
+        List<Object> readRow = List.of(person.getId(), "row-1");
+        assertRefused(ENTITIES_SERVICE, "findById", early, readRow, canRead);
+
+        Grant grant = await(runAsOrganization(() -> access.grant(TEST_APP_ID, everyone, viewerRole, onTenant)));
+
+        assertEquals(everyone, grant.subject());
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", early, readRow)), "the tenant's user was never admitted");
+        // a user created in the tenant after the grant holds it too, a viewer edits nothing, and another tenant's
+        // user holds nothing
+        ApplicationParticipantIdentity carol = endUser(TEST_APP_ID, tenant.getId());
+        assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "findById", applicationParticipant(tenant.getId(), carol.getId()), readRow)),
+                   "a user created after the grant was never admitted");
+        assertRefused(ENTITIES_SERVICE, "bulkUpdate", early, List.of(person.getId(), List.of()),
+                      AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_EDIT));
+        String otherTenant = createTenant(TEST_APP_ID);
+        ApplicationParticipantIdentity alice = endUser(TEST_APP_ID, otherTenant);
+        assertRefused(ENTITIES_SERVICE, "findById", applicationParticipant(otherTenant, alice.getId()), readRow, "@" + otherTenant);
+
+        // the grant is listed once, and explains what each user of the tenant holds
+        assertEquals(List.of(grant), await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, onTenant))));
+        AccessExplanation explained = await(runAsOrganization(() -> access.explain(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()), canRead, personHere)));
+        assertTrue(explained.allowed());
+        assertEquals(List.of(grant), explained.through());
+        assertFalse(await(runAsOrganization(() -> access.explain(TEST_APP_ID, new Subject(SubjectType.USER, alice.getId()), canRead, personHere))).through()
+                                                                                                                                              .contains(grant));
+        // granting it again is the grant already made
+        assertEquals(grant, await(runAsOrganization(() -> access.grant(TEST_APP_ID, everyone, viewerRole, onTenant))));
+        // a tenant the application has none of is no subject
+        String noTenant = "tenant-" + suffix();
+        assertEquals("No tenant of the application has id " + noTenant,
+                     failure(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.TENANT, noTenant), viewerRole, application)).getMessage());
+
+        await(runAsOrganization(() -> access.revoke(TEST_APP_ID, onTenant, grant.id())));
+        assertTrue(awaitUntil(() -> !admitted(ENTITIES_SERVICE, "findById", early, readRow)), "the tenant's user was still admitted after the revoke");
+
+        // deleting the tenant takes back what its users were granted as a whole, wherever it was granted
+        Grant everywhere = await(runAsOrganization(() -> access.grant(TEST_APP_ID, everyone, viewerRole, application)));
+        assertTrue(await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, application))).contains(everywhere));
+        await(runAsOrganization(() -> tenantService.deleteById(TEST_APP_ID, tenant.getId())));
+        assertFalse(await(runAsOrganization(() -> access.findGrants(TEST_APP_ID, application))).contains(everywhere));
     }
 
     @Test

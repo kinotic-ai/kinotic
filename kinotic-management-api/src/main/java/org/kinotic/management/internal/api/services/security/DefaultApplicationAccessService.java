@@ -147,7 +147,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                                                    List.of(AuthzGraphUtil.tenantContainment(application.getOrganizationId(), application.getId(), tenantId))));
     }
 
-    // A grant on a tenant is made on one the application has where its administrators manage its tenants; a tenant
+    // A tenant named by a grant is one the application has where its administrators manage its tenants; a tenant
     // the system gave a user has no record to require
     private Future<Void> requireTenant(Application application, String tenantId) {
         Future<Void> ret;
@@ -203,14 +203,21 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         return models.findApplicationModel(application.getOrganizationId(), application.getId());
     }
 
-    // A grant in an application's store is made to one of its own users or machines
+    // A grant in an application's store is made to one of its own users or machines, or to the users of one of its
+    // tenants
     private Future<Void> requireSubject(Application application, Subject subject) {
-        return identities.findById(subject.id()).map(identity -> {
-            if (!belongs(identity, application)) {
-                throw new IllegalArgumentException("No user or machine of the application has id " + subject.id());
-            }
-            return null;
-        });
+        Future<Void> ret;
+        if (subject.type() == SubjectType.TENANT) {
+            ret = requireTenant(application, subject.id());
+        } else {
+            ret = identities.findById(subject.id()).map(identity -> {
+                if (!belongs(identity, application)) {
+                    throw new IllegalArgumentException("No user or machine of the application has id " + subject.id());
+                }
+                return null;
+            });
+        }
+        return ret;
     }
 
     // a delegate carries its owner's scope but is withdrawn from no store when deleted, so it is never a subject
@@ -242,10 +249,11 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                         "a definition within a tenant is named <definition id>@<tenant id>, not %s", resource.id());
     }
 
-    // An application's store has no groups, so a subject is one of its identities
+    // An application's store has no groups, so a subject is one of its identities or the users of one of its tenants
     private static void validate(Subject subject) {
         Validate.notNull(subject, "subject cannot be null");
-        Validate.isTrue(subject.type() == SubjectType.USER, "a grant in an application is made to a user or a machine");
+        Validate.isTrue(subject.type() == SubjectType.USER || subject.type() == SubjectType.TENANT,
+                        "a grant in an application is made to a user, a machine or the users of a tenant");
         Validate.notBlank(subject.id(), "subject id cannot be blank");
     }
 

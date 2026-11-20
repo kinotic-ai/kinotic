@@ -176,11 +176,12 @@ public interface RelationshipService {
     Future<Void> removeObject(String store, String object);
 
     /**
-     * Takes a user out of a store: every grant made to it, and every relationship it holds, such as its
-     * memberships. A user created again under the same id starts with no grant.
+     * Takes a user, or the members of a group or a tenant as a whole, out of a store: every grant made to it, and
+     * every relationship it holds, such as its memberships. A user created again under the same id starts with no
+     * grant.
      *
      * @param store the store, named as its record is
-     * @param user  the user, in {@code type:id} form
+     * @param user  the user, in {@code type:id} form, or the members, in {@code type:id#member} form
      * @return completes when the store holds nothing of the user, at once for a store that does not exist
      */
     Future<Void> removeSubject(String store, String user);

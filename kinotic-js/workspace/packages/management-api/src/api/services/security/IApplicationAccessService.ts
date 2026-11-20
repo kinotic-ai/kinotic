@@ -11,7 +11,8 @@ import type { Subject } from '@/api/model/security/Subject'
  * machines can be granted, and the grants made on the application, on one of its tenants, on one of its entity
  * definitions or on a definition within a tenant, which reach the rows below where they are made. A definition
  * within a tenant is named `<definition id>@<tenant id>`. Every function names the application, which must belong
- * to the caller's organization, and a subject named must be one of the application's own users or machines.
+ * to the caller's organization, and a subject named must be one of the application's own users or machines, or
+ * one of its tenants, standing for every user of that tenant.
  */
 export interface IApplicationAccessService {
 
@@ -36,7 +37,8 @@ export interface IApplicationAccessService {
      * every tenant, and one on the application the rows of every definition in every tenant. A definition named
      * must be one the application holds, and a tenant named one the application has where its administrators
      * manage its tenants.
-     * @param subject a user naming the identity id of one of the application's users or machines
+     * @param subject a user naming the identity id of one of the application's users or machines, or a tenant
+     *                naming the id of one of its tenants, whose every user then holds the grant
      * @param roleId a built-in role's id, such as entity_definition.editor or tenant.admin
      */
     grant(applicationId: string, subject: Subject, roleId: string, resource: Resource): Promise<Grant>

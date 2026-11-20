@@ -1,4 +1,5 @@
-import type { Resource } from '@kinotic-ai/management-api'
+import { type Resource, SubjectType } from '@kinotic-ai/management-api'
+import type { SubjectOption } from '@kinotic-ai/frontend-common/management'
 
 /** A published definition of the application, as the pickers name it. */
 export interface DefinitionOption {
@@ -24,6 +25,15 @@ export function whereChoices(tenants: string[]): ResourceChoice[] {
 /** The choices of the definition picker: every definition, then each one by its name. */
 export function definitionChoices(definitions: DefinitionOption[]): ResourceChoice[] {
   return [{ label: 'Every definition', id: EVERY_DEFINITION }, ...definitions.map(definition => ({ label: definition.name, id: definition.id }))]
+}
+
+/** Every user of a tenant as a grant subject: those it has now and those created in it later. */
+export function tenantOption(tenantId: string): SubjectOption {
+  return {
+    subject: { type: SubjectType.TENANT, id: tenantId },
+    label: `Everyone in ${tenantId}`,
+    detail: 'Every user of the tenant'
+  }
 }
 
 /** The types of the resources a grant in an application's store is made on. */

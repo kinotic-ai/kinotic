@@ -102,19 +102,17 @@ public final class AuthzGraphUtil {
 
     /**
      * Who a grant to a subject is made to in the authorization stores: a user as {@code user:<id>}, a group as its
-     * members, {@code group:<id>#member}.
+     * members, {@code group:<id>#member}, a tenant as its users, {@code tenant:<id>#member}.
      *
      * @param subject the subject, named as the stores hold it
      * @return the user or userset
      */
     public static String authzSubject(Subject subject) {
-        String ret;
-        if (subject.type() == SubjectType.USER) {
-            ret = AuthzUtil.object(AuthzConstants.USER_TYPE, subject.id());
-        } else {
-            ret = AuthzUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-        }
-        return ret;
+        return switch (subject.type()) {
+            case USER -> AuthzUtil.object(AuthzConstants.USER_TYPE, subject.id());
+            case GROUP -> AuthzUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
+            case TENANT -> AuthzUtil.object(AuthzConstants.TENANT_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
+        };
     }
 
     /**

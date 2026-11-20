@@ -73,9 +73,9 @@ public class ApplicationStoreProvisioner {
     }
 
     /**
-     * Takes a tenant out of its application's store: every grant made on it or on a definition within it, the
-     * memberships of its users and its place under the application, so a tenant created again under its id starts
-     * with none of them.
+     * Takes a tenant out of its application's store: every grant made on it, on a definition within it or to its
+     * users as a whole, the memberships of its users and its place under the application, so a tenant created again
+     * under its id starts with none of them.
      *
      * @param tenant the tenant, as stored
      * @return a future completing once the store holds nothing of the tenant
@@ -93,6 +93,7 @@ public class ApplicationStoreProvisioner {
                             }
                             return ret;
                         })
+                .compose(v -> relationships.removeSubject(store, tenantObject + "#" + AuthzConstants.MEMBER_RELATION))
                 .compose(v -> relationships.removeObject(store, tenantObject));
     }
 

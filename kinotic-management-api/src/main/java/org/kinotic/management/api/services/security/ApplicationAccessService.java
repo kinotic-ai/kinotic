@@ -19,7 +19,7 @@ import java.util.List;
  * entity definitions or on a definition within a tenant, which reach the rows below where they are made. A
  * definition within a tenant is named {@code <definition id>@<tenant id>}. Every function names the application,
  * which must belong to the caller's organization, and a subject named must be one of the application's own users
- * or machines.
+ * or machines, or one of its tenants, standing for every user of that tenant.
  */
 @Publish
 @AuthzResource(value = AuthzConstants.APPLICATION_TYPE, parent = AuthzConstants.ORGANIZATION_TYPE)
@@ -48,7 +48,8 @@ public interface ApplicationAccessService {
     Future<List<Grant>> findGrants(String applicationId, Resource resource);
 
     /**
-     * Grants a role to a user or a machine of the application. The subject holds every permission the role
+     * Grants a role to a user or a machine of the application, or with one grant to every user of one of its
+     * tenants, those it has now and those created in it later. The subject holds every permission the role
      * bundles on the resource and on everything inside it: a grant on a definition within a tenant reaches those
      * rows alone, one on a tenant every definition's rows in that tenant, one on a definition its rows in every
      * tenant, and one on the application the rows of every definition in every tenant. A definition named must be
@@ -57,7 +58,7 @@ public interface ApplicationAccessService {
      *
      * @param applicationId the application
      * @param subject       who holds the grant, a user naming the identity id of one of the application's users
-     *                      or machines
+     *                      or machines, or a tenant naming the id of one of its tenants
      * @param roleId        the role granted, a built-in role's id
      * @param resource      where the grant is made, the application itself, one of its tenants, one of its entity
      *                      definitions or a definition within a tenant
@@ -77,11 +78,11 @@ public interface ApplicationAccessService {
     Future<Void> revoke(String applicationId, Resource resource, String grantId);
 
     /**
-     * Whether a user or a machine of the application holds a permission on a resource, and the grants it holds
-     * the permission through.
+     * Whether a user or a machine of the application, or every user of one of its tenants, holds a permission on
+     * a resource, and the grants it holds the permission through.
      *
      * @param applicationId the application
-     * @param subject       the user or machine
+     * @param subject       the user, the machine or the tenant
      * @param permission    the permission's model name, such as {@code entity_definition_can_read}
      * @param resource      the application itself, one of its tenants, one of its entity definitions or a
      *                      definition within a tenant
