@@ -535,7 +535,7 @@ deployment/terraform/proxmox/
   haproxy.cfg.tftpl                  # the edge: one route per server hostname, by SNI; TLS terminated for the license key server
   host/prepare-host.sh               # once on the host: ZFS pools, directories, sysctl, keepalive timer
   host/kinotic-apply-container.py    # on the host after every apply: environment, config files, ownership
-  generate-secrets.sh                # a JWT key set per server, the master key
+  generate-secrets.sh                # a JWT key set per server, the master key, stored in the operator's keychain
   sync-secrets.sh                    # copies them to the host and re-applies the containers that read them
 deployment/docker-compose/
   tempo.yml, mimir.yml               # the stores' config files, addresses substituted
@@ -1585,7 +1585,8 @@ The host also runs Minds Ignited's license key server, the server Kinotic instal
 [license keys](https://kinotic.ai/platform/enterprise-license) from, at `licenses.kinotic.ai` for customers and the
 clusters renewing their keys and `licenses-console.kinotic.ai` for staff. It is a container from the
 image `kinoticai/license-key-server`, beside a Postgres container that holds its customers, licenses and keys in
-`/var/lib/kinotic/data/licenses-db`. It signs keys with the `kinotic-license-signing` key in the
+`/var/lib/kinotic/data/licenses-db`. A timer on the host uploads a dump of that database to the snapshot storage
+account every night, where each is kept for 90 days. It signs keys with the `kinotic-license-signing` key in the
 platform Key Vault, as a service principal of its own that may only sign with that key and send
 email, and staff sign in to the console through a registration in Minds Ignited's Entra tenant. It
 limits sign-in codes per client address, so the edge terminates TLS for its two names, sets
@@ -2073,7 +2074,7 @@ Nothing on the LAN besides the forwarded port is reachable from outside.
     </td>
     
     <td>
-      The generated directory, kept off the host
+      The secret files in the operator's keychain, kept off the host
     </td>
     
     <td>
