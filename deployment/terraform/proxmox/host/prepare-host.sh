@@ -11,6 +11,8 @@
 #   - kinotic-keepalive.timer, which restarts a container whose entrypoint exited
 #   - kinotic-dyndns.timer, which keeps the certificate's hostnames on the router's current
 #     public address (host/kinotic-dyndns.py, beside this script)
+#   - kinotic-licenses-backup.timer, which uploads a dump of the license key server's database
+#     every night (host/kinotic-licenses-backup.sh, beside this script)
 #   - the host's own exposure: SSH by key only, rpcbind off, and the Proxmox firewall admitting
 #     SSH and the web UI from the LAN alone
 #
@@ -125,8 +127,30 @@ OnUnitActiveSec=5min
 [Install]
 WantedBy=timers.target
 UNIT
+# The license database is the only copy of the issued keys
+install -m 0755 "$(dirname "$0")/kinotic-licenses-backup.sh" /usr/local/sbin/kinotic-licenses-backup
+cat > /etc/systemd/system/kinotic-licenses-backup.service <<'UNIT'
+[Unit]
+Description=Upload a dump of the license key server's database
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kinotic-licenses-backup
+UNIT
+cat > /etc/systemd/system/kinotic-licenses-backup.timer <<'UNIT'
+[Unit]
+Description=Upload a dump of the license key server's database, every night
+
+[Timer]
+OnCalendar=*-*-* 09:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
 systemctl daemon-reload
-systemctl enable --now kinotic-keepalive.timer kinotic-dyndns.timer >/dev/null 2>&1
+systemctl enable --now kinotic-keepalive.timer kinotic-dyndns.timer kinotic-licenses-backup.timer >/dev/null 2>&1
 
 # The host holds every secret: root logs in by key alone, nothing here uses NFS, and the
 # firewall admits only SSH and the web UI, from the LAN the host sits on

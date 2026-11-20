@@ -148,13 +148,14 @@ locals {
 
   # Every setting the docker image turns into -E flags. Security is off: the cluster is
   # reachable only on the private network, from the containers on it and the host.
+  # -XX:-UseBASE64Intrinsics is Elastic's mitigation for CVE-2026-114938 until a release bundles a fixed JDK.
   es_env = {
     "cluster.name"                 = "kinotic"
     "cluster.initial_master_nodes" = join(",", keys(local.es_nodes))
     "discovery.seed_hosts"         = join(",", local.es_ips)
     "node.roles"                   = "master,data,ingest,transform"
     "xpack.security.enabled"       = "false"
-    "ES_JAVA_OPTS"                 = "-Xms${var.es_memory_mb / 2}m -Xmx${var.es_memory_mb / 2}m"
+    "ES_JAVA_OPTS"                 = "-Xms${var.es_memory_mb / 2}m -Xmx${var.es_memory_mb / 2}m -XX:-UseBASE64Intrinsics"
   }
 
   es_containers = { for name, node in local.es_nodes : name => {
