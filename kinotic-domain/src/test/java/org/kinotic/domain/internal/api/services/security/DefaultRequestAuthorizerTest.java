@@ -102,7 +102,7 @@ class DefaultRequestAuthorizerTest {
         vertx = Vertx.vertx();
         ObjectProvider<RequestPermissionResolver> resolvers = mock(ObjectProvider.class);
         when(resolvers.orderedStream()).thenAnswer(invocation -> Stream.of(new StatementResolver()));
-        authorizer = new DefaultRequestAuthorizer(provider, resolvers, relationships, jsonMapper, vertx, securityExceptions);
+        authorizer = new DefaultRequestAuthorizer(provider, resolvers, mock(ObjectProvider.class), relationships, jsonMapper, vertx, securityExceptions);
         authorizer.listenForContractChanges();
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -305,7 +305,7 @@ class DefaultRequestAuthorizerTest {
     void aNodeWithoutADirectoryRefusesEveryRequest() {
         ObjectProvider<ServiceDirectory> none = mock(ObjectProvider.class);
         when(none.getIfAvailable()).thenReturn(null);
-        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(ObjectProvider.class), relationships,
+        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(ObjectProvider.class), mock(ObjectProvider.class), relationships,
                                                                       JsonMapper.builder().build(), vertx, securityExceptions);
 
         ExecutionException failure = assertThrows(ExecutionException.class,
