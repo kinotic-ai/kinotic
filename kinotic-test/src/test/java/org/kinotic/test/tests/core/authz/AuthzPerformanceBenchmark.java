@@ -9,6 +9,7 @@ import io.vertx.core.Promise;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.kinotic.app.api.services.ApplicationServiceDirectory;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
@@ -22,6 +23,7 @@ import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.authz.internal.api.services.DefaultAuthzStoreService;
 import org.kinotic.authz.internal.api.services.DefaultRelationshipService;
 import org.kinotic.authz.internal.api.services.OpenFgaService;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -105,7 +107,11 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private static final List<Integer> FAN_IN_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_FAN_IN", "100,1000");
     private static final List<Integer> LISTING_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_PROJECTS", "100,1000,5000");
     private static final List<Integer> TENANT_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANTS", "1000");
-    private static final List<Integer> CONCURRENCY = intsEnv("KINOTIC_AUTHZ_BENCHMARK_CONCURRENCY", "1,8,32,64");
+    private static final List<Integer> TENANT_FAN_IN_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_FAN_IN", "10,100,1000");
+    private static final List<Integer> APPLICATION_FAN_IN_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_APPLICATION_FAN_IN", "100");
+    private static final String REPORT_NAMESPACE = "org.kinotic.benchmark";
+    private static final String REPORT_SERVICE_NAME = REPORT_NAMESPACE + ".ReportService";
+    private static final List<Integer> CONCURRENCY =intsEnv("KINOTIC_AUTHZ_BENCHMARK_CONCURRENCY", "1,8,32,64");
     // a measurement stops issuing requests once this much time has passed, after at least MINIMUM_ITERATIONS
     private static final long BUDGET_NANOS = TimeUnit.SECONDS.toNanos(intEnv("KINOTIC_AUTHZ_BENCHMARK_BUDGET_SECONDS", 30));
     private static final int MINIMUM_ITERATIONS = 20;
@@ -144,6 +150,10 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private TestDataService testDataService;
     @Autowired
     private JsonMapper jsonMapper;
+    @Autowired
+    private ApplicationServiceDirectory applicationServiceDirectory;
+    @Autowired
+    private AuthzStoreService authzStores;
 
     private final StringBuilder report = new StringBuilder();
     private Path out;
@@ -163,6 +173,14 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private String systemStoreId;
     private String systemModelId;
     private int organizationsSeeded;
+
+    // application tier fixtures
+    private String tenant;
+    private String appStore;
+    private String reportService;
+    private ScopedParticipant erin;   // the definitions' viewer and report.viewer on the tenant
+    private ScopedParticipant frank;  // a user of the tenant with no grant
+    private int tenantUsersSeeded;
 
     @Test
     @Timeout(value = 4, unit = TimeUnit.HOURS)
@@ -212,6 +230,191 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         metrics("final");
         // keeps the stack up for inspecting the engine by hand
         Thread.sleep(TimeUnit.SECONDS.toMillis(intEnv("KINOTIC_AUTHZ_BENCHMARK_HOLD_SECONDS", 0)));
+    }
+
+    /**
+     * Measures the checks an application's users meet calling the application's services: the entities repository
+     * and its named queries, and a service the application's runtime registered with a resource type of its own,
+     * as one tenant's users each granted a role on the tenant grow in number.
+     */
+    @Test
+    @Timeout(value = 4, unit = TimeUnit.HOURS)
+    public void measureApplicationTier() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Application tier benchmark " + Instant.now());
+        line("");
+        line("warmup " + WARMUP + ", iterations " + ITERATIONS + ", cpus " + Runtime.getRuntime().availableProcessors());
+        applicationTierFixtures();
+        metrics("app-fixtures");
+
+        applicationTierStage("One tenant, two users granted on it");
+        int granted = 0;
+        for (int target : TENANT_FAN_IN_STAGES) {
+            seedTenantGrants(granted, target);
+            granted = target;
+            applicationTierStage("One tenant, " + target + " more users each granted a role on it");
+        }
+        for (int target : APPLICATION_FAN_IN_STAGES) {
+            seedApplicationGrants(target);
+            applicationTierStage("Also " + target + " users of other tenants granted a role on the application");
+        }
+        applicationTierThroughput();
+        metrics("app-final");
+    }
+
+    // ---------------------------------------------------------------- application tier
+
+    private void applicationTierFixtures() throws Exception {
+        person = personDefinition();
+        tenant = createTenant(TEST_APP_ID);
+        ApplicationParticipantIdentity erinIdentity = endUser(tenant);
+        ApplicationParticipantIdentity frankIdentity = endUser(tenant);
+        erin = applicationParticipant(tenant, erinIdentity.getId());
+        frank = applicationParticipant(tenant, frankIdentity.getId());
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+
+        // the application's runtime registers its own service, as a deployment's runtime machine does
+        Participant runtime = new DefaultOrganizationParticipant(UUID.randomUUID().toString(), TEST_ORG_ID,
+                                                                 Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                        ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
+                                                                 List.of());
+        await(relationships.ensureBound(AuthzStoreService.SYSTEM, "runtime-of-" + runtime.getId(), AuthzConstants.APPLICATION_RUNTIME_ROLE,
+                                        AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                        AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)));
+        String zone = DomainUtil.applicationZone(TEST_ORG_ID, TEST_APP_ID);
+        ServiceDirectoryEntry entry = new ServiceDirectoryEntry().setApplicationId(TEST_APP_ID)
+                                                                 .setZone(zone)
+                                                                 .setVersion("1.0.0")
+                                                                 .setServiceDefinition(registeredReportService());
+        require(once(() -> await(runAs(runtime, () -> applicationServiceDirectory.register(entry)))),
+                "the runtime never registered the report service");
+        reportService = zone + "~" + REPORT_SERVICE_NAME;
+
+        Resource onTenant = new Resource(AuthzConstants.TENANT_TYPE, tenant);
+        await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, erinIdentity.getId()),
+                                                   AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), onTenant)));
+        // the application's store takes the report's roles once it reconciles to the model the registration implies
+        require(once(() -> await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, erinIdentity.getId()),
+                                                                       "report.viewer", onTenant)))),
+                "report.viewer was never grantable in the application's store");
+
+        criOf(ENTITIES_SERVICE, "count", erin);
+        criOf(ENTITIES_SERVICE, "namedQuery", erin);
+        criOf(reportService, "findReports", erin);
+        criOf(reportService, "findById", erin);
+        require(awaitUntil(() -> admitted(ENTITIES_SERVICE, "count", erin, List.of(person.getId()))), "erin never read the person rows");
+        require(awaitUntil(() -> admitted(reportService, "findReports", erin, List.of())), "erin never listed reports");
+        require(!admitted(ENTITIES_SERVICE, "count", frank, List.of(person.getId())), "frank read the person rows");
+        require(!admitted(reportService, "findReports", frank, List.of()), "frank listed reports");
+        line("");
+        line("tenant " + tenant + ", application store " + appStore);
+        line("erin: entity_definition.viewer and report.viewer on the tenant; frank: a user of the tenant with no grant");
+        line("erin findById(a report id) admitted: " + admitted(reportService, "findById", erin, List.of("r-" + suffix())));
+        String appStoreId = await(authzStores.ensureStore(appStore));
+        Files.writeString(out.resolve("application-model.json"),
+                          jsonMapper.writeValueAsString(await(fga.readAuthorizationModels(appStoreId, 1, null)).getAuthorizationModels().getFirst()));
+    }
+
+    private void applicationTierStage(String name) throws Exception {
+        section(name);
+        header();
+        byte[] count = body(List.of(person.getId()));
+        byte[] none = body(List.of());
+        row(measure("request: entities count, granted on the tenant (allow)", 1, () -> request(ENTITIES_SERVICE, "count", erin, count)));
+        row(measure("request: entities count, no grant (deny)", 1, () -> refusal(request(ENTITIES_SERVICE, "count", frank, count))));
+        row(measure("request: named query, granted on the tenant (allow)", 1,
+                    () -> request(ENTITIES_SERVICE, "namedQuery", erin, body(List.of(person.getId(), FIND_QUERY, List.of())))));
+        row(measure("request: app service findReports on the tenant (allow)", 1, () -> request(reportService, "findReports", erin, none)));
+        row(measure("request: app service findReports, no grant (deny)", 1, () -> refusal(request(reportService, "findReports", frank, none))));
+        if (tenantUsersSeeded > 0) {
+            AtomicInteger next = new AtomicInteger();
+            row(measure("request: entities count, a different granted user each time (allow)", 1,
+                        () -> request(ENTITIES_SERVICE, "count", applicationParticipant(tenant, "at" + (next.getAndIncrement() % tenantUsersSeeded)), count)));
+        }
+        AtomicInteger stranger = new AtomicInteger();
+        row(measure("request: entities count, a different ungranted user each time (deny)", 1,
+                    () -> refusal(request(ENTITIES_SERVICE, "count", applicationParticipant(tenant, "nobody-" + suffix() + stranger.getAndIncrement()), count))));
+        row(measure("request: entities count, no grant (deny) c=32", 32, () -> refusal(request(ENTITIES_SERVICE, "count", frank, count))));
+        metrics("app " + name);
+    }
+
+    private void applicationTierThroughput() throws Exception {
+        section("Application tier throughput, final graph");
+        header();
+        byte[] count = body(List.of(person.getId()));
+        for (int concurrency : CONCURRENCY) {
+            row(measure("request: entities count, granted (allow) c=" + concurrency, concurrency, () -> request(ENTITIES_SERVICE, "count", erin, count)));
+        }
+        for (int concurrency : CONCURRENCY) {
+            AtomicInteger next = new AtomicInteger();
+            row(measure("request: entities count, a different granted user each time c=" + concurrency, concurrency,
+                        () -> request(ENTITIES_SERVICE, "count", applicationParticipant(tenant, "at" + (next.getAndIncrement() % Math.max(1, tenantUsersSeeded))), count)));
+        }
+        for (int concurrency : CONCURRENCY) {
+            row(measure("request: entities count, no grant (deny) c=" + concurrency, concurrency,
+                        () -> refusal(request(ENTITIES_SERVICE, "count", frank, count))));
+        }
+        metrics("app throughput");
+    }
+
+    // Users of the tenant, each granted the definitions' viewer on the tenant as ApplicationAccessService writes a grant
+    private void seedTenantGrants(int from, int to) throws Exception {
+        long start = System.nanoTime();
+        String app = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
+        String onTenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant);
+        List<RelationshipTuple> tuples = new ArrayList<>();
+        for (int i = from; i < to; i++) {
+            String user = AuthzGraphUtil.authzUser("at" + i);
+            tuples.add(new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, app));
+            tuples.add(new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, onTenant));
+            tuples.addAll(binding(AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), user, onTenant));
+        }
+        write(appStore, tuples);
+        tenantUsersSeeded = to;
+        line("");
+        line("seeded tenant users " + from + ".." + to + ": " + tuples.size() + " tuples in " + ms(System.nanoTime() - start) + " ms");
+    }
+
+    // Users of other tenants granted the application's admin on the application, such as the application's own staff
+    private void seedApplicationGrants(int count) throws Exception {
+        long start = System.nanoTime();
+        String app = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
+        List<RelationshipTuple> tuples = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            String user = AuthzGraphUtil.authzUser("aa" + i + "-" + suffix());
+            tuples.add(new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, app));
+            tuples.addAll(binding(AuthzUtil.roleId(AuthzConstants.APPLICATION_TYPE, AuthzConstants.ADMIN), user, app));
+        }
+        write(appStore, tuples);
+        line("");
+        line("seeded application grants: " + tuples.size() + " tuples in " + ms(System.nanoTime() - start) + " ms");
+    }
+
+    // Retries the action until it succeeds once, for up to thirty seconds
+    private static boolean once(java.util.concurrent.Callable<?> action) throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+        return awaitUntil(() -> {
+            if (!done.get()) {
+                try {
+                    action.call();
+                    done.set(true);
+                } catch (Exception e) {
+                    System.out.println("[authz-benchmark] retrying: " + e);
+                }
+            }
+            return done.get();
+        });
+    }
+
+    // A service an application's runtime registers, as kinotic sync generates it from a class declaring
+    // @AuthzResource({value: 'report', parent: 'tenant'}): each function's check is derived when it registers
+    private static ServiceDefinition registeredReportService() {
+        ServiceDefinition ret = new ServiceDefinition().setNamespace(REPORT_NAMESPACE).setName("ReportService");
+        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType("report").setParent("tenant")));
+        ret.addFunction(new FunctionDefinition().setName("findReports"));
+        ret.addFunction(new FunctionDefinition().setName("findById").addParameter("id", new StringC3Type()));
+        return ret;
     }
 
     // ---------------------------------------------------------------- fixtures
