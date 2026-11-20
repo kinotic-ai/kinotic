@@ -33,6 +33,7 @@ import org.kinotic.core.api.utils.KinoticUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -51,6 +52,9 @@ public class OpenFgaService {
     private static final int WRITE_BATCH_SIZE = 100;
     // the most tuples one Read request returns
     private static final int READ_PAGE_SIZE = 100;
+    // how long the engine lists before it answers with what it has found, where it is configured no other deadline,
+    // as in every deployment
+    private static final long LIST_DEADLINE_NANOS = Duration.ofSeconds(3).toNanos();
 
     private final OpenFgaApi api;
     private final StreamedListObjectsApi streamedListObjectsApi;
@@ -154,11 +158,13 @@ public class OpenFgaService {
     }
 
     /**
-     * The objects the request lists, as many as the engine finds before its listing deadline passes, which is
-     * three seconds unless the engine is configured otherwise; a listing the deadline ends is short and completes
-     * like a whole one. An error the engine reports partway through fails the listing.
+     * The objects the request lists. An error the engine reports partway through fails the listing, and so does
+     * the engine's listing deadline, three seconds, with an {@link IllegalStateException}: the engine answers a
+     * listing its deadline ended with the objects found so far, which may leave out objects the user holds the
+     * relation on.
      */
     public Future<List<String>> listObjects(String storeId, ListObjectsRequest request) {
+        long started = System.nanoTime();
         // the streamed endpoint is bounded by the deadline alone, where ListObjects also stops at the engine's
         // configured maximum. Its consumers are called one line at a time on one HTTP client thread, and the
         // future completes after the last of them
@@ -181,6 +187,12 @@ public class OpenFgaService {
                 ret = Future.failedFuture(streamError.get());
             } else if (result.failed()) {
                 ret = Future.failedFuture(result.cause());
+            } else if (System.nanoTime() - started >= LIST_DEADLINE_NANOS) {
+                // the engine reports a listing its deadline ended as a whole one, so the time it took is the only sign:
+                // the request is timed from before it is sent, so a listing the deadline ended never measures shorter
+                ret = Future.failedFuture(new IllegalStateException(("The engine stopped listing the %s objects %s holds %s on at its deadline,"
+                        + " with %d found, so the listing may be incomplete")
+                                                                           .formatted(request.getType(), request.getUser(), request.getRelation(), objects.size())));
             } else {
                 ret = Future.succeededFuture(objects);
             }

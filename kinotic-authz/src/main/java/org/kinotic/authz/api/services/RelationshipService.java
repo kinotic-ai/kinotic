@@ -280,8 +280,9 @@ public interface RelationshipService {
     Future<Boolean> check(String store, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context);
 
     /**
-     * The objects of a type on which the user holds the relation, by the rules of the model the store runs, as
-     * many as the engine finds before its listing deadline passes.
+     * The objects of a type on which the user holds the relation, by the rules of the model the store runs. The
+     * future fails with an {@link IllegalStateException} when the engine's listing deadline, three seconds, ended
+     * the listing, which may then be missing objects.
      *
      * @param store       the store, named as its record is
      * @param user        who holds the relation

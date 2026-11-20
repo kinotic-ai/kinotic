@@ -106,6 +106,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                              })));
     }
 
+    // A caller reading every project of the application is answered by one check, without a listing
+    @Override
+    protected Future<Set<String>> visibleIdsWithin(String applicationId) {
+        return permissions.holdsThroughout(applicationId, ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ)
+                          .compose(held -> held ? Future.succeededFuture(null) : visibleIds());
+    }
+
     @Override
     public Future<Project> create(Project project) {
         return provisionAndWrite(project, super::create);

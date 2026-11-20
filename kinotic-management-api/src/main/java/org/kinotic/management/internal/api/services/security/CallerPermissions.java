@@ -86,6 +86,23 @@ public class CallerPermissions {
                 .compose(held -> held ? Future.succeededFuture(null) : listAccessible(type, permission));
     }
 
+    /**
+     * Whether the caller holds a permission on every resource of a type in one application of its organization,
+     * through a grant on the application or above it.
+     *
+     * @param applicationId the application
+     * @param type          the resource type, one an application contains
+     * @param permission    the permission's short name, such as {@code can_read}
+     * @return true when the caller holds the permission throughout the application
+     */
+    public Future<Boolean> holdsThroughout(String applicationId, String type, String permission) {
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        Validate.notBlank(type, "type cannot be blank");
+        Validate.notBlank(permission, "permission cannot be blank");
+        OrganizationParticipant participant = requireOrgParticipant();
+        return holds(participant, type, permission, AuthzGraphUtil.authzApplication(participant.getOrganizationId(), applicationId));
+    }
+
     private Future<Boolean> holds(OrganizationParticipant participant, String type, String permission, String object) {
         Future<Boolean> ret;
         if (AuthzGraphUtil.withinDelegateCeiling(participant, type, permission)) {
