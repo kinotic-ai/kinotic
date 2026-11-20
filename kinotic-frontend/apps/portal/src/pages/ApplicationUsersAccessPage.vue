@@ -35,6 +35,9 @@
         </GrantsTable>
       </DashboardSection>
 
+      <RolesTab v-if="contextLoaded" :application-id="applicationId" :definitions="definitions" :can-manage="canManageAccess" :tint="TINTS.blue"
+                @changed="reloadRoles" />
+
       <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :search-users="searchMembers" :machines="machines" :roles="roles"
                                :catalog="catalog" :tenants="tenants" :definitions="definitions" :label-of="labelOf" :initial-subject-id="subjectFilter?.id"
                                :initial-resource="resource" />
@@ -60,6 +63,7 @@ import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS
 import { GrantsTable } from '@kinotic-ai/frontend-common/management'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDrawer from '@/components/access/EndUserGrantDrawer.vue'
+import RolesTab from '@/components/access/RolesTab.vue'
 import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, resourceLabel, resourceOf, reaches, tenantOf,
          tenantOption, whereChoices } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
@@ -67,8 +71,9 @@ import { useSubjects } from '@/components/access/useSubjects'
 /**
  * The end-user access page of one application: the grants in the application's own store that reach the whole
  * application, one tenant, one definition's rows in every tenant or those rows in one tenant, a grant of a role
- * to one of the application's users or machines or to every user of a tenant, and a check that explains anyone's access. Opened for one user
- * from the Users page, it shows that user's grants alone.
+ * to one of the application's users or machines or to every user of a tenant, the application's roles, among them
+ * the ones it defines itself, and a check that explains anyone's access. Opened for one user from the Users page,
+ * it shows that user's grants alone.
  */
 const props = defineProps<{
   applicationId: string
@@ -196,6 +201,21 @@ async function loadContext(): Promise<void> {
     contextLoaded.value = true
   } catch (err) {
     if (isLatest()) {
+      contextFailure.value = err
+    }
+  }
+}
+
+// The grants table and the drawers name a role the roles section created, edited or deleted
+async function reloadRoles(): Promise<void> {
+  const applicationId = props.applicationId
+  try {
+    const defined = await Kinotic.applicationAccess.findRoles(applicationId)
+    if (applicationId === props.applicationId) {
+      roles.value = defined
+    }
+  } catch (err) {
+    if (applicationId === props.applicationId) {
       contextFailure.value = err
     }
   }

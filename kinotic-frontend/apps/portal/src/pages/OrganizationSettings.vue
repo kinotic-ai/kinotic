@@ -25,7 +25,7 @@
           <SignInProvidersPanel owner="organization" :application-id="null" />
         </TabPanel>
         <TabPanel value="roles">
-          <RolesTab />
+          <RolesTab class="pt-4" />
         </TabPanel>
         <TabPanel value="groups">
           <GroupsTab />
