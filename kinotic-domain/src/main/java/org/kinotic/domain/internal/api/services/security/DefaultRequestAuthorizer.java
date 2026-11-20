@@ -8,6 +8,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -23,6 +24,7 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -52,6 +54,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -71,6 +74,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  *   <li>A definition's rows are checked on the definition within the caller's tenant for an application's user, and
  *       on the definition itself for every other caller and for a function its contract declares acting across
  *       tenants.</li>
+ *   <li>A resource of a type an application's own services declare is checked on the caller's tenant, or on the
+ *       application for a caller in no tenant: the caller must hold the permission there, and the service
+ *       decides which of the type's resources belong to that tenant.</li>
  * </ul>
  * A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
  */
@@ -90,6 +96,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                new Resource(AuthzConstants.APPLICATION_TYPE, "{" + AuthzConstants.APPLICATION_ID_REFERENCE + "}"),
                                                                new Resource(AuthzConstants.ORGANIZATION_TYPE, "{" + AuthzConstants.ORGANIZATION_ID_REFERENCE + "}"));
     private static final Resource SYSTEM_LEVEL = new Resource(AuthzConstants.SYSTEM_TYPE, AuthzConstants.SYSTEM_OBJECT_ID);
+    // the types whose resources an application's store holds a place for; a resource of any other type in it is a
+    // record of the application's own services, which the store holds nothing of
+    private static final Set<String> PLACED_APPLICATION_TYPES = Set.of(AuthzConstants.APPLICATION_TYPE, AuthzConstants.TENANT_TYPE,
+                                                                       AuthzConstants.ENTITY_DEFINITION_TYPE);
     // the check of a named query's statement names its definition as a function's check names a parameter
     private static final String STATEMENT_DEFINITION_PARAMETER = "entityDefinitionId";
     private static final String STATEMENT_DEFINITION_ID = "{" + STATEMENT_DEFINITION_PARAMETER + "}";
@@ -98,6 +108,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final ObjectProvider<RequestPermissionResolver> permissionResolvers;
+    private final ObjectProvider<AuthzModelService> models;
     private final RelationshipService relationships;
     private final JsonMapper jsonMapper;
     private final Vertx vertx;
@@ -106,6 +117,11 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                                     .maximumSize(DEFINITION_CAPACITY)
                                                                                     .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
+    // the parent of each type of an application's model, by the application's store, kept as the contracts are
+    private final AsyncCache<String, Map<String, String>> applicationParents = Caffeine.newBuilder()
+                                                                                       .maximumSize(DEFINITION_CAPACITY)
+                                                                                       .expireAfterWrite(DEFINITION_RETENTION)
+                                                                                       .buildAsync();
 
     /**
      * Listens for the directory announcing a contract written, and drops what is kept of it, so a function's
@@ -119,6 +135,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     private void forget(String entryId) {
         definitions.synchronous().invalidate(entryId);
+        // a contract can declare a type or move one under another parent, in whichever application registered it
+        applicationParents.synchronous().invalidateAll();
     }
 
     @Override
@@ -332,11 +350,27 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                String store,
                                Function<ParameterReference, String> arguments) {
         AuthzCheckC3Decorator check = spec.check();
-        ParticipantScope scope = participant.getScope();
         Future<Void> ret;
         try {
             requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
-            Resource checked = scopeLevelOf(check, scope);
+            ret = checkedOn(check, participant.getScope(), store)
+                    .compose(checked -> checkOn(checked, spec, permission, participant, store, arguments));
+        } catch (AuthorizationException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
+    }
+
+    private Future<Void> checkOn(Resource checked,
+                                 FunctionSpec spec,
+                                 AuthzPermissionChoice permission,
+                                 ScopedParticipant participant,
+                                 String store,
+                                 Function<ParameterReference, String> arguments) {
+        AuthzCheckC3Decorator check = spec.check();
+        ParticipantScope scope = participant.getScope();
+        Future<Void> ret;
+        try {
             String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, arguments), scope);
             if (!AuthzUtil.isObjectId(resourceId)) {
                 throw securityExceptions.notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
@@ -382,6 +416,40 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                 : securityExceptions.notAuthorized("{} on {} for {}: {}", relationship.relation(), relationship.object(), relationship.user(), reason);
     }
 
+    // The resource the check is made on: the one it declares, or, for a resource of an application's own type, the
+    // scope level the application's model places the type under, where the caller holds the type's permissions
+    // through its grants; either way a scope level is then the caller's own, as scopeLevelOf decides
+    private Future<Resource> checkedOn(AuthzCheckC3Decorator check, ParticipantScope scope, String store) {
+        Resource declared = new Resource(check.getResource(), check.getResourceId());
+        Future<Resource> ret;
+        if (SYSTEM.equals(store) || PLACED_APPLICATION_TYPES.contains(declared.type())) {
+            ret = Future.succeededFuture(declared);
+        } else {
+            ret = KinoticUtil.toFuture(applicationParents.get(store, (k, executor) -> models.getObject()
+                                                                                              .findApplicationModel(scope.organizationId(), scope.applicationId())
+                                                                                              .map(AuthzModel::parents)
+                                                                                              .toCompletionStage()
+                                                                                              .toCompletableFuture()))
+                             .map(parents -> scopeLevelAbove(declared.type(), parents));
+        }
+        return ret.map(resource -> scopeLevelOf(resource, scope));
+    }
+
+    // The innermost scope level containing a type, by the parents of an application's model
+    private Resource scopeLevelAbove(String type, Map<String, String> parents) {
+        Resource ret = null;
+        String ancestor = parents.get(type);
+        while (ret == null && ancestor != null) {
+            String reached = ancestor;
+            ret = SCOPE_LEVELS.stream().filter(level -> level.type().equals(reached)).findFirst().orElse(null);
+            ancestor = parents.get(ancestor);
+        }
+        if (ret == null) {
+            throw securityExceptions.notAuthorized("The application's model places the type {} under no tenant or application", type);
+        }
+        return ret;
+    }
+
     /**
      * The object a check on the caller's scope is made on: the level the check names, or, for a caller whose
      * scope stops above it, the caller's own level, as an organization member asked for an application's
@@ -389,8 +457,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
      * Every ancestor carries the permissions of the levels below it, so the check keeps its meaning there. A
      * check on anything but a scope level is kept as declared.
      */
-    private Resource scopeLevelOf(AuthzCheckC3Decorator check, ParticipantScope scope) {
-        Resource ret = new Resource(check.getResource(), check.getResourceId());
+    private Resource scopeLevelOf(Resource declared, ParticipantScope scope) {
+        Resource ret = declared;
         int level = SCOPE_LEVELS.indexOf(ret);
         if (level >= 0) {
             while (level < SCOPE_LEVELS.size()

@@ -13,8 +13,11 @@ import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.app.api.services.ApplicationServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.AuthzStore;
@@ -22,11 +25,17 @@ import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
@@ -41,6 +50,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,7 +70,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * one made on the application reaches every definition; the organization's administrator manages the grants
  * through {@code ApplicationAccessService}, which refuses a grant on anything but the application, a tenant, a
  * definition the application holds or a definition within a tenant, and to anyone but the application's own
- * users; deleting an application deletes its store with everything in it; and an application created again under
+ * users; a user reaches a resource of a type the application's own services declare through its grant on its
+ * tenant; deleting an application deletes its store with everything in it; and an application created again under
  * the same id is placed in its store whatever model the store was left running.
  */
 @SpringBootTest
@@ -101,6 +112,9 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     @Autowired
     private TenantService tenantService;
+
+    @Autowired
+    private ApplicationServiceDirectory applicationServiceDirectory;
 
     @Test
     public void theStoreRunsTheFixedModelAndHoldsTheDefinitionsCreated() throws Exception {
@@ -264,6 +278,66 @@ public class ApplicationStoreTests extends KinoticTestBase {
     }
 
     @Test
+    public void aUserReachesAResourceOfTheApplicationsOwnTypeThroughItsGrantOnTheTenant() throws Exception {
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Own types " + suffix(), "own types", TenantManagement.SYSTEM)));
+        String appId = application.getId();
+        String zone = DomainUtil.applicationZone(TEST_ORG_ID, appId);
+        // the application's runtime registers a service of reports, held in a tenant, and one of the charts in a report
+        Participant runtime = new DefaultOrganizationParticipant(UUID.randomUUID().toString(), TEST_ORG_ID,
+                                                                 Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                        ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
+                                                                 List.of());
+        await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.APPLICATION_RUNTIME_ROLE,
+                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()), AuthzGraphUtil.authzApplication(TEST_ORG_ID, appId)));
+        ServiceDefinition reports = ownTypeService("ReportService", "report", AuthzConstants.TENANT_TYPE)
+                .addFunction(new FunctionDefinition().setName("findReports"));
+        ServiceDefinition charts = ownTypeService("ChartService", "chart", "report")
+                .addFunction(new FunctionDefinition().setName("createChart").addParameter("reportId", new StringC3Type()));
+        for (ServiceDefinition definition : List.of(reports, charts)) {
+            await(runAs(runtime, () -> applicationServiceDirectory.register(new ServiceDirectoryEntry().setApplicationId(appId)
+                                                                                                       .setZone(zone)
+                                                                                                       .setVersion("1.0.0")
+                                                                                                       .setServiceDefinition(definition))));
+        }
+        String reportService = zone + "~com.acme.reports.ReportService";
+        String chartService = zone + "~com.acme.reports.ChartService";
+        ApplicationParticipantIdentity bob = endUser(appId, null);
+        ApplicationParticipantIdentity carol = endUser(appId, null);
+        Participant viewer = applicationUser(appId, bob);
+        Participant stranger = applicationUser(appId, carol);
+        Resource bobsTenant = new Resource(AuthzConstants.TENANT_TYPE, bob.getTenantId());
+        String readReports = AuthzUtil.permissionName("report", AuthzConstants.CAN_READ) + " on " + AuthzUtil.object(AuthzConstants.TENANT_TYPE, bob.getTenantId());
+
+        assertRefused(reportService, "findById", viewer, List.of("r-1"), readReports);
+
+        // the store defines the types' roles once it reconciles to the model the registrations imply
+        assertTrue(awaitUntil(() -> {
+            boolean granted;
+            try {
+                await(runAsOrganization(() -> access.grant(appId, new Subject(SubjectType.USER, bob.getId()), "report.viewer", bobsTenant)));
+                granted = true;
+            } catch (ExecutionException undefined) {
+                granted = false;
+            }
+            return granted;
+        }), "report.viewer was never grantable in the application's store");
+        await(runAsOrganization(() -> access.grant(appId, new Subject(SubjectType.USER, bob.getId()), "chart.viewer", bobsTenant)));
+
+        // a report and a chart named by id are read by the viewer of the tenant's reports and charts
+        assertTrue(awaitUntil(() -> admitted(reportService, "findById", viewer, List.of("r-1"))), "the reports' viewer was never admitted to a report");
+        authorize(reportService, "findReports", viewer, List.of());
+        authorize(chartService, "findById", viewer, List.of("c-1"));
+        // a viewer creates no chart in a report, and a user of another tenant holds nothing in its own
+        assertRefused(chartService, "createChart", viewer, List.of("r-1"),
+                      AuthzUtil.permissionName("chart", AuthzConstants.CAN_EDIT) + " on " + AuthzUtil.object(AuthzConstants.TENANT_TYPE, bob.getTenantId()));
+        assertRefused(reportService, "findById", stranger, List.of("r-1"),
+                      AuthzUtil.permissionName("report", AuthzConstants.CAN_READ) + " on " + AuthzUtil.object(AuthzConstants.TENANT_TYPE, carol.getTenantId()));
+        assertRefused(chartService, "findById", stranger, List.of("c-1"), AuthzUtil.object(AuthzConstants.TENANT_TYPE, carol.getTenantId()));
+
+        await(runAsOrganization(() -> applicationService.deleteById(appId)));
+    }
+
+    @Test
     public void deletingATenantTakesItsGrantsAndMembershipsOutOfTheStore() throws Exception {
         EntityDefinition person = await(runAsOrganization(() -> testData.createPersonEntityDefinitionIfNotExists())).getLeft();
         Tenant tenant = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(TEST_APP_ID, "Hooli " + suffix(), "A customer")));
@@ -377,6 +451,19 @@ public class ApplicationStoreTests extends KinoticTestBase {
         user.setApplicationId(applicationId);
         user.setTenantId(tenantId);
         return await(identityService.createUser(user, "End-User-1"));
+    }
+
+    // a service of an application's own resource type, with a function reading one resource by its id
+    private static ServiceDefinition ownTypeService(String name, String type, String parent) {
+        ServiceDefinition ret = new ServiceDefinition().setNamespace("com.acme.reports").setName(name);
+        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType(type).setParent(parent)));
+        return ret.addFunction(new FunctionDefinition().setName("findById").addParameter("id", new StringC3Type()));
+    }
+
+    private static Participant applicationUser(String applicationId, ApplicationParticipantIdentity identity) {
+        return new DefaultApplicationParticipant(identity.getId(), TEST_ORG_ID, applicationId, identity.getTenantId(),
+                                                 Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER),
+                                                 List.of("USER"));
     }
 
     private Throwable failure(java.util.function.Supplier<Future<?>> call) {
