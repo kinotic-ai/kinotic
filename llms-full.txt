@@ -5787,7 +5787,7 @@ Ready to build something? Head to the [Quick Start](https://kinotic.ai/getting-s
 
 # Quick Start
 
-> Run Kinotic on your own machine, create your organization, and build your first app with Claude Code.
+> Run Kinotic on your own machine, create your organization, and build your first app with Claude Code, Codex or Grok Build.
 
 Kinotic runs on your own machine today. Kinotic OS Cloud, where Kinotic runs for you, is coming soon.
 
@@ -5803,7 +5803,7 @@ Nothing leaves your machine except the downloads.
 - **Docker** with Compose, running, with at least 12 GB of memory available to it
 - **Node.js** 18 or later, which the Kinotic CLI runs on
 - **macOS on Apple silicon, or Linux with KVM** (`/dev/kvm`), where your apps' deployments run as micro VMs
-- **Claude Code**, which builds your app with the Kinotic plugin
+- **Claude Code, Codex or Grok Build**, which builds your app with the Kinotic plugin
 - An internet connection for the first start, which downloads Kinotic, and for each new project, whose starting code comes from GitHub
 
 <steps level="4">
@@ -5830,15 +5830,20 @@ you are signed in to your new organization.
 
 #### Follow the Quickstart in the portal
 
-Open **Quickstart** in the portal's sidebar. It walks you through installing the Kinotic plugin in Claude
-Code, connecting Claude to your local Kinotic, and asking for your app. Claude creates the application
-and its project, writes the entities, services and UIs, and pushes to the project's repository; every
-push deploys.
+Open **Quickstart** in the portal's sidebar and choose the AI you use: Claude (Claude Code), ChatGPT
+(Codex) or Grok (Grok Build). The page gives you one message to copy and paste into a new session of
+that coding agent. The message has the agent install the Kinotic plugin, add your local Kinotic as
+the `kinotic-local` MCP server, tell you how to sign in, and ask what you want to build. The page
+also lists the same setup under **Prefer to set it up yourself?**, for doing it by hand.
 
-For local use, Claude connects to your Kinotic through `kinotic-local`, the MCP server the Quickstart
-has you add. In Claude Code's `/mcp` list, authenticate `kinotic-local`. Don't worry about
-`plugin:kinotic:kinotic-os` in the same list: the Kinotic plugin adds it for use with Kinotic Cloud,
-and local use doesn't need it.
+Sign in as the agent tells you, and approve the consent screen that opens in your browser. Then say
+what you want to build: the agent creates the application and its project, writes the entities,
+services and UIs, and pushes to the project's repository; every push deploys. The Quickstart checks
+off the sign-in, the project and its first deployment as they happen.
+
+For local use, the agent connects to your Kinotic through `kinotic-local`. In Claude Code's `/mcp`
+list, authenticate `kinotic-local`. Don't worry about `plugin:kinotic:kinotic-os` in the same list:
+the Kinotic plugin adds it for use with Kinotic Cloud, and local use doesn't need it.
 
 ```text
 User MCPs
@@ -5848,7 +5853,7 @@ Built-in MCPs
   ⚠ plugin:kinotic:kinotic-os    needs authentication    ← for Kinotic Cloud: not needed locally
 ```
 
-If you also work on Kinotic Cloud, authenticate both: Claude works on each project through the
+If you also work on Kinotic Cloud, authenticate both: the agent works on each project through the
 server that holds it, and asks which one to create a new app on.
 
 </steps>
