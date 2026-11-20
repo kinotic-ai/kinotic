@@ -281,7 +281,7 @@ public class SystemTierTests extends KinoticTestBase {
         await(nodeOrchestration.deregisterNode(nodeId));
         assertTrue(awaitUntil(() -> await(vmNodeService.findById(nodeId)) == null), "the node was never finalized");
         assertTrue(awaitUntil(() -> await(relationships.read(SYSTEM, nodeObject)).isEmpty()), "the node is still in the graph");
-        assertTrue(await(relationships.read(SYSTEM, AuthzUtil.bindingObject(nodeObject, grants.getFirst().id()))).isEmpty());
+        assertTrue(await(relationships.read(SYSTEM, AuthzUtil.bindingObject(nodeObject, grants.getFirst().roleId()))).isEmpty());
     }
 
     @Test

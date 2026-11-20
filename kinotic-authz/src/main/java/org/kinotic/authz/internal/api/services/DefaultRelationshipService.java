@@ -39,7 +39,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -211,27 +210,31 @@ public class DefaultRelationshipService implements RelationshipService {
 
     @Override
     public Future<String> bind(String store, String roleId, String member, String object) {
-        String bindingId = UUID.randomUUID().toString();
-        return write(store, binding(bindingId, roleId, member, object), List.of()).map(bindingId);
+        String binding = AuthzUtil.bindingObject(object, roleId);
+        // A role has one binding on a resource, which every member granted the role there joins, so a check reads
+        // one binding per role however many hold it. The binding is its role, its members and its attachment to
+        // the object, and each grant writes all three, the role and the attachment being held already for every
+        // grant but the first. The role is typed by its home and the binding by the object's type, so the engine
+        // refuses a role the object's type may not grant
+        List<RelationshipTuple> tuples = List.of(new RelationshipTuple(AuthzUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
+                                                 new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, binding),
+                                                 new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
+        // under the lock leave takes, so a grant never joins a binding whose last member's leaving is detaching it
+        return exclusively(binding, () -> ensure(store, tuples)).map(v -> AuthzUtil.grantId(roleId, member));
     }
 
-    @Override
-    public Future<Void> ensureBound(String store, String bindingId, String roleId, String member, String object) {
-        return ensure(store, binding(bindingId, roleId, member, object));
-    }
-
-    // A binding is three relationships: its role, its member, and its attachment to the object. The role is typed by
-    // its home and the binding by the object's type, so the engine refuses a role the object's type may not grant
-    private static List<RelationshipTuple> binding(String bindingId, String roleId, String member, String object) {
-        String binding = AuthzUtil.bindingObject(object, bindingId);
-        return List.of(new RelationshipTuple(AuthzUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
-                       new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, binding),
-                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
+    // Takes a member out of a binding, and the binding out of the store with its last member, so a role is
+    // attached only where someone holds it
+    private Future<Void> leave(String store, RelationshipTuple membership) {
+        String binding = membership.object();
+        return exclusively(binding, () -> remove(store, List.of(membership))
+                .compose(v -> stores.storeIdOf(store))
+                .compose(id -> fga.holdsAny(id, new ReadRequestTupleKey()._object(binding).relation(AuthzConstants.MEMBER_RELATION)))
+                .compose(joined -> joined ? Future.succeededFuture() : removeBinding(store, binding)));
     }
 
     // Removes a binding's role, its members and its attachment to the object, whatever of them the store holds
-    private Future<Void> unbind(String store, String bindingId, String object) {
-        String binding = AuthzUtil.bindingObject(object, bindingId);
+    private Future<Void> unbind(String store, String binding, String object) {
         return read(store, binding).compose(held -> {
             List<RelationshipTuple> tuples = new ArrayList<>(held);
             tuples.add(new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
@@ -264,7 +267,7 @@ public class DefaultRelationshipService implements RelationshipService {
             List<RelationshipTuple> others = new ArrayList<>();
             for (RelationshipTuple tuple : held) {
                 if (AuthzConstants.ROLE_BINDING_RELATION.equals(tuple.relation())) {
-                    ret = ret.compose(v -> unbind(store, AuthzUtil.idOf(tuple.user()), object));
+                    ret = ret.compose(v -> unbind(store, tuple.user(), object));
                 } else {
                     others.add(tuple);
                 }
@@ -285,9 +288,8 @@ public class DefaultRelationshipService implements RelationshipService {
                          List<RelationshipTuple> others = new ArrayList<>();
                          for (List<RelationshipTuple> held : reads) {
                              for (RelationshipTuple tuple : held) {
-                                 // a binding is made to one subject, so the subject's binding goes with it whole
                                  if (AuthzUtil.typeOf(tuple.object()).endsWith(AuthzConstants.ROLE_BINDING_TYPE_SUFFIX)) {
-                                     ret = ret.compose(v -> removeBinding(store, tuple.object()));
+                                     ret = ret.compose(v -> leave(store, tuple));
                                  } else {
                                      others.add(tuple);
                                  }
@@ -305,20 +307,22 @@ public class DefaultRelationshipService implements RelationshipService {
         return readByUser(store, binding, resourceType).compose(attachments -> {
             Future<Void> ret = Future.succeededFuture();
             for (RelationshipTuple attachment : attachments) {
-                ret = ret.compose(v -> unbind(store, AuthzUtil.idOf(binding), attachment.object()));
+                ret = ret.compose(v -> unbind(store, binding, attachment.object()));
             }
             return ret;
         });
     }
 
     @Override
-    public Future<Void> revoke(String store, String bindingId, String object) {
-        String binding = AuthzUtil.bindingObject(object, bindingId);
-        return holds(store, new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object)).compose(made -> {
+    public Future<Void> revoke(String store, String grantId, String object) {
+        // the binding is named by the object, so a grant made elsewhere is no member of it
+        RelationshipTuple membership = new RelationshipTuple(AuthzUtil.grantMember(grantId), AuthzConstants.MEMBER_RELATION,
+                                                             AuthzUtil.bindingObject(object, AuthzUtil.grantRole(grantId)));
+        return holds(store, membership).compose(made -> {
             if (!made) {
-                throw new IllegalArgumentException("No grant " + bindingId + " was made on " + object);
+                throw new IllegalArgumentException("No grant " + grantId + " was made on " + object);
             }
-            return unbind(store, bindingId, object);
+            return leave(store, membership);
         });
     }
 
@@ -327,23 +331,29 @@ public class DefaultRelationshipService implements RelationshipService {
         Resource resource = new Resource(AuthzUtil.typeOf(object), AuthzUtil.idOf(object));
         // the attachments alone: an organization, an application and a tenant each hold a tuple per member beside them
         return read(store, object, AuthzConstants.ROLE_BINDING_RELATION)
-                .compose(attachments -> requestEach(attachments, attachment -> grantOf(store, attachment.user(), resource)))
-                .map(grants -> grants.stream().filter(grant -> grant != null).toList());
+                .compose(attachments -> requestEach(attachments, attachment -> grantsOf(store, attachment.user(), resource)))
+                .map(grants -> grants.stream().flatMap(List::stream).toList());
     }
 
-    // The binding's role and member; null for a binding made to a userset no grant names
-    private Future<Grant> grantOf(String store, String binding, Resource resource) {
+    // One grant per member of the binding, of the binding's role; a member that is a userset no grant names is left out
+    private Future<List<Grant>> grantsOf(String store, String binding, Resource resource) {
         return read(store, binding).map(held -> {
             String roleId = null;
-            Subject subject = null;
+            List<String> members = new ArrayList<>();
             for (RelationshipTuple tuple : held) {
                 if (AuthzConstants.ROLE_RELATION.equals(tuple.relation())) {
                     roleId = AuthzUtil.idOf(tuple.user());
-                } else if (AuthzConstants.MEMBER_RELATION.equals(tuple.relation())) {
-                    subject = subjectOf(tuple.user());
+                } else if (AuthzConstants.MEMBER_RELATION.equals(tuple.relation()) && subjectOf(tuple.user()) != null) {
+                    members.add(tuple.user());
                 }
             }
-            return roleId == null || subject == null ? null : new Grant(AuthzUtil.idOf(binding), roleId, subject, resource);
+            List<Grant> ret = new ArrayList<>();
+            if (roleId != null) {
+                for (String member : members) {
+                    ret.add(new Grant(AuthzUtil.grantId(roleId, member), roleId, subjectOf(member), resource));
+                }
+            }
+            return ret;
         });
     }
 

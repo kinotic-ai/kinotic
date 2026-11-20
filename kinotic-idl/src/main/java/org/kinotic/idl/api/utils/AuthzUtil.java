@@ -86,24 +86,53 @@ public final class AuthzUtil {
     }
 
     /**
-     * A binding's object in a store, typed by the resource it is attached to.
+     * The object of the one binding a role has on a resource, typed by the resource and named by both:
+     * {@code project_role_binding:acme.site/project.editor}. Everyone granted the role on the resource is a member
+     * of it. A role's id holds no {@code /}, so the resource and the role each name one binding.
      *
      * @param resourceObject the resource the binding is attached to, {@code type:id}
-     * @param bindingId      the binding's id
+     * @param roleId         the role the binding grants
      */
-    public static String bindingObject(String resourceObject, String bindingId) {
-        return object(roleBindingType(typeOf(resourceObject)), bindingId);
+    public static String bindingObject(String resourceObject, String roleId) {
+        return object(roleBindingType(typeOf(resourceObject)), idOf(resourceObject) + "/" + roleId);
     }
 
     /**
-     * The id of the one binding of a role to a user, for a binding made under an id its writer chooses, so every
-     * writer making it binds it once: {@code project.editor-of-<userId>}.
+     * The id of the grant of a role to a member, on whichever resource it is made: the role's id and the member,
+     * {@code project.editor:user:<userId>} or {@code project.editor:group:<groupId>#member}.
      *
-     * @param roleId the role the binding grants
-     * @param userId the id of the user it is made to
+     * @param roleId the role granted
+     * @param member who holds it, in {@code type:id} form, or a userset such as {@code group:id#member}
      */
-    public static String roleBindingIdOf(String roleId, String userId) {
-        return roleId + "-of-" + userId;
+    public static String grantId(String roleId, String member) {
+        return roleId + ":" + member;
+    }
+
+    /**
+     * The role a grant's id names.
+     *
+     * @throws IllegalArgumentException when the value is not a grant's id
+     */
+    public static String grantRole(String grantId) {
+        return grantId.substring(0, grantSeparator(grantId));
+    }
+
+    /**
+     * The member a grant's id names, in {@code type:id} form, or a userset such as {@code group:id#member}.
+     *
+     * @throws IllegalArgumentException when the value is not a grant's id
+     */
+    public static String grantMember(String grantId) {
+        return grantId.substring(grantSeparator(grantId) + 1);
+    }
+
+    // A role's id holds no colon, so the first one ends it; the member after it is type:id
+    private static int grantSeparator(String grantId) {
+        int ret = grantId.indexOf(':');
+        if (ret <= 0 || grantId.indexOf(':', ret + 1) < 0) {
+            throw new IllegalArgumentException("A grant's id is <role id>:<member>, not " + grantId);
+        }
+        return ret;
     }
 
     /**

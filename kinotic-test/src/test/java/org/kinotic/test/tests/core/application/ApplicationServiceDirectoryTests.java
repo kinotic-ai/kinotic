@@ -182,11 +182,10 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
     }
 
     private void grantRuntime(String applicationId) throws Exception {
-        await(relationships.ensureBound(AuthzStoreService.SYSTEM,
-                                        "runtime-of-" + runtime.getId() + "-" + applicationId,
-                                        AuthzConstants.APPLICATION_RUNTIME_ROLE,
-                                        AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
-                                        AuthzGraphUtil.authzApplication(TEST_ORG_ID, applicationId)));
+        await(relationships.bind(AuthzStoreService.SYSTEM,
+                                 AuthzConstants.APPLICATION_RUNTIME_ROLE,
+                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzGraphUtil.authzApplication(TEST_ORG_ID, applicationId)));
     }
 
     private static ServiceDirectoryEntry entry(String applicationId, String zone, ServiceDefinition definition) {

@@ -316,18 +316,18 @@ class OpenFgaIntegrationTest {
 
     @Test
     void listingReturnsEveryObjectPastTheEnginesListLimit() throws Exception {
-        await(storeService.ensureModel(SYSTEM, generator.systemModel(List.of(projectService()))));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
         // the engine's ListObjects stops at 1000 objects by default
         List<RelationshipTuple> written = new ArrayList<>();
         for (int i = 0; i < 1100; i++) {
             written.add(new RelationshipTuple("application:crm-lists", "application", "project:p" + i + "-lists"));
         }
         await(relationshipService.ensure(SYSTEM, written));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-lists", "application:crm-lists"));
+        String grantId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-lists", "application:crm-lists"));
 
         assertEquals(1100, await(relationshipService.listObjects(SYSTEM, "user:sally-lists", "project_can_read", "project",
                                                                  Consistency.HIGHER_CONSISTENCY)).size());
-        await(relationshipService.revoke(SYSTEM, bindingId, "application:crm-lists"));
+        await(relationshipService.revoke(SYSTEM, grantId, "application:crm-lists"));
         await(relationshipService.remove(SYSTEM, written));
     }
 
@@ -420,14 +420,16 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureModelWithRoles(SYSTEM, model));
         String project = "project:billing-many";
         Set<String> made = new HashSet<>();
-        for (int i = 0; i < 40; i++) {
+        // more members than one page of a read holds, all of them in the role's one binding on the project
+        for (int i = 0; i < 150; i++) {
             made.add(await(relationshipService.bind(SYSTEM, "project.editor", "user:member" + i + "-many", project)));
         }
 
         List<Grant> grants = await(relationshipService.findGrants(SYSTEM, project));
 
         assertEquals(made, grants.stream().map(Grant::id).collect(Collectors.toSet()));
-        assertEquals(40, grants.stream().map(Grant::subject).distinct().count());
+        assertEquals(150, grants.stream().map(Grant::subject).distinct().count());
+        assertEquals(1, await(relationshipService.read(SYSTEM, project, "role_binding")).size());
         await(relationshipService.removeObject(SYSTEM, project));
         assertEquals(List.of(), await(relationshipService.findGrants(SYSTEM, project)));
     }
@@ -450,8 +452,8 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureRoles(SYSTEM, model.roles()));
 
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-roles", "application", "project:billing-roles"))));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-roles", "project:billing-roles"));
-        assertTrue(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject("project:billing-roles", bindingId), "role_binding", "project:billing-roles"))));
+        await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-roles", "project:billing-roles"));
+        assertTrue(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject("project:billing-roles", "project.editor"), "role_binding", "project:billing-roles"))));
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-roles", "project_can_edit", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-roles", "project_can_delete", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         // a binding of the organization admin on the organization reaches the project inside it
@@ -531,25 +533,43 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
-    void revokeLeavesNothingOfABindingAndReadsByUserFindItsHolders() throws Exception {
+    void revokeTakesOneMemberOutAndTheBindingGoesWithItsLast() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(storeService.ensureModel(SYSTEM, model));
         await(relationshipService.ensureRoles(SYSTEM, model.roles()));
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
-        String binding = AuthzUtil.bindingObject("project:billing-unbind", bindingId);
+        await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:payroll-unbind"))));
+        String sallys = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
+        String marcuss = await(relationshipService.bind(SYSTEM, "project.editor", "user:marcus-unbind", "project:billing-unbind"));
+        // a grant made again is the same grant, held once
+        assertEquals(sallys, await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind")));
+        assertEquals(2, await(relationshipService.findGrants(SYSTEM, "project:billing-unbind")).size());
+        String binding = AuthzUtil.bindingObject("project:billing-unbind", "project.editor");
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
         assertTrue(await(relationshipService.readByUser(SYSTEM, AuthzUtil.roleObject("project.editor"), "project_role_binding")).stream()
                         .anyMatch(tuple -> tuple.object().equals(binding)));
+        // a grant is revoked where it was made: the same role granted to the same member elsewhere is another grant
+        assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, sallys, "project:payroll-unbind")));
 
-        await(relationshipService.revoke(SYSTEM, bindingId, "project:billing-unbind"));
+        await(relationshipService.revoke(SYSTEM, sallys, "project:billing-unbind"));
 
+        // the other member of the binding still holds the role
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        assertEquals(List.of(marcuss), await(relationshipService.findGrants(SYSTEM, "project:billing-unbind")).stream().map(Grant::id).toList());
+        // a grant already revoked is no grant made on the object
+        assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, sallys, "project:billing-unbind")));
+
+        await(relationshipService.revoke(SYSTEM, marcuss, "project:billing-unbind"));
+
+        // the binding leaves the store with its last member
         assertTrue(await(relationshipService.read(SYSTEM, binding)).isEmpty());
         assertFalse(await(relationshipService.holds(SYSTEM, new RelationshipTuple(binding, "role_binding", "project:billing-unbind"))));
-        // a grant already revoked is no grant made on the object
-        assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, bindingId, "project:billing-unbind")));
-        await(relationshipService.remove(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
+        // a member joining afterwards attaches the binding again
+        await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
+        assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        await(relationshipService.removeObject(SYSTEM, "project:billing-unbind"));
+        await(relationshipService.removeObject(SYSTEM, "project:payroll-unbind"));
     }
 
     @Test
@@ -565,11 +585,11 @@ class OpenFgaIntegrationTest {
         }
         await(relationshipService.ensure(SYSTEM, List.of(contained)));
         await(relationshipService.ensure(SYSTEM, endUsers));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-relation", "application:crm-relation"));
+        String grantId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-relation", "application:crm-relation"));
 
         assertEquals(List.of(contained), await(relationshipService.read(SYSTEM, "application:crm-relation", "organization")));
         assertEquals(150, await(relationshipService.read(SYSTEM, "application:crm-relation", "end_user")).size());
-        assertEquals(List.of(new Grant(bindingId, "project.editor", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
+        assertEquals(List.of(new Grant(grantId, "project.editor", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
                      await(relationshipService.findGrants(SYSTEM, "application:crm-relation")));
 
         await(relationshipService.removeObject(SYSTEM, "application:crm-relation"));
@@ -598,7 +618,7 @@ class OpenFgaIntegrationTest {
         // the object loses its place and every grant made on it
         await(relationshipService.removeObject(SYSTEM, "project:billing-gone"));
         assertTrue(await(relationshipService.read(SYSTEM, "project:billing-gone")).isEmpty());
-        assertTrue(await(relationshipService.read(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", kept))).isEmpty());
+        assertTrue(await(relationshipService.read(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", "project.editor"))).isEmpty());
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-gone", "project_can_edit", "project:billing-gone"), Consistency.HIGHER_CONSISTENCY)));
 
         // a store that does not exist holds nothing of anyone

@@ -157,10 +157,12 @@ public class AuthzModelGeneratorTest {
         return ret;
     }
 
-    // One source of a relation: a tuple-to-userset, a computed userset, or a nested set of them
+    // One source of a relation: assigned by tuples, a tuple-to-userset, a computed userset, or a nested set of them
     private static String source(JsonNode node) {
         String ret;
-        if (node.has("tupleToUserset")) {
+        if (node.has("this")) {
+            ret = "direct";
+        } else if (node.has("tupleToUserset")) {
             JsonNode ttu = node.get("tupleToUserset");
             ret = "ttu:" + ttu.get("tupleset").get("relation").asString() + "->" + ttu.get("computedUserset").get("relation").asString();
         } else if (node.has("computedUserset")) {
@@ -192,14 +194,13 @@ public class AuthzModelGeneratorTest {
     public void everyAncestorCarriesADescendantsPermissions() {
         AuthzModel model = generator.systemModel(systemServices());
 
-        assertEquals(List.of("ttu:role_binding->project_can_edit", "computed:project_can_delete", "ttu:application->project_can_edit"),
+        assertEquals(List.of("ttu:role_binding->project_can_edit", "ttu:application->project_can_edit"),
                      children(type(model, "project"), "project_can_edit", "union"));
-        assertEquals(List.of("ttu:role_binding->project_can_edit", "computed:project_can_delete", "ttu:organization->project_can_edit"),
+        assertEquals(List.of("ttu:role_binding->project_can_edit", "ttu:organization->project_can_edit"),
                      children(type(model, "application"), "project_can_edit", "union"));
-        assertEquals(List.of("ttu:role_binding->project_can_edit", "computed:project_can_delete", "ttu:system->project_can_edit"),
+        assertEquals(List.of("ttu:role_binding->project_can_edit", "ttu:system->project_can_edit"),
                      children(type(model, "organization"), "project_can_edit", "union"));
-        assertEquals(List.of("ttu:role_binding->project_can_edit", "computed:project_can_delete"),
-                     children(type(model, "system"), "project_can_edit", "union"));
+        assertEquals("ttu:role_binding->project_can_edit", source(type(model, "system").get("relations").get("project_can_edit")));
         assertFalse(type(model, "tenant").get("relations").has("project_can_edit"));
     }
 
@@ -207,8 +208,14 @@ public class AuthzModelGeneratorTest {
     public void declaredAndDerivedImplicationsFormTheLattice() {
         AuthzModel model = generator.systemModel(systemServices());
 
-        assertEquals(List.of("ttu:role_binding->project_can_read", "computed:project_can_deploy", "computed:project_can_edit",
-                             "ttu:application->project_can_read"),
+        // a role holds what a permission it bundles implies, and a resource holds a permission only through a
+        // binding or its parent, so a check walks each resource's bindings once
+        assertEquals(List.of("direct", "computed:project_can_deploy", "computed:project_can_edit"),
+                     children(type(model, "project_role"), "project_can_read", "union"));
+        assertEquals(List.of("direct", "computed:project_can_delete"),
+                     children(type(model, "project_role"), "project_can_edit", "union"));
+        assertEquals("direct", source(type(model, "project_role").get("relations").get("project_can_delete")));
+        assertEquals(List.of("ttu:role_binding->project_can_read", "ttu:application->project_can_read"),
                      children(type(model, "project"), "project_can_read", "union"));
         assertEquals(List.of("ttu:role_binding->project_can_delete", "ttu:application->project_can_delete"),
                      children(type(model, "project"), "project_can_delete", "union"));
@@ -464,21 +471,21 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("user:*"), directTypes(type(model, "application"), "placed"));
         assertEquals(List.of("application"), directTypes(type(model, "entity_definition"), "application"));
         assertEquals("ttu:application->placed", source(type(model, "entity_definition").get("relations").get("placed")));
-        assertEquals(List.of("ttu:role_binding->entity_definition_can_edit", "computed:entity_definition_can_delete", "ttu:application->entity_definition_can_edit"),
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_edit", "ttu:application->entity_definition_can_edit"),
                      children(type(model, "entity_definition"), "entity_definition_can_edit", "union"));
         assertEquals(Set.of("can_delete", "can_edit", "can_read"), model.permissions().get("entity_definition"));
         // the tenant and the application carry the rows' permissions, so a grant on either reaches every definition
-        assertEquals(List.of("ttu:role_binding->entity_definition_can_read", "computed:entity_definition_can_edit", "ttu:application->entity_definition_can_read"),
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_read", "ttu:application->entity_definition_can_read"),
                      children(type(model, "tenant"), "entity_definition_can_read", "union"));
-        assertEquals(List.of("ttu:role_binding->entity_definition_can_read", "computed:entity_definition_can_edit"),
-                     children(type(model, "application"), "entity_definition_can_read", "union"));
+        assertEquals("ttu:role_binding->entity_definition_can_read",
+                     source(type(model, "application").get("relations").get("entity_definition_can_read")));
         // a definition within a tenant is reached from a binding on it, from the definition, and from the tenant
         // for a definition placed in the application
         JsonNode pair = type(model, "tenant_definition");
         assertEquals(List.of("entity_definition"), directTypes(pair, "definition"));
         assertEquals(List.of("tenant"), directTypes(pair, "tenant"));
         assertEquals("ttu:definition->placed", source(pair.get("relations").get("placed")));
-        assertEquals(List.of("ttu:role_binding->entity_definition_can_read", "computed:entity_definition_can_edit",
+        assertEquals(List.of("ttu:role_binding->entity_definition_can_read",
                              "ttu:definition->entity_definition_can_read", "intersection:[ttu:tenant->entity_definition_can_read, computed:placed]"),
                      children(pair, "entity_definition_can_read", "union"));
         // the rows' permissions are the repository's, with the derived ladder

@@ -471,9 +471,10 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 String name = AuthzUtil.permissionName(about.name, permission.getKey());
+                // a role holds every permission one it bundles implies, so a binding of the role is the resource's
+                // source of an implied permission
                 List<ObjectNode> sources = new ArrayList<>();
                 sources.add(tupleToUserset(ROLE_BINDING, name));
-                sources.addAll(implying(about, permission.getKey()));
                 if (type.parent != null) {
                     sources.add(tupleToUserset(type.parent, name));
                 }
@@ -500,7 +501,6 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             String name = AuthzUtil.permissionName(definition.name, permission.getKey());
             List<ObjectNode> sources = new ArrayList<>();
             sources.add(tupleToUserset(ROLE_BINDING, name));
-            sources.addAll(implying(definition, permission.getKey()));
             sources.add(tupleToUserset(DEFINITION, name));
             sources.add(intersection(List.of(tupleToUserset(TENANT, name), computed(PLACED))));
             relate(relations, name, union(sources));

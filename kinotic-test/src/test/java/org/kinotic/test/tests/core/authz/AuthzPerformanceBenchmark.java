@@ -75,6 +75,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -279,9 +280,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                                                                  Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
                                                                         ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
                                                                  List.of());
-        await(relationships.ensureBound(AuthzStoreService.SYSTEM, "runtime-of-" + runtime.getId(), AuthzConstants.APPLICATION_RUNTIME_ROLE,
-                                        AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
-                                        AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)));
+        await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.APPLICATION_RUNTIME_ROLE,
+                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)));
         String zone = DomainUtil.applicationZone(TEST_ORG_ID, TEST_APP_ID);
         ServiceDirectoryEntry entry = new ServiceDirectoryEntry().setApplicationId(TEST_APP_ID)
                                                                  .setZone(zone)
@@ -775,8 +776,10 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         line("seeded tenants " + from + ".." + to + ": " + tuples.size() + " tuples in " + ms(System.nanoTime() - start) + " ms");
     }
 
-    // Writes the tuples in slices of a thousand, eight slices under way at a time
-    private void write(String store, List<RelationshipTuple> tuples) throws Exception {
+    // Writes the tuples in slices of a thousand, eight slices under way at a time, each tuple in one slice: the
+    // grants of one role on one object share the binding's role and attachment
+    private void write(String store, List<RelationshipTuple> gathered) throws Exception {
+        List<RelationshipTuple> tuples = new ArrayList<>(new LinkedHashSet<>(gathered));
         List<Future<Void>> slices = new ArrayList<>();
         for (int from = 0; from < tuples.size(); from += 1000) {
             List<RelationshipTuple> slice = tuples.subList(from, Math.min(tuples.size(), from + 1000));
@@ -789,8 +792,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         awaitLong(Future.all(slices));
     }
 
+    // A grant as RelationshipService.bind writes it: the member joins the role's one binding on the object
     private static List<RelationshipTuple> binding(String roleId, String member, String object) {
-        String binding = AuthzUtil.bindingObject(object, UUID.randomUUID().toString());
+        String binding = AuthzUtil.bindingObject(object, roleId);
         return List.of(new RelationshipTuple(AuthzUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
                        new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, binding),
                        new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));

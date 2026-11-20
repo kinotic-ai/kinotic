@@ -106,10 +106,10 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      */
     private Future<Void> contained(String nodeId, Participant machine) {
         RelationshipTuple onSystem = containment(nodeId);
-        // one binding per node, so a node registering again, or on another server, binds nothing twice
+        // a node registering again, or on another server, binds nothing twice
         return relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem))
-                            .compose(v -> relationships.ensureBound(AuthzStoreService.SYSTEM, nodeId + "-agent", AGENT_ROLE,
-                                                                    AuthzGraphUtil.authzUser(machine), onSystem.object()));
+                            .compose(v -> relationships.bind(AuthzStoreService.SYSTEM, AGENT_ROLE, AuthzGraphUtil.authzUser(machine), onSystem.object()))
+                            .mapEmpty();
     }
 
     /**

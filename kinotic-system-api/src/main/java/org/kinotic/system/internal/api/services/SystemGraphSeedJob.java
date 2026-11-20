@@ -62,8 +62,7 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
             } else {
                 Pageable page = Pageable.create(0, PAGE_SIZE, null);
                 // The administrators are bound last, so a run that failed before them finds no administrator on
-                // the next start and places everything again; every binding has an id of its own, so one made
-                // twice is held once. They are read first: a script writes the system's machines before its first
+                // the next start and places everything again; a grant made twice is held once. They are read first: a script writes the system's machines before its first
                 // user, so a run that reads the user reads every machine after it
                 ret = identities.findSystemUsers(page).compose(users -> nodes.findAll(page)
                            .compose(found -> relationships.ensure(SYSTEM, found.getContent().stream()
@@ -88,8 +87,7 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
     private Future<Void> bindEach(List<String> users, String roleId) {
         Future<Void> ret = Future.succeededFuture();
         for (String user : users) {
-            String bindingId = AuthzUtil.roleBindingIdOf(roleId, AuthzUtil.idOf(user));
-            ret = ret.compose(v -> relationships.ensureBound(SYSTEM, bindingId, roleId, user, AuthzConstants.SYSTEM_OBJECT));
+            ret = ret.compose(v -> relationships.bind(SYSTEM, roleId, user, AuthzConstants.SYSTEM_OBJECT).mapEmpty());
         }
         return ret.onSuccess(v -> log.info("Bound {} system user(s) or machine(s) as {}", users.size(), roleId));
     }

@@ -132,6 +132,14 @@ public class OpenFgaService {
         return read(storeId, key, null, new ArrayList<>());
     }
 
+    /**
+     * Whether any tuple matches the key, read as one tuple however many match.
+     */
+    public Future<Boolean> holdsAny(String storeId, ReadRequestTupleKey key) {
+        ReadRequest request = new ReadRequest().tupleKey(key).pageSize(1);
+        return call(() -> api.read(storeId, request)).map(response -> !response.getTuples().isEmpty());
+    }
+
     private Future<List<Tuple>> read(String storeId, ReadRequestTupleKey key, String continuationToken, List<Tuple> collected) {
         ReadRequest request = new ReadRequest().tupleKey(key).pageSize(READ_PAGE_SIZE).continuationToken(continuationToken);
         return call(() -> api.read(storeId, request)).compose(response -> {

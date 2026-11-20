@@ -282,8 +282,8 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         assertTrue(await(relationships.read(store, tenantObject)).isEmpty());
         assertTrue(await(relationships.read(store, withinObject)).isEmpty());
-        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(tenantObject, onTenant.id()))).isEmpty());
-        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(withinObject, onRows.id()))).isEmpty());
+        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(tenantObject, onTenant.roleId()))).isEmpty());
+        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(withinObject, onRows.roleId()))).isEmpty());
     }
 
     @Test
