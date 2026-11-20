@@ -172,6 +172,11 @@ public final class SessionBinding {
         }
     }
 
+    /** Whether {@code session} holds the login identified by {@code loginId}, for any page. */
+    public static boolean holdsLogin(Session session, String loginId) {
+        return logins(session).anyMatch(login -> loginId.equals(login.getLoginId()));
+    }
+
     private static String pageOrigin(HttpServerRequest request) {
         String origin = request.getHeader(HttpHeaders.ORIGIN);
         if (origin == null && "same-origin".equals(request.getHeader("Sec-Fetch-Site"))) {
