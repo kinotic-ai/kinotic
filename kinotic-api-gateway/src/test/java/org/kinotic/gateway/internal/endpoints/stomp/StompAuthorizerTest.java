@@ -34,10 +34,10 @@ public class StompAuthorizerTest {
 
         assertTrue(authorizer.sendAllowed(CRI.create("srv://shared-api~SharedService/call#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
-        assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
 
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.other-org.orders-app~OrderService/create#1.0.0")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://shared-api~SharedService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://shared-api~SharedService#1.0.0")).result());
     }
 
     @Test
@@ -47,18 +47,18 @@ public class StompAuthorizerTest {
         assertTrue(authorizer.sendAllowed(CRI.create("srv://shared-api~SharedService/call#1.0.0")));
         // the participant may address its application zones, but this server neither reaches nor hosts them
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
         // reply destinations carry no zone and pass the partitioning
-        assertTrue(authorizer.subscribeAllowed(CRI.create(REPLY_DESTINATION)));
+        assertTrue(authorizer.subscribeAllowed(CRI.create(REPLY_DESTINATION)).result());
     }
 
     @Test
     public void replyDestinationIsScopedToTheConnectionsReplyToId() {
         StompAuthorizer authorizer = authorizer(ZonePartitioningService.everyZone("test"));
 
-        assertTrue(authorizer.subscribeAllowed(CRI.create(REPLY_DESTINATION)));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://other-id:sub-1@kinotic.js.EventBus/replyHandler")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://kinotic.js.EventBus/replyHandler")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create(REPLY_DESTINATION)).result());
+        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://other-id:sub-1@kinotic.js.EventBus/replyHandler")).result());
+        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://kinotic.js.EventBus/replyHandler")).result());
     }
 
     @Test

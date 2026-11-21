@@ -98,10 +98,18 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             CRI cri = CRI.create(frame.getDestination());
 
             StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, replyFlowControl, jsonMapper, traceLogFilter);
-            // the receipt tells the client its subscription reaches it from every node, so a request it then
-            // makes cannot have its reply sent before the reply destination is known cluster-wide
+            // the connection's frames wait while the subscription is authorized, so an UNSUBSCRIBE or a second
+            // SUBSCRIBE of the id is handled once this one listens
+            stompServerConnection.pause();
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber)
-                                     .onSuccess(v -> stompServerConnection.sendReceiptIfNeeded(frame))
+                                     .onSuccess(registered -> {
+                                         stompServerConnection.resume();
+                                         // the receipt tells the client its subscription reaches it from every
+                                         // node, so a request it then makes cannot have its reply sent before
+                                         // the reply destination is known cluster-wide
+                                         registered.onSuccess(v -> stompServerConnection.sendReceiptIfNeeded(frame))
+                                                   .onFailure(cause -> failConnection("subscribe to " + frame.getDestination() + " failed", cause, frame));
+                                     })
                                      .onFailure(cause -> failConnection("subscribe to " + frame.getDestination() + " failed", cause, frame));
 
         } catch (Exception e) {

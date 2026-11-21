@@ -323,13 +323,13 @@ public class PermissionServiceTests extends KinoticTestBase {
         Grant toMachine = await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId),
                                                                           AuthzConstants.APPLICATION_RUNTIME_ROLE, onApplication)));
         Grant toMember = await(runAsOrganization(() -> permissions.grant(user(member), "project.editor", onApplication)));
-        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
+        assertTrue(await(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted)), "the granted runtime hosts the application's services");
 
         await(runAsOrganization(() -> permissions.revoke(onApplication, toMember.id())));
         await(runAsOrganization(() -> permissions.revoke(onApplication, toMachine.id())));
 
         // a machine connecting again right after the revocation hosts nothing in the application's zone
-        assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertFalse(await(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted)));
         assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
         // a person's requests are each checked, so the grant revoked before the machine's ended no connection
         assertFalse(connectionRevocations.isRevoked(member.getId()));
@@ -352,17 +352,17 @@ public class PermissionServiceTests extends KinoticTestBase {
                 new RoleDefinition(null, "Hosting " + suffix(), null, false, AuthzConstants.APPLICATION_TYPE, null,
                                    Set.of(canRegisterServices, "application_can_read"), Map.of(), false))));
         await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId), hosting.id(), onApplication)));
-        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
+        assertTrue(await(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted)), "the granted runtime hosts the application's services");
 
         // an edit that takes no permission from the role leaves the machine connected
         await(runAsOrganization(() -> permissions.saveRole(
                 new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, hosting.permissions(), Map.of(), false))));
-        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertTrue(await(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted)));
         assertFalse(connectionRevocations.isRevoked(machineId));
 
         await(runAsOrganization(() -> permissions.saveRole(
                 new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, Set.of("application_can_read"), Map.of(), false))));
-        assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertFalse(await(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted)));
         assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
     }
 

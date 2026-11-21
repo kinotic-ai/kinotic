@@ -297,13 +297,13 @@ public interface RelationshipService {
     /**
      * Whether a subject holds a permission of an application's own services on a tenant or on the application,
      * through a role granted there or above: one that holds every such permission, one of the application's own
-     * naming this one, or one of the given built-in roles.
+     * naming this one, or one of the given roles.
      *
      * @param store       the application's store
      * @param user        the subject, in {@code type:id} form
      * @param permission  the model name of the permission, such as {@code report_can_generate}
      * @param object      the tenant or the application, in {@code type:id} form
-     * @param roles       the ids of the built-in roles holding the permission by the contracts of the application's
+     * @param roles       the ids of the roles holding the permission by the contracts of the application's
      *                    services, as {@link org.kinotic.authz.api.model.AuthzModel#rolesHolding} gives them
      * @param consistency whether the answer may come from the engine's caches
      * @return true when the subject holds the permission on the object
