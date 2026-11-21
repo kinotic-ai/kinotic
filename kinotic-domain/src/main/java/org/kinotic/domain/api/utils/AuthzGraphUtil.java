@@ -102,9 +102,10 @@ public final class AuthzGraphUtil {
 
     /**
      * Who a grant to a subject is made to in the authorization stores: a user as {@code user:<id>}, a group as its
-     * members, {@code group:<id>#member}, a tenant as its users, {@code tenant:<id>#member}.
+     * members, {@code group:<id>#member}, a tenant as its users, {@code tenant:<id>#member}, an application as its
+     * end users, {@code application:<id>#end_user}.
      *
-     * @param subject the subject, named as the stores hold it
+     * @param subject the subject, named as the stores hold it: an application by {@link #authzApplicationId}
      * @return the user or userset
      */
     public static String authzSubject(Subject subject) {
@@ -112,6 +113,7 @@ public final class AuthzGraphUtil {
             case USER -> AuthzUtil.object(AuthzConstants.USER_TYPE, subject.id());
             case GROUP -> AuthzUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
             case TENANT -> AuthzUtil.object(AuthzConstants.TENANT_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
+            case APPLICATION -> AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, subject.id()) + "#" + AuthzConstants.END_USER_RELATION;
         };
     }
 
@@ -207,11 +209,11 @@ public final class AuthzGraphUtil {
 
     /**
      * The tuples an application's user holds in its application's own store: the user is an end user of the
-     * application, and its tenant is placed under the application with the user as a member. The system's store
-     * holds the first of them, the end user tuple, alone.
+     * application, which a grant to every end user of it reaches, and its tenant is placed under the application
+     * with the user as a member.
      *
      * @param user an application's user
-     * @return the tuples, the end user tuple first
+     * @return the tuples
      */
     public static List<RelationshipTuple> applicationUserTuples(ApplicationParticipantIdentity user) {
         String me = authzUser(user.getId());
@@ -251,14 +253,18 @@ public final class AuthzGraphUtil {
 
     /**
      * A grant read from the authorization stores, named as the resource's organization knows it: its resource by
-     * the resource's local id.
+     * the resource's local id, and a subject that is an application by the application's.
      *
      * @param grant the grant as the stores hold it
      * @return the grant with local ids
      */
     public static Grant localGrant(Grant grant) {
         Resource resource = grant.resource();
-        return new Grant(grant.id(), grant.roleId(), grant.subject(), new Resource(resource.type(), localId(resource.type(), resource.id())));
+        Subject subject = grant.subject();
+        Subject local = subject.type() == SubjectType.APPLICATION
+                ? new Subject(SubjectType.APPLICATION, localId(AuthzConstants.APPLICATION_TYPE, subject.id()))
+                : subject;
+        return new Grant(grant.id(), grant.roleId(), local, new Resource(resource.type(), localId(resource.type(), resource.id())));
     }
 
     /**

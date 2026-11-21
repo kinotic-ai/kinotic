@@ -6,6 +6,7 @@ import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.Application;
@@ -59,7 +60,8 @@ public class DefaultApplicationRoleService implements ApplicationRoleService {
     @Override
     public Future<Grant> grant(Application application, Subject subject, String roleId, Resource resource) {
         String store = storeOf(application);
-        String member = AuthzGraphUtil.authzSubject(subject);
+        // the store names the application, and so its end users, by the name the store itself has
+        String member = AuthzGraphUtil.authzSubject(subject.type() == SubjectType.APPLICATION ? new Subject(SubjectType.APPLICATION, store) : subject);
         String object = AuthzGraphUtil.authzObject(application.getOrganizationId(), resource);
         return Future.succeededFuture(roleId)
                      .map(AuthzUtil::roleHome)

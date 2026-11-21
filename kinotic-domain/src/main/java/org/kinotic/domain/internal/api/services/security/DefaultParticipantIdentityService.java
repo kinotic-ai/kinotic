@@ -5,7 +5,6 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.Grant;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
@@ -593,8 +592,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     // A user whose credential or place in the graph could not be written is removed again, so the creation can be
     // made again under its email. What the graph holds of it stays: a user created again under the email has the
     // same id and is placed the same way. The application store's tuples are written in one request, so they stay
-    // only when that write was committed and its answer lost, and the tenant membership among them is read by no
-    // check: a user is checked on the tenant its identity carries, and a grant is made to a user or a group
+    // only when that write was committed and its answer lost, and they admit no one: the id signs no one in until
+    // the user is created again, and a user is checked on the tenant its identity carries
     private <T extends UserParticipantIdentity> Future<T> completed(T user, String password) {
         Future<T> credential = password != null
                 ? saveCredential(user.getId(), password).map(user)
@@ -608,19 +607,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     // An organization's user is a member of its organization, which a grant to the organization's members reaches.
-    // An application's user is an end user of its application, in the system's store and in the application's own,
-    // where its tenant is also placed under the application with the user as a member
+    // An application's user is an end user of its application in the application's own store, where its tenant is
+    // also placed under the application with the user as a member
     private <T extends UserParticipantIdentity> Future<T> placed(T user) {
         Future<Void> written;
         if (user instanceof OrganizationParticipantIdentity organizationUser) {
             written = relationships.ensure(AuthzStoreService.SYSTEM,
                                            List.of(AuthzGraphUtil.organizationMember(organizationUser.getId(), organizationUser.getOrganizationId())));
         } else if (user instanceof ApplicationParticipantIdentity applicationUser) {
-            List<RelationshipTuple> inApplication = AuthzGraphUtil.applicationUserTuples(applicationUser);
-            written = relationships.ensure(AuthzStoreService.SYSTEM, List.of(inApplication.getFirst()))
-                                   .compose(v -> relationships.ensure(AuthzGraphUtil.authzApplicationId(applicationUser.getOrganizationId(),
-                                                                                                        applicationUser.getApplicationId()),
-                                                                      inApplication));
+            written = relationships.ensure(AuthzGraphUtil.authzApplicationId(applicationUser.getOrganizationId(), applicationUser.getApplicationId()),
+                                           AuthzGraphUtil.applicationUserTuples(applicationUser));
         } else {
             written = Future.succeededFuture();
         }

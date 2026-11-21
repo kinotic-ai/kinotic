@@ -26,7 +26,6 @@ import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -151,16 +150,9 @@ public class ApplicationStoreProvisioner {
                                            return relationships.ensure(SYSTEM, placed).compose(w -> relationships.ensure(store, placed));
                                        }))
                 .compose(v -> eachPage(pageable -> identities.findApplicationUsers(organizationId, applicationId, pageable),
-                                       page -> {
-                                           List<RelationshipTuple> endUsers = new ArrayList<>();
-                                           List<RelationshipTuple> inApplication = new ArrayList<>();
-                                           page.forEach(user -> {
-                                               List<RelationshipTuple> tuples = AuthzGraphUtil.applicationUserTuples(user);
-                                               endUsers.add(tuples.getFirst());
-                                               inApplication.addAll(tuples);
-                                           });
-                                           return relationships.ensure(SYSTEM, endUsers).compose(w -> relationships.ensure(store, inApplication));
-                                       }));
+                                       page -> relationships.ensure(store, page.stream()
+                                                                                   .flatMap(user -> AuthzGraphUtil.applicationUserTuples(user).stream())
+                                                                                   .toList())));
     }
 
     // Pages in id order, which orders the documents uniquely

@@ -189,7 +189,7 @@ public class AuthzModelGeneratorTest {
         assertEquals(withRoleTypes("application", "organization", "system", "project", "tenant", "vm_node"), typeNames(model));
         assertEquals(List.of("application"), directTypes(type(model, "project"), "application"));
         assertEquals(List.of("user"), directTypes(type(model, "organization"), "member"));
-        assertEquals(List.of("user"), directTypes(type(model, "application"), "end_user"));
+        assertFalse(type(model, "application").get("relations").has("end_user"));
         assertEquals(List.of("user", "group#member"), directTypes(type(model, "group"), "member"));
     }
 
@@ -239,7 +239,7 @@ public class AuthzModelGeneratorTest {
         assertFalse(type(model, "organization_role").get("relations").has("system_can_read_cluster"));
         assertEquals(List.of("user:*"), directTypes(type(model, "system_role"), "project_can_deploy"));
         assertEquals(List.of("user:*"), directTypes(type(model, "system_role"), "vm_node_can_register_node"));
-        assertEquals(List.of("user", "group#member", "organization#member", "application#end_user", "tenant#member"),
+        assertEquals(List.of("user", "group#member", "organization#member", "tenant#member"),
                      directTypes(type(model, "project_role_binding"), "member"));
         assertEquals(List.of("computed:member", "ttu:role->project_can_deploy"),
                      children(type(model, "project_role_binding"), "project_can_deploy", "intersection"));
@@ -703,13 +703,13 @@ public class AuthzModelGeneratorTest {
 
     @Test
     public void aPermissionNamedAsARelationTheModelDefinesFails() {
-        // end_user is the relation an application holds its users under
-        List<ServiceDefinition> services = List.of(service("EndService", "end", "application",
-                                                           function("findUser", "end", "end", "user")));
+        // role_binding is the relation a resource holds its bindings under
+        List<ServiceDefinition> services = List.of(service("RoleService", "role", "application",
+                                                           function("findBinding", "role", "role", "binding")));
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
-        assertTrue(e.getMessage().contains("end_user"));
+        assertTrue(e.getMessage().contains("role_binding"));
     }
 
     @Test

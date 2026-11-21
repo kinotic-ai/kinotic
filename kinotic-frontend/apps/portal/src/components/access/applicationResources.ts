@@ -36,6 +36,15 @@ export function tenantOption(tenantId: string): SubjectOption {
   }
 }
 
+/** Every end user of the application as a grant subject: those it has now and those who sign up or are added later. */
+export function endUsersOption(applicationId: string): SubjectOption {
+  return {
+    subject: { type: SubjectType.APPLICATION, id: applicationId },
+    label: 'Every end user',
+    detail: 'Every user of the application, each in their own tenant'
+  }
+}
+
 /** The types of the resources a grant in an application's store is made on. */
 const APPLICATION = 'application'
 const TENANT = 'tenant'

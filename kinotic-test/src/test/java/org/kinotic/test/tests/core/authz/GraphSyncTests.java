@@ -248,10 +248,11 @@ public class GraphSyncTests extends KinoticTestBase {
         // each of its users a tenant of its own
         Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Users " + suffix(), "graph sync", TenantManagement.SYSTEM)));
         UserParticipantIdentity endUser = await(identityService.createUser(user(TEST_ORG_ID, application.getId()), "Graph-sync-1"));
-        assertTrue(holds(new RelationshipTuple(AuthzUtil.object(AuthzConstants.USER_TYPE, endUser.getId()),
-                                               AuthzConstants.END_USER_RELATION,
-                                               AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId())))),
-                   "an application user is an end user of its application");
+        String store = AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId());
+        assertTrue(await(relationships.holds(store, new RelationshipTuple(AuthzUtil.object(AuthzConstants.USER_TYPE, endUser.getId()),
+                                                                          AuthzConstants.END_USER_RELATION,
+                                                                          AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store)))),
+                   "an application user is an end user of its application, in the application's own store");
     }
 
     @Test

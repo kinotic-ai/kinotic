@@ -2,6 +2,7 @@ package org.kinotic.test.tests.core.authz;
 
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
+import org.kinotic.app.api.services.TenantAdministrationService;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Grant;
@@ -73,7 +74,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * through {@code ApplicationAccessService}, which refuses a grant on anything but the application, a tenant, a
  * definition the application holds or a definition within a tenant, and to anyone but the application's own
  * users, or to every user of one of its tenants with one grant, which a user created in the tenant later holds
- * too; a user reaches a resource of a type the application's own services declare through its grant on its
+ * too, or to every end user of the application with one grant, which each holds within its own tenant; a user
+ * reaches a resource of a type the application's own services declare through its grant on its
  * tenant; deleting an application deletes its store with everything in it; and an application created again under
  * the same id is placed in its store whatever model the store was left running.
  */
@@ -82,6 +84,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     private static final String ENTITIES_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.persistence.api.services.JsonEntitiesRepository";
     private static final String ADMIN_ENTITIES_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.persistence.api.services.AdminJsonEntitiesRepository";
+    private static final String TENANT_ADMINISTRATION = DomainUtil.APP_API_ZONE + "~" + TenantAdministrationService.class.getName();
     // what the refusal of a function acting on every tenant's rows says to a participant of an application
     private static final String ACROSS_TENANTS = "across tenants";
 
@@ -480,6 +483,45 @@ public class ApplicationStoreTests extends KinoticTestBase {
     }
 
     @Test
+    public void aRoleGrantedToEveryEndUserIsHeldByEachWithinItsOwnTenantNowAndLater() throws Exception {
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Everyone " + suffix(), "every end user", TenantManagement.SYSTEM)));
+        String appId = application.getId();
+        Resource onApplication = new Resource(AuthzConstants.APPLICATION_TYPE, appId);
+        Subject everyone = new Subject(SubjectType.APPLICATION, appId);
+        String tenantAdmin = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN);
+        String canReadAccess = AuthzUtil.permissionName(AuthzConstants.TENANT_TYPE, AuthzConstants.CAN_READ_ACCESS);
+        // the system gives each user a tenant of its own
+        ApplicationParticipantIdentity bob = endUser(appId, null);
+        Participant early = applicationUser(appId, bob);
+        Resource bobsTenant = new Resource(AuthzConstants.TENANT_TYPE, bob.getTenantId());
+        assertRefused(TENANT_ADMINISTRATION, "findGrants", early, List.of(), canReadAccess + " on " + AuthzUtil.object(AuthzConstants.TENANT_TYPE, bob.getTenantId()));
+
+        Grant grant = await(runAsOrganization(() -> access.grant(appId, everyone, tenantAdmin, onApplication)));
+
+        // the grant names the application as its organization knows it, and is one grant however many users hold it
+        assertEquals(everyone, grant.subject());
+        assertEquals(List.of(grant), await(runAsOrganization(() -> access.findGrants(appId, onApplication))));
+        assertEquals(grant, await(runAsOrganization(() -> access.grant(appId, everyone, tenantAdmin, onApplication))));
+        // each user holds the role in the tenant it is checked on, its own, and a user created after the grant
+        // holds it from its creation
+        assertTrue(awaitUntil(() -> admitted(TENANT_ADMINISTRATION, "findGrants", early, List.of())), "the end user was never admitted to its tenant");
+        ApplicationParticipantIdentity carol = endUser(appId, null);
+        assertTrue(awaitUntil(() -> admitted(TENANT_ADMINISTRATION, "findGrants", applicationUser(appId, carol), List.of())),
+                   "a user created after the grant was never admitted to its tenant");
+        AccessExplanation explained = await(runAsOrganization(() -> access.explain(appId, new Subject(SubjectType.USER, bob.getId()), canReadAccess, bobsTenant)));
+        assertTrue(explained.allowed());
+        assertEquals(List.of(grant), explained.through());
+        // the end users of another application are no subject here
+        assertEquals("a grant to every end user is made to those of the application " + appId + ", not " + TEST_APP_ID,
+                     assertThrows(IllegalArgumentException.class,
+                                  () -> access.grant(appId, new Subject(SubjectType.APPLICATION, TEST_APP_ID), tenantAdmin, onApplication)).getMessage());
+
+        await(runAsOrganization(() -> access.revoke(appId, onApplication, grant.id())));
+        assertTrue(awaitUntil(() -> !admitted(TENANT_ADMINISTRATION, "findGrants", early, List.of())), "the end user was still admitted after the revoke");
+        await(runAsOrganization(() -> applicationService.deleteById(appId)));
+    }
+
+    @Test
     public void deletingADefinitionTakesTheGrantsOnItsRowsWithinATenantOutOfTheStore() throws Exception {
         EntityDefinition car = await(runAsOrganization(() -> testData.createCarEntityDefinitionIfNotExists("Deleted" + suffix()))).getLeft();
         String tenantId = createTenant(TEST_APP_ID);
@@ -537,7 +579,6 @@ public class ApplicationStoreTests extends KinoticTestBase {
         String me = AuthzUtil.object(AuthzConstants.USER_TYPE, bob.getId());
         assertTrue(await(relationships.holds(store, new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store)))));
         assertTrue(await(relationships.holds(store, new RelationshipTuple(me, AuthzConstants.MEMBER_RELATION, AuthzUtil.object(AuthzConstants.TENANT_TYPE, bob.getTenantId())))));
-        assertTrue(await(relationships.holds(AuthzStoreService.SYSTEM, new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store)))));
 
         await(runAsOrganization(() -> applicationService.deleteById(application.getId())));
 

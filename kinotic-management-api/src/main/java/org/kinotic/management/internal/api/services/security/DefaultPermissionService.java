@@ -473,8 +473,9 @@ public class DefaultPermissionService implements PermissionService {
     private static void validate(Subject subject) {
         Validate.notNull(subject, "subject cannot be null");
         Validate.notNull(subject.type(), "subject type cannot be null");
-        // tenants are an application's, and so are grants to their users
-        Validate.isTrue(subject.type() != SubjectType.TENANT, "a grant in an organization is made to a member, a machine or a group");
+        // tenants and end users are an application's, and so are grants to them
+        Validate.isTrue(subject.type() == SubjectType.USER || subject.type() == SubjectType.GROUP,
+                        "a grant in an organization is made to a member, a machine or a group");
         Validate.notBlank(subject.id(), "subject id cannot be blank");
     }
 

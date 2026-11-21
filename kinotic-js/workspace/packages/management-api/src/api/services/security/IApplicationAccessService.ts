@@ -59,9 +59,11 @@ export interface IApplicationAccessService {
      * those rows alone, one on a tenant every definition's rows in that tenant, one on a definition its rows in
      * every tenant, and one on the application the rows of every definition in every tenant. A definition named
      * must be one the application holds, and a tenant named one the application has where its administrators
-     * manage its tenants.
-     * @param subject a user naming the identity id of one of the application's users or machines, or a tenant
-     *                naming the id of one of its tenants, whose every user then holds the grant
+     * manage its tenants. An application's user is asked about within its own tenant alone, so a role granted to
+     * every end user on the application is the role each user starts with in its own tenant.
+     * @param subject a user naming the identity id of one of the application's users or machines, a tenant
+     *                naming the id of one of its tenants, whose every user then holds the grant, or an
+     *                application naming the application itself, whose every end user then holds it
      * @param roleId a built-in role's id, such as entity_definition.editor or tenant.admin, or the id of one of the application's own
      */
     grant(applicationId: string, subject: Subject, roleId: string, resource: Resource): Promise<Grant>

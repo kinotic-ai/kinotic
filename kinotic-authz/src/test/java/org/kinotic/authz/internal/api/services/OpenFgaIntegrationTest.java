@@ -466,6 +466,41 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
+    void aCheckCostsTheSameHoweverManyEndUsersHoldARoleGrantedToThemAll() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        String store = "acme.crm-end-users-cost";
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        String application = "application:crm-end-users-cost";
+        String tenant = "tenant:north-end-users-cost";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple(application, "application", tenant),
+                                                        new RelationshipTuple("user:first-end-users-cost", "end_user", application))));
+        await(relationshipService.bind(store, "entity_definition.viewer", application + "#end_user", application));
+        // a refusal reads every path to the object, and higher consistency skips the engine's check cache
+        RelationshipTuple ofAnEndUser = new RelationshipTuple("user:first-end-users-cost", "entity_definition_can_edit", tenant);
+        RelationshipTuple ofNoEndUser = new RelationshipTuple("user:nobody-end-users-cost", "entity_definition_can_edit", tenant);
+        double endUserWithOne = datastoreQueriesOf(() -> relationshipService.check(store, ofAnEndUser, Consistency.HIGHER_CONSISTENCY));
+        double nobodyWithOne = datastoreQueriesOf(() -> relationshipService.check(store, ofNoEndUser, Consistency.HIGHER_CONSISTENCY));
+
+        List<RelationshipTuple> endUsers = new ArrayList<>();
+        for (int i = 0; i < 5000; i++) {
+            endUsers.add(new RelationshipTuple("user:member" + i + "-end-users-cost", "end_user", application));
+        }
+        await(relationshipService.ensure(store, endUsers));
+        double endUserWithMany = datastoreQueriesOf(() -> relationshipService.check(store, ofAnEndUser, Consistency.HIGHER_CONSISTENCY));
+        double nobodyWithMany = datastoreQueriesOf(() -> relationshipService.check(store, ofNoEndUser, Consistency.HIGHER_CONSISTENCY));
+
+        // a check that read the end users the grant stands for would read thousands of times more
+        assertTrue(endUserWithMany < 2 * endUserWithOne,
+                   "a refused check of an end user took " + endUserWithOne + " datastore queries with one end user holding the role and "
+                           + endUserWithMany + " with 5,001");
+        assertTrue(nobodyWithMany < 2 * nobodyWithOne,
+                   "a refused check of no end user took " + nobodyWithOne + " datastore queries with one end user holding the role and "
+                           + nobodyWithMany + " with 5,001");
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
     void aGrantMadeAfterARefusalAnswersTheNextCheck() throws Exception {
         await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
         String project = "project:billing-regrant";
@@ -1036,25 +1071,57 @@ class OpenFgaIntegrationTest {
 
     @Test
     void aReadByRelationAndTheGrantsOfAnObjectLeaveOutItsOtherRelationships() throws Exception {
-        AuthzModel model = generator.systemModel(List.of(projectService()));
-        await(storeService.ensureModel(SYSTEM, model));
-        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
-        RelationshipTuple contained = new RelationshipTuple("organization:acme-relation", "organization", "application:crm-relation");
+        String store = "acme.crm-relation";
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        RelationshipTuple placed = new RelationshipTuple("user:*", "placed", "application:crm-relation");
         List<RelationshipTuple> endUsers = new ArrayList<>();
         // more end users than one page of a read holds
         for (int i = 0; i < 150; i++) {
             endUsers.add(new RelationshipTuple("user:end-user-relation" + i, "end_user", "application:crm-relation"));
         }
-        await(relationshipService.ensure(SYSTEM, List.of(contained)));
-        await(relationshipService.ensure(SYSTEM, endUsers));
-        String grantId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-relation", "application:crm-relation"));
+        await(relationshipService.ensure(store, List.of(placed)));
+        await(relationshipService.ensure(store, endUsers));
+        String grantId = await(relationshipService.bind(store, "entity_definition.viewer", "user:sally-relation", "application:crm-relation"));
 
-        assertEquals(List.of(contained), await(relationshipService.read(SYSTEM, "application:crm-relation", "organization")));
-        assertEquals(150, await(relationshipService.read(SYSTEM, "application:crm-relation", "end_user")).size());
-        assertEquals(List.of(new Grant(grantId, "project.editor", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
-                     await(relationshipService.findGrants(SYSTEM, "application:crm-relation")));
+        assertEquals(List.of(placed), await(relationshipService.read(store, "application:crm-relation", "placed")));
+        assertEquals(150, await(relationshipService.read(store, "application:crm-relation", "end_user")).size());
+        assertEquals(List.of(new Grant(grantId, "entity_definition.viewer", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
+                     await(relationshipService.findGrants(store, "application:crm-relation")));
 
-        await(relationshipService.removeObject(SYSTEM, "application:crm-relation"));
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aGrantToAnApplicationsEndUsersIsHeldByEachOfThemAndReadAsOneGrant() throws Exception {
+        String store = "acme.crm-end-users";
+        await(storeService.ensureStore(store));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        await(relationshipService.ensureModelWithRoles(store, model));
+        String application = "application:crm-end-users";
+        String tenant = "tenant:north-end-users";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple(application, "application", tenant),
+                                                        new RelationshipTuple("user:bob-end-users", "end_user", application))));
+        RelationshipTuple bobReads = new RelationshipTuple("user:bob-end-users", "entity_definition_can_read", tenant);
+        RelationshipTuple carolReads = new RelationshipTuple("user:carol-end-users", "entity_definition_can_read", tenant);
+        assertFalse(await(relationshipService.check(store, bobReads, Consistency.HIGHER_CONSISTENCY)));
+
+        String grantId = await(relationshipService.bind(store, "entity_definition.viewer", application + "#end_user", application));
+
+        Grant grant = new Grant(grantId, "entity_definition.viewer", new Subject(SubjectType.APPLICATION, "crm-end-users"), new Resource("application", "crm-end-users"));
+        assertEquals(List.of(grant), await(relationshipService.findGrants(store, application)));
+        // an end user holds the role wherever a grant on the application reaches, and anyone else holds nothing
+        assertTrue(await(relationshipService.check(store, bobReads, Consistency.HIGHER_CONSISTENCY)));
+        assertFalse(await(relationshipService.check(store, carolReads, Consistency.HIGHER_CONSISTENCY)));
+        assertEquals(List.of(grant), await(relationshipService.explain(store, model, bobReads, List.of(), List.of(grant))).through());
+        assertEquals(List.of(), await(relationshipService.explain(store, model, carolReads, List.of(), List.of(grant))).through());
+        // a user made an end user after the grant holds it with nothing more written
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:carol-end-users", "end_user", application))));
+        assertTrue(await(relationshipService.check(store, carolReads, Consistency.HIGHER_CONSISTENCY)));
+
+        await(relationshipService.revoke(store, grantId, application));
+        assertFalse(await(relationshipService.check(store, bobReads, Consistency.HIGHER_CONSISTENCY)));
+        await(storeService.deleteStore(store));
     }
 
     @Test

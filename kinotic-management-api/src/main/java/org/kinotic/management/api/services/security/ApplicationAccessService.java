@@ -93,16 +93,18 @@ public interface ApplicationAccessService {
 
     /**
      * Grants a role to a user or a machine of the application, or with one grant to every user of one of its
-     * tenants, those it has now and those created in it later. The subject holds every permission the role
-     * bundles on the resource and on everything inside it: a grant on a definition within a tenant reaches those
-     * rows alone, one on a tenant every definition's rows in that tenant, one on a definition its rows in every
-     * tenant, and one on the application the rows of every definition in every tenant. A definition named must be
-     * one the application holds, and a tenant named one the application has where its administrators manage its
-     * tenants.
+     * tenants or to every end user of the application, those there are now and those created later. The subject
+     * holds every permission the role bundles on the resource and on everything inside it: a grant on a definition
+     * within a tenant reaches those rows alone, one on a tenant every definition's rows in that tenant, one on a
+     * definition its rows in every tenant, and one on the application the rows of every definition in every tenant.
+     * An application's user is asked about within its own tenant alone, so a role granted to every end user on the
+     * application is the role each user starts with in its own tenant. A definition named must be one the
+     * application holds, and a tenant named one the application has where its administrators manage its tenants.
      *
      * @param applicationId the application
      * @param subject       who holds the grant, a user naming the identity id of one of the application's users
-     *                      or machines, or a tenant naming the id of one of its tenants
+     *                      or machines, a tenant naming the id of one of its tenants, or an application naming
+     *                      the application itself for every end user it has
      * @param roleId        the role granted, a built-in role's id or the id of one of the application's own
      * @param resource      where the grant is made, the application itself, one of its tenants, one of its entity
      *                      definitions or a definition within a tenant

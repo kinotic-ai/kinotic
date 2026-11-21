@@ -101,10 +101,10 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION, ROLE_PART, ROLE_HOLDERS);
     // the types an application's store places a resource of; any other type in it is one of the application's services
     private static final Set<String> APPLICATION_TYPES = AuthzModelGenerator.APPLICATION_TYPES;
-    // who a binding may be made to in an application's store, and in the system's, which also has organizations
+    // who a binding may be made to in an application's store, which holds the application's end users, and in the
+    // system's, which holds each organization's members
     private static final List<String> APPLICATION_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, APPLICATION + "#" + END_USER, TENANT + "#" + MEMBER);
-    private static final List<String> SYSTEM_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, ORGANIZATION + "#" + MEMBER,
-                                                                    APPLICATION + "#" + END_USER, TENANT + "#" + MEMBER);
+    private static final List<String> SYSTEM_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, ORGANIZATION + "#" + MEMBER, TENANT + "#" + MEMBER);
 
     @Override
     public AuthzModel systemModel(Collection<ServiceDefinition> services) {
@@ -113,9 +113,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         ResourceType organization = new ResourceType(ORGANIZATION, AuthzConstants.SYSTEM_TYPE);
         organization.memberships.put(MEMBER, Set.of(USER));
         kernel.put(ORGANIZATION, organization);
-        ResourceType application = new ResourceType(APPLICATION, ORGANIZATION);
-        application.memberships.put(END_USER, Set.of(USER));
-        kernel.put(APPLICATION, application);
+        kernel.put(APPLICATION, new ResourceType(APPLICATION, ORGANIZATION));
         kernel.put(TENANT, tenant());
         ResourceTypes types = declare(kernel, services);
 
@@ -740,7 +738,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     }
 
     // Gives a type being built a relation. A permission is a relation named <type>_<permission>, so one named as
-    // a relation the model defines for the type, such as end_user, would take that relation's place
+    // a relation the model defines for the type, such as role_binding, would take that relation's place
     private static void relate(Map<String, ObjectNode> relations, String name, ObjectNode userset) {
         if (relations.putIfAbsent(name, userset) != null) {
             throw new IllegalArgumentException("A type of the model would have two relations named '" + name

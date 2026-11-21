@@ -188,7 +188,12 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     @Override
     public Future<Grant> grant(String applicationId, Subject subject, String roleId, Resource resource) {
         validate(applicationId, resource);
-        validate(subject);
+        Validate.notNull(subject, "subject cannot be null");
+        if (subject.type() == SubjectType.APPLICATION) {
+            Validate.isTrue(applicationId.equals(subject.id()), "a grant to every end user is made to those of the application %s, not %s", applicationId, subject.id());
+        } else {
+            validate(subject);
+        }
         Validate.notBlank(roleId, "roleId cannot be blank");
         return requireApplication(applicationId)
                 .compose(application -> requireSubject(application, subject)
@@ -324,11 +329,13 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         return models.findApplicationModelOf(application.getOrganizationId(), application.getId(), types, permissions);
     }
 
-    // A grant in an application's store is made to one of its own users or machines, or to the users of one of its
-    // tenants
+    // A grant in an application's store is made to one of its own users or machines, to the users of one of its
+    // tenants, or to every end user it has
     private Future<Void> requireSubject(Application application, Subject subject) {
         Future<Void> ret;
-        if (subject.type() == SubjectType.TENANT) {
+        if (subject.type() == SubjectType.APPLICATION) {
+            ret = Future.succeededFuture();
+        } else if (subject.type() == SubjectType.TENANT) {
             ret = requireTenant(application, subject.id());
         } else {
             ret = identities.findById(subject.id()).map(identity -> {
@@ -370,7 +377,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                         "a definition within a tenant is named <definition id>@<tenant id>, not %s", resource.id());
     }
 
-    // An application's store has no groups, so a subject is one of its identities or the users of one of its tenants
+    // An application's store has no groups, so a subject asked about is one of its identities or the users of one of
+    // its tenants
     private static void validate(Subject subject) {
         Validate.notNull(subject, "subject cannot be null");
         Validate.isTrue(subject.type() == SubjectType.USER || subject.type() == SubjectType.TENANT,

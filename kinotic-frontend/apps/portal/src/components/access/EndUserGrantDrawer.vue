@@ -1,6 +1,6 @@
 <template>
   <GrantAccessDrawer :visible="visible"
-                     description="Give one of this application's users or machines, or every user of a tenant, a role on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant."
+                     description="Give one of this application's users or machines, every user of a tenant, or every end user, a role on the whole application, on one tenant, on one definition's rows, or on those rows in one tenant."
                      :tabs="tabs" :roles="roles" :ready="resource !== null" :grant="grant"
                      @update:visible="emit('update:visible', $event)" @granted="emit('granted', $event)">
     <div>
@@ -26,12 +26,12 @@ import SelectButton from 'primevue/selectbutton'
 import { Kinotic } from '@kinotic-ai/core'
 import type { Grant, Resource, RoleDefinition, Subject } from '@kinotic-ai/management-api'
 import { GrantAccessDrawer, type SubjectPickerTab, type SubjectOption } from '@kinotic-ai/frontend-common/management'
-import { type DefinitionOption, definitionOf, resourceOf, tenantOf, tenantOption } from './applicationResources'
+import { type DefinitionOption, definitionOf, endUsersOption, resourceOf, tenantOf, tenantOption } from './applicationResources'
 
 /**
- * Grants a role in the application's own store to one of its users or machines, or to every user of a tenant, on the application, on one
- * tenant, on one definition's rows in every tenant, or on those rows in one tenant: the subject holds every
- * permission the role bundles on the rows there.
+ * Grants a role in the application's own store to one of its users or machines, to every user of a tenant, or to
+ * every end user of the application, on the application, on one tenant, on one definition's rows in every tenant,
+ * or on those rows in one tenant: the subject holds every permission the role bundles on the rows there.
  */
 const props = defineProps<{
   visible: boolean
@@ -66,7 +66,8 @@ const definitionId = ref<string | null>(null)
 const tabs = computed<SubjectPickerTab[]>(() => [
   { label: 'User', options: props.users, search: props.searchUsers, placeholder: 'Name or email of a user', emptyMessage: 'No user matches' },
   { label: 'Machine', options: props.machines, placeholder: 'Choose a machine', emptyMessage: 'No machines yet' },
-  { label: 'Tenant', options: props.tenants.map(tenantOption), placeholder: 'Choose a tenant', emptyMessage: 'No tenant known yet' }
+  { label: 'Everyone', options: [endUsersOption(props.applicationId), ...props.tenants.map(tenantOption)],
+    placeholder: 'Every end user, or everyone in a tenant', emptyMessage: 'No tenant matches' }
 ])
 
 /** The resource the grant is made on, or null while a tenant or a definition chosen is not named yet. */

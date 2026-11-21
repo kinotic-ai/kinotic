@@ -551,6 +551,20 @@ public class DefaultRelationshipService implements RelationshipService {
             ret = new Subject(SubjectType.GROUP, AuthzUtil.idOf(user));
         } else if (members && AuthzConstants.TENANT_TYPE.equals(type)) {
             ret = new Subject(SubjectType.TENANT, AuthzUtil.idOf(user));
+        } else if (AuthzConstants.APPLICATION_TYPE.equals(type) && user.endsWith("#" + AuthzConstants.END_USER_RELATION)) {
+            ret = new Subject(SubjectType.APPLICATION, AuthzUtil.idOf(user));
+        }
+        return ret;
+    }
+
+    // What a user holds when it is one of those a grant to a group, a tenant or an application stands for
+    private static RelationshipTuple oneOf(String user, Subject subject) {
+        RelationshipTuple ret;
+        if (subject.type() == SubjectType.APPLICATION) {
+            ret = new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, subject.id()));
+        } else {
+            String membersOf = subject.type() == SubjectType.GROUP ? AuthzConstants.GROUP_TYPE : AuthzConstants.TENANT_TYPE;
+            ret = new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, AuthzUtil.object(membersOf, subject.id()));
         }
         return ret;
     }
@@ -591,7 +605,8 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     // Whether the grant gives the permission asked about to the user asked about: its role bundles the permission
-    // or one implying it, and it was made to the user, or to a group or a tenant the user is a member of
+    // or one implying it, and it was made to the user, or to a group or a tenant the user is a member of, or to
+    // the application the user is an end user of
     private Future<Boolean> explains(String store,
                                      String modelId,
                                      Grant grant,
@@ -606,11 +621,8 @@ public class DefaultRelationshipService implements RelationshipService {
         if (grant.subject().equals(subjectOf(holds.user()))) {
             member = Future.succeededFuture(true);
         } else if (grant.subject().type() != SubjectType.USER && AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(holds.user()))) {
-            String membersOf = grant.subject().type() == SubjectType.GROUP ? AuthzConstants.GROUP_TYPE : AuthzConstants.TENANT_TYPE;
-            RelationshipTuple membership = new RelationshipTuple(holds.user(), AuthzConstants.MEMBER_RELATION,
-                                                                 AuthzUtil.object(membersOf, grant.subject().id()));
             // an admin asks after changing a group or moving a user, so the answer must not predate the change
-            member = check(store, modelId, membership, Consistency.HIGHER_CONSISTENCY, List.of(), "");
+            member = check(store, modelId, oneOf(holds.user(), grant.subject()), Consistency.HIGHER_CONSISTENCY, List.of(), "");
         } else {
             member = Future.succeededFuture(false);
         }
