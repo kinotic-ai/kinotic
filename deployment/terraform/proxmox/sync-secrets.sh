@@ -1,30 +1,33 @@
 #!/usr/bin/env bash
-# Copies a secrets directory (generate-secrets.sh) to the host's secrets directory, each
-# server's directory owned by the user its container runs as, and restarts the containers that
-# read it: the applier for the servers, the license key server and its database, whose env
-# files it merges, and a reboot for each server, which reads its mounted directory itself. The
-# Cloudflare DNS token in kinotic-servers.env is also written into the credentials file certbot's dns-cloudflare
-# plugin and kinotic-dyndns read, so the host's certificates and records follow the same token.
-# The certificates certbot placed on the host are left alone.
+# Places the secret files the operator keychain holds (../dev-server-secret-file.sh) in the host's
+# secrets directory, each server's directory owned by the user its container runs as, and restarts
+# the containers that read them: the applier for the servers, the license key server and its
+# database, whose env files it merges, and a reboot for each server, which reads its mounted
+# directory itself. The Cloudflare DNS token in kinotic-servers.env is also written into the
+# credentials file certbot's dns-cloudflare plugin and kinotic-dyndns read, so the host's
+# certificates and records follow the same token. The certificates certbot placed on the host are
+# left alone.
 #
-#   sync-secrets.sh <secrets dir> [host]      host defaults to the root's proxmox_host output
+#   sync-secrets.sh [host]      host defaults to the root's proxmox_host output
 set -euo pipefail
 
-SRC="${1:?usage: $0 <secrets dir> [host]}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOST="${2:-$(terraform -chdir="$HERE" output -raw proxmox_host)}"
+HOST="${1:-$(terraform -chdir="$HERE" output -raw proxmox_host)}"
+FILES="$HERE/../dev-server-secret-file.sh"
 DEST="${SECRETS_DIR:-/etc/kinotic/secrets}"
 SNIPPETS="${SNIPPETS_DIR:-/var/lib/vz/snippets}"
 
-# Ownership and modes are set on the host: -a would carry the operator's uid across, and
-# macOS's openrsync takes no octal --chmod
-rsync -rlt "$SRC/" "root@$HOST:$DEST/"
+# Each file goes from the keychain to the host over ssh, and is never a file of this Mac
+"$FILES" list | while IFS= read -r path; do
+  "$FILES" get "$path" | ssh "root@$HOST" "install -D -m 0600 /dev/stdin '$DEST/$path'"
+done
 # cnb, uid 1002 and gid 1001 in the servers' containers, is 101002:101001 on the host
 ssh "root@$HOST" "
   chmod -R u=rwX,go= '$DEST'
   chown -R 0:0 '$DEST'
   for dir in '$DEST'/kinotic-server-* '$DEST/summit-42'; do
-    [ -d \"\$dir\" ] && chown -R 101002:101001 \"\$dir\"
+    # certbot's deploy hook installs each server's certificate into its certs directory
+    [ -d \"\$dir\" ] && mkdir -p \"\$dir/certs\" && chown -R 101002:101001 \"\$dir\"
   done
   # licenses, uid and gid 10001 in the license key server's container; haproxy, 99, in the edge's
   [ -d '$DEST/license-key-server' ] && chown -R 110001:110001 '$DEST/license-key-server'

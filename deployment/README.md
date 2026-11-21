@@ -115,7 +115,7 @@ Azure documentation:
 ```bash
 cd deployment/terraform/azure/dev-server && terraform init && terraform apply   # the Azure side
 cd ../../proxmox
-./generate-secrets.sh ./dev-server-secrets && ./sync-secrets.sh ./dev-server-secrets <host>   # secrets on the host first
+./generate-secrets.sh && ./sync-secrets.sh <host>   # secrets into the keychain, then onto the host, first
 terraform init && terraform apply                                              # the containers
 ```
 
