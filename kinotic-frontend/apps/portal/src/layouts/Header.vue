@@ -179,9 +179,6 @@ const searchGroups = computed<CommandPaletteGroup[]>(() => [
     label: 'Actions',
     entries: [
       { key: 'action:new-application', label: 'New application', icon: markRaw(Plus), run: () => router.push('/applications?add=true') },
-      ...(feedbackEnabled.value
-        ? [{ key: 'action:feedback', label: 'Send feedback', icon: markRaw(MessageSquarePlus), run: () => { feedbackOpen.value = true } }]
-        : []),
       { key: 'action:docs', label: 'Open documentation', icon: markRaw(BookOpenText), external: true,
         run: () => window.open(DOCUMENTATION_URL, '_blank', 'noopener') }
     ]
