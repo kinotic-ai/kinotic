@@ -26,6 +26,8 @@ public interface FeedbackService {
      * @param submission the bug report or feature request
      * @return a future emitting the issue it was filed as
      */
+    // filing a GitHub issue reaches outside Kinotic, and only the annotation can say so
+    @McpTool(openWorldHint = true)
     Future<FeedbackIssue> send(FeedbackSubmission submission);
 
 }
