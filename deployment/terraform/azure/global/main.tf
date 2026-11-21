@@ -119,9 +119,9 @@ variable "github_app_private_key" {
 }
 
 # Operator-supplied: the private key PEM of the kinotic-internal GitHub App, which files the feedback
-# organizations send as issues on kinotic-ai/kinotic. Provide via `TF_VAR_github_feedback_app_private_key`
+# organizations send as issues on kinotic-ai/kinotic. Provide via `TF_VAR_github_internal_app_private_key`
 # at apply time, managed afterwards like github_app_private_key.
-variable "github_feedback_app_private_key" {
+variable "github_internal_app_private_key" {
   description = "Private key PEM of the kinotic-internal GitHub App, which the org and system servers file feedback issues with"
   type        = string
   sensitive   = true

@@ -49,7 +49,7 @@ github_yaml="  managementApi:
         -----END RSA PRIVATE KEY-----
       webhookSecret: \"\"
       # Uncomment with the kinotic-internal GitHub App's private key to offer feedback
-      # feedbackApp:
+      # internalApp:
       #   appPrivateKey: |
       #     -----BEGIN RSA PRIVATE KEY-----
       #     -----END RSA PRIVATE KEY-----"

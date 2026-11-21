@@ -6,10 +6,10 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * The GitHub App that files the feedback organizations send as issues on {@code kinotic-ai/kinotic}. It is
- * separate from the App organizations install, holds only the Issues permission and is installed only on
- * the Kinotic repository. While {@link #appPrivateKey} is unset, the server offers no {@code FeedbackService}, so
- * neither the portal nor an AI agent sees a way to send feedback.
+ * Kinotic's own GitHub App, installed only on Kinotic's repositories and separate from the App organizations
+ * install, so work on Kinotic's repositories never widens what customers grant. It files the feedback
+ * organizations send as issues on {@code kinotic-ai/kinotic}. While {@link #appPrivateKey} is unset, the server
+ * offers no {@code FeedbackService}, so neither the portal nor an AI agent sees a way to send feedback.
  * <p>
  * In Kubernetes {@link #appPrivateKey} is a file of the server's system-secrets volume named after its
  * property, as {@link GithubProperties#getAppPrivateKey()} is.
@@ -18,7 +18,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class GithubFeedbackAppProperties {
+public class GithubInternalAppProperties {
 
     /** Numeric GitHub App id (from the App's settings page). */
     private String appId;

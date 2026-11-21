@@ -10,7 +10,7 @@ import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.management.api.config.GithubFeedbackAppProperties;
+import org.kinotic.management.api.config.GithubInternalAppProperties;
 import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.feedback.FeedbackIssue;
 import org.kinotic.management.api.model.feedback.FeedbackSubmission;
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
-@ConditionalOnProperty("kinotic.managementApi.github.feedbackApp.appPrivateKey")
+@ConditionalOnProperty("kinotic.managementApi.github.internalApp.appPrivateKey")
 public class DefaultFeedbackService implements FeedbackService {
 
     private static final String FEEDBACK_REPO = "kinotic-ai/kinotic";
@@ -37,7 +37,7 @@ public class DefaultFeedbackService implements FeedbackService {
 
     private final SecurityContext securityContext;
     private final GitHubApiClient gitHubApiClient;
-    private final GitHubAppJwtFactory feedbackAppJwtFactory;
+    private final GitHubAppJwtFactory internalAppJwtFactory;
 
     // a fixed one-hour window per organization, opened by its first send; each node counts its own sends
     private final Cache<String, AtomicInteger> sendsByOrganization = Caffeine.newBuilder()
@@ -50,8 +50,8 @@ public class DefaultFeedbackService implements FeedbackService {
                                   GithubProperties githubProperties) {
         this.securityContext = securityContext;
         this.gitHubApiClient = gitHubApiClient;
-        GithubFeedbackAppProperties feedbackApp = githubProperties.getFeedbackApp();
-        this.feedbackAppJwtFactory = new GitHubAppJwtFactory(feedbackApp.getAppId(), feedbackApp.getAppPrivateKey());
+        GithubInternalAppProperties internalApp = githubProperties.getInternalApp();
+        this.internalAppJwtFactory = new GitHubAppJwtFactory(internalApp.getAppId(), internalApp.getAppPrivateKey());
     }
 
     @Override
@@ -77,7 +77,7 @@ public class DefaultFeedbackService implements FeedbackService {
 
         String title = submission.getTitle().strip();
         String body = issueBody(submission, sender);
-        String appJwt = feedbackAppJwtFactory.getAppJwt();
+        String appJwt = internalAppJwtFactory.getAppJwt();
         return gitHubApiClient.findRepositoryInstallationId(appJwt, FEEDBACK_REPO)
                               .compose(installationId -> gitHubApiClient.createInstallationToken(appJwt,
                                                                                                  installationId,
