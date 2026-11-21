@@ -133,7 +133,7 @@ import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
 import { Kinotic, Pageable } from '@kinotic-ai/core';
 import type { Project } from '@kinotic-ai/management-api';
-import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
+import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, CONNECTION_STATE, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
          sidebarPageEntries, ThemeToggleButton } from '@kinotic-ai/frontend-common'
 import { BookOpenText, CircleHelp, MessageSquarePlus, Plus } from '@lucide/vue';
 import FeedbackDrawer from '@/components/FeedbackDrawer.vue';
@@ -219,9 +219,25 @@ onMounted(() => {
   if (APPLICATION_STATE.allApplications.length === 0) {
     APPLICATION_STATE.loadAllApplications();
   }
+  loadCapabilities();
+});
+
+let capabilitiesLoaded = false;
+
+function loadCapabilities(): void {
   Kinotic.capabilities.findCapabilities()
-    .then(capabilities => { feedbackEnabled.value = capabilities.feedbackEnabled })
+    .then(capabilities => {
+      feedbackEnabled.value = capabilities.feedbackEnabled;
+      capabilitiesLoaded = true;
+    })
     .catch(error => debug('Failed to load the server capabilities: %O', error));
+}
+
+// a load that failed while the server was unreachable is retried once it answers again
+watch(() => CONNECTION_STATE.reachable, reachable => {
+  if (reachable && !capabilitiesLoaded) {
+    loadCapabilities();
+  }
 });
 
 const applicationPath = computed(() => `/application/${encodeURIComponent(crumbApplicationId.value ?? '')}`);

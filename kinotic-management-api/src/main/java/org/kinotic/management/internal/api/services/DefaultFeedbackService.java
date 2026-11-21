@@ -17,7 +17,7 @@ import org.kinotic.management.api.model.github.CreatedIssue;
 import org.kinotic.management.api.services.FeedbackService;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
 import org.kinotic.management.internal.api.services.github.client.GitHubAppJwtFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
-@ConditionalOnProperty("kinotic.managementApi.github.internalApp.appPrivateKey")
+// a blank key, such as an empty secrets file, leaves feedback off just as a missing one does
+@ConditionalOnExpression("T(org.apache.commons.lang3.StringUtils).isNotBlank(environment['kinotic.managementApi.github.internalApp.appPrivateKey'])")
 public class DefaultFeedbackService implements FeedbackService {
 
     private static final String FEEDBACK_REPO = "kinotic-ai/kinotic";
