@@ -60,6 +60,8 @@ public class DefaultRelationshipService implements RelationshipService {
     private static final int HTTP_CONFLICT = 409;
     private static final String OBJECT_LOCK_PREFIX = "kinotic.authz.object.";
     private static final long OBJECT_LOCK_TIMEOUT_MILLIS = 30_000;
+    // the locks the objects of one type share
+    private static final int OBJECT_LOCK_STRIPES = 512;
     // the most requests one operation has under way at the engine; the client opens a connection for each
     private static final int MAX_CONCURRENT_REQUESTS = 16;
     // The engine stores up to 32,768 bytes of condition context in a tuple. The definitions one permission names
@@ -404,7 +406,16 @@ public class DefaultRelationshipService implements RelationshipService {
     public <T> Future<T> exclusively(String object, Supplier<Future<T>> changes) {
         Validate.notBlank(object, "object cannot be blank");
         Validate.notNull(changes, "changes cannot be null");
-        return vertx.sharedData().withLock(OBJECT_LOCK_PREFIX + object, OBJECT_LOCK_TIMEOUT_MILLIS, changes);
+        return vertx.sharedData().withLock(lockOf(object), OBJECT_LOCK_TIMEOUT_MILLIS, changes);
+    }
+
+    // The cluster keeps every lock it was ever asked for by name, about 300 bytes each in a region of 100 MB that
+    // all nodes share, and a lock named after its object fills it after some 340,000 objects. An object takes one
+    // of a fixed number of locks of its type instead, by the hash of its id, which every node computes alike.
+    // Objects sharing a lock wait on each other as callers changing one object do. The locks of a type are apart
+    // from those of every other, so changes holding one take the lock of an object of another type as before
+    private static String lockOf(String object) {
+        return OBJECT_LOCK_PREFIX + AuthzUtil.typeOf(object) + "." + Math.floorMod(AuthzUtil.idOf(object).hashCode(), OBJECT_LOCK_STRIPES);
     }
 
     @Override

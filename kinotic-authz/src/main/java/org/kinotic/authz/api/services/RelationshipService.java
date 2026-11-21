@@ -216,10 +216,11 @@ public interface RelationshipService {
     /**
      * Runs changes to an object's record and its place in the stores while no other caller of this function is
      * changing the same object anywhere in the cluster, so a creation and a deletion of one id, each made of
-     * several writes, never interleave.
+     * several writes, never interleave. Objects of one type may wait on each other.
      *
      * @param object  the object, in {@code type:id} form
-     * @param changes the changes to run
+     * @param changes the changes to run, which may call this function for an object of another type and never for
+     *                one of the same type, since the two may wait on each other
      * @return what the changes complete with; fails when the object is still being changed by another caller
      *         after thirty seconds
      */
