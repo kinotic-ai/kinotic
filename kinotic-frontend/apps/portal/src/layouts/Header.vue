@@ -111,7 +111,7 @@
     <div class="flex shrink-0 items-center gap-2">
       <HeaderSearchButton @open="searchOpen = true" />
 
-      <HeaderIconButton label="Send feedback about Kinotic" tooltip="Send feedback" @click="feedbackOpen = true">
+      <HeaderIconButton v-if="feedbackEnabled" label="Send feedback about Kinotic" tooltip="Send feedback" @click="feedbackOpen = true">
         <MessageSquarePlus :size="18" :stroke-width="1.75" aria-hidden="true" />
       </HeaderIconButton>
       <HeaderIconButton class="max-sm:hidden" :href="DOCUMENTATION_URL" label="Help (opens the documentation in a new tab)" tooltip="Help">
@@ -122,7 +122,7 @@
 
     <CommandPalette v-model:visible="searchOpen" :groups="searchGroups" label="Search applications, pages and actions"
                     @show="onSearchShow" />
-    <FeedbackDrawer :visible="feedbackOpen" @close="feedbackOpen = false" />
+    <FeedbackDrawer v-if="feedbackEnabled" :visible="feedbackOpen" @close="feedbackOpen = false" />
   </div>
 </template>
 
@@ -155,6 +155,8 @@ const router = useRouter();
 
 const searchOpen = ref(false);
 const feedbackOpen = ref(false);
+// stays off until the server says it sends feedback
+const feedbackEnabled = ref(false);
 
 const projectsForCurrentApp = ref<Project[]>([]);
 
@@ -177,7 +179,9 @@ const searchGroups = computed<CommandPaletteGroup[]>(() => [
     label: 'Actions',
     entries: [
       { key: 'action:new-application', label: 'New application', icon: markRaw(Plus), run: () => router.push('/applications?add=true') },
-      { key: 'action:feedback', label: 'Send feedback', icon: markRaw(MessageSquarePlus), run: () => { feedbackOpen.value = true } },
+      ...(feedbackEnabled.value
+        ? [{ key: 'action:feedback', label: 'Send feedback', icon: markRaw(MessageSquarePlus), run: () => { feedbackOpen.value = true } }]
+        : []),
       { key: 'action:docs', label: 'Open documentation', icon: markRaw(BookOpenText), external: true,
         run: () => window.open(DOCUMENTATION_URL, '_blank', 'noopener') }
     ]
@@ -218,6 +222,9 @@ onMounted(() => {
   if (APPLICATION_STATE.allApplications.length === 0) {
     APPLICATION_STATE.loadAllApplications();
   }
+  Kinotic.capabilities.findCapabilities()
+    .then(capabilities => { feedbackEnabled.value = capabilities.feedbackEnabled })
+    .catch(error => debug('Failed to load the server capabilities: %O', error));
 });
 
 const applicationPath = computed(() => `/application/${encodeURIComponent(crumbApplicationId.value ?? '')}`);

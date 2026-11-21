@@ -17,6 +17,7 @@ import org.kinotic.management.api.model.feedback.FeedbackSubmission;
 import org.kinotic.management.api.services.FeedbackService;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
 import org.kinotic.management.internal.api.services.github.client.GitHubAppJwtFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -25,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
+@ConditionalOnProperty("kinotic.managementApi.github.feedbackApp.appId")
 public class DefaultFeedbackService implements FeedbackService {
 
     private static final String FEEDBACK_REPO = "kinotic-ai/kinotic";
@@ -35,7 +37,6 @@ public class DefaultFeedbackService implements FeedbackService {
 
     private final SecurityContext securityContext;
     private final GitHubApiClient gitHubApiClient;
-    // null while the feedback App is not configured
     private final GitHubAppJwtFactory feedbackAppJwtFactory;
 
     // a fixed one-hour window per organization, opened by its first send; each node counts its own sends
@@ -50,14 +51,11 @@ public class DefaultFeedbackService implements FeedbackService {
         this.securityContext = securityContext;
         this.gitHubApiClient = gitHubApiClient;
         GithubFeedbackAppProperties feedbackApp = githubProperties.getFeedbackApp();
-        this.feedbackAppJwtFactory = StringUtils.isNotBlank(feedbackApp.getAppId())
-                ? new GitHubAppJwtFactory(feedbackApp.getAppId(), feedbackApp.getAppPrivateKey())
-                : null;
+        this.feedbackAppJwtFactory = new GitHubAppJwtFactory(feedbackApp.getAppId(), feedbackApp.getAppPrivateKey());
     }
 
     @Override
     public Future<FeedbackIssue> send(FeedbackSubmission submission) {
-        Validate.validState(feedbackAppJwtFactory != null, "Sending feedback is not configured on this server");
         Validate.notNull(submission, "submission is required");
         Validate.notNull(submission.getType(), "type is required");
         Validate.notBlank(submission.getTitle(), "title is required");
