@@ -16,7 +16,6 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.Tenant;
-import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -83,16 +82,9 @@ public class ApplicationStoreProvisioner {
     public Future<Void> removeTenant(Tenant tenant) {
         String store = AuthzGraphUtil.authzApplicationId(tenant.getOrganizationId(), tenant.getApplicationId());
         String tenantObject = AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant.getId());
-        return eachPage(pageable -> entityDefinitions.findAllForApplication(tenant.getApplicationId(), tenant.getOrganizationId(), pageable),
-                        page -> {
-                            Future<Void> ret = Future.succeededFuture();
-                            for (EntityDefinition definition : page) {
-                                String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                 AuthzUtil.tenantDefinitionId(definition.getId(), tenant.getId()));
-                                ret = ret.compose(v -> relationships.removeObject(store, within));
-                            }
-                            return ret;
-                        })
+        // a definition within the tenant holds the tenant's edge once it is granted on, so the ones granted on are
+        // read from the store
+        return relationships.removeObjectsOf(store, tenantObject, AuthzConstants.TENANT_DEFINITION_TYPE)
                 .compose(v -> relationships.removeSubject(store, tenantObject + "#" + AuthzConstants.MEMBER_RELATION))
                 .compose(v -> relationships.removeObject(store, tenantObject));
     }

@@ -4,8 +4,11 @@ import io.vertx.core.Future;
 import java.util.concurrent.Callable;
 import org.junit.jupiter.api.AfterEach;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -22,6 +25,7 @@ import org.kinotic.domain.api.model.security.participant.DefaultApplicationParti
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -35,8 +39,10 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -87,6 +93,7 @@ class DefaultRequestAuthorizerTest {
     private final SecurityExceptionFactory securityExceptions = new SecurityExceptionFactory(new KinoticProperties().setDebug(true));
     private ServiceDirectory directory;
     private RelationshipService relationships;
+    private AuthzModelService models;
     private DefaultRequestAuthorizer authorizer;
     private ServiceDirectoryEntry entry;
     private Vertx vertx;
@@ -104,7 +111,11 @@ class DefaultRequestAuthorizerTest {
         vertx = Vertx.vertx();
         ObjectProvider<RequestPermissionResolver> resolvers = mock(ObjectProvider.class);
         when(resolvers.orderedStream()).thenAnswer(invocation -> Stream.of(new StatementResolver()));
-        authorizer = new DefaultRequestAuthorizer(provider, resolvers, relationships, jsonMapper, vertx, securityExceptions);
+        models = mock(AuthzModelService.class);
+        // the report type of acme.crm, whose editor holds generating
+        when(models.findApplicationModelOf("acme", "crm", List.of("report"), List.of()))
+                .thenReturn(Future.succeededFuture(reportsModel("report.editor")));
+        authorizer = new DefaultRequestAuthorizer(provider, resolvers, relationships, models, jsonMapper, vertx, securityExceptions);
         authorizer.listenForContractChanges();
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -312,7 +323,7 @@ class DefaultRequestAuthorizerTest {
     void aNodeWithoutADirectoryRefusesEveryRequest() {
         ObjectProvider<ServiceDirectory> none = mock(ObjectProvider.class);
         when(none.getIfAvailable()).thenReturn(null);
-        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(ObjectProvider.class), relationships,
+        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(ObjectProvider.class), relationships, models,
                                                                       JsonMapper.builder().build(), vertx, securityExceptions);
 
         ExecutionException failure = assertThrows(ExecutionException.class,
@@ -376,7 +387,7 @@ class DefaultRequestAuthorizerTest {
 
     @Test
     void aPermissionOfAnApplicationsOwnServiceIsAskedByItsNameOnTheCallersTenant() throws Exception {
-        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
 
         authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -384,14 +395,39 @@ class DefaultRequestAuthorizerTest {
         authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob(null), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
-        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "tenant:t1", Consistency.MINIMIZE_LATENCY);
-        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "application:acme.crm", Consistency.MINIMIZE_LATENCY);
+        // each check names the built-in roles the type's contracts give the permission, read once for both
+        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "tenant:t1", Set.of("report.editor"),
+                                                     Consistency.MINIMIZE_LATENCY);
+        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "application:acme.crm", Set.of("report.editor"),
+                                                     Consistency.MINIMIZE_LATENCY);
         verify(relationships, never()).check(any(), any(), any(), any());
+        verify(models, times(1)).findApplicationModelOf("acme", "crm", List.of("report"), List.of());
+    }
+
+    @Test
+    void theRolesHoldingAPermissionAreReadAgainOnceItsTypeIsAnnouncedDecidedAgain() throws Exception {
+        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+        authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // a contract written again declares a role holding the permission
+        when(models.findApplicationModelOf("acme", "crm", List.of("report"), List.of()))
+                .thenReturn(Future.succeededFuture(reportsModel("report.editor", "report.publisher")));
+        vertx.eventBus().publish(AuthzModelService.TYPES_CHANGED_ADDRESS,
+                                 new JsonObject().put("store", "acme.crm").put("types", new JsonArray(List.of("report"))));
+
+        // the announcement lands on the event loop; from then on a check names the role as well
+        assertTrue(awaitUntil(() -> {
+            authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
+                      .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+            return mockingDetails(relationships).getInvocations().stream()
+                                                .anyMatch(check -> Set.of("report.editor", "report.publisher").equals(check.getArgument(4)));
+        }), "the type announced decided again was never read again");
     }
 
     @Test
     void aPermissionOfAnApplicationsOwnServiceTheCallerLacksRefusesTheRequest() {
-        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any())).thenReturn(Future.succeededFuture(false));
+        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
         ExecutionException failure = assertThrows(ExecutionException.class,
                                                   () -> authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"),
@@ -588,6 +624,16 @@ class DefaultRequestAuthorizerTest {
     }
 
     // an end user of the application crm, in the given tenant or in none
+    // The model of acme.crm as far as its report type goes, with the given roles bundling the generating of a report
+    private static AuthzModel reportsModel(String... roles) {
+        Map<String, Set<String>> bundling = new HashMap<>();
+        for (String role : roles) {
+            bundling.put(role, Set.of("report_can_generate"));
+        }
+        return new AuthzModel(null, "reports", Map.of("report", Set.of("can_generate")), bundling, Map.of(), Map.of(),
+                              Map.of("report_can_generate", Set.of("report_can_generate")));
+    }
+
     private static Participant bob(String tenantId) {
         return DefaultApplicationParticipant.builder().id("bob").organizationId("acme").applicationId("crm")
                                             .tenantId(tenantId).metadata(Map.of()).roles(List.of()).build();

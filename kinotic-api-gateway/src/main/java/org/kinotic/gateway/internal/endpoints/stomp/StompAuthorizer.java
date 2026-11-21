@@ -1,5 +1,6 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
@@ -47,14 +48,14 @@ public class StompAuthorizer {
         return temporarySendGrants.remove(cri.raw()) || zoneRules.sendAllowed(cri);
     }
 
-    public boolean subscribeAllowed(CRI cri) {
+    public Future<Boolean> subscribeAllowed(CRI cri) {
         Validate.notNull(cri, "The CRI must not be null");
-        boolean ret;
+        Future<Boolean> ret;
         if (EventConstants.REPLY_DESTINATION_SCHEME.equals(cri.scheme())) {
             // a reply destination is scoped to the connection: the scope carries the replyToId
             // followed by ':' and the subscription discriminator
             String scope = cri.scope();
-            ret = scope != null && scope.startsWith(replyToId + ":");
+            ret = Future.succeededFuture(scope != null && scope.startsWith(replyToId + ":"));
         } else {
             ret = zoneRules.subscribeAllowed(cri);
         }

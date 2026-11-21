@@ -182,24 +182,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                      .transform(v -> Future.failedFuture(err)));
     }
 
-    // The definition leaves both stores with every grant made on it and on its rows within each tenant placed in the
-    // application's store, so one created again under its id starts with none
+    // The definition leaves both stores with every grant made on it and on its rows within a tenant, so one created
+    // again under its id starts with none. Its rows within a tenant hold the definition's edge once they are granted
+    // on, so the ones granted on are read from the store
     private Future<Void> removed(EntityDefinition entityDefinition) {
         String object = containment(entityDefinition).object();
         String store = storeOf(entityDefinition);
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
-                            .compose(v -> relationships.removeObject(store, object))
-                            // the rows within a tenant are reached by tenant, so each tenant placed in the store is read
-                            .compose(v -> relationships.findContained(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
-                            .compose(placed -> {
-                                Future<Void> ret = Future.succeededFuture();
-                                for (String tenant : placed) {
-                                    String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant)));
-                                    ret = ret.compose(w -> relationships.removeObject(store, within));
-                                }
-                                return ret;
-                            });
+                            .compose(v -> relationships.removeObjectsOf(store, object, AuthzConstants.TENANT_DEFINITION_TYPE))
+                            .compose(v -> relationships.removeObject(store, object));
     }
 
     private static String storeOf(EntityDefinition entityDefinition) {

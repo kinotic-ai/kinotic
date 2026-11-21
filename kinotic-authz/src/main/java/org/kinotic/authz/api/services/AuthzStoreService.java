@@ -37,8 +37,8 @@ public interface AuthzStoreService {
     Future<Void> deleteStore(String store);
 
     /**
-     * The id of the version the store runs, read from the engine and kept for a while: the version every check
-     * against the store names.
+     * The id of the version the store runs, the one every check against the store names: the version the
+     * store's record names, or for a store with none recorded the engine's newest, kept for a while.
      *
      * @param store the store, named as its record is
      * @return the version's id; fails when the store does not exist or runs no model yet

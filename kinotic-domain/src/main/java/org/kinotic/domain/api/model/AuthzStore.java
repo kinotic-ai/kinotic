@@ -32,6 +32,15 @@ public class AuthzStore implements Reconcilable<AuthzModelRevision> {
      */
     private String applicationId;
     /**
+     * The engine's id of the store, which every call against the store names. The store's worker records it.
+     */
+    private String engineStoreId;
+    /**
+     * The id of the model version the engine runs for the store, which every check against the store names. The
+     * store's worker records it with each version it writes.
+     */
+    private String engineModelId;
+    /**
      * The model the store should run, the one the directory implies, beside the model the engine runs.
      */
     private ReconcileState<AuthzModelRevision> state = new ReconcileState<>();

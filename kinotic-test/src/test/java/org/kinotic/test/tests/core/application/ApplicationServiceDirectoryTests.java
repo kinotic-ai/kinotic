@@ -158,14 +158,19 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
 
         ZoneRules rules = await(zoneRulesResolver.resolve(runtime));
 
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0")));
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + ".probes~Probe#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService#1.0.0")));
+        assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0"))));
+        assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + ".probes~Probe#1.0.0"))));
+        assertFalse(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService#1.0.0"))));
+        // the zone above its applications' is no application's
+        assertFalse(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.APP_ZONE_PREFIX + "." + TEST_ORG_ID + "~ReportService#1.0.0"))));
+        // a zone is decided when the runtime first subscribes in it, so an application granted since is hosted
+        String laterAppId = grantedApplication();
+        assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, laterAppId) + "~ReportService#1.0.0"))));
         // it calls the services of the organization's other applications
         assertTrue(rules.sendAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService/generate#1.0.0")));
         // a person hosts no application's services
-        assertFalse(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT))
-                            .subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0")));
+        assertFalse(await(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT))
+                                  .subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0"))));
     }
 
     private String application() throws Exception {

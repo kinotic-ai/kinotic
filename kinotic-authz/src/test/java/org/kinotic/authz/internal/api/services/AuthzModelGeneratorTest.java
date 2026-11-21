@@ -3,6 +3,7 @@ package org.kinotic.authz.internal.api.services;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.RolePermissions;
+import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzPermissionChoice;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -247,6 +249,25 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aResourceHoldsABindingUnderTheRolesACheckSaysItsCallerHolds() {
+        AuthzModel model = generator.systemModel(systemServices());
+
+        // the binding's role is compared with the roles the check names, so a check reads the bindings of those alone
+        assertEquals("role in held", model.definition().get("conditions").get("role_held").get("expression").asString());
+        assertEquals("TYPE_NAME_MAP", model.definition().get("conditions").get("role_held").get("parameters").get("held").get("type_name").asString());
+        for (String resource : List.of("system", "organization", "application", "project", "tenant")) {
+            assertEquals("role_held", type(model, resource).get("metadata").get("relations").get("role_binding")
+                                                            .get("directly_related_user_types").get(0).get("condition").asString());
+        }
+        // the roles a user holds are listed through the bindings of each role, of whichever type they are attached to
+        JsonNode holders = type(model, "role_holders");
+        Set<String> bindingTypes = new TreeSet<>();
+        typeNames(model).stream().filter(name -> name.endsWith("_role_binding")).forEach(bindingTypes::add);
+        assertEquals(bindingTypes, new TreeSet<>(directTypes(holders, "binding")));
+        assertEquals("ttu:binding->member", source(holders.get("relations").get("holder")));
+    }
+
+    @Test
     public void aBindingGrantsOnlyRolesHomedAtItsTypeOrInsideItWithinItsTrustBoundary() {
         AuthzModel model = generator.systemModel(systemServices());
 
@@ -268,7 +289,7 @@ public class AuthzModelGeneratorTest {
 
     // The kernel types, and each resource type beside its role and binding types
     private static Set<String> withRoleTypes(String... resourceTypes) {
-        Set<String> ret = new TreeSet<>(Set.of("user", "group"));
+        Set<String> ret = new TreeSet<>(Set.of("user", "group", "role_holders"));
         for (String type : resourceTypes) {
             ret.addAll(Set.of(type, AuthzUtil.roleType(type), AuthzUtil.roleBindingType(type)));
         }
@@ -467,6 +488,9 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("entity_definition_role", "tenant_role"), directTypes(type(model, "tenant_role_binding"), "role"));
         assertEquals(List.of("entity_definition_role"), directTypes(type(model, "tenant_definition_role_binding"), "role"));
         assertEquals(List.of("tenant_definition_role_binding"), directTypes(type(model, "tenant_definition"), "role_binding"));
+        assertEquals("role_held", type(model, "tenant_definition").get("metadata").get("relations").get("role_binding")
+                                                                   .get("directly_related_user_types").get(0).get("condition").asString());
+        assertTrue(directTypes(type(model, "role_holders"), "binding").contains("tenant_definition_role_binding"));
         assertFalse(model.grantable("application.admin", "tenant"));
         // the application is placed in its own store by a wildcard tuple, and a definition under it is placed through it
         assertEquals(List.of("user:*"), directTypes(type(model, "application"), "placed"));
@@ -622,8 +646,8 @@ public class AuthzModelGeneratorTest {
         assertTrue(type(model, "entity_definition").get("relations").has("entity_definition_can_read"));
         assertTrue(type(model, "organization").get("relations").has("entity_definition_can_read"));
         assertTrue(model.roles().get("entity_definition.viewer").contains("entity_definition_can_read"));
-        // the system's definition keeps the derived ladder and names no definitions, so its model has no condition
-        assertFalse(model.definition().has("conditions"));
+        // the system's definition keeps the derived ladder and names no definitions, so its model has no condition for one
+        assertEquals(List.of("role_held"), List.copyOf(model.definition().get("conditions").propertyNames()));
     }
 
     @Test
@@ -742,6 +766,87 @@ public class AuthzModelGeneratorTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
         assertTrue(e.getMessage().contains("50"));
+    }
+
+    @Test
+    public void aServiceNamesTheTypesItDecidesTheParentOfItsOwnAndThePermissionsItRequires() {
+        FunctionDefinition runQuery = new FunctionDefinition().setName("runQuery");
+        runQuery.setDecorators(List.of(new AuthzCheckC3Decorator()
+                                               .setResource("report")
+                                               .setResourceId("{id}")
+                                               .setPermissionResource("report")
+                                               .setPermissionResolver("statement")
+                                               .setPossiblePermissions(List.of(new AuthzPermissionChoice("can_read", "the query reads rows"),
+                                                                               new AuthzPermissionChoice("can_delete", "the query is a DELETE")))));
+        FunctionDefinition ping = new FunctionDefinition().setName("ping");
+        ping.setDecorators(List.of(new AuthzCheckC3Decorator().setUnchecked(true)));
+        ServiceDefinition reports = service("ReportService", "report", "tenant", runQuery, ping,
+                                            function("chart", "chart", "chart", "can_draw"));
+
+        assertEquals(new ServiceModelNames(Set.of("chart", "report"), "tenant", Set.of("chart_can_draw", "report_can_delete", "report_can_read")),
+                     generator.namesOf(reports));
+        assertEquals(Set.of("chart", "report", "tenant"), generator.namesOf(reports).named());
+    }
+
+    @Test
+    public void aStoreHoldsTheRolesOfTheTypesItPlacesAndACheckNamesTheRolesOfAService() {
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), catalogAndPrices());
+
+        // the engine has a role type for the types the store places alone, and the tenant has no permission of
+        // its own here, so no role
+        assertEquals(Set.of("application", "entity_definition"),
+                     model.storedRoles().keySet().stream().map(AuthzUtil::roleHome).collect(Collectors.toSet()));
+        assertFalse(model.storedRoles().containsKey("price.viewer"));
+        // a role holds a permission it bundles and every one a bundled permission implies, an ancestor's
+        // administrator among them
+        assertEquals(Set.of("catalog.admin", "price.admin", "price.editor", "price.quoter", "price.viewer"), model.rolesHolding("price_can_read"));
+        assertEquals(Set.of("catalog.admin", "price.admin", "price.editor", "price.quoter"), model.rolesHolding("price_can_quote"));
+        assertEquals(Set.of("catalog.admin"), model.rolesHolding("catalog_can_delete"));
+        assertEquals(Set.of(), model.rolesHolding("invoice_can_send"));
+        // the same roles by each permission of one type, which is all a check of the type's services needs
+        Map<String, Set<String>> ofPrices = model.rolesHoldingEach("price");
+        assertTrue(ofPrices.keySet().containsAll(Set.of("price_can_read", "price_can_quote")), ofPrices.toString());
+        assertTrue(ofPrices.keySet().stream().allMatch(permission -> permission.startsWith("price_")), ofPrices.toString());
+        ofPrices.forEach((permission, roles) -> assertEquals(model.rolesHolding(permission), roles, permission));
+        assertEquals(Map.of(), model.rolesHoldingEach("invoice"));
+        // the system's model holds every role
+        AuthzModel system = generator.systemModel(systemServices());
+        assertEquals(system.roles(), system.storedRoles());
+    }
+
+    @Test
+    public void aModelOfTheServicesDecidingATypeAnswersForItAsTheWholeModelDoes() {
+        List<ServiceDefinition> all = new ArrayList<>(catalogAndPrices());
+        all.add(service("InvoiceService", "invoice", "tenant",
+                        List.of(role("invoice.sender", "can_send")),
+                        function("send", "invoice", "invoice", "can_send")));
+        AuthzModel whole = generator.applicationModel(List.of(entitiesRepository()), all);
+        AuthzModel partial = generator.applicationModel(List.of(entitiesRepository()), catalogAndPrices());
+
+        assertEquals(whole.definition(), partial.definition());
+        assertEquals(whole.storedRoles(), partial.storedRoles());
+        for (String permission : List.of("catalog_can_read", "catalog_can_delete", "price_can_read", "price_can_quote")) {
+            assertEquals(whole.rolesHolding(permission), partial.rolesHolding(permission), permission);
+            assertEquals(whole.servicePermissions().get(permission), partial.servicePermissions().get(permission), permission);
+        }
+        for (String role : List.of("catalog.viewer", "catalog.editor", "catalog.admin", "price.viewer", "price.editor", "price.admin", "price.quoter")) {
+            assertEquals(whole.roles().get(role), partial.roles().get(role), role);
+            assertEquals(whole.grantableOn(AuthzUtil.roleHome(role), "application"), partial.grantableOn(AuthzUtil.roleHome(role), "application"), role);
+        }
+        assertEquals(whole.catalog("tenant").get("price"), partial.catalog("tenant").get("price"));
+        assertFalse(partial.roles().containsKey("invoice.sender"));
+    }
+
+    // a catalog under the application, and its prices inside it with a role of their own
+    private static List<ServiceDefinition> catalogAndPrices() {
+        return List.of(service("CatalogService", "catalog", "application",
+                               function("findById", "catalog", "catalog", "can_read"),
+                               function("deleteById", "catalog", "catalog", "can_delete"),
+                               function("save", "catalog", "catalog", "can_edit")),
+                       service("PriceService", "price", "catalog",
+                               List.of(role("price.quoter", "can_quote")),
+                               function("findById", "price", "price", "can_read"),
+                               function("quote", "price", "price", "can_quote", "can_read")));
     }
 
 }

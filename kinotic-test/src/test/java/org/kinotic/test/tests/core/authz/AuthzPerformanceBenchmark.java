@@ -33,7 +33,9 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
@@ -59,6 +61,7 @@ import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.TenantService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.management.internal.api.services.security.CallerPermissions;
@@ -120,6 +123,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private static final List<Integer> ENTITY_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_ENTITY_ROLES", "1,100,1000,10000");
     private static final List<Integer> TENANT_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_ROLES", "2,10,25,50");
     private static final List<Integer> SERVICE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_SERVICES", "10,1000,5000");
+    private static final List<Integer> DELETION_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_DELETION_TENANTS", "100,1000,5000");
     private static final String READING_ROWS = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
     private static final String REPORT_NAMESPACE = "org.kinotic.benchmark";
     private static final String REPORT_SERVICE_NAME = REPORT_NAMESPACE + ".ReportService";
@@ -141,6 +145,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     @Autowired
     private KinoticAuthzProperties authzProperties;
     @Autowired
+    private AuthzStoreRepository storeRecords;
+    @Autowired
     private AuthzModelGenerator generator;
     @Autowired
     private CallerPermissions callerPermissions;
@@ -154,6 +160,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private ProjectService projectService;
     @Autowired
     private EntityDefinitionService entityDefinitionService;
+    @Autowired
+    private TenantService tenantService;
     @Autowired
     private NamedQueriesDefinitionService namedQueriesDefinitionService;
     @Autowired
@@ -371,10 +379,71 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     }
 
     /**
+     * Measures deleting an entity definition and deleting a tenant as the tenants placed in the application's store
+     * grow in number, with the definition's rows granted on in three of them, beside one read of the store for each
+     * placed tenant.
+     */
+    @Test
+    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    public void measureDeletions() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Deletion benchmark " + Instant.now());
+        line("");
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+        String application = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
+        String viewer = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
+        // creating the sample definition provisions the sample application's store
+        person = personDefinition();
+        line("| tenants placed | delete a definition, ms | delete a tenant, ms | one read for each placed tenant, ms |");
+        line("|---:|---:|---:|---:|");
+        String run = suffix();
+        int placed = 0;
+        for (int target : DELETION_STAGES) {
+            List<RelationshipTuple> containments = new ArrayList<>();
+            for (; placed < target; placed++) {
+                containments.add(AuthzGraphUtil.tenantContainment(TEST_ORG_ID, TEST_APP_ID, "del-" + run + "-" + placed));
+            }
+            write(appStore, containments);
+            List<String> tenants = await(relationships.findContained(appStore, application, AuthzConstants.TENANT_TYPE));
+            EntityDefinition car = await(runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("Del" + run + target))).getLeft();
+            for (int i = 0; i < 3; i++) {
+                grantOnRows(car.getId(), "del-" + run + "-" + i, viewer);
+            }
+            await(runAsOrganization(() -> entityDefinitionService.unPublish(car.getId())));
+
+            long start = System.nanoTime();
+            awaitLong(runAsOrganization(() -> entityDefinitionService.deleteById(car.getId())));
+            long definition = System.nanoTime() - start;
+
+            Tenant tenant = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(TEST_APP_ID, "Deleted " + run + " " + target, "benchmark")));
+            grantOnRows(person.getId(), tenant.getId(), viewer);
+            start = System.nanoTime();
+            awaitLong(runAsOrganization(() -> tenantService.deleteById(TEST_APP_ID, tenant.getId())));
+            long deletedTenant = System.nanoTime() - start;
+
+            start = System.nanoTime();
+            for (String placedTenant : tenants) {
+                await(relationships.read(appStore, AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
+                                                                    AuthzUtil.tenantDefinitionId(car.getId(), AuthzUtil.idOf(placedTenant)))));
+            }
+            line("| " + tenants.size() + " | " + ms(definition) + " | " + ms(deletedTenant) + " | " + ms(System.nanoTime() - start) + " |");
+        }
+    }
+
+    // A grant on a definition's rows within a tenant, with the edges the store holds for rows granted on
+    private void grantOnRows(String definitionId, String tenantId, String role) throws Exception {
+        await(relationships.ensure(appStore, AuthzGraphUtil.tenantDefinitionEdges(definitionId, tenantId)));
+        await(relationships.bind(appStore, role, AuthzGraphUtil.authzUser("del-" + suffix()),
+                                 AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(definitionId, tenantId))));
+    }
+
+    /**
      * Measures an application as the services its runtime registered grow in number, each declaring a type of its
      * own with three permissions: registering one more service, the time until a grant of its role admits a
-     * request, a pass of the store's reconcile, the requests of a user to a service and to the entities, and
-     * saving and listing the application's roles.
+     * request, generating the application's whole model and the model of one type, a pass of the store's
+     * reconcile, the requests of a user to a service and to the entities, and saving and listing the application's
+     * roles.
      */
     @Test
     @Timeout(value = 4, unit = TimeUnit.HOURS)
@@ -441,12 +510,17 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             line("the newest service's viewer was admitted " + ms(System.nanoTime() - registeredAt) + " ms after the last registration");
 
             long start = System.nanoTime();
-            AuthzModel model = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
-            line("model generated from the directory in " + ms(System.nanoTime() - start) + " ms: " + model.roles().size() + " roles, "
-                         + model.servicePermissions().size() + " permissions of services");
+            AuthzModel whole = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
+            line("the whole model, which the role and permission listings read, generated from the directory in " + ms(System.nanoTime() - start)
+                         + " ms: " + whole.roles().size() + " roles, " + whole.servicePermissions().size() + " permissions of services");
             start = System.nanoTime();
+            awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(newest), List.of()));
+            line("the model of the newest service's type, which a request and a grant read, generated in " + ms(System.nanoTime() - start) + " ms");
+            start = System.nanoTime();
+            AuthzModel model = awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(), List.of()));
             awaitLong(relationships.ensureModelWithRoles(appStore, model));
-            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms");
+            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms, for " + model.storedRoles().size()
+                         + " roles the store holds");
             AuthorizationModel engineModel = await(fga.readAuthorizationModels(appStoreId, 1, null)).getAuthorizationModels().getFirst();
             line("the engine's model has " + engineModel.getTypeDefinitions().size() + " types and "
                          + jsonMapper.writeValueAsString(engineModel).length() + " bytes");
@@ -882,12 +956,12 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         header();
         RelationshipTuple editing = tuple(alice, "project_can_edit", hotObject());
         row(measure("first check of a node (list stores + read model + check)", 1, 30, () -> {
-            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
             return new DefaultRelationshipService(fga, node, vertx).check(AuthzStoreService.SYSTEM, editing, Consistency.MINIMIZE_LATENCY);
         }));
 
         String store = "bench-grown-" + suffix();
-        AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+        AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
         await(stores.ensureStore(store));
         RelationshipService writer = new DefaultRelationshipService(fga, (DefaultAuthzStoreService) stores, vertx);
         AuthzModel kernel = generator.applicationModel(List.of(), List.of());
@@ -899,7 +973,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         List<Long> steady = new ArrayList<>();
         for (int i = 0; i < 30; i++) {
             await(stores.ensureModel(store, kernel));
-            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
             DefaultRelationshipService nodeRelationships = new DefaultRelationshipService(fga, node, vertx);
             await(node.modelId(store));
             await(stores.ensureModel(store, grown));
@@ -1072,7 +1146,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String binding = AuthzUtil.bindingObject(object, roleId);
         return List.of(new RelationshipTuple(AuthzUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
                        new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, binding),
-                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
+                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object),
+                       new RelationshipTuple(binding, "binding", "role_holders:" + roleId));
     }
 
     // ---------------------------------------------------------------- measuring

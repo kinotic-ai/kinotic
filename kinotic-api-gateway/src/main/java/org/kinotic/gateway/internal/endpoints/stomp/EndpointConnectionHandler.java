@@ -331,22 +331,34 @@ public class EndpointConnectionHandler {
 
     /**
      * Subscribes the connection to the destination.
-     * @return completes once the subscription is registered across the cluster, so an event sent to the
-     *         destination from any node reaches the connection
+     * @return completes once the connection is found allowed the destination and listens at it, with a future
+     *         that completes once the subscription is registered across the cluster, so an event sent to the
+     *         destination from any node reaches the connection; fails with an {@link AuthorizationException} when
+     *         the connection may not subscribe to the destination
      */
-    public Future<Void> subscribe(CRI cri,
-                                  String subscriptionIdentifier,
-                                  StompSubscriptionHandler subscriptionHandler) {
+    public Future<Future<Void>> subscribe(CRI cri,
+                                          String subscriptionIdentifier,
+                                          StompSubscriptionHandler subscriptionHandler) {
         Validate.notNull(cri, "CRI must not be null");
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
         signalActivity();
 
-        if (!stompAuthorizer.subscribeAllowed(cri)) {
-            throw new AuthorizationException("Not Authorized to subscribe to " + cri);
-        }
+        return stompAuthorizer.subscribeAllowed(cri).map(allowed -> {
+            if (!allowed) {
+                throw new AuthorizationException("Not Authorized to subscribe to " + cri);
+            }
+            // shutdown() may have run while the authorization was asked for, and a consumer registered after it
+            // would never be unregistered
+            if (stompAuthorizer == null) {
+                throw new IllegalStateException("The connection ended before it subscribed to " + cri);
+            }
+            return listen(cri, subscriptionIdentifier, subscriptionHandler);
+        });
+    }
 
+    private Future<Void> listen(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer;
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 
