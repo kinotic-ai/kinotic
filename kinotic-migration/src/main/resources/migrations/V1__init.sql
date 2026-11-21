@@ -234,6 +234,8 @@ CREATE TABLE IF NOT EXISTS kinotic_authz_store (
     id KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    engineStoreId KEYWORD,
+    engineModelId KEYWORD,
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (hash KEYWORD), observed OBJECT (hash KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN)
 );
 

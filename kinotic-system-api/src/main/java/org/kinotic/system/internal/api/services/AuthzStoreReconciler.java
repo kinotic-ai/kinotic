@@ -73,10 +73,13 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
                          if (intended == null) {
                              ret = Future.succeededFuture();
                          } else {
+                             // the ids are recorded before the report, so a reconciled record names the version
+                             // its servers check against
                              ret = relationships.ensureModelWithRoles(store, model)
-                                                .compose(version -> stores.reportObserved(store, revision,
-                                                                                          intended.getState().getGeneration(),
-                                                                                          "engine version " + version))
+                                                .compose(engine -> stores.saveEngineStore(store, engine, "engine")
+                                                                         .compose(v -> stores.reportObserved(store, revision,
+                                                                                                             intended.getState().getGeneration(),
+                                                                                                             "engine version " + engine.modelId())))
                                                 .onSuccess(v -> log.debug("Store '{}' reconciled to model {}", store, revision.hash()));
                          }
                          return ret;

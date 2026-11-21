@@ -134,6 +134,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
         assertEquals(TEST_ORG_ID, record.getOrganizationId());
         assertEquals(TEST_APP_ID, record.getApplicationId());
         assertTrue(awaitUntil(() -> await(stores.findById(store)).getState().isReconciled()), "the record never reconciled");
+        // a reconciled record names the engine's ids of the store, which the servers read there
+        AuthzStore reconciled = await(stores.findById(store));
+        assertEquals(await(storeService.ensureStore(store)), reconciled.getEngineStoreId());
+        assertNotNull(reconciled.getEngineModelId());
 
         // the roles of a definition's rows are the model's, whatever definitions the application holds
         Set<String> roles = roleIds();

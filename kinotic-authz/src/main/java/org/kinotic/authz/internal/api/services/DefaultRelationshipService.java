@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
+import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -256,7 +257,7 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<String> ensureModelWithRoles(String store, AuthzModel model) {
+    public Future<EngineStore> ensureModelWithRoles(String store, AuthzModel model) {
         // A check that runs while a role's tuples are being written can cache the role's answer from before the
         // write, valid for the engine's cache lifetime; the roles are written while no version yet grants through
         // their new relations, so no check against the model can read them before they are in step
@@ -264,7 +265,8 @@ public class DefaultRelationshipService implements RelationshipService {
         model.storedRoles().forEach((roleId, permissions) -> bundled.put(roleId, model.bundle(permissions)));
         return stores.ensureRoleRelations(store, model)
                      .compose(v -> converging(() -> reconcileRoles(store, bundled)))
-                     .compose(v -> stores.ensureModel(store, model));
+                     .compose(v -> stores.ensureModel(store, model))
+                     .compose(modelId -> stores.storeIdOf(store).map(storeId -> new EngineStore(storeId, modelId)));
     }
 
     private Future<Void> reconcileRoles(String store, Map<String, RolePermissions> roles) {

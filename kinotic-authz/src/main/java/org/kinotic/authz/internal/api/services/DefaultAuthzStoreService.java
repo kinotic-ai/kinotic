@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.EngineStoreRepository;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.springframework.beans.factory.InitializingBean;
@@ -25,10 +27,12 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +47,8 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     // the SDK's model classes bind by their own wire names, so the application's mapper customizations stay
     // out of the conversion in both directions
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
-    // how long a store's engine id and newest model version are kept before the engine is asked again
+    // how long a store's engine id and newest model version are kept before they are read again: from the
+    // records for every store this node has used at once, from the engine for a store with none recorded
     private static final long RETENTION_MILLIS = 30_000;
     private static final int STORE_PAGE_SIZE = 100;
     // the most versions the engine returns in one page
@@ -59,12 +64,24 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
     private final Vertx vertx;
-    // each store's engine id, kept once found, as a stage with no context of its own; a failed lookup is
-    // replaced by the next caller's, and a kept id is confirmed with the engine once the retention has passed
+    private final EngineStoreRepository engineStores;
+    // what the record of each store this node has used holds of the engine: its ids once they are recorded, none
+    // until then. Each is a stage with no context of its own; a failed read is made again by the next caller
+    private final Map<String, CompletableFuture<Optional<EngineStore>>> recorded = new ConcurrentHashMap<>();
+    // the store each engine store deleted on any node was of, by the engine's id, for as long as the store's record
+    // names it: the record is deleted after the engine's store, and the engine keeps answering for a deleted
+    // store, so the ids of a record read in between send no caller to it
+    private final Map<String, String> deleted = new ConcurrentHashMap<>();
+    // the engine id of each store with none recorded, kept once found, as a stage with no context of its own; a
+    // failed lookup is replaced by the next caller's, and a kept id is confirmed with the engine once the
+    // retention has passed
     private final Map<String, CompletableFuture<ResolvedStore>> storeIds = new ConcurrentHashMap<>();
     // the newest model version of each engine store, by the engine's id so a store re-created under a name
     // never answers with its predecessor's version
     private final Map<String, ModelVersion> modelVersions = new ConcurrentHashMap<>();
+    // the types of every version each engine store has run, by the engine's id, read again once the store has a
+    // newer version
+    private final Map<String, KnownTypes> knownTypes = new ConcurrentHashMap<>();
 
     @Override
     public Future<String> ensureStore(String store) {
@@ -93,6 +110,58 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     public void afterPropertiesSet() {
         vertx.eventBus().<JsonObject>consumer(STORE_DELETED_ADDRESS,
                                               message -> forgetIfKept(message.body().getString("store"), message.body().getString("id")));
+        vertx.setPeriodic(RETENTION_MILLIS, timer -> readRecorded());
+    }
+
+    // The ids the records hold now for every store this node has used, in one request, so no caller waits on it.
+    // A store whose record has gone, as a deleted application's has, or holds no ids yet is resolved from the
+    // engine by its next caller
+    private void readRecorded() {
+        Map<String, String> deletedBefore = Map.copyOf(deleted);
+        Set<String> used = new HashSet<>(recorded.keySet());
+        used.addAll(deletedBefore.values());
+        if (!used.isEmpty()) {
+            engineStores.findEngineStores(used)
+                        .onSuccess(found -> {
+                            used.forEach(store -> recorded.computeIfPresent(
+                                    store, (name, stage) -> CompletableFuture.completedFuture(recordedIn(found, name))));
+                            // a deletion announced since the read began has yet to be compared with its record
+                            deletedBefore.forEach((storeId, store) -> {
+                                EngineStore ids = found.get(store);
+                                if (ids == null || !ids.storeId().equals(storeId)) {
+                                    deleted.remove(storeId);
+                                }
+                            });
+                        })
+                        .onFailure(e -> log.warn("The recorded ids of the authorization stores could not be read, so the ones kept are used: {}",
+                                                 e.getMessage()));
+        }
+    }
+
+    private Future<Optional<EngineStore>> recordedOf(String store) {
+        CompletableFuture<Optional<EngineStore>> stage = recorded.get(store);
+        if (stage == null) {
+            CompletableFuture<Optional<EngineStore>> read = engineStores.findEngineStores(List.of(store))
+                                                                        .map(found -> recordedIn(found, store))
+                                                                        .toCompletionStage()
+                                                                        .toCompletableFuture();
+            stage = recorded.putIfAbsent(store, read);
+            if (stage == null) {
+                stage = read;
+                read.whenComplete((ids, e) -> {
+                    if (e != null) {
+                        recorded.remove(store, read);
+                    }
+                });
+            }
+        }
+        // each caller bridges the stage onto its own context, as storeIdOf does
+        return KinoticUtil.toFuture(stage);
+    }
+
+    // The ids a store's record names, taken as none while they are of an engine store deleted since
+    private Optional<EngineStore> recordedIn(Map<String, EngineStore> found, String store) {
+        return Optional.ofNullable(found.get(store)).filter(ids -> !deleted.containsKey(ids.storeId()));
     }
 
     @Override
@@ -102,9 +171,12 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                 .compose(ids -> {
                     Future<Void> ret = Future.succeededFuture();
                     for (String id : ids) {
-                        ret = ret.compose(v -> fga.deleteStore(id).onSuccess(deleted -> {
+                        ret = ret.compose(v -> fga.deleteStore(id).onSuccess(gone -> {
+                            deleted.put(id, store);
+                            recorded.remove(store);
                             storeIds.remove(store);
                             modelVersions.remove(id);
+                            knownTypes.remove(id);
                             vertx.eventBus().publish(STORE_DELETED_ADDRESS, new JsonObject().put("store", store).put("id", id));
                         }));
                     }
@@ -118,14 +190,22 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     // lookup still under way may have been answered before the deletion, so it is forgotten too and answers
     // only the callers already waiting on it
     private void forgetIfKept(String store, String storeId) {
+        // what the record holds is read again by the next caller
+        deleted.put(storeId, store);
+        recorded.remove(store);
         storeIds.computeIfPresent(store, (name, stage) -> stage.isDone() && !stage.isCompletedExceptionally()
                 && !stage.join().id().equals(storeId) ? stage : null);
         modelVersions.remove(storeId);
+        knownTypes.remove(storeId);
     }
 
     @Override
     public Future<String> modelId(String store) {
-        return storeIdOf(store).compose(storeId -> {
+        return recordedOf(store).compose(ids -> ids.isPresent() ? Future.succeededFuture(ids.get().modelId()) : resolvedModelId(store));
+    }
+
+    private Future<String> resolvedModelId(String store) {
+        return resolvedStoreIdOf(store).compose(storeId -> {
             ModelVersion kept = modelVersions.get(storeId);
             // every request's check names the version, so it is read once and kept; the reconciler's write of a
             // new version reaches a node within the retention, or at once where a check it refuses asks again
@@ -141,7 +221,11 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
      * since, or one without a relation the newest has.
      */
     Future<String> refreshModelId(String store) {
-        return storeIdOf(store).compose(storeId -> readModelId(store, storeId));
+        return storeIdOf(store).compose(storeId -> readModelId(store, storeId).onSuccess(
+                // a version newer than the recorded one answers until the record names it
+                newest -> recorded.computeIfPresent(store, (name, stage) -> stage.isDone() && !stage.isCompletedExceptionally() && stage.join().isPresent()
+                        ? CompletableFuture.completedFuture(Optional.of(new EngineStore(storeId, newest)))
+                        : stage)));
     }
 
     // The store's newest model version as the engine has it, kept in place of the one read before
@@ -277,7 +361,23 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
         return findStore(storeNameOf(store))
                 .compose(storeId -> storeId == null
                         ? Future.succeededFuture(Set.<String>of())
-                        : typesOf(storeId, null, new LinkedHashSet<>()));
+                        : latestModel(storeId).compose(latest -> typesUpTo(storeId, latest)));
+    }
+
+    // A version is immutable, so the types read up to the store's newest version hold until it has a newer one,
+    // and one version is read in place of every version the store has run
+    private Future<Set<String>> typesUpTo(String storeId, AuthorizationModel latest) {
+        KnownTypes known = knownTypes.get(storeId);
+        Future<Set<String>> ret;
+        if (latest == null) {
+            ret = Future.succeededFuture(Set.of());
+        } else if (known != null && known.newestModelId().equals(latest.getId())) {
+            ret = Future.succeededFuture(known.types());
+        } else {
+            ret = typesOf(storeId, null, new LinkedHashSet<>())
+                    .onSuccess(types -> knownTypes.put(storeId, new KnownTypes(latest.getId(), Set.copyOf(types))));
+        }
+        return ret;
     }
 
     private Future<Set<String>> typesOf(String storeId, String continuationToken, Set<String> collected) {
@@ -293,12 +393,18 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     }
 
     /**
-     * The engine's id of the store named as its record is, resolved once and kept. The engine keeps answering
-     * for a deleted store's tuples and models, so a kept id is confirmed with it once the retention has passed,
-     * and one of a store deleted since, as an application's is when the application is deleted and created
-     * again under its id, is resolved again by name. A failed lookup is made again by the next caller.
+     * The engine's id of the store named as its record is: the one its record holds, or for a store with none
+     * recorded the one the engine has under the store's name.
      */
     Future<String> storeIdOf(String store) {
+        return recordedOf(store).compose(ids -> ids.isPresent() ? Future.succeededFuture(ids.get().storeId()) : resolvedStoreIdOf(store));
+    }
+
+    // The engine's id of a store with none recorded, resolved by the store's name once and kept. The engine keeps
+    // answering for a deleted store's tuples and models, so a kept id is confirmed with it once the retention has
+    // passed, and one of a store deleted since, as an application's is when the application is deleted and
+    // created again under its id, is resolved again by name. A failed lookup is made again by the next caller
+    private Future<String> resolvedStoreIdOf(String store) {
         CompletableFuture<ResolvedStore> stage = storeIds.get(store);
         if (stale(stage)) {
             synchronized (this) {
@@ -337,6 +443,7 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
                          Future<String> again;
                          if (e instanceof FgaError error && error.isNotFoundError()) {
                              modelVersions.remove(kept.id());
+                             knownTypes.remove(kept.id());
                              again = requireStore(store);
                          } else {
                              again = Future.failedFuture(e);

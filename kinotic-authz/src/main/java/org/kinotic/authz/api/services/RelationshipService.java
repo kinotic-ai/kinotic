@@ -3,6 +3,7 @@ package org.kinotic.authz.api.services;
 import io.vertx.core.Future;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
+import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
@@ -161,9 +162,9 @@ public interface RelationshipService {
      *
      * @param store the store, named as its record is
      * @param model the model the store must run
-     * @return the id of the version the store now runs, the one every check names
+     * @return the engine's ids of the store, with the version it now runs, for the store's record to name
      */
-    Future<String> ensureModelWithRoles(String store, AuthzModel model);
+    Future<EngineStore> ensureModelWithRoles(String store, AuthzModel model);
 
     /**
      * Grants a role to a member on a resource: the member joins the one binding the role has on the resource,

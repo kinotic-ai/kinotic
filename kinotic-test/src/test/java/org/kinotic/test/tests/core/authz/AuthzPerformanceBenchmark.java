@@ -33,6 +33,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
@@ -140,6 +141,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private OpenFgaService fga;
     @Autowired
     private KinoticAuthzProperties authzProperties;
+    @Autowired
+    private AuthzStoreRepository storeRecords;
     @Autowired
     private AuthzModelGenerator generator;
     @Autowired
@@ -888,12 +891,12 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         header();
         RelationshipTuple editing = tuple(alice, "project_can_edit", hotObject());
         row(measure("first check of a node (list stores + read model + check)", 1, 30, () -> {
-            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
             return new DefaultRelationshipService(fga, node, vertx).check(AuthzStoreService.SYSTEM, editing, Consistency.MINIMIZE_LATENCY);
         }));
 
         String store = "bench-grown-" + suffix();
-        AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+        AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
         await(stores.ensureStore(store));
         RelationshipService writer = new DefaultRelationshipService(fga, (DefaultAuthzStoreService) stores, vertx);
         AuthzModel kernel = generator.applicationModel(List.of(), List.of());
@@ -905,7 +908,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         List<Long> steady = new ArrayList<>();
         for (int i = 0; i < 30; i++) {
             await(stores.ensureModel(store, kernel));
-            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
             DefaultRelationshipService nodeRelationships = new DefaultRelationshipService(fga, node, vertx);
             await(node.modelId(store));
             await(stores.ensureModel(store, grown));

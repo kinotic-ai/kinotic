@@ -12,7 +12,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AccessExplanation;
+import org.kinotic.authz.InMemoryEngineStoreRepository;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
@@ -97,6 +99,8 @@ class OpenFgaIntegrationTest {
     private KinoticAuthzProperties properties;
     @Autowired
     private Vertx vertx;
+    @Autowired
+    private InMemoryEngineStoreRepository engineStores;
 
     @BeforeAll
     static void startEngine() throws Exception {
@@ -153,7 +157,7 @@ class OpenFgaIntegrationTest {
 
         assertEquals(modelId, await(storeService.ensureModel(SYSTEM, model)));
         // every node resolves the same store
-        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties, vertx).ensureModel(SYSTEM, model)));
+        assertEquals(modelId, await(new DefaultAuthzStoreService(fga, properties, vertx, engineStores).ensureModel(SYSTEM, model)));
         String systemStoreId = await(fga.listStores(100, null, SYSTEM_STORE_NAME))
                 .getStores().getFirst().getId();
         assertEquals(modelId, await(fga.readAuthorizationModels(systemStoreId, 1, null))
@@ -164,7 +168,7 @@ class OpenFgaIntegrationTest {
     void anUnreachableEngineFailsTheCallAndTheNodeKeepsRunning() {
         KinoticAuthzProperties unreachable = new KinoticAuthzProperties();
         unreachable.getAuthz().setApiUrl("http://127.0.0.1:1");
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable, vertx);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(new OpenFgaService(unreachable), unreachable, vertx, engineStores);
         AuthzModel model = generator.systemModel(List.of(projectService()));
 
         assertThrows(ExecutionException.class, () -> await(node.ensureModel(SYSTEM, model)));
@@ -192,7 +196,7 @@ class OpenFgaIntegrationTest {
 
         assertEquals(storeId, await(storeService.ensureStore(store)));
         // every node resolves the store the first created, by its name
-        assertEquals(storeId, await(new DefaultAuthzStoreService(fga, properties, vertx).ensureStore(store)));
+        assertEquals(storeId, await(new DefaultAuthzStoreService(fga, properties, vertx, engineStores).ensureStore(store)));
         String modelId = await(storeService.ensureModel(store, model));
         assertEquals(modelId, await(storeService.modelId(store)));
         await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:bob", "end_user", "application:" + store))));
@@ -215,7 +219,7 @@ class OpenFgaIntegrationTest {
         String store = "together-" + System.nanoTime();
         List<Future<String>> creators = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
-            creators.add(new DefaultAuthzStoreService(fga, properties, vertx).ensureStore(store));
+            creators.add(new DefaultAuthzStoreService(fga, properties, vertx, engineStores).ensureStore(store));
         }
 
         await(Future.all(creators));
@@ -235,7 +239,7 @@ class OpenFgaIntegrationTest {
         String storeId = await(storeService.ensureStore(store));
         await(relationshipService.ensureModelWithRoles(store, kernel));
 
-        String grownModelId = await(relationshipService.ensureModelWithRoles(store, grown));
+        String grownModelId = await(relationshipService.ensureModelWithRoles(store, grown)).modelId();
 
         // the version before the grown one carries the role relations of the tenant's permission, and no type
         // grants through them
@@ -247,8 +251,57 @@ class OpenFgaIntegrationTest {
         assertTrue(relationsOf(bridge, "tenant").contains("entity_definition_can_read"));
         assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "tenant_can_read", AuthzUtil.roleObject("application.admin")))));
         // a model in step writes nothing more
-        assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)));
+        assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)).modelId());
         assertEquals(versions.size(), await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().size());
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aStoreIsCalledByTheIdsItsRecordNamesAndByTheNewestVersionOnceThatOneRefuses() throws Exception {
+        String store = "recorded-" + System.nanoTime();
+        AuthzModel kernel = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        AuthzModel grown = generator.applicationModel(List.of(entitiesRepository(), tenantService()), List.of());
+        await(storeService.ensureStore(store));
+        EngineStore withKernel = await(relationshipService.ensureModelWithRoles(store, kernel));
+        EngineStore withGrown = await(relationshipService.ensureModelWithRoles(store, grown));
+        await(relationshipService.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
+        RelationshipTuple reading = new RelationshipTuple("user:bob", "tenant_can_read", "tenant:t1");
+
+        // the engine has no store under this name, so the ids are the record's
+        String recorded = "recorded-as-" + System.nanoTime();
+        engineStores.save(recorded, withGrown);
+        assertEquals(withGrown.modelId(), await(storeService.modelId(recorded)));
+        assertTrue(await(relationshipService.check(recorded, reading, Consistency.HIGHER_CONSISTENCY)));
+
+        // a record naming the version before the newest: that version refuses a relation it lacks, and the newest
+        // answers from then on
+        String behind = "recorded-behind-" + System.nanoTime();
+        engineStores.save(behind, withKernel);
+        assertEquals(withKernel.modelId(), await(storeService.modelId(behind)));
+        assertTrue(await(relationshipService.check(behind, reading, Consistency.HIGHER_CONSISTENCY)));
+        assertEquals(withGrown.modelId(), await(storeService.modelId(behind)));
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aRecordNamingTheStoreDeletedUnderItsNameGivesWayToTheStoreCreatedAgain() throws Exception {
+        String store = "recorded-deleted-" + System.nanoTime();
+        AuthzModel model = generator.applicationModel(List.of(), List.of());
+        // written through another node, so this one first reads the store's record once it names the ids
+        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx, engineStores);
+        String storeId = await(elsewhere.ensureStore(store));
+        String modelId = await(elsewhere.ensureModel(store, model));
+        engineStores.save(store, new EngineStore(storeId, modelId));
+        assertEquals(modelId, await(storeService.modelId(store)));
+
+        // the record outlives the engine's store, as an application's does while the application is deleted
+        await(storeService.deleteStore(store));
+        String recreated = await(storeService.ensureStore(store));
+        String recreatedModelId = await(storeService.ensureModel(store, model));
+
+        assertNotEquals(storeId, recreated);
+        assertNotEquals(modelId, recreatedModelId);
+        assertEquals(recreatedModelId, await(storeService.modelId(store)));
         await(storeService.deleteStore(store));
     }
 
@@ -265,7 +318,7 @@ class OpenFgaIntegrationTest {
         String store = "recreated-" + System.nanoTime();
         AuthzModel model = generator.applicationModel(List.of(), List.of());
         RelationshipTuple bob = new RelationshipTuple("user:bob", "end_user", "application:" + store);
-        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx);
+        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx, engineStores);
         DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere, vertx);
         String storeId = await(storeService.ensureStore(store));
         String modelId = await(storeService.ensureModel(store, model));
@@ -298,7 +351,7 @@ class OpenFgaIntegrationTest {
     @Test
     void aCheckOnARelationTheKeptVersionLacksIsAnsweredByTheNewest() throws Exception {
         String store = "grown-" + System.nanoTime();
-        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx);
+        DefaultAuthzStoreService elsewhere = new DefaultAuthzStoreService(fga, properties, vertx, engineStores);
         DefaultRelationshipService relationshipsElsewhere = new DefaultRelationshipService(fga, elsewhere, vertx);
         await(storeService.ensureStore(store));
         String modelId = await(storeService.ensureModel(store, generator.applicationModel(List.of(), List.of())));
@@ -544,10 +597,10 @@ class OpenFgaIntegrationTest {
         String store = "acme.crm-services";
         await(storeService.ensureStore(store));
         String kernelModelId = await(relationshipService.ensureModelWithRoles(
-                store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+                store, generator.applicationModel(List.of(entitiesRepository()), List.of()))).modelId();
         AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of(reportService(), chartService()));
         // a service's permissions are named by roles alone, so its registration writes no version of the model
-        assertEquals(kernelModelId, await(relationshipService.ensureModelWithRoles(store, model)));
+        assertEquals(kernelModelId, await(relationshipService.ensureModelWithRoles(store, model)).modelId());
         String application = "application:crm-services";
         await(relationshipService.ensure(store, List.of(new RelationshipTuple(application, "application", "tenant:north"),
                                                         new RelationshipTuple(application, "application", "tenant:south"))));
@@ -1032,7 +1085,7 @@ class OpenFgaIntegrationTest {
     @Test
     void theStoreResolvedOnOneContextKeepsLaterCallersOnTheirOwn() throws Exception {
         // the store is resolved once and kept, so every caller after the first composes on a kept result
-        DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties, vertx);
+        DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, properties, vertx, engineStores);
         await(onContext(vertx.getOrCreateContext(), () -> node.modelId(SYSTEM)));
         Context later = vertx.getOrCreateContext();
 
