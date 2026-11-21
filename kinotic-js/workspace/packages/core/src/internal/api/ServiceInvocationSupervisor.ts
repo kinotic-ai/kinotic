@@ -73,8 +73,9 @@ export class ServiceInvocationSupervisor {
 
         this.methodMap = this.buildMethodMap(serviceInstance)
         this.scopeOptionalMethods = scopeOptionalMethodNames(serviceInstance)
+        // a generated definition leaves out the parameters of a function that takes none
         this.parameterNames = options.serviceDefinition
-            ? new Map(options.serviceDefinition.functions.map(f => [f.name, f.parameters.map(p => p.name)]))
+            ? new Map(options.serviceDefinition.functions.map(f => [f.name, (f.parameters ?? []).map(p => p.name)]))
             : null
         // Names the instrumentation scope, which is the library emitting the span rather than the
         // application being traced. The application identifies itself through the SDK's resource.

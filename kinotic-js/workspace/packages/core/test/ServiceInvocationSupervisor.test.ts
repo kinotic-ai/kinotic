@@ -70,6 +70,8 @@ function supervisedDefinition(): ServiceDefinition {
     const ret = new ServiceDefinition('SupervisedService', 'com.example')
     ret.addFunction(new FunctionDefinition('subtract').addParameter('from', new IntC3Type()).addParameter('amount', new IntC3Type()))
     ret.addFunction(new FunctionDefinition('labelled').addParameter('label', new StringC3Type()))
+    // as the generated module declares a function that takes no parameters
+    ret.functions.push({ name: 'greet' } as FunctionDefinition)
     return ret
 }
 
@@ -233,10 +235,11 @@ describe('service invocation supervisor', () => {
         // the context follows the arguments sent, as it follows positional ones
         invoke(server.current, 'labelled', 'c3', { ...named, [EventConstants.SENDER_HEADER]: JSON.stringify(CALLER) }, JSON.stringify({ label: 'a' }))
         invoke(server.current, 'subtract', 'c4', named, JSON.stringify({ from: 5, extra: 1 }))
+        invoke(server.current, 'greet', 'c5', named, '{}')
         await sleep(50)
 
         const sent = replies(server.current)
-        expect(sent.map(f => f.body)).toEqual(['"5-2"', '"5-null"', JSON.stringify({ label: 'a', caller: 'org-user' }), expect.anything()])
+        expect(sent.map(f => f.body)).toEqual(['"5-2"', '"5-null"', JSON.stringify({ label: 'a', caller: 'org-user' }), expect.anything(), '"hi"'])
         expect(sent[3]!.headers[EventConstants.ERROR_HEADER]).toContain("'extra'")
         supervisor.stop()
         await bus.disconnect()
