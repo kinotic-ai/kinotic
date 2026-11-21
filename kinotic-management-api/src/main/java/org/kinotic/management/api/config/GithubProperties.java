@@ -67,4 +67,7 @@ public class GithubProperties {
      */
     @NotBlank
     private String repoTemplate;
+
+    /** The separate GitHub App that files feedback as issues on the Kinotic repository. */
+    private GithubFeedbackAppProperties feedbackApp = new GithubFeedbackAppProperties();
 }

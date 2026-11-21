@@ -105,7 +105,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                   .expireAfter(TOKEN_EXPIRY)
                                   .maximumSize(10_000)
                                   .buildAsync((TokenKey key, Executor _) ->
-                                                      mintToken(key.installationId(), key.repoId(), key.permissions())
+                                                      mintToken(jwtFactory.getAppJwt(), key.installationId(), key.repoId(), key.permissions())
                                                               .toCompletionStage()
                                                               .toCompletableFuture());
     }
@@ -354,8 +354,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     @Override
-    public Future<Long> findRepositoryInstallationId(String repoFullName) {
-        return request(HttpMethod.GET, "/repos/" + repoFullName + "/installation", jwtFactory.getAppJwt())
+    public Future<Long> findRepositoryInstallationId(String appJwt, String repoFullName) {
+        return request(HttpMethod.GET, "/repos/" + repoFullName + "/installation", appJwt)
                 .send()
                 .compose(resp -> resp.statusCode() == 200
                         ? Future.succeededFuture(resp.bodyAsJsonObject().getLong("id"))
@@ -420,7 +420,13 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                         .putHeader(API_VERSION_HEADER, API_VERSION);
     }
 
-    private Future<GitHubToken> mintToken(long installationId,
+    @Override
+    public Future<GitHubToken> createInstallationToken(String appJwt, long installationId, Map<String, String> permissions) {
+        return mintToken(appJwt, installationId, null, permissions);
+    }
+
+    private Future<GitHubToken> mintToken(String appJwt,
+                                          long installationId,
                                           Long repoId,
                                           Map<String, String> permissions) {
         JsonObject body = new JsonObject();
@@ -432,8 +438,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
             permissions.forEach(perms::put);
             body.put("permissions", perms);
         }
-        return request(HttpMethod.POST, "/app/installations/" + installationId + "/access_tokens",
-                       jwtFactory.getAppJwt())
+        return request(HttpMethod.POST, "/app/installations/" + installationId + "/access_tokens", appJwt)
                 .sendJsonObject(body)
                 .compose(resp -> {
                     if (resp.statusCode() / 100 != 2) {

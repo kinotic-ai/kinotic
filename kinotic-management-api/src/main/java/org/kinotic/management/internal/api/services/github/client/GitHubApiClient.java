@@ -137,9 +137,16 @@ public interface GitHubApiClient {
     Future<List<InstallationDetails>> listUserInstallations(String userAccessToken);
 
     /**
-     * The id of the system's GitHub App installation that covers the repo {@code repoFullName}.
+     * The id of the installation, of the App that signed {@code appJwt}, that covers the repo
+     * {@code repoFullName}.
      */
-    Future<Long> findRepositoryInstallationId(String repoFullName);
+    Future<Long> findRepositoryInstallationId(String appJwt, String repoFullName);
+
+    /**
+     * Mints a new installation access token for an installation of the App that signed {@code appJwt},
+     * limited to {@code permissions}.
+     */
+    Future<GitHubToken> createInstallationToken(String appJwt, long installationId, Map<String, String> permissions);
 
     /**
      * The login of the user behind {@code userAccessToken}.

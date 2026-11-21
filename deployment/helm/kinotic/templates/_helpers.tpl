@@ -41,7 +41,7 @@ Takes (dict "image" <repository and sha> "root" $).
 The files a server's system-secrets volume holds, as a YAML list of the Key Vault secret each
 comes from and the file name it is mounted as: the server's own JWT key set, and
 the properties Spring imports from the directory as a config tree, each file named after the
-property it sets. The GitHub App's secrets go only to a server with githubApp set, the Turnstile
+property it sets. The GitHub Apps' secrets go only to a server with githubApp set, the Turnstile
 site's secret only to one with turnstile set.
 Takes (dict "name" <server key> "server" <server values> "root" $).
 */}}
@@ -56,6 +56,8 @@ Takes (dict "name" <server key> "server" <server values> "root" $).
   path: kinotic.managementApi.github.appPrivateKey
 - object: {{ $objects.githubWebhookSecret }}
   path: kinotic.managementApi.github.webhookSecret
+- object: {{ $objects.githubFeedbackAppPrivateKey }}
+  path: kinotic.managementApi.github.feedbackApp.appPrivateKey
 {{- end }}
 {{- if .server.cloudflareDns }}
 - object: {{ $objects.cloudflareDnsApiToken }}

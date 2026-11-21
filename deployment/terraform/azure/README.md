@@ -92,6 +92,7 @@ terraform init
 # cloudflare_account_id and cloudflare_api_token in local.auto.tfvars (gitignored)
 TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... TF_VAR_cloudflare_dns_api_token=... \
   TF_VAR_github_app_private_key="$(cat <the App's private-key .pem>)" TF_VAR_github_webhook_secret=... \
+  TF_VAR_github_feedback_app_private_key="$(cat <the feedback App's private-key .pem>)" \
   terraform apply
 ```
 

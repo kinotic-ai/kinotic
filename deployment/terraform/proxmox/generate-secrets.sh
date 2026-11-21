@@ -47,7 +47,12 @@ github_yaml="  managementApi:
       appPrivateKey: |
         -----BEGIN RSA PRIVATE KEY-----
         -----END RSA PRIVATE KEY-----
-      webhookSecret: \"\""
+      webhookSecret: \"\"
+      feedbackApp:
+        # The kinotic-feedback GitHub App's private key, from its settings page
+        appPrivateKey: |
+          -----BEGIN RSA PRIVATE KEY-----
+          -----END RSA PRIVATE KEY-----"
 turnstile_yaml="  managementServer:
     turnstile:
       # The portal's Turnstile site's secret key: terraform output -raw turnstile_secret_key, in

@@ -3,7 +3,6 @@ package org.kinotic.management.internal.api.services;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -11,10 +10,13 @@ import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.config.GithubFeedbackAppProperties;
+import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.feedback.FeedbackIssue;
 import org.kinotic.management.api.model.feedback.FeedbackSubmission;
 import org.kinotic.management.api.services.FeedbackService;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
+import org.kinotic.management.internal.api.services.github.client.GitHubAppJwtFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -23,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class DefaultFeedbackService implements FeedbackService {
 
     private static final String FEEDBACK_REPO = "kinotic-ai/kinotic";
@@ -34,6 +35,8 @@ public class DefaultFeedbackService implements FeedbackService {
 
     private final SecurityContext securityContext;
     private final GitHubApiClient gitHubApiClient;
+    // null while the feedback App is not configured
+    private final GitHubAppJwtFactory feedbackAppJwtFactory;
 
     // a fixed one-hour window per organization, opened by its first send; each node counts its own sends
     private final Cache<String, AtomicInteger> sendsByOrganization = Caffeine.newBuilder()
@@ -41,8 +44,20 @@ public class DefaultFeedbackService implements FeedbackService {
                                                                              .maximumSize(10_000)
                                                                              .build();
 
+    public DefaultFeedbackService(SecurityContext securityContext,
+                                  GitHubApiClient gitHubApiClient,
+                                  GithubProperties githubProperties) {
+        this.securityContext = securityContext;
+        this.gitHubApiClient = gitHubApiClient;
+        GithubFeedbackAppProperties feedbackApp = githubProperties.getFeedbackApp();
+        this.feedbackAppJwtFactory = StringUtils.isNotBlank(feedbackApp.getAppId())
+                ? new GitHubAppJwtFactory(feedbackApp.getAppId(), feedbackApp.getAppPrivateKey())
+                : null;
+    }
+
     @Override
     public Future<FeedbackIssue> send(FeedbackSubmission submission) {
+        Validate.validState(feedbackAppJwtFactory != null, "Sending feedback is not configured on this server");
         Validate.notNull(submission, "submission is required");
         Validate.notNull(submission.getType(), "type is required");
         Validate.notBlank(submission.getTitle(), "title is required");
@@ -64,8 +79,11 @@ public class DefaultFeedbackService implements FeedbackService {
 
         String title = submission.getTitle().strip();
         String body = issueBody(submission, sender);
-        return gitHubApiClient.findRepositoryInstallationId(FEEDBACK_REPO)
-                              .compose(installationId -> gitHubApiClient.getToken(installationId, null, GitHubApiClient.WRITE_ISSUES))
+        String appJwt = feedbackAppJwtFactory.getAppJwt();
+        return gitHubApiClient.findRepositoryInstallationId(appJwt, FEEDBACK_REPO)
+                              .compose(installationId -> gitHubApiClient.createInstallationToken(appJwt,
+                                                                                                 installationId,
+                                                                                                 GitHubApiClient.WRITE_ISSUES))
                               .compose(token -> gitHubApiClient.createIssue(token.getToken(),
                                                                             FEEDBACK_REPO,
                                                                             title,
