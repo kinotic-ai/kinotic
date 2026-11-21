@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.github.client;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.management.api.model.feedback.FeedbackIssue;
 import org.kinotic.management.api.model.github.GitHubToken;
 
 import java.util.List;
@@ -48,12 +49,12 @@ public interface GitHubApiClient {
                                 String treeSha);
 
     /**
-     * Opens an issue on {@code repoFullName}.
+     * Opens an issue on {@code repoFullName}, returning its number and page.
      *
      * @param installationToken token with {@code issues:write} on the target repo
      * @param labels            labels the issue carries
      */
-    Future<CreatedIssue> createIssue(String installationToken,
+    Future<FeedbackIssue> createIssue(String installationToken,
                                      String repoFullName,
                                      String title,
                                      String body,

@@ -21,7 +21,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -62,11 +64,8 @@ public class DefaultFeedbackService implements FeedbackService {
         Validate.isTrue(submission.getTitle().length() <= MAX_TITLE_LENGTH,
                         "title must be at most %d characters", MAX_TITLE_LENGTH);
         Validate.notBlank(submission.getDescription(), "description is required");
-        for (String text : List.of(StringUtils.defaultString(submission.getDescription()),
-                                   StringUtils.defaultString(submission.getStepsToReproduce()),
-                                   StringUtils.defaultString(submission.getExpectedBehavior()),
-                                   StringUtils.defaultString(submission.getActualBehavior()),
-                                   StringUtils.defaultString(submission.getLocation()))) {
+        Map<String, String> sections = issueSections(submission);
+        for (String text : sections.values()) {
             Validate.isTrue(text.length() <= MAX_TEXT_LENGTH, "each field must be at most %d characters", MAX_TEXT_LENGTH);
         }
 
@@ -76,7 +75,7 @@ public class DefaultFeedbackService implements FeedbackService {
                             "Your organization has sent %d pieces of feedback in the last hour; try again later", SENDS_PER_HOUR);
 
         String title = submission.getTitle().strip();
-        String body = issueBody(submission, sender);
+        String body = issueBody(sections, sender);
         String appJwt = internalAppJwtFactory.getAppJwt();
         return gitHubApiClient.findRepositoryInstallationId(appJwt, FEEDBACK_REPO)
                               .compose(installationId -> gitHubApiClient.createInstallationToken(appJwt,
@@ -87,29 +86,31 @@ public class DefaultFeedbackService implements FeedbackService {
                                                                             title,
                                                                             body,
                                                                             List.of(submission.getType().getIssueLabel(), FEEDBACK_LABEL)))
-                              .map(created -> {
-                                  // the issue is public, so the organization and sender are recorded only here
-                                  log.info("Feedback from participant {} of organization {} filed as {}",
-                                           sender.getId(), sender.getOrganizationId(), created.htmlUrl());
-                                  return new FeedbackIssue().setNumber(created.number()).setUrl(created.htmlUrl());
-                              });
+                              // the issue is public, so the organization and sender are recorded only here
+                              .onSuccess(issue -> log.info("Feedback from participant {} of organization {} filed as {}",
+                                                           sender.getId(), sender.getOrganizationId(), issue.getUrl()));
     }
 
-    private static String issueBody(FeedbackSubmission submission, OrganizationParticipant sender) {
+    // the issue's sections by heading, in the order the body shows them, each blank when not given
+    private static Map<String, String> issueSections(FeedbackSubmission submission) {
+        Map<String, String> ret = new LinkedHashMap<>();
+        ret.put("Description", StringUtils.defaultString(submission.getDescription()));
+        ret.put("Steps to reproduce", StringUtils.defaultString(submission.getStepsToReproduce()));
+        ret.put("Expected behavior", StringUtils.defaultString(submission.getExpectedBehavior()));
+        ret.put("Actual behavior", StringUtils.defaultString(submission.getActualBehavior()));
+        ret.put("Where", StringUtils.defaultString(submission.getLocation()));
+        return ret;
+    }
+
+    private static String issueBody(Map<String, String> sections, OrganizationParticipant sender) {
         StringBuilder body = new StringBuilder();
-        appendSection(body, "Description", submission.getDescription());
-        appendSection(body, "Steps to reproduce", submission.getStepsToReproduce());
-        appendSection(body, "Expected behavior", submission.getExpectedBehavior());
-        appendSection(body, "Actual behavior", submission.getActualBehavior());
-        appendSection(body, "Where", submission.getLocation());
+        sections.forEach((heading, text) -> {
+            if (StringUtils.isNotBlank(text)) {
+                body.append("### ").append(heading).append("\n\n").append(text.strip()).append("\n\n");
+            }
+        });
         body.append("---\n_Sent from Kinotic by ").append(senderDescription(sender)).append("._\n");
         return body.toString();
-    }
-
-    private static void appendSection(StringBuilder body, String heading, String text) {
-        if (StringUtils.isNotBlank(text)) {
-            body.append("### ").append(heading).append("\n\n").append(text.strip()).append("\n\n");
-        }
     }
 
     // names only an agent's client, never a person or machine, since the issue is public

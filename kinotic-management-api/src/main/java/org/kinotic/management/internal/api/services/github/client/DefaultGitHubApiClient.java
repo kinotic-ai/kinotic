@@ -19,6 +19,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.management.api.model.feedback.FeedbackIssue;
 import org.kinotic.management.api.model.github.GitHubToken;
 import org.springframework.stereotype.Component;
 
@@ -152,7 +153,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     @Override
-    public Future<CreatedIssue> createIssue(String installationToken,
+    public Future<FeedbackIssue> createIssue(String installationToken,
                                             String repoFullName,
                                             String title,
                                             String body,
@@ -165,8 +166,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                 .compose(resp -> {
                     if (resp.statusCode() == 201) {
                         JsonObject json = resp.bodyAsJsonObject();
-                        return Future.succeededFuture(new CreatedIssue(json.getInteger("number"),
-                                                                       json.getString("html_url")));
+                        return Future.succeededFuture(new FeedbackIssue().setNumber(json.getInteger("number"))
+                                                                         .setUrl(json.getString("html_url")));
                     }
                     return Future.failedFuture(httpError("createIssue", resp));
                 });

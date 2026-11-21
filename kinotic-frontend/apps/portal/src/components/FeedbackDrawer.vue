@@ -32,14 +32,18 @@ const TYPE_OPTIONS = [
 const route = useRoute()
 const toast = useToast()
 
-const form = reactive({
-  type: FeedbackType.BUG_REPORT,
-  title: '',
-  description: '',
-  stepsToReproduce: '',
-  expectedBehavior: '',
-  actualBehavior: ''
-})
+function emptyForm() {
+  return {
+    type: FeedbackType.BUG_REPORT,
+    title: '',
+    description: '',
+    stepsToReproduce: '',
+    expectedBehavior: '',
+    actualBehavior: ''
+  }
+}
+
+const form = reactive(emptyForm())
 
 const sending = ref(false)
 const sent = ref<FeedbackIssue | null>(null)
@@ -49,12 +53,7 @@ const isSubmitDisabled = computed(() => sending.value || form.title.trim() === '
 const pagePattern = computed(() => route.matched.at(-1)?.path ?? route.path)
 
 function resetForm(): void {
-  form.type = FeedbackType.BUG_REPORT
-  form.title = ''
-  form.description = ''
-  form.stepsToReproduce = ''
-  form.expectedBehavior = ''
-  form.actualBehavior = ''
+  Object.assign(form, emptyForm())
   sent.value = null
 }
 
