@@ -18,6 +18,12 @@ Organization administrators manage the organization from **Organization settings
 
 For how organizations, users, and OIDC configurations work under the hood, see [Organization Management](https://kinotic.ai/platform/organization-management).
 
+## Sending feedback
+
+Anyone in the organization can report a bug or request a feature with **Send feedback** in the portal's header. An AI agent connected through [MCP](https://kinotic.ai/platform/mcp-tools) can do the same with the Feedback Service Send tool, so an agent that hits a problem with Kinotic can report it while it works. Feedback is offered only where the server has an [internal GitHub App](https://kinotic.ai/platform/configuration#internal-github-app), as Kinotic Cloud does; elsewhere neither the button nor the tool appears.
+
+Each piece of feedback is filed as a public issue on [kinotic-ai/kinotic](https://github.com/kinotic-ai/kinotic/issues), labelled `bug` or `enhancement` and `feedback`, and the portal links to it once it is sent; screenshots and logs go in a comment on the issue. The issue holds what the sender wrote, the portal page's route pattern (which names no application or project), and whether a user, an AI agent (by its client's name) or a machine identity sent it. It never names the organization or the person, so leave out secrets, personal data and the names of your applications and projects. An organization can send ten pieces of feedback an hour.
+
 
 ## Sitemap
 

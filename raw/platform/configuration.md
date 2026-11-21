@@ -1198,6 +1198,91 @@ seeds is this App's own OAuth client: its client id and secret are the App's. Gi
 every account the App is already installed on to approve a permission added later, and the App's tokens
 for that account carry the permission only once they do.
 
+## Internal GitHub App
+
+The feedback organizations send (see [Sending feedback](https://kinotic.ai/organizations/overview#sending-feedback)) is filed
+as issues on `kinotic-ai/kinotic` by a second GitHub App, kept apart from the one organizations install so
+that theirs never asks for access to issues. That App is `kinotic-internal`, whose id the servers'
+`application.yml` sets as `kinotic.managementApi.github.internalApp.appId`, and it signs with
+`internalApp.appPrivateKey`. While `appPrivateKey` is unset, as on a self-hosted installation (set the Helm
+value `systemSecrets.objects.githubInternalAppPrivateKey` empty to mount none), the server offers no
+feedback: the portal hides **Send feedback** and agents get no Feedback Service Send tool.
+Its settings on GitHub must hold:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Setting
+    </th>
+    
+    <th>
+      Value
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Repository permissions → Issues
+    </td>
+    
+    <td>
+      Read and write
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Repository permissions → Metadata
+    </td>
+    
+    <td>
+      Read-only
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Webhook
+    </td>
+    
+    <td>
+      Inactive
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Where can this GitHub App be installed?
+    </td>
+    
+    <td>
+      Only on this account
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Installed on
+    </td>
+    
+    <td>
+      <code>
+        kinotic-ai
+      </code>
+      
+      , with access to the <code>
+        kinotic
+      </code>
+      
+       repository only
+    </td>
+  </tr>
+</tbody>
+</table>
+
 ## Application API hosts
 
 Each application has an API host of its own, its `<organizationId>--<applicationId>` label

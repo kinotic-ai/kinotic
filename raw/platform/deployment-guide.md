@@ -130,6 +130,32 @@ sets:
   <tr>
     <td>
       <code>
+        kinotic.managementApi.github.internalApp.appPrivateKey
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic-github-internal-app-private-key
+      </code>
+    </td>
+    
+    <td>
+      the same, unless the Helm value <code>
+        systemSecrets.objects.githubInternalAppPrivateKey
+      </code>
+      
+       is empty; a server without it offers no feedback (see <a href="https://kinotic.ai/platform/configuration#internal-github-app">
+        Internal GitHub App
+      </a>
+      
+      )
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         kinotic.domain.publishedSites.cloudflare.apiToken
       </code>
     </td>
@@ -183,7 +209,9 @@ refuses new ones while the cluster's installed key does not turn the feature on,
 
 A server picks up a rotated JWT key set while it runs, and an imported secret when it restarts.
 On Azure the global terraform seeds the master key and takes the GitHub App's key and webhook
-secret from `TF_VAR_github_app_private_key` and `TF_VAR_github_webhook_secret`.
+secret from `TF_VAR_github_app_private_key` and `TF_VAR_github_webhook_secret`, and the internal GitHub
+App's key from `TF_VAR_github_internal_app_private_key`. Every secret the chart mounts must exist in the Key
+Vault before the servers roll out, or their pods wait in `ContainerCreating` for it.
 
 ### Docker Compose (Local Development)
 
