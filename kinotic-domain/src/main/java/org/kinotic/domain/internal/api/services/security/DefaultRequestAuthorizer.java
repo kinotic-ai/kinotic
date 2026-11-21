@@ -11,6 +11,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
@@ -52,7 +53,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -94,10 +94,6 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                new Resource(AuthzConstants.APPLICATION_TYPE, "{" + AuthzConstants.APPLICATION_ID_REFERENCE + "}"),
                                                                new Resource(AuthzConstants.ORGANIZATION_TYPE, "{" + AuthzConstants.ORGANIZATION_ID_REFERENCE + "}"));
     private static final Resource SYSTEM_LEVEL = new Resource(AuthzConstants.SYSTEM_TYPE, AuthzConstants.SYSTEM_OBJECT_ID);
-    // the types whose resources an application's store holds a place for; a resource of any other type in it is a
-    // record of the application's own services, which the store holds nothing of
-    private static final Set<String> PLACED_APPLICATION_TYPES = Set.of(AuthzConstants.APPLICATION_TYPE, AuthzConstants.TENANT_TYPE,
-                                                                       AuthzConstants.ENTITY_DEFINITION_TYPE);
     // the check of a named query's statement names its definition as a function's check names a parameter
     private static final String STATEMENT_DEFINITION_PARAMETER = "entityDefinitionId";
     private static final String STATEMENT_DEFINITION_ID = "{" + STATEMENT_DEFINITION_PARAMETER + "}";
@@ -379,8 +375,13 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                    AuthzUtil.permissionName(check.getPermissionResource(), permission.getPermission()),
                                                                    object);
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
-            ret = relationships.check(store, relationship, consistency, edges)
-                               .compose(allowed -> allowed
+            // an application's store has no relation for a permission of the application's own services: a role
+            // holds one by its name, which the check asks for
+            boolean ofService = !SYSTEM.equals(store) && !AuthzModelGenerator.APPLICATION_TYPES.contains(check.getPermissionResource());
+            Future<Boolean> held = ofService
+                    ? relationships.checkServicePermission(store, relationship.user(), relationship.relation(), object, consistency)
+                    : relationships.check(store, relationship, consistency, edges);
+            ret = held.compose(allowed -> allowed
                                        ? Future.succeededFuture()
                                        : Future.failedFuture(refusal(relationship, permission.getReason())));
         } catch (AuthorizationException e) {
@@ -420,7 +421,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     // through its grants; either way a scope level is then the caller's own, as scopeLevelOf decides
     private Resource checkedOn(AuthzCheckC3Decorator check, ParticipantScope scope, String store) {
         Resource declared = new Resource(check.getResource(), check.getResourceId());
-        boolean placed = SYSTEM.equals(store) || PLACED_APPLICATION_TYPES.contains(declared.type());
+        boolean placed = SYSTEM.equals(store) || AuthzModelGenerator.APPLICATION_TYPES.contains(declared.type());
         return scopeLevelOf(placed ? declared : SCOPE_LEVELS.getFirst(), scope);
     }
 

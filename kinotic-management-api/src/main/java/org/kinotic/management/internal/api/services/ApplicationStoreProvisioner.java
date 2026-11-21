@@ -116,8 +116,8 @@ public class ApplicationStoreProvisioner {
                      .compose(record -> {
                          Future<Void> ret;
                          if (record != null) {
-                             // a store with a record runs the reconciler's model, which carries the application's
-                             // services, so only the placement is ensured
+                             // a store with a record runs the reconciler's model and holds the roles of the
+                             // application's services, so only the placement is ensured
                              ret = relationships.ensure(store, List.of(placement(store)))
                                                 .compose(v -> placeHoldings(application));
                          } else {

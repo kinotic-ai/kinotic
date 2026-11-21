@@ -70,15 +70,19 @@ final class ResourceType {
      * through the permissions it implies.
      */
     boolean holdsAny(String permission, Set<String> others) {
-        Set<String> held = new HashSet<>();
+        return !Collections.disjoint(held(permission), others);
+    }
+
+    /** The permissions held with one of this type: itself and every one it implies, directly or through another. */
+    Set<String> held(String permission) {
+        Set<String> ret = new HashSet<>();
         Deque<String> pending = new ArrayDeque<>(List.of(permission));
         while (!pending.isEmpty()) {
             String next = pending.pop();
-            if (held.add(next)) {
+            if (ret.add(next)) {
                 pending.addAll(permissions.getOrDefault(next, Set.of()));
             }
         }
-        return !Collections.disjoint(held, others);
+        return ret;
     }
-
 }

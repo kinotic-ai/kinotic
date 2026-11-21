@@ -2,6 +2,7 @@ package org.kinotic.authz.internal.api.services;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzPermissionChoice;
@@ -539,21 +540,75 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
-    public void aTenantCarriesEveryTypeOfItsApplication() {
+    public void anApplicationsServicesAddNothingToTheDefinitionOfItsModel() {
         List<ServiceDefinition> services = List.of(service("CatalogService", "catalog", "application",
-                                                           function("findById", "catalog", "catalog", "can_read")),
+                                                           function("findById", "catalog", "catalog", "can_read"),
+                                                           function("deleteById", "catalog", "catalog", "can_delete"),
+                                                           function("save", "catalog", "catalog", "can_edit")),
                                                    service("PriceService", "price", "catalog",
-                                                           function("findById", "price", "price", "can_read")));
+                                                           List.of(role("price.quoter", "can_quote")),
+                                                           function("findById", "price", "price", "can_read"),
+                                                           function("quote", "price", "price", "can_quote", "can_read")));
+        AuthzModel without = generator.applicationModel(List.of(entitiesRepository()), List.of());
         AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), services);
 
-        // a grant on a tenant reaches a type declared under the application and a type inside that one, as a grant
-        // on the application does
-        for (String permission : List.of("catalog_can_read", "price_can_read")) {
-            assertEquals(List.of("ttu:role_binding->" + permission, "ttu:application->" + permission),
-                         children(type(model, "tenant"), permission, "union"));
-            assertTrue(type(model, "tenant_role").get("relations").has(permission), permission);
-        }
+        // the engine's model is the same with the services as without them, so registering one writes no version
+        assertEquals(without.definition(), model.definition());
+        assertEquals(without.hash(), model.hash());
+        assertEquals(applicationTypes(), typeNames(model));
+
+        // a service's permission is held with the ones it implies, by name
+        assertEquals(Map.of("catalog_can_read", Set.of("catalog_can_read"),
+                            "catalog_can_edit", Set.of("catalog_can_edit", "catalog_can_read"),
+                            "catalog_can_delete", Set.of("catalog_can_delete", "catalog_can_edit", "catalog_can_read"),
+                            "price_can_read", Set.of("price_can_read"),
+                            "price_can_quote", Set.of("price_can_quote", "price_can_read")),
+                     model.servicePermissions());
+        assertEquals(new RolePermissions(Set.of("entity_definition_can_read"), Map.of(), Set.of("price_can_quote", "price_can_read")),
+                     model.bundle(Set.of("entity_definition_can_read", "price_can_quote")));
+
+        // the catalog, the roles and where they are granted follow the services as before
+        assertEquals(Set.of("can_delete", "can_edit", "can_read"), model.permissions().get("catalog"));
+        assertEquals("catalog", model.parents().get("price"));
+        assertEquals(Set.of("catalog_can_read"), model.roles().get("catalog.viewer"));
+        assertEquals(Set.of("catalog_can_delete", "catalog_can_edit", "catalog_can_read", "price_can_quote", "price_can_read"),
+                     model.roles().get("catalog.admin"));
+        assertEquals(Set.of("price_can_quote"), model.roles().get("price.quoter"));
         assertTrue(model.grantable("price.viewer", "tenant"));
+        assertTrue(model.grantable("price.viewer", "application"));
+        assertEquals(Set.of("application", "tenant"), model.grantableOn("price", "application"));
+        assertTrue(model.catalog("tenant").get("price").contains("price_can_quote"));
+        // the application's administrator holds every permission of every service, named or not
+        assertTrue(model.roles().get("application.admin").contains("service_permission"));
+        assertFalse(model.roles().get("application.admin").contains("catalog_can_read"));
+    }
+
+    @Test
+    public void theApplicationAndItsTenantsCarryThePermissionOfEveryService() {
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
+
+        assertEquals("ttu:role_binding->service_permission", source(type(model, "application").get("relations").get("service_permission")));
+        assertEquals(List.of("ttu:role_binding->service_permission", "ttu:application->service_permission"),
+                     children(type(model, "tenant"), "service_permission", "union"));
+        assertFalse(type(model, "entity_definition").get("relations").has("service_permission"));
+        // a role of the tenant or of the application holds it for every service or for the ones its parts name
+        for (String roleType : List.of("tenant_role", "application_role")) {
+            assertEquals(List.of("direct", "ttu:part->service_permission"), children(type(model, roleType), "service_permission", "union"));
+        }
+        assertFalse(type(model, "entity_definition_role").get("relations").has("service_permission"));
+        assertEquals("for_definition", type(model, "role_part").get("metadata").get("relations").get("service_permission")
+                                                               .get("directly_related_user_types").get(0).get("condition").asString());
+    }
+
+    @Test
+    public void aServicePermissionNamedAsThePermissionOfEveryServiceFails() {
+        List<ServiceDefinition> services = List.of(service("TicketService", "service", "tenant",
+                                                           function("allow", "service", "service", "permission")));
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                                                  () -> generator.applicationModel(List.of(entitiesRepository()), services));
+
+        assertTrue(e.getMessage().contains("service_permission"));
     }
 
     @Test
@@ -628,20 +683,19 @@ public class AuthzModelGeneratorTest {
         List<ServiceDefinition> services = List.of(service("EndService", "end", "application",
                                                            function("findUser", "end", "end", "user")));
 
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-                                                  () -> generator.applicationModel(List.of(entitiesRepository()), services));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
         assertTrue(e.getMessage().contains("end_user"));
     }
 
     @Test
-    public void aRoleCanHoldThePermissionsOfItsHomeAndOfTheTypesInsideIt() {
+    public void aRoleTypeHasARelationForThePermissionsOfItsHomeAndOfTheTypesInsideIt() {
         AuthzModel model = generator.systemModel(systemServices());
 
-        assertTrue(model.canHold("project.editor", "project_can_edit"));
-        assertTrue(model.canHold("organization.admin", "project_can_edit"));
-        assertFalse(model.canHold("project.editor", "organization_can_read_members"));
-        assertFalse(model.canHold("report.viewer", "project_can_edit"));
+        assertTrue(model.hasRelation("project_role", "project_can_edit"));
+        assertTrue(model.hasRelation("organization_role", "project_can_edit"));
+        assertFalse(model.hasRelation("project_role", "organization_can_read_members"));
+        assertFalse(model.hasRelation("report_role", "project_can_edit"));
     }
 
     @Test

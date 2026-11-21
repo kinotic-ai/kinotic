@@ -295,6 +295,19 @@ public interface RelationshipService {
     Future<Boolean> check(String store, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context);
 
     /**
+     * Whether a subject holds a permission of an application's own services on a tenant or on the application,
+     * through a role that holds every such permission or names this one, granted there or above.
+     *
+     * @param store       the application's store
+     * @param user        the subject, in {@code type:id} form
+     * @param permission  the model name of the permission, such as {@code report_can_generate}
+     * @param object      the tenant or the application, in {@code type:id} form
+     * @param consistency whether the answer may come from the engine's caches
+     * @return true when the subject holds the permission on the object
+     */
+    Future<Boolean> checkServicePermission(String store, String user, String permission, String object, Consistency consistency);
+
+    /**
      * The objects of a type on which the user holds the relation, by the rules of the model the store runs. The
      * future fails with an {@link IllegalStateException} when the engine's listing deadline, three seconds, ended
      * the listing, which may then be missing objects.

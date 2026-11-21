@@ -117,14 +117,14 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     // a definition's rows, on the definitions named. A permission bundled for everything names no definition
     private static RolePermissions bundled(RoleDefinition role, AuthzModel model) {
         Map<String, Set<String>> catalog = model.catalog(CUSTOM_ROLE_HOME);
-        Set<String> everywhere = new TreeSet<>(role.permissions());
         Set<String> bundleable = new HashSet<>();
         catalog.values().forEach(bundleable::addAll);
-        for (String permission : everywhere) {
+        for (String permission : role.permissions()) {
             if (!bundleable.contains(permission)) {
                 throw new IllegalArgumentException("No permission a role of the application can bundle is named '" + permission + "'");
             }
         }
+        RolePermissions held = model.bundle(role.permissions());
         Set<String> ofRows = catalog.getOrDefault(AuthzConstants.ENTITY_DEFINITION_TYPE, Set.of());
         Map<String, Set<String>> named = new TreeMap<>();
         Map<String, Set<String>> requested = role.definitionPermissions() == null ? Map.of() : role.definitionPermissions();
@@ -134,7 +134,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                 if (!ofRows.contains(permission)) {
                     throw new IllegalArgumentException("No permission of an entity definition's rows is named '" + permission + "'");
                 }
-                if (!everywhere.contains(permission)) {
+                if (!held.permissions().contains(permission)) {
                     onIt.add(permission);
                 }
             }
@@ -142,7 +142,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                 named.put(definition.getKey(), onIt);
             }
         }
-        return new RolePermissions(everywhere, named);
+        return new RolePermissions(held.permissions(), named, held.servicePermissions());
     }
 
     @Override

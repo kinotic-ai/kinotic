@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.authz;
 
+import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckRequestTupleKey;
 import dev.openfga.sdk.api.model.ConsistencyPreference;
@@ -16,6 +17,7 @@ import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
@@ -46,6 +48,7 @@ import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
@@ -59,6 +62,7 @@ import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.management.internal.api.services.security.CallerPermissions;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.parsers.MigrationParser;
@@ -76,6 +80,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -114,6 +119,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private static final List<Integer> APPLICATION_FAN_IN_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_APPLICATION_FAN_IN", "100");
     private static final List<Integer> ENTITY_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_ENTITY_ROLES", "1,100,1000,10000");
     private static final List<Integer> TENANT_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_ROLES", "2,10,25,50");
+    private static final List<Integer> SERVICE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_SERVICES", "10,1000,5000");
     private static final String READING_ROWS = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
     private static final String REPORT_NAMESPACE = "org.kinotic.benchmark";
     private static final String REPORT_SERVICE_NAME = REPORT_NAMESPACE + ".ReportService";
@@ -160,6 +166,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private ApplicationServiceDirectory applicationServiceDirectory;
     @Autowired
     private AuthzStoreService authzStores;
+    @Autowired
+    private AuthzModelService authzModels;
 
     private final StringBuilder report = new StringBuilder();
     private Path out;
@@ -330,9 +338,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
             section("A role naming " + entities + " entities");
             long start = System.nanoTime();
-            await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming)));
+            await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
             line("role written in " + ms(System.nanoTime() - start) + " ms");
-            await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others)));
+            await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others, Set.of())));
             start = System.nanoTime();
             require(await(relationships.findRolePermissions(appStore, namingRole)).definitionPermissions().size() == entities,
                     "the role was not read back naming " + entities + " entities");
@@ -346,8 +354,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String otherRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
         Map<String, Set<String>> naming = new HashMap<>(namedEntities(100));
         naming.put(person.getId(), Set.of(READING_ROWS));
-        await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming)));
-        await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100))));
+        await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
+        await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
         ScopedParticipant holder = holderOf(namingRole);
         ScopedParticipant refused = holderOf(otherRole);
         int roles = 2;
@@ -360,6 +368,141 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             entityRoleRows(holder, refused);
         }
         metrics("entity-roles");
+    }
+
+    /**
+     * Measures an application as the services its runtime registered grow in number, each declaring a type of its
+     * own with three permissions: registering one more service, the time until a grant of its role admits a
+     * request, a pass of the store's reconcile, the requests of a user to a service and to the entities, and
+     * saving and listing the application's roles.
+     */
+    @Test
+    @Timeout(value = 4, unit = TimeUnit.HOURS)
+    public void measureServices() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Application services benchmark " + Instant.now());
+        line("");
+        line("warmup " + WARMUP + ", iterations " + ITERATIONS + ", cpus " + Runtime.getRuntime().availableProcessors());
+        person = personDefinition();
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+        String appStoreId = await(authzStores.ensureStore(appStore));
+        String run = suffix().toLowerCase().replaceAll("[^a-z0-9]", "");
+        String zone = DomainUtil.applicationZone(TEST_ORG_ID, TEST_APP_ID);
+        Participant runtime = new DefaultOrganizationParticipant(UUID.randomUUID().toString(), TEST_ORG_ID,
+                                                                 Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
+                                                                        ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
+                                                                 List.of());
+        await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.APPLICATION_RUNTIME_ROLE,
+                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)));
+        byte[] noArguments = body(List.of());
+        byte[] count = body(List.of(person.getId()));
+
+        int registered = 0;
+        for (int services : SERVICE_STAGES) {
+            section(services + " services registered in the application");
+            List<Long> registrations = new ArrayList<>();
+            long seeding = System.nanoTime();
+            for (; registered < services; registered++) {
+                ServiceDirectoryEntry entry = new ServiceDirectoryEntry().setApplicationId(TEST_APP_ID)
+                                                                         .setZone(zone)
+                                                                         .setVersion("1.0.0")
+                                                                         .setServiceDefinition(benchmarkService(run, registered));
+                long start = System.nanoTime();
+                awaitLong(runAs(runtime, () -> applicationServiceDirectory.register(entry)));
+                registrations.add(System.nanoTime() - start);
+            }
+            long registeredAt = System.nanoTime();
+            line("registered up to " + services + " services in " + ms(registeredAt - seeding) + " ms");
+            row(Stats.of("register one service, the last " + Math.min(20, registrations.size()), 1,
+                         registrations.subList(Math.max(0, registrations.size() - 20), registrations.size()), 0, 0));
+
+            // a tenant of its own, so the roles granted in the other stages are not on the path of this one's checks
+            tenant = createTenant(TEST_APP_ID);
+            ScopedParticipant none = applicationParticipant(tenant, endUser(tenant).getId());
+            // the newest service's viewer, granted through the access service, admits once the store has its role
+            String newest = benchmarkType(run, services - 1);
+            String newestService = zone + "~" + REPORT_NAMESPACE + "." + benchmarkServiceName(run, services - 1);
+            ApplicationParticipantIdentity viewerIdentity = endUser(tenant);
+            ScopedParticipant viewer = applicationParticipant(tenant, viewerIdentity.getId());
+            Resource onTenant = new Resource(AuthzConstants.TENANT_TYPE, tenant);
+            awaitLong(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, viewerIdentity.getId()),
+                                                           AuthzUtil.roleId(newest, AuthzConstants.VIEWER), onTenant)));
+            awaitLong(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, viewerIdentity.getId()),
+                                                           AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), onTenant)));
+            criOf(newestService, "findItems", viewer);
+            criOf(ENTITIES_SERVICE, "count", viewer);
+            long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(30);
+            while (!admitted(newestService, "findItems", viewer, List.of())) {
+                require(System.nanoTime() < deadline, "the newest service's viewer was never admitted");
+                Thread.sleep(100);
+            }
+            line("the newest service's viewer was admitted " + ms(System.nanoTime() - registeredAt) + " ms after the last registration");
+
+            long start = System.nanoTime();
+            AuthzModel model = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
+            line("model generated from the directory in " + ms(System.nanoTime() - start) + " ms: " + model.roles().size() + " roles, "
+                         + model.servicePermissions().size() + " permissions of services");
+            start = System.nanoTime();
+            awaitLong(relationships.ensureModelWithRoles(appStore, model));
+            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms");
+            AuthorizationModel engineModel = await(fga.readAuthorizationModels(appStoreId, 1, null)).getAuthorizationModels().getFirst();
+            line("the engine's model has " + engineModel.getTypeDefinitions().size() + " types and "
+                         + jsonMapper.writeValueAsString(engineModel).length() + " bytes");
+
+            // a role of the application's own bundling the reading permission of every service registered
+            Set<String> reading = new HashSet<>();
+            for (int i = 0; i < services; i++) {
+                reading.add(AuthzUtil.permissionName(benchmarkType(run, i), AuthzConstants.CAN_READ));
+            }
+            start = System.nanoTime();
+            RoleDefinition everyService = awaitLong(runAsOrganization(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
+                    null, "Reads every service " + suffix(), null, false, null, null, reading, Map.of(), false))));
+            line("a role bundling " + reading.size() + " permissions of services saved in " + ms(System.nanoTime() - start) + " ms");
+            ApplicationParticipantIdentity readerIdentity = endUser(tenant);
+            ScopedParticipant reader = applicationParticipant(tenant, readerIdentity.getId());
+            awaitLong(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, readerIdentity.getId()), everyService.id(), onTenant)));
+            require(awaitUntil(() -> admitted(newestService, "findItems", reader, List.of())), "the reader of every service was never admitted");
+            require(!admitted(newestService, "save", reader, List.of(Map.of("id", "i-1"))), "the reader of every service saved an item");
+            require(!admitted(newestService, "findItems", none, List.of()), "a user with no grant listed items");
+            require(awaitUntil(() -> admitted(ENTITIES_SERVICE, "count", viewer, List.of(person.getId()))), "the viewer never read the person rows");
+            line("");
+            header();
+            row(measure("request: app service findItems, its viewer on the tenant (allow)", 1, () -> request(newestService, "findItems", viewer, noArguments)));
+            row(measure("request: app service findItems, a role naming every service (allow)", 1, () -> request(newestService, "findItems", reader, noArguments)));
+            row(measure("request: app service findItems, no grant (deny)", 1, () -> refusal(request(newestService, "findItems", none, noArguments))));
+            row(measure("request: app service findItems, its viewer (allow) c=32", 32, () -> request(newestService, "findItems", viewer, noArguments)));
+            row(measure("request: entities count, granted on the tenant (allow)", 1, () -> request(ENTITIES_SERVICE, "count", viewer, count)));
+            row(measure("request: entities count, no grant (deny)", 1, () -> refusal(request(ENTITIES_SERVICE, "count", none, count))));
+            Set<String> few = Set.of(AuthzUtil.permissionName(newest, AuthzConstants.CAN_READ), AuthzUtil.permissionName(newest, AuthzConstants.CAN_EDIT));
+            row(measure("saveRole: a new role bundling two permissions of a service", 1, 20,
+                        () -> runAsOrganization(() -> access.saveRole(TEST_APP_ID, new RoleDefinition(
+                                null, "Edits one service " + suffix(), null, false, null, null, few, Map.of(), false)))));
+            row(measure("findRoles of the application", 1, 20, () -> runAsOrganization(() -> access.findRoles(TEST_APP_ID))));
+            row(measure("findPermissions of the application", 1, 20, () -> runAsOrganization(() -> access.findPermissions(TEST_APP_ID))));
+            metrics("services " + services);
+        }
+    }
+
+    private static String benchmarkType(String run, int index) {
+        return "bench" + run + "n" + index;
+    }
+
+    private static String benchmarkServiceName(String run, int index) {
+        return "Bench" + run + "N" + index + "Service";
+    }
+
+    // A service an application's runtime registers with a type of its own under the tenant, whose functions derive
+    // can_read, can_edit and can_delete
+    private static ServiceDefinition benchmarkService(String run, int index) {
+        ServiceDefinition ret = new ServiceDefinition().setNamespace(REPORT_NAMESPACE).setName(benchmarkServiceName(run, index));
+        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType(benchmarkType(run, index)).setParent("tenant")));
+        ret.addFunction(new FunctionDefinition().setName("findItems"));
+        ret.addFunction(new FunctionDefinition().setName("findById").addParameter("id", new StringC3Type()));
+        ret.addFunction(new FunctionDefinition().setName("save").addParameter("entity", new ObjectC3Type().setName("Item").addProperty("id", new StringC3Type())));
+        ret.addFunction(new FunctionDefinition().setName("deleteById").addParameter("id", new StringC3Type()));
+        return ret;
     }
 
     private void entityRoleRows(ScopedParticipant holder, ScopedParticipant refused) throws Exception {
@@ -385,7 +528,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
     private String roleNamingOthers() throws Exception {
         String ret = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
-        await(relationships.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100))));
+        await(relationships.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
         return ret;
     }
 
@@ -748,10 +891,10 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         await(stores.ensureStore(store));
         RelationshipService writer = new DefaultRelationshipService(fga, (DefaultAuthzStoreService) stores, vertx);
         AuthzModel kernel = generator.applicationModel(List.of(), List.of());
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(reportService()));
+        AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
         await(writer.ensureModelWithRoles(store, grown));
-        await(writer.bind(store, "report.viewer", "user:bob", "tenant:t1"));
-        RelationshipTuple reading = new RelationshipTuple("user:bob", "report_can_read", "tenant:t1");
+        await(writer.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
+        RelationshipTuple reading = new RelationshipTuple("user:bob", "tenant_can_read", "tenant:t1");
         List<Long> retried = new ArrayList<>();
         List<Long> steady = new ArrayList<>();
         for (int i = 0; i < 30; i++) {
@@ -1224,12 +1367,13 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         return await(identityService.createUser(user, "End-User-1"));
     }
 
-    private static ServiceDefinition reportService() {
-        ServiceDefinition ret = new ServiceDefinition().setNamespace("org.kinotic.benchmark").setName("ReportService");
-        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType("report").setParent("tenant")));
+    // a system service declared on the tenant, whose permission an application's model carries as a relation
+    private static ServiceDefinition tenantService() {
+        ServiceDefinition ret = new ServiceDefinition().setNamespace("org.kinotic.benchmark").setName("TenantService");
+        ret.setDecorators(List.of(new AuthzResourceC3Decorator().setResourceType("tenant").setParent("application")));
         FunctionDefinition find = new FunctionDefinition().setName("findById");
-        find.setDecorators(List.of(new AuthzCheckC3Decorator().setResource("report").setResourceId("{id}")
-                                                              .setPermissionResource("report").setPermission("can_read")));
+        find.setDecorators(List.of(new AuthzCheckC3Decorator().setResource("tenant").setResourceId("{id}")
+                                                              .setPermissionResource("tenant").setPermission("can_read")));
         ret.addFunction(find);
         return ret;
     }

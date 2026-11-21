@@ -52,7 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies an application's own service is checked as the system's are: a runtime of the organization is
  * refused the directory service until granted the runtime role on the application, then registers a declared
  * service in the application's zone, which the directory stores for the application with its checks derived;
- * the application's store reconciles to a model carrying the service's type and roles; and an end user is
+ * the application's store takes up the service's roles; and an end user is
  * refused the service until granted the type's viewer role on its tenant, admitted after, and refused the
  * function needing the declared permission until granted the declared role. A service published in no
  * namespace is in its zone's namespace, addressed by its name in the zone as the runtime serves it. A service
@@ -122,7 +122,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         // the application's store takes the service up: a viewer of its type, and the role it declares
         assertTrue(awaitUntil(() -> roleIds().containsAll(List.of(AuthzUtil.roleId(type, AuthzConstants.VIEWER), type + ".generator"))
                                     && seeded(type + ".generator")),
-                   "the store never ran a model carrying the service");
+                   "the store never took up the roles of the service");
         RoleDefinition generator = await(runAsOrganization(() -> access.findRoles(TEST_APP_ID))).stream()
                                                                                               .filter(role -> role.id().equals(type + ".generator"))
                                                                                               .findFirst().orElseThrow();
@@ -183,7 +183,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         assertTrue(awaitUntil(() -> admitted(DIRECTORY_SERVICE, "register", runtimeCaller, List.of(entry(TEST_APP_ID, ZONE, reports(name, type))))),
                    "the runtime was never admitted");
         await(runAs(runtimeCaller, () -> directoryService.register(entry(TEST_APP_ID, ZONE, reports(name, type)))));
-        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(type, AuthzConstants.VIEWER))), "the store never ran a model carrying the service");
+        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(type, AuthzConstants.VIEWER))), "the application never listed the roles of the service");
         String tenantId = "tenant-" + suffix();
         ApplicationParticipantIdentity bob = endUser(tenantId);
         Participant caller = applicationParticipant(tenantId, bob.getId());
@@ -217,7 +217,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         assertNotNull(stored, "the service was not stored at the address it is served at");
         assertEquals(ZONE + "." + name, stored.getServiceDefinition().getQualifiedName());
         // the gateway finds the contract at the address and checks the declared permission
-        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(type, AuthzConstants.VIEWER))), "the store never ran a model carrying the service");
+        assertTrue(awaitUntil(() -> roleIds().contains(AuthzUtil.roleId(type, AuthzConstants.VIEWER))), "the application never listed the roles of the service");
         String tenantId = "tenant-" + suffix();
         Participant caller = applicationParticipant(tenantId, endUser(tenantId).getId());
         assertRefused(service, "generate", caller, List.of("q1"), type + "_can_generate on tenant:" + tenantId);
@@ -265,12 +265,13 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         return ret;
     }
 
-    // Whether the application's store holds the role's permissions, which the reconciler writes once the store runs
-    // the model defining the role's type
+    // Whether the application's store holds the role's permissions, which the reconciler writes once the directory
+    // holds the service declaring the role
     private boolean seeded(String roleId) {
         boolean ret;
         try {
-            ret = !await(relationships.read(AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID), AuthzUtil.roleObject(roleId))).isEmpty();
+            ret = !await(relationships.findRolePermissions(AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID), roleId))
+                    .servicePermissions().isEmpty();
         } catch (Exception e) {
             ret = false;
         }

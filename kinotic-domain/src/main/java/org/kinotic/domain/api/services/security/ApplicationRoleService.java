@@ -12,6 +12,8 @@ import org.kinotic.domain.api.model.security.Role;
 import org.kinotic.idl.api.utils.AuthzConstants;
 
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * The roles of an application's own, which its developers define for its users, and the grants made in the
@@ -31,9 +33,11 @@ public interface ApplicationRoleService {
      * @param permissions what the role bundles in the application's store
      */
     static RoleDefinition definitionOf(Role role, AuthzModel model, RolePermissions permissions) {
+        Set<String> bundled = new TreeSet<>(permissions.permissions());
+        bundled.addAll(permissions.servicePermissions());
         return new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, ROLE_HOME,
                                   model.grantableOn(ROLE_HOME, AuthzConstants.APPLICATION_TYPE),
-                                  permissions.permissions(), permissions.definitionPermissions(), role.isTenantAssignable());
+                                  bundled, permissions.definitionPermissions(), role.isTenantAssignable());
     }
 
     /**
