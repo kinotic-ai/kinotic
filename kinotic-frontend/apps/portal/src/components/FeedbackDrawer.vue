@@ -134,6 +134,9 @@ function handleClose(): void {
 
     <div v-else class="flex flex-col gap-3">
       <p class="text-sm">Thanks. Your feedback is issue #{{ sent.number }}, where the Kinotic team will follow up.</p>
+      <p class="text-sm text-surface-500 dark:text-surface-400">
+        To add screenshots or logs, comment on the issue while signed in to GitHub.
+      </p>
       <a :href="sent.url" target="_blank" rel="noopener" class="text-sm font-medium text-primary underline">
         Open the issue on GitHub
       </a>
