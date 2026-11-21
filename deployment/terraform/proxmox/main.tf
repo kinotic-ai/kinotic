@@ -89,7 +89,9 @@ locals {
       env        = { PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" }
     }
     # The license key server: the Temurin JRE's environment and the server's own, run as the
-    # image's licenses user in its working directory
+    # image's licenses user in its working directory. -XX:-UseBASE64Intrinsics keeps Base64 off the
+    # AVX-512 decode intrinsic of CVE-2026-114938, which this host's CPU runs; the image's Temurin JRE
+    # is 25.0.5, before the fix in 25.0.5.1
     license_key_server = {
       entrypoint = "java -jar /opt/license-key-server/license-key-server.jar"
       env = {
@@ -98,7 +100,7 @@ locals {
         LANG                         = "en_US.UTF-8"
         LANGUAGE                     = "en_US:en"
         LC_ALL                       = "en_US.UTF-8"
-        JAVA_TOOL_OPTIONS            = "--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED -XX:MaxDirectMemorySize=256m -XX:+DisableExplicitGC"
+        JAVA_TOOL_OPTIONS            = "-XX:-UseBASE64Intrinsics --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED -XX:MaxDirectMemorySize=256m -XX:+DisableExplicitGC"
         KINOTIC_IGNITE_WORKDIRECTORY = "/var/lib/license-key-server/ignite"
       }
     }
@@ -146,13 +148,14 @@ locals {
 
   # Every setting the docker image turns into -E flags. Security is off: the cluster is
   # reachable only on the private network, from the containers on it and the host.
+  # -XX:-UseBASE64Intrinsics is Elastic's mitigation for CVE-2026-114938 until a release bundles a fixed JDK.
   es_env = {
     "cluster.name"                 = "kinotic"
     "cluster.initial_master_nodes" = join(",", keys(local.es_nodes))
     "discovery.seed_hosts"         = join(",", local.es_ips)
     "node.roles"                   = "master,data,ingest,transform"
     "xpack.security.enabled"       = "false"
-    "ES_JAVA_OPTS"                 = "-Xms${var.es_memory_mb / 2}m -Xmx${var.es_memory_mb / 2}m"
+    "ES_JAVA_OPTS"                 = "-Xms${var.es_memory_mb / 2}m -Xmx${var.es_memory_mb / 2}m -XX:-UseBASE64Intrinsics"
   }
 
   es_containers = { for name, node in local.es_nodes : name => {
@@ -185,6 +188,8 @@ locals {
     KINOTIC_MANAGEMENTAPI_LOKIURL    = local.service_urls["http://loki:3100"]
     KINOTIC_MANAGEMENTAPI_TEMPOURL   = local.service_urls["http://tempo:3200"]
     KINOTIC_MANAGEMENTAPI_MIMIRURL   = local.service_urls["http://mimir:9009"]
+    # the Turnstile site the portal's find-my-organizations form presents; its secret is in secrets.yml
+    KINOTIC_MANAGEMENTSERVER_TURNSTILE_SITEKEY = local.azure.turnstile_site_key
   }
 
   # The three servers, and Summit 42 when the dev-server root enables it. Each serves on its own
@@ -206,8 +211,8 @@ locals {
       hostnames   = [local.azure.system_api_hostname]
       description = "the system's own API: the system console, the nodes' vm-manager"
       env = {
-        KINOTIC_SYSTEMSERVER_APIBASEURL     = "https://${local.azure.system_api_hostname}"
-        KINOTIC_SYSTEMSERVER_CONSOLEBASEURL = "https://${local.azure.console_hostname}"
+        KINOTIC_MANAGEMENTAPI_SYSTEMAPIBASEURL = "https://${local.azure.system_api_hostname}"
+        KINOTIC_SYSTEMSERVER_CONSOLEBASEURL    = "https://${local.azure.console_hostname}"
         # What a workload dials, by the name its certificate carries, and the one destination its
         # egress policy permits; the node pins every server's name to the edge's LAN address
         # (hosts_entry)
@@ -265,7 +270,9 @@ locals {
 
   # The non-secret half of what every server's environment shares: the compose services', the
   # Azure root's outputs, and the addresses only this root knows. The secret half is merged on
-  # the host.
+  # the host. -XX:-UseBASE64Intrinsics keeps Base64 off the AVX-512 decode intrinsic of
+  # CVE-2026-114938, which this host's CPU runs; the images' Liberica JRE is 25.0.5, before the fix in
+  # 25.0.5.1
   server_env = merge(local.azure.dev_server_env, merge([for i, ip in local.es_ips : {
     "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_SCHEME" = "http"
     "KINOTIC_DOMAIN_ELASTICCONNECTIONS_${i}_HOST"   = ip
@@ -273,7 +280,7 @@ locals {
     }]...), {
     SPRING_PROFILES_ACTIVE       = "dev-server"
     BPL_JVM_HEAD_ROOM            = "10"
-    JAVA_TOOL_OPTIONS            = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
+    JAVA_TOOL_OPTIONS            = "-XX:-UseBASE64Intrinsics -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
     KINOTIC_MAX_OFF_HEAP_MEMORY  = "419430400"
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
 

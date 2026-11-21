@@ -20,7 +20,8 @@ import java.util.Set;
  * zone at all. Organization participants send to the {@code management-api} management surface, {@code app-api},
  * and their own {@code app.<organizationId>} zones, and subscribe within those same app zones — an application's
  * runtime authenticates as an organization participant to host and call its services. System participants send
- * everywhere and subscribe in the {@code system-api} zone.
+ * everywhere and subscribe in the {@code system-api} zone, a system machine only under its own id as the scope: a
+ * worker node's vm-manager hosts its service at the address of the machine it authenticates as.
  */
 public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
 
@@ -35,7 +36,10 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
 
             // management-api and app-api are hosted in-process only, so no connection may ever
             // subscribe to them; system-api stays subscribable for the vm-manager nodes that host there
-            case SystemParticipant _ -> ZoneRules.sendingToAnyZone(Set.of(DomainUtil.SYSTEM_API_ZONE));
+            case SystemParticipant system -> {
+                ZoneRules rules = ZoneRules.sendingToAnyZone(Set.of(DomainUtil.SYSTEM_API_ZONE));
+                yield DomainUtil.isMachineParticipant(system) ? rules.subscribingUnderScope(system.getId()) : rules;
+            }
 
             // appZone validates the ids, so an id that could shift the zone's label structure
             // fails instead of widening access

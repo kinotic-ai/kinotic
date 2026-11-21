@@ -40,7 +40,6 @@ BRIDGE_ADDRESS="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gat
 [ -f /etc/kinotic/vm-manager.env ] || cat > /etc/kinotic/vm-manager.env <<ENV
 # Node configuration read by kinotic-vm-manager.service; see deployment/vm-node/README.md
 KINOTIC_VM_PROVIDER=CLOUD_HYPERVISOR
-KINOTIC_NODE_ID=
 KINOTIC_SERVER_HOST=
 KINOTIC_SERVER_PORT=58504
 KINOTIC_SERVER_USE_SSL=true

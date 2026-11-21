@@ -1,5 +1,11 @@
 package org.kinotic.test.support.system;
 
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.core.api.security.ParticipantConstants;
+import java.util.Map;
+import java.util.List;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.system.api.model.workload.VmNodeRegistration;
@@ -16,13 +22,19 @@ public final class NodeFixtures {
 
     /** The registration a vm-manager sends at startup for a node of the given size. */
     public static VmNodeRegistration registration(String nodeId, int cpus, int memoryMb, int diskMb) {
-        return new VmNodeRegistration().setId(nodeId)
-                                       .setName(nodeId)
-                                       .setHostname("host-" + nodeId)
+        return new VmNodeRegistration().setHostname("host-" + nodeId)
                                        .setTotalCpus(cpus)
                                        .setTotalMemoryMb(memoryMb)
                                        .setTotalDiskMb(diskMb)
                                        .setWorkloadDataDir("/var/lib/kinotic/" + nodeId);
+    }
+
+    /** The system machine a node's vm-manager authenticates as, which is the node: its id is the node's id. */
+    public static SystemParticipant machine(String nodeId) {
+        return new DefaultSystemParticipant(nodeId,
+                                            Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_MACHINE,
+                                                   DomainUtil.DISPLAY_NAME_METADATA_KEY, nodeId),
+                                            List.of());
     }
 
     /** The address of the node's vm-manager: the proxy's identifier with the node id as its instance. */

@@ -91,8 +91,22 @@ deployment/terraform/with-dev-server-secrets.sh terraform -chdir=deployment/terr
 deployment/terraform/with-dev-server-secrets.sh deployment/terraform/proxmox/redeploy.sh
 ```
 
+The secrets the servers read (`generate-secrets.sh`) are entries of the same keychain, one for each file of the
+host's secrets directory and named by its path there, so no file of this Mac holds one.
+`../dev-server-secret-file.sh` lists, prints, stores and edits them, and `sync-secrets.sh` sends each from the
+keychain to the host:
+
+```bash
+deployment/terraform/dev-server-secret-file.sh list
+deployment/terraform/dev-server-secret-file.sh edit license-key-server.env     # in $EDITOR
+terraform output -raw secrets_env | deployment/terraform/dev-server-secret-file.sh put kinotic-servers.env
+```
+
+A copy of the keychain file and of its password, kept away from this Mac, is the backup of every secret: the master
+key and the JWT key sets among them are generated once and cannot be issued again.
+
 Rotating the DNS token reaches the host too: store the new value, apply the `dev-server` root,
-write its `secrets_env` into `dev-server-secrets/kinotic-servers.env` again, and run
+store its `secrets_env` as the keychain's `kinotic-servers.env` again, and run
 `sync-secrets.sh`, which installs it for the servers, certbot and `kinotic-dyndns`.
 
 ## Secrets and the certificates
@@ -100,11 +114,13 @@ write its `secrets_env` into `dev-server-secrets/kinotic-servers.env` again, and
 Placed on the host before the first apply, so the servers start with everything they need:
 
 ```bash
-./generate-secrets.sh ./dev-server-secrets
-(cd ../azure/dev-server && terraform output -raw secrets_env) > ./dev-server-secrets/kinotic-servers.env   # the principal's secret and the Cloudflare DNS token
-# The shared GitHub App's private key and webhook secret → dev-server-secrets/kinotic-server-management/secrets.yml
-# and dev-server-secrets/kinotic-server-system/secrets.yml, the servers that load the GitHub module
-./sync-secrets.sh ./dev-server-secrets <host>
+./generate-secrets.sh
+(cd ../azure/dev-server && terraform output -raw secrets_env) | ../dev-server-secret-file.sh put kinotic-servers.env   # the principal's secret and the Cloudflare DNS token
+# The shared GitHub App's private key and webhook secret, in the servers that load the GitHub module:
+../dev-server-secret-file.sh edit kinotic-server-management/secrets.yml
+../dev-server-secret-file.sh edit kinotic-server-system/secrets.yml
+(cd ../azure/dev-server && terraform output -raw turnstile_secret_key)   # → managementServer.turnstile.secretKey in kinotic-server-management/secrets.yml
+./sync-secrets.sh <host>
 ```
 
 `sync-secrets.sh` also writes the Cloudflare DNS token from `kinotic-servers.env` into
@@ -171,7 +187,7 @@ workflow publishes from `main`.
 
 Its Azure identity, its staff sign-in registration and its records come from the `dev-server` root
 (`license-server.tf`); `license_server_env` is its environment, and `license_server_secrets_env` goes into
-`dev-server-secrets/license-key-server.env` with the database password, which `licenses-db.env` holds as
+the keychain's `license-key-server.env` with the database password, which `licenses-db.env` holds as
 `POSTGRES_PASSWORD` (`generate-secrets.sh` writes both). One certificate names both hosts, installed into the
 server's directory and, as the PEM HAProxy reads, into the edge's:
 
@@ -185,8 +201,17 @@ install -d -m 0700 -o 100099 -g 100099 /etc/kinotic/secrets/edge
 ```
 
 Stripe is configured by adding `KINOTIC_LICENSES_STRIPE_SECRETKEY` and `KINOTIC_LICENSES_STRIPE_WEBHOOKSECRET` to
-`license-key-server.env` and running `sync-secrets.sh`; until then purchases and trials fail and everything else
-works.
+`license-key-server.env`, which `../dev-server-secret-file.sh setenv license-key-server.env
+KINOTIC_LICENSES_STRIPE_SECRETKEY KINOTIC_LICENSES_STRIPE_WEBHOOKSECRET` prompts for, and running
+`sync-secrets.sh`; until then purchases and trials fail and everything else works.
+
+The database is backed up every night: `kinotic-licenses-backup.timer` on the host runs
+`host/kinotic-licenses-backup.sh`, which dumps it with `pg_dump` and uploads `licenses-<UTC time>.sql.gz` to the
+`licenses-db-backups` container of the snapshot storage account, where a dump is deleted after 90 days. Where it
+uploads comes from the `dev-server` root's `licenses_db_backup_env` output, which is the keychain's
+`licenses-db-backup.env`; the SAS in it can create a dump and can read or delete none, and
+expires on 20 November 2031. `systemctl status kinotic-licenses-backup` shows the last run, and the script's header
+has the restore command.
 
 The deploy hook runs on every renewal too, which is all the certificate rotation there is.
 `kinotic-dyndns.timer` reads the names to keep current from these certificates and the token
@@ -257,16 +282,18 @@ uploaded them.
 2. **The nodes.** Each is Ubuntu 22.04 on its own machine with the kit from
    `deployment/vm-node` (its README: the two XFS `prjquota` partitions, then `setup-node.sh`,
    egress default-deny, `install-vm-manager.sh`, `verify-node.sh`). Its configuration is this
-   root's output plus the node's own id:
+   root's output:
 
    ```bash
    # Every server by its certificate's name, at the edge on the LAN; dnsmasq reads /etc/hosts on start and reload only
    terraform output -raw hosts_entry | ssh kinotic@<node ip> 'sudo tee -a /etc/hosts >/dev/null && sudo systemctl reload dnsmasq'
-   { terraform output -raw vm_manager_env; echo KINOTIC_NODE_ID=dev-node-1; } | ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.env >/dev/null'
+   terraform output -raw vm_manager_env | ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.env >/dev/null'
    ```
 
    The migration runs with the `dev-server` profile, which seeds no identities, so
-   `bootstrap-identities.sh` creates the first system user and a SYSTEM machine for each node.
+   `bootstrap-identities.sh` creates the first system user and a SYSTEM machine for each node,
+   named as given. A node is its machine: the machine's id is the node's id and its name the
+   node's name, which a rename under **Members → Machines** changes when the node's vm-manager next starts.
    Each machine's credentials go straight into its node's `vm-manager.secrets.env`, which starts
    its vm-manager; the system user's password goes to a temporary file whose path it prints.
    It refuses a cluster that already has that system user:
@@ -275,20 +302,16 @@ uploaded them.
    ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2
    ```
 
-   `bootstrap-system-sign-in.sh` then writes the system console's sign-in registration, the Azure
-   root's `system_sign_in` output, so system users sign in with their Minds Ignited account; an
-   account's first sign-in creates its system user. It can be run again after the output changes:
-
-   ```bash
-   ./bootstrap-system-sign-in.sh
-   ```
+   That system user signs in to the console with its password and adds the Minds Ignited Entra
+   registration under **Sign-in providers** (the Azure root's README lists its values), then
+   connects it to their own account under **Profile**.
 
    Further operators and machines come from the system console's **Members** pages.
 
    The node appears `ONLINE` in the console with no health message. A first deployment lands
    on the first `ONLINE` node with room for it.
 
-   A node can also be a VM on this host. Each entry in `workers` is one, by its node id, and
+   A node can also be a VM on this host. Each entry in `workers` is one, by its hostname, and
    its `ip` is a free static address on the LAN:
 
    ```hcl

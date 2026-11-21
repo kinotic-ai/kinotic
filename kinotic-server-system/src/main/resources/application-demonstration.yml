@@ -4,6 +4,7 @@
 # Elasticsearch, the Ignite cluster and the observability stack.
 kinotic:
   managementApi:
+    systemApiBaseUrl: http://localhost:58504
     # Projects' repositories are hosted on the Gitea compose.gitea.yml runs, so a project needs no GitHub
     repoHost: GITEA
     # No GitHub App: its webhook secret signs Gitea's push webhooks, and its key is never used
@@ -41,7 +42,6 @@ kinotic:
       syncAllowedHosts:
         - registry.npmjs.org
   systemServer:
-    apiBaseUrl: http://localhost:58504
     # The system console kinotic-ui serves (compose.ui.yml), which system logins return to
     consoleBaseUrl: http://localhost:9091
   cors:

@@ -1,5 +1,8 @@
 package org.kinotic.domain.api.utils;
 
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -88,6 +91,8 @@ public class DomainUtil {
     // no organization carries the platform's name: an id beginning with it would put that name on a customer's
     // hosts, <org>--<app> under the apps-api domain and *.<org> under the sites domain
     private static final String RESERVED_ID_PREFIX = "kinotic";
+    /** The participant metadata key of the name a participant is shown by. */
+    public static final String DISPLAY_NAME_METADATA_KEY = "displayName";
     private static final String ENTITY_DOCUMENT_ID_SEPARATOR = ":";
     // the labels the platform itself holds under its domains, which an organization's subdomain must never shadow;
     // the path segments the organization login's own routes claim under /api/auth/org/login/, which an
@@ -431,6 +436,16 @@ public class DomainUtil {
         }
     }
 
+    /** The name the participant is shown by, or {@code null} when its identity carries none. */
+    public static String displayNameOf(Participant participant) {
+        return participant.getMetadata().get(DISPLAY_NAME_METADATA_KEY);
+    }
+
+    /** Whether the participant is a machine, as opposed to a person or a delegate acting for one. */
+    public static boolean isMachineParticipant(Participant participant) {
+        return ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(participant.getMetadata().get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY));
+    }
+
     /**
      * Narrows a loaded identity to the expected subtype and confirms the caller owns it.
      * Unknown ids, other subtypes, and identities of other owners all fail with the same
@@ -481,6 +496,20 @@ public class DomainUtil {
         return "APPLICATION/" + organizationId + "/" + applicationId;
     }
 
+    /**
+     * The id {@code participant}'s scope keeps its own sign-in configuration and its users' sign-in methods under:
+     * its organization's for an organization's participant, {@link #SYSTEM_ID} for a system participant.
+     *
+     * @throws AuthorizationException if the participant is of neither scope
+     */
+    public static String signInOwnerIdOf(Participant participant) {
+        return switch (participant) {
+            case OrganizationParticipant member -> member.getOrganizationId();
+            case SystemParticipant _ -> SYSTEM_ID;
+            default -> throw new AuthorizationException("Access denied");
+        };
+    }
+
     /** The scope a participant acts in: its own for a scoped participant, the system's (all null) otherwise. */
     public static ParticipantScope scopeOf(Participant participant) {
         return participant instanceof ScopedParticipant scoped ? scoped.getScope() : new ParticipantScope(null, null, null);
@@ -500,16 +529,16 @@ public class DomainUtil {
         switch (identity) {
             case UserParticipantIdentity user -> {
                 metadata.put("email", user.getEmail());
-                metadata.put("displayName",
+                metadata.put(DISPLAY_NAME_METADATA_KEY,
                              user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
             }
             case DelegatingParticipantIdentity delegate -> {
                 metadata.put("onBehalfOf", delegate.getOwnerId());
-                metadata.put("displayName",
+                metadata.put(DISPLAY_NAME_METADATA_KEY,
                              delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
             }
             case MachineParticipantIdentity machine ->
-                    metadata.put("displayName", machine.getDisplayName());
+                    metadata.put(DISPLAY_NAME_METADATA_KEY, machine.getDisplayName());
         }
         return Map.copyOf(metadata);
     }

@@ -25,4 +25,15 @@ public interface SecurityService {
      */
     Future<Participant> authenticate(Map<String, String> authenticationInfo, AuthenticationContext context);
 
+    /**
+     * Re-establishes a participant that {@link #authenticate} returned earlier and a browser session has held since,
+     * as its identity stands now.
+     * @param participant the participant the session holds
+     * @return a {@link Future} completing with the participant its identity acts as now, or failed with an
+     *         {@link org.kinotic.core.api.exceptions.AuthenticationException} when the identity no longer exists or
+     *         may no longer act as that participant.
+     *         The returned {@link Future} is completed on the Vert.x context of the caller.
+     */
+    Future<Participant> reauthenticate(Participant participant);
+
 }

@@ -31,9 +31,6 @@ export class VmManagerConfig {
     /** KINOTIC_VM_PROVIDER — the provider every workload on this node runs on. */
     readonly providerType: VmProviderType = parseProviderType(process.env.KINOTIC_VM_PROVIDER)
 
-    /** KINOTIC_NODE_ID — unique id of this vm-manager node. */
-    readonly nodeId: string | undefined = process.env.KINOTIC_NODE_ID
-
     /** KINOTIC_HEARTBEAT_INTERVAL_MS — period of the node heartbeat sent to the orchestrator. */
     readonly heartbeatIntervalMs: number = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
 

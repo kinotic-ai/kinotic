@@ -16,7 +16,6 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
-import org.kinotic.domain.api.model.security.LoginProviderType;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.common.api.oidc.OidcCallbackException;
@@ -258,14 +257,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes, OidcFlow
                                    Future<PasswordConfiguration> password = passwordConfigurationService.findOffered(orgId, null, null);
                                    Future<List<OidcConfiguration>> providers = oidcConfigurationService.findEnabledForScope(orgId, null);
                                    ret = Future.all(password, providers).map(v -> {
-                                       JsonArray offered = authEndpointSupport.providersJson(providers.result());
-                                       if (password.result() != null) {
-                                           offered.add(0, new JsonObject().put("id", password.result().getId())
-                                                                          .put("type", LoginProviderType.PASSWORD.name())
-                                                                          .put("name", PasswordConfiguration.NAME)
-                                                                          .putNull("provider"));
-                                       }
-                                       return offered;
+                                       return authEndpointSupport.providersJson(providers.result(), password.result());
                                    });
                                }
                                return ret;

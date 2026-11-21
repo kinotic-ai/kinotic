@@ -7,24 +7,14 @@ import lombok.experimental.Accessors;
 import org.kinotic.system.api.model.workload.VmProviderType;
 
 /**
- * DTO sent by a vm-manager process when it registers with the server.
- * Contains only the information the node knows about itself.
+ * DTO sent by a vm-manager process when it registers with the server. Contains only the information the node
+ * knows about itself: the node's id and name are those of the machine it authenticates as.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
 public class VmNodeRegistration {
-
-    /**
-     * Unique identifier for this node.
-     */
-    private String id;
-
-    /**
-     * Human-readable name for the node.
-     */
-    private String name;
 
     /**
      * The hostname or address of the node.
@@ -55,10 +45,4 @@ public class VmNodeRegistration {
      * Base directory every workload volume mount on this node must live under.
      */
     private String workloadDataDir;
-
-    public VmNodeRegistration(String id, String name, String hostname) {
-        this.id = id;
-        this.name = name;
-        this.hostname = hostname;
-    }
 }

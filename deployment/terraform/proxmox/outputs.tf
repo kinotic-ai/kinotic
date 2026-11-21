@@ -33,8 +33,8 @@ output "elasticsearch_url" {
   value       = "http://${local.es_ips[0]}:9200"
 }
 
-# Each node adds its own KINOTIC_NODE_ID line; the machine credentials go in
-# vm-manager.secrets.env beside it (deployment/vm-node/README.md). The system server is named
+# The machine credentials, which are also the node's identity, go in vm-manager.secrets.env
+# beside it (deployment/vm-node/README.md). The system server is named
 # as its certificate names it, and the node resolves that name to the edge (hosts_entry).
 # Workloads resolve through the node's own dnsmasq on the docker bridge address, which is what
 # lets a hostname in their egress policy be enforced; setup-node.sh prints the node's address.

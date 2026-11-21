@@ -14,7 +14,6 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.common.api.oidc.OidcProviderType;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 
@@ -103,19 +102,6 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * @param id the configuration id
      */
     Future<OrgSignupOidcConfiguration> findOrgSignupById(String id);
-
-    /**
-     * Every enabled registration the system console's login offers. Checks no participant.
-     */
-    Future<List<SystemOidcConfiguration>> findEnabledSystemProviders();
-
-    /**
-     * The system console's registration {@code id}, enabled or not, or {@code null} when no
-     * {@link SystemOidcConfiguration} has that id, for its login's start and callback. Checks no participant.
-     *
-     * @param id the configuration id
-     */
-    Future<SystemOidcConfiguration> findSystemById(String id);
 
     /**
      * Every enabled registration the system holds for applications' sign-in, one per provider kind: the

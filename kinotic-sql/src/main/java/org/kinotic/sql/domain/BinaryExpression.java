@@ -5,8 +5,8 @@ package org.kinotic.sql.domain;
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  *
  * @param left     the name of the field the operation reads
- * @param operator one of {@code +}, {@code -}, {@code *}, {@code /}, {@code ==}
- * @param right    the field name, literal, or {@code ?} on the right of the operator, as written
+ * @param operator one of {@code +}, {@code -}, {@code *}, {@code /}
+ * @param right    the literal value on the right of the operator, or the {@link NamedParameter} it reads
  */
-public record BinaryExpression(String left, String operator, String right) implements Expression {
+public record BinaryExpression(String left, String operator, Object right) implements Expression {
 }

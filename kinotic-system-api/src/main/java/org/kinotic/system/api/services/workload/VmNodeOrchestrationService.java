@@ -22,18 +22,21 @@ import java.util.List;
 public interface VmNodeOrchestrationService {
 
     /**
-     * Registers a VmNode with the orchestrator so it can receive workload deployments. If a node with
-     * the same id already exists it is updated with the new resource info. A registered node's
+     * Registers the calling machine as a VmNode with the orchestrator so it can receive workload deployments.
+     * The node is its machine: its id is the machine's id, which is also the scope its vm-manager hosts its
+     * service under, and its name the machine's display name. A machine already registered is updated with
+     * the new resource info. A registered node's
      * desired state is to take workloads, and the registration is the node's word that it is up, so a
      * node registering again after a silence is reachable at once.
      *
      * @param registration the node registration info
-     * @return a future that will complete with the registered node
+     * @return a future that will complete with the registered node, or fail with an
+     *         {@code AuthorizationException} when the caller is not a system machine
      */
     Future<VmNode> registerNode(VmNodeRegistration registration);
 
     /**
-     * Heartbeat from a running vm-manager node, carrying what it can still guarantee. Updates the
+     * Heartbeat from the calling machine's node, carrying what it can still guarantee. Updates the
      * node's {@code lastSeen} timestamp to indicate it is still alive, and clears the
      * {@code NODE_UNREACHABLE} condition a silence or an undelivered call left on it.
      * <p>
@@ -42,14 +45,13 @@ public interface VmNodeOrchestrationService {
      * workloads already there keep running: a node that stopped enforcing a limit is unfit to
      * take on more, not required to drop what it has.
      *
-     * @param nodeId the id of the node sending the heartbeat
      * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a future that will complete with the updated node, or fail if the node is not registered
      */
-    Future<VmNode> heartbeat(String nodeId, List<String> problems);
+    Future<VmNode> heartbeat(List<String> problems);
 
     /**
-     * Applies a node's report of its workloads' actual statuses. The vm-manager sends a
+     * Applies the calling machine's node's report of its workloads' actual statuses. The vm-manager sends a
      * report whenever a workload changes state on the node — including transitions the
      * orchestrator did not initiate, such as recovery after a vm-manager restart — and a
      * periodic full snapshot for reconciliation. A run only moves forward, so a report of a state
@@ -58,17 +60,17 @@ public interface VmNodeOrchestrationService {
      * the report ends the silence the condition was inferred from, so it is applied whatever it says
      * and clears the condition.
      *
-     * @param nodeId the id of the reporting node
      * @param reports one report per workload
      * @return a future that will complete when the reports have been applied
      */
-    Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports);
+    Future<Void> reportWorkloadStatus(List<WorkloadStatusReport> reports);
 
     /**
      * Asks for a node's removal. A node marked {@code NODE_UNREACHABLE} is taken as not coming back:
      * every run still open on it is recorded {@code FAILED} and the node is removed with its capacity
      * ledger. Any other node must have no running workloads. The removal is intent: the node's worker
-     * carries it out once the request is recorded.
+     * carries it out once the request is recorded. A node's machine may ask for its own node's removal and no
+     * other's.
      *
      * @param nodeId the id of the node to deregister
      * @return a future that will complete when the removal has been asked for, or fail if the node is

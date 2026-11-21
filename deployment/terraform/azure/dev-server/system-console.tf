@@ -1,16 +1,13 @@
 # ── System console sign-in ───────────────────────────────────────────────────
 # System users sign in to the system console with their Minds Ignited account, through a single-tenant
-# registration only this tenant's accounts can use. The system server reads it from a SYSTEM row of
-# kinotic_oidc_configuration, which proxmox/bootstrap-system-sign-in.sh writes from the output below, and its
-# client secret from the servers' key vault by the row's secretNameRef.
-
-locals {
-  # the row's id, the last segment of its redirect URI, and the name of its secret in the vault
-  system_sign_in_id = "entra-system"
-}
+# registration only this tenant's accounts can use. A system user adds it in the console under
+# Sign-in providers, as a Microsoft Entra ID provider, with the client id, directory id and secret output
+# below; the console then shows the callback URL, whose last segment is the provider's id, which goes
+# in var.system_sign_in_provider_id so the registration lists that URL.
 
 resource "azuread_application" "system_console" {
-  display_name     = "${var.project}-${var.environment}-system-console"
+  # what Microsoft's sign-in page names as the application being signed in to
+  display_name     = "Kinotic, Inc"
   sign_in_audience = "AzureADMyOrg"
 
   api {
@@ -18,7 +15,7 @@ resource "azuread_application" "system_console" {
   }
 
   web {
-    redirect_uris = ["https://${local.system_api_hostname}/api/auth/system/login/oidc/callback/${local.system_sign_in_id}"]
+    redirect_uris = var.system_sign_in_provider_id == "" ? [] : ["https://${local.system_api_hostname}/api/auth/system/login/oidc/callback/${var.system_sign_in_provider_id}"]
     implicit_grant {
       access_token_issuance_enabled = false
       id_token_issuance_enabled     = false
@@ -42,7 +39,7 @@ resource "azuread_application" "system_console" {
     }
   }
 
-  # Entra puts the address in the id token only when asked; the server admits system users by its domain
+  # Entra puts the address in the id token only when asked; a system user is first signed in by it
   optional_claims {
     id_token {
       name = "email"
@@ -59,24 +56,19 @@ resource "azuread_application_password" "system_console" {
   display_name   = "${var.project}-${var.environment}-system-console"
 }
 
-resource "azurerm_key_vault_secret" "system_console" {
-  name         = local.system_sign_in_id
-  value        = azuread_application_password.system_console.value
-  key_vault_id = azurerm_key_vault.server.id
-
-  depends_on = [azurerm_role_assignment.operator_key_vault_secrets]
+# What a system user enters in the console's Sign-in providers page for this registration
+output "system_sign_in_client_id" {
+  description = "The client ID of the system console's Entra registration"
+  value       = azuread_application.system_console.client_id
 }
 
-# What proxmox/bootstrap-system-sign-in.sh writes as the SYSTEM row. Nothing here is secret.
-output "system_sign_in" {
-  description = "The system console's sign-in registration, as the fields of its kinotic_oidc_configuration row"
-  value = {
-    id                 = local.system_sign_in_id
-    name               = "Microsoft"
-    provider           = "azure-ad"
-    clientId           = azuread_application.system_console.client_id
-    secretNameRef      = azurerm_key_vault_secret.system_console.name
-    authority          = "https://login.microsoftonline.com/${module.environment.tenant_id}/v2.0"
-    allowedEmailDomain = "mindsignited.com"
-  }
+output "system_sign_in_directory_id" {
+  description = "The directory (tenant) the registration's accounts are in, the provider's account in the console"
+  value       = module.environment.tenant_id
+}
+
+output "system_sign_in_client_secret" {
+  description = "The client secret of the system console's Entra registration"
+  value       = azuread_application_password.system_console.value
+  sensitive   = true
 }

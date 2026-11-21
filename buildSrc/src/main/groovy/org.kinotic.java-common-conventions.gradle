@@ -82,7 +82,6 @@ configurations {
 
 dependencyManagement {
     imports {
-        mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
         mavenBom("org.springframework.boot:spring-boot-dependencies:${springBootVersion}") {
             // Raised above the Boot-managed versions to clear known vulnerabilities; Vert.x also requires Netty 4.2.17
@@ -92,6 +91,7 @@ dependencyManagement {
             bomProperty 'jackson-bom.version', jacksonVersion
             bomProperty 'log4j2.version', log4j2Version
             bomProperty 'netty.version', nettyVersion
+            bomProperty 'opentelemetry.version', otelVersion
         }
         mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
     }
@@ -145,7 +145,6 @@ dependencyManagement {
 
         dependency "org.apache.groovy:groovy:${groovyVersion}"
 
-        dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
         dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"

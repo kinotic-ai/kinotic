@@ -1,5 +1,10 @@
 package org.kinotic.system.internal.api.services.workload;
 
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
+import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
@@ -64,16 +69,21 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private final VmNodeRepository vmNodeRepository;
     private final WorkloadRepository workloadRepository;
     private final EventBusService eventBusService;
+    private final SecurityContext securityContext;
     private final Vertx vertx;
 
     @Override
     public Future<VmNode> registerNode(VmNodeRegistration registration) {
         Validate.notNull(registration, "Registration cannot be null");
-        Validate.notNull(registration.getId(), "Node id cannot be null");
-        String nodeId = registration.getId();
-        log.info("Registering VmNode: {} ({})", registration.getName(), nodeId);
+        return asNodeMachine(machine -> register(machine, registration));
+    }
 
-        return recordInventory(registration, 1)
+    private Future<VmNode> register(Participant machine, VmNodeRegistration registration) {
+        String nodeId = machine.getId();
+        String name = Objects.requireNonNullElse(DomainUtil.displayNameOf(machine), nodeId);
+        log.info("Registering VmNode: {} ({})", name, nodeId);
+
+        return recordInventory(nodeId, name, registration, 1)
                 // a registered node should be taking workloads; a node registering again holds that intent already
                 .compose(v -> vmNodeRepository.updateDesired(nodeId, ONLINE, null, "registration"))
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
@@ -89,13 +99,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      * overwrites, so a reservation or a release landing between the reads and the write is answered by
      * a declined write, and the rebuild runs again on what is there.
      */
-    private Future<Void> recordInventory(VmNodeRegistration registration, int attempt) {
-        String nodeId = registration.getId();
+    private Future<Void> recordInventory(String nodeId, String name, VmNodeRegistration registration, int attempt) {
         return vmNodeRepository.findById(nodeId)
                 .compose(asRead -> workloadRepository.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                         .compose(placed -> {
                             List<Workload> open = placed.getContent().stream().filter(workload -> workload.getStatus().isOpen()).toList();
-                            VmNode inventory = new VmNode(nodeId, registration.getName(), registration.getHostname())
+                            VmNode inventory = new VmNode(nodeId, name, registration.getHostname())
                                     .setProviderType(registration.getProviderType())
                                     .setTotalCpus(registration.getTotalCpus())
                                     .setTotalMemoryMb(registration.getTotalMemoryMb())
@@ -112,7 +121,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         ret = Future.succeededFuture();
                     } else if (attempt < INVENTORY_ATTEMPTS) {
                         log.info("Room on node {} was taken or returned while it registered, rebuilding its free capacity again", nodeId);
-                        ret = recordInventory(registration, attempt + 1);
+                        ret = recordInventory(nodeId, name, registration, attempt + 1);
                     } else {
                         ret = Future.failedFuture(new IllegalStateException("Node " + nodeId + " kept taking and returning room through "
                                 + INVENTORY_ATTEMPTS + " rebuilds of its free capacity"));
@@ -122,8 +131,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public Future<VmNode> heartbeat(String nodeId, List<String> problems) {
-        Validate.notNull(nodeId, "Node id cannot be null");
+    public Future<VmNode> heartbeat(List<String> problems) {
+        return asNodeMachine(machine -> heartbeat(machine.getId(), problems));
+    }
+
+    private Future<VmNode> heartbeat(String nodeId, List<String> problems) {
         List<String> found = problems == null ? List.of() : problems;
         String message = found.isEmpty() ? null : String.join("; ", found);
         VmNodeState reported = found.isEmpty() ? ONLINE : DRAINING;
@@ -167,14 +179,42 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports) {
-        Validate.notNull(nodeId, "Node id cannot be null");
+    public Future<Void> reportWorkloadStatus(List<WorkloadStatusReport> reports) {
         Validate.notNull(reports, "Reports cannot be null");
+        return asNodeMachine(machine -> Future.all(reports.stream()
+                                                          .map(report -> applyStatusReport(machine.getId(), report))
+                                                          .toList())
+                                              .mapEmpty());
+    }
 
-        return Future.all(reports.stream()
-                                 .map(report -> applyStatusReport(nodeId, report))
-                                 .toList())
-                     .mapEmpty();
+    // an operator removes any node; a node's machine asks for no other node's removal. null when the caller may remove it
+    private Future<Void> refusalToRemove(String nodeId) {
+        Future<Void> ret = null;
+        try {
+            Participant caller = securityContext.requireParticipant(SystemParticipant.class);
+            if (DomainUtil.isMachineParticipant(caller) && !caller.getId().equals(nodeId)) {
+                ret = Future.failedFuture(new AuthorizationException("A worker node's machine removes no other node"));
+            }
+        } catch (RuntimeException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
+    }
+
+    // runs action as the system machine the caller authenticated as, which is the node it speaks for; any other
+    // caller is refused as a failed future
+    private <T> Future<T> asNodeMachine(Function<Participant, Future<T>> action) {
+        Future<T> ret;
+        try {
+            Participant caller = securityContext.requireParticipant(SystemParticipant.class);
+            if (!DomainUtil.isMachineParticipant(caller)) {
+                throw new AuthorizationException("Only a worker node's own machine speaks for it");
+            }
+            ret = action.apply(caller);
+        } catch (RuntimeException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
     }
 
     private Future<Void> applyStatusReport(String nodeId, WorkloadStatusReport report) {
@@ -237,6 +277,10 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     @Override
     public Future<Void> deregisterNode(String nodeId) {
         Validate.notNull(nodeId, "Node id cannot be null");
+        Future<Void> refused = refusalToRemove(nodeId);
+        if (refused != null) {
+            return refused;
+        }
 
         return vmNodeRepository.findById(nodeId)
                 .compose(node -> {

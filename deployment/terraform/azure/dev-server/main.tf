@@ -165,6 +165,55 @@ resource "azurerm_storage_container" "snapshots" {
   container_access_type = "private"
 }
 
+# ── Storage for the license database's backups ────────────────────────────────
+# The nightly dump of the license key server's Postgres database, in a container of the snapshot
+# account. The host uploads with a SAS that can only create blobs, so what it holds can add a
+# backup and can read, list or delete none; Azure requires the SAS an expiry, and the host's
+# uploads are refused from then until a new one is issued.
+
+resource "azurerm_storage_container" "licenses_db_backups" {
+  name                  = "licenses-db-backups"
+  storage_account_id    = azurerm_storage_account.snapshots.id
+  container_access_type = "private"
+}
+
+data "azurerm_storage_account_blob_container_sas" "licenses_db_backups" {
+  connection_string = azurerm_storage_account.snapshots.primary_connection_string
+  container_name    = azurerm_storage_container.licenses_db_backups.name
+  https_only        = true
+  start             = "2026-11-20T00:00:00Z"
+  expiry            = "2031-11-20T00:00:00Z"
+
+  permissions {
+    read   = false
+    add    = false
+    create = true
+    write  = true
+    delete = false
+    list   = false
+  }
+}
+
+# A license is renewed yearly at the longest, so 90 days of nightly dumps reach well past any
+# mistake someone would notice
+resource "azurerm_storage_management_policy" "snapshots" {
+  storage_account_id = azurerm_storage_account.snapshots.id
+
+  rule {
+    name    = "expire-licenses-db-backups"
+    enabled = true
+    filters {
+      blob_types   = ["blockBlob"]
+      prefix_match = ["${azurerm_storage_container.licenses_db_backups.name}/"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_creation_greater_than = 90
+      }
+    }
+  }
+}
+
 # ── The servers' hostnames ────────────────────────────────────────────────────
 # An A record on the router's address for each name the servers answer to in the platform zone,
 # the management server's, the system server's and Summit 42's; the app server's are in the customers' zone
@@ -208,4 +257,14 @@ resource "cloudflare_dns_record" "public" {
   lifecycle {
     ignore_changes = [content]
   }
+}
+
+# The Turnstile site the portal's find-my-organizations form presents; the proxmox root gives the management
+# server its site key, and the operator places its secret in the management server's secrets.yml
+resource "cloudflare_turnstile_widget" "portal" {
+  account_id = var.cloudflare_account_id
+  name       = "${local.name_prefix} portal"
+  domains    = [local.portal_hostname]
+  mode       = "managed"
+  region     = "world"
 }

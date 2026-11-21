@@ -287,6 +287,12 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public Future<SystemParticipantIdentity> findSystemUserByOidcIdentity(String oidcConfigId, String subject) {
+        return findByOidcIdentity(oidcConfigId, subject, DomainUtil.SYSTEM_ID, null)
+                .map(identity -> identity instanceof SystemParticipantIdentity user ? user : null);
+    }
+
+    @Override
     public Future<List<OrganizationParticipantIdentity>> findOrganizationUsersByOidcIdentity(String oidcConfigId, String subject) {
         return bindingRepository.findOrganizationBindings(oidcConfigId, subject)
                                 .compose(bindings -> identityRepository.findAllById(bindings.stream().map(OidcBinding::getIdentityId).toList()))
@@ -329,10 +335,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     // the binding's id carries the user's scope, so the same provider identity binds to one user of each organization
-    // and of each application
+    // and of each application, and to one system user
     private Future<OidcBinding> bind(UserParticipantIdentity user, String oidcConfigId, String subject) {
-        requireBindable(user);
-        ParticipantScope scope = DomainUtil.scopeOf(user);
+        ParticipantScope scope = bindingScopeOf(user);
         String bindingId = OidcBinding.idOf(oidcConfigId, subject, scope.organizationId(), scope.applicationId());
         return bindingRepository.findById(bindingId).compose(existing -> {
             Future<OidcBinding> ret;
@@ -360,9 +365,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         return user.isPending() ? identityRepository.clearPending(user.getId(), null).mapEmpty() : Future.succeededFuture();
     }
 
-    // a system user is signed in by its email and holds no binding
-    private static void requireBindable(UserParticipantIdentity user) {
-        Validate.isTrue(!(user instanceof SystemParticipantIdentity), "A system user holds no binding");
+    // the scope a user's bindings are kept under: its own, and the system's id for a system user, whose scope names none
+    private static ParticipantScope bindingScopeOf(UserParticipantIdentity user) {
+        return user instanceof SystemParticipantIdentity ? new ParticipantScope(DomainUtil.SYSTEM_ID, null, null) : DomainUtil.scopeOf(user);
     }
 
     @Override
@@ -377,6 +382,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notBlank(verifiedEmail, "verifiedEmail cannot be blank");
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         return findOrganizationUserByEmail(verifiedEmail, organizationId)
+                .compose(user -> claim(user, oidcConfigId, subject))
+                .map(claimed -> claimed != null ? DomainUtil.createParticipant(claimed) : null);
+    }
+
+    @Override
+    public Future<Participant> claimProvisionedSystemUser(String oidcConfigId, String subject, String verifiedEmail) {
+        Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
+        Validate.notBlank(subject, "subject cannot be blank");
+        Validate.notBlank(verifiedEmail, "verifiedEmail cannot be blank");
+        return findSystemUserByEmail(verifiedEmail)
                 .compose(user -> claim(user, oidcConfigId, subject))
                 .map(claimed -> claimed != null ? DomainUtil.createParticipant(claimed) : null);
     }
@@ -507,8 +522,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     public <T extends UserParticipantIdentity> Future<T> createOidcUser(T user, String oidcConfigId, String subject) {
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         Validate.notBlank(subject, "subject cannot be blank");
-        requireBindable(user);
-        ParticipantScope scope = DomainUtil.scopeOf(user);
+        ParticipantScope scope = bindingScopeOf(user);
         // checked before the user exists, so a bound identity leaves no user behind that no method signs in
         return bindingRepository.findById(OidcBinding.idOf(oidcConfigId, subject, scope.organizationId(), scope.applicationId()))
                                 .compose(existing -> {

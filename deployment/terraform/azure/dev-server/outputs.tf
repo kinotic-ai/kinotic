@@ -28,6 +28,19 @@ output "portal_hostname" {
   value       = local.portal_hostname
 }
 
+output "turnstile_site_key" {
+  description = "The site key of the Turnstile site the portal's find-my-organizations form presents; public"
+  value       = cloudflare_turnstile_widget.portal.sitekey
+}
+
+# The operator places this in the management server's secrets.yml as
+# kinotic.managementServer.turnstile.secretKey (generate-secrets.sh in the proxmox root)
+output "turnstile_secret_key" {
+  description = "The secret key of the portal's Turnstile site, with which the management server verifies each token"
+  value       = cloudflare_turnstile_widget.portal.secret
+  sensitive   = true
+}
+
 output "console_hostname" {
   description = "The system console's hostname, served the same way"
   value       = local.console_hostname
@@ -62,6 +75,12 @@ output "snapshots_storage_account_key" {
 output "snapshots_container" {
   description = "The container the repository is registered on"
   value       = azurerm_storage_container.snapshots.name
+}
+
+output "licenses_db_backup_env" {
+  description = "The license database backup's destination, for the keychain's licenses-db-backup.env (dev-server-secret-file.sh)"
+  value       = "LICENSES_DB_BACKUP_CONTAINER_URL=${azurerm_storage_account.snapshots.primary_blob_endpoint}${azurerm_storage_container.licenses_db_backups.name}\nLICENSES_DB_BACKUP_SAS=${trimprefix(data.azurerm_storage_account_blob_container_sas.licenses_db_backups.sas, "?")}"
+  sensitive   = true
 }
 
 output "email_endpoint" {

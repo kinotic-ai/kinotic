@@ -7,7 +7,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.LoginProviderSummary;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
-import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.identity.OidcBinding;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
@@ -83,21 +82,13 @@ public class DefaultProfileService implements ProfileService {
     @Override
     public Future<List<LoginProviderSummary>> findConnectableProviders(Participant participant) {
         DomainUtil.requireUserParticipant(participant);
-        // a system user holds no binding
-        Future<List<LoginProviderSummary>> ret;
-        if (participant instanceof OrganizationParticipant member) {
-            Future<Set<String>> bound = identityService.findOidcBindings(member.getId())
-                                                       .map(bindings -> bindings.stream().map(OidcBinding::getOidcConfigId).collect(Collectors.toSet()));
-            Future<List<OidcConfiguration>> offered = oidcConfigurationService.findEnabledForScope(member.getOrganizationId(), null);
-            ret = Future.all(bound, offered).map(cf -> offered.result().stream()
-                                                              .filter(configuration -> !bound.result().contains(configuration.getId()))
-                                                              .map(LoginProviderSummary::of)
-                                                              .toList());
-        } else {
-            // a system user holds no binding
-            ret = Future.succeededFuture(List.of());
-        }
-        return ret;
+        Future<Set<String>> bound = identityService.findOidcBindings(participant.getId())
+                                                   .map(bindings -> bindings.stream().map(OidcBinding::getOidcConfigId).collect(Collectors.toSet()));
+        Future<List<OidcConfiguration>> offered = oidcConfigurationService.findEnabledForScope(DomainUtil.signInOwnerIdOf(participant), null);
+        return Future.all(bound, offered).map(cf -> offered.result().stream()
+                                                           .filter(configuration -> !bound.result().contains(configuration.getId()))
+                                                           .map(LoginProviderSummary::of)
+                                                           .toList());
     }
 
     @Override
@@ -105,7 +96,7 @@ public class DefaultProfileService implements ProfileService {
         Validate.notBlank(newPassword, "newPassword is required");
         return loadCallingUser(participant)
                 .compose(user -> passwordOffered(participant).map(offered -> {
-                    Validate.isTrue(offered, "Your organization's login takes no password.");
+                    Validate.isTrue(offered, "Your login takes no password.");
                     return user;
                 }))
                 .compose(user -> identityService.hasPassword(user.getId()).compose(hasPassword -> {
@@ -133,10 +124,8 @@ public class DefaultProfileService implements ProfileService {
         DomainUtil.requireUserParticipant(participant);
         Future<Boolean> signsInWithPassword = signsInWithPassword(participant);
         Future<List<OidcBinding>> bindings = identityService.findOidcBindings(participant.getId());
-        // a binding signs the user in while its organization's login offers the binding's configuration
-        Future<List<OidcConfiguration>> offered = participant instanceof OrganizationParticipant member
-                ? oidcConfigurationService.findEnabledForScope(member.getOrganizationId(), null)
-                : Future.succeededFuture(List.of());
+        // a binding signs the user in while its login offers the binding's configuration
+        Future<List<OidcConfiguration>> offered = oidcConfigurationService.findEnabledForScope(DomainUtil.signInOwnerIdOf(participant), null);
         return Future.all(signsInWithPassword, bindings, offered).compose(cf -> {
             Validate.isTrue(bindings.result().stream().anyMatch(binding -> binding.getId().equals(methodId)), "Sign-in method not found.");
             Set<String> offeredIds = offered.result().stream().map(OidcConfiguration::getId).collect(Collectors.toSet());
@@ -155,15 +144,9 @@ public class DefaultProfileService implements ProfileService {
         return Future.all(hasPassword, offered).map(cf -> hasPassword.result() && offered.result());
     }
 
-    // the system console's login always takes a password; an organization's user only while its organization's login takes one
+    // a user has a password to keep only while its login takes one
     private Future<Boolean> passwordOffered(Participant participant) {
-        Future<Boolean> ret;
-        if (participant instanceof OrganizationParticipant member) {
-            ret = passwordConfigurationService.findOffered(member.getOrganizationId(), null, null).map(Objects::nonNull);
-        } else {
-            ret = Future.succeededFuture(true);
-        }
-        return ret;
+        return passwordConfigurationService.findOffered(DomainUtil.signInOwnerIdOf(participant), null, null).map(Objects::nonNull);
     }
 
     /** Loads the user behind the calling participant. */

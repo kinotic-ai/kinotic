@@ -1,10 +1,13 @@
-import { apiUrl } from '@kinotic-ai/frontend-common'
+import { apiUrl } from '../../util/helpers'
 import { OidcConfigurationType, type OwnedOidcConfiguration, type PasswordConfiguration } from '@kinotic-ai/management-api'
 
 /** The name an email and a password is shown by among a scope's sign-in providers. */
 export const PASSWORD_PROVIDER_NAME = 'Email and password'
 
-/** One of an organization's sign-in providers: an OIDC configuration, or the email and password of one login. */
+/** Whose login the providers are of: an organization's, with its applications' and their tenants', or the system console's. */
+export type SignInProviderOwner = 'organization' | 'system'
+
+/** One of an owner's sign-in providers: an OIDC configuration, or the email and password of one login. */
 export type SignInProvider =
     | { kind: 'oidc', configuration: OwnedOidcConfiguration }
     | { kind: 'password', configuration: PasswordConfiguration }

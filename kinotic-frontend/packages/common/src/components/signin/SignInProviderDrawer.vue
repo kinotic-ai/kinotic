@@ -184,15 +184,15 @@ import {
   type Tenant,
   TenantManagement
 } from '@kinotic-ai/management-api'
-import { FormDrawer, showErrorToast } from '@kinotic-ai/frontend-common'
-import CopyableUrl from '@/components/CopyableUrl.vue'
-import { PASSWORD_PROVIDER_NAME, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
-import { PROVIDER_LOGOS, providerDisplayName } from '@kinotic-ai/frontend-common'
-import { APPLICATION_STATE } from '@/states/IApplicationState'
+import FormDrawer from '../FormDrawer.vue'
+import { showErrorToast } from '../../util/helpers'
+import { PROVIDER_LOGOS, providerDisplayName } from '../../util/oidcProviders'
+import CopyableUrl from './CopyableUrl.vue'
+import { PASSWORD_PROVIDER_NAME, START_URL_HELP, startUrlOf, type SignInProvider, type SignInProviderOwner } from './signInProviders'
 
 /**
- * The form an organization adds or edits one of its own sign-in providers with: of the organization's login when
- * applicationId is null, otherwise of the application's login or one of its tenants'. The provider is an OIDC
+ * The form an owner adds or edits one of its own sign-in providers with: of the owner's own login when
+ * applicationId is null, the organization's or the system console's, otherwise of the application's login or one of its tenants'. The provider is an OIDC
  * configuration, or an email and a password, which a scope takes at most once. A new OIDC configuration's
  * callback URL is shown once it is saved; an edited one's alongside its fields. The held client secret is kept
  * unless a new one is entered, and removed only through the confirmed "Make this a public client". An application's
@@ -207,7 +207,10 @@ const props = defineProps<{
   password: PasswordConfiguration | null
   /** The scopes that take an email and a password already, by tenant id, null for the scope's own login. */
   passwordScopes: (string | null)[]
+  owner: SignInProviderOwner
   applicationId: string | null
+  /** How the application's tenants are managed; null with no application. */
+  tenantManagement: TenantManagement | null
   /** The application's tenants, any of whose logins a new configuration may be offered at. */
   tenants: Tenant[]
 }>()
@@ -286,7 +289,7 @@ const choices = computed<ProviderChoice[]>(() => [
 const signUpOffered = computed(() => props.applicationId !== null && (!isPassword.value || tenantId.value === null))
 // a password signs a new user up into a tenant of its own, which only the system's tenancy gives
 const passwordSignUpUnavailable = computed(() => isPassword.value && props.applicationId !== null
-    && APPLICATION_STATE.currentApplication?.tenantManagement !== TenantManagement.SYSTEM)
+    && props.tenantManagement !== TenantManagement.SYSTEM)
 const signUpHelp = computed(() => {
   let ret: string
   if (passwordSignUpUnavailable.value) {
@@ -336,6 +339,8 @@ const description = computed(() => {
   let ret: string
   if (saved.value) {
     ret = `${saved.value.name} is saved.`
+  } else if (props.owner === 'system') {
+    ret = 'An identity provider system users sign in to the system console with.'
   } else if (props.applicationId === null) {
     ret = 'An identity provider your organization\'s members sign in to the portal with.'
   } else {
@@ -463,7 +468,7 @@ function configurationToSave(): OwnedOidcConfiguration {
       ...fields,
       id: null,
       type: props.applicationId === null
-          ? OidcConfigurationType.ORGANIZATION
+          ? (props.owner === 'system' ? OidcConfigurationType.SYSTEM : OidcConfigurationType.ORGANIZATION)
           : tenantId.value === null ? OidcConfigurationType.APPLICATION : OidcConfigurationType.TENANT,
       organizationId: null,
       applicationId: props.applicationId,

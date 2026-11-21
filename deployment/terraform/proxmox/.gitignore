@@ -8,5 +8,3 @@
 # Local values: the API token, this host's disks and addresses
 *.auto.tfvars
 
-# What generate-secrets.sh writes by default
-dev-server-secrets/

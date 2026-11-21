@@ -30,6 +30,11 @@ public class OrganizationSecurityService implements SecurityService {
         return credentialAuthenticationService.authenticate(authenticationInfo, context, OrganizationSecurityService::admits);
     }
 
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        return credentialAuthenticationService.reauthenticate(participant, OrganizationSecurityService::admits);
+    }
+
     private static boolean admits(ParticipantIdentity identity, Participant participant) {
         return participant instanceof OrganizationParticipant
                 // a runtime publishes into its application's zone, which only the app server hosts

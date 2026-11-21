@@ -19,7 +19,7 @@ public enum OidcConfigurationType {
      */
     APP_SOCIAL,
     /**
-     * A registration the system holds with its operators' identity provider, through which system users sign in.
+     * A provider the deployment's operators configured for the system console's login.
      */
     SYSTEM,
     /**

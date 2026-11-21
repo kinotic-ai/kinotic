@@ -26,6 +26,9 @@ public class PendingApplicationSignUp implements PendingVerification {
     /** Hard expiry after which the token is invalid. */
     private Date expiresAt;
 
+    /** Epoch milliseconds until which one completion holds this record; null while none does. */
+    private Long claimedUntil;
+
     private Date created;
 
     /** The email the person signed up with, which the user is created with. */

@@ -62,7 +62,8 @@
     </SteppingDrawer>
 
     <SignInProviderDrawer v-model:visible="formVisible" :configuration="editingOidc" :password="editingPassword"
-                          :password-scopes="passwordScopes" :application-id="applicationId" :tenants="tenants"
+                          :password-scopes="passwordScopes" :owner="owner" :application-id="applicationId"
+                          :tenant-management="tenantManagement" :tenants="tenants"
                           @saved="onSaved" />
 
     <FormDrawer :visible="copyFormVisible" title="Copy to application" :description="copyDescription"
@@ -107,30 +108,27 @@ import { Building2, CalendarClock, Fingerprint, Globe, KeyRound, UsersRound } fr
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
 import {
   ClientRegistrationType,
-  OidcConfigurationType,
-  type OidcProviderType,
+  type Application,
   type OwnedOidcConfiguration,
   type PasswordConfiguration,
-  type Tenant
+  type Tenant,
+  type TenantManagement
 } from '@kinotic-ai/management-api'
-import {
-  CrudTable,
-  DatetimeUtil,
-  FactList,
-  FormDrawer,
-  SteppingDrawer,
-  TimePill,
-  showErrorToast,
-  useCrudTablePage,
-  useSteppingDrawer,
-  type CrudHeader,
-  type DescriptiveIdentifiable
-} from '@kinotic-ai/frontend-common'
-import CopyableUrl from '@/components/CopyableUrl.vue'
-import SignInProviderDrawer from '@/components/SignInProviderDrawer.vue'
-import { APPLICATION_STATE } from '@/states/IApplicationState'
-import { PASSWORD_PROVIDER_NAME, START_URL_HELP, startUrlOf, type SignInProvider } from '@/util/oidcConfigurations'
-import { PROVIDER_LOGOS, providerDisplayName } from '@kinotic-ai/frontend-common'
+import CrudTable from '../CrudTable.vue'
+import FactList from '../FactList.vue'
+import FormDrawer from '../FormDrawer.vue'
+import SteppingDrawer from '../SteppingDrawer.vue'
+import TimePill from '../TimePill.vue'
+import { useCrudTablePage } from '../useCrudTablePage'
+import { useSteppingDrawer } from '../../composables/useSteppingDrawer'
+import type { CrudHeader } from '../../types/CrudHeader'
+import type { DescriptiveIdentifiable } from '../../types/DescriptiveIdentifiable'
+import DatetimeUtil from '../../util/DatetimeUtil'
+import { showErrorToast } from '../../util/helpers'
+import { PROVIDER_LOGOS, providerDisplayName } from '../../util/oidcProviders'
+import CopyableUrl from './CopyableUrl.vue'
+import SignInProviderDrawer from './SignInProviderDrawer.vue'
+import { PASSWORD_PROVIDER_NAME, START_URL_HELP, startUrlOf, type SignInProvider, type SignInProviderOwner } from './signInProviders'
 
 /** One table row: a sign-in provider of the organization's and the columns it is listed by. */
 interface ConfigurationRow extends DescriptiveIdentifiable {
@@ -150,13 +148,23 @@ interface ConfigurationRow extends DescriptiveIdentifiable {
 }
 
 /**
- * The organization's own sign-in providers of one sign-in scope, its OIDC configurations and its email and password,
+ * An owner's own sign-in providers of one sign-in scope, its OIDC configurations and its email and password,
  * listed with what a provider is given, and added, edited, copied, enabled, disabled and deleted from here: the
- * organization's login when applicationId is null, otherwise the application's login and its tenants', grouped by
- * tenant.
+ * owner's own login when applicationId is null, the organization's or the system console's, otherwise the
+ * application's login and its tenants', grouped by tenant.
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
+  owner: SignInProviderOwner
   applicationId: string | null
+  /** How the application's tenants are managed, which decides whether a password signs new users up; null with no application. */
+  tenantManagement?: TenantManagement | null
+  /** The organization's applications, any other of which a provider is copied to. */
+  applications?: Application[]
+}>(), { tenantManagement: null, applications: () => [] })
+
+const emit = defineEmits<{
+  /** The copy form opened with no application listed yet. */
+  (e: 'load-applications'): void
 }>()
 
 const toast = useToast()
@@ -193,15 +201,19 @@ const headers = computed<CrudHeader[]>(() => [
   { field: 'created', header: 'Created', sortable: false, width: '12%', optional: true }
 ])
 
-const intro = computed(() => props.applicationId === null
+const intro = computed(() => props.owner === 'system'
+    ? 'How system users sign in to the system console: identity providers such as your Okta or Microsoft Entra ID directory, each offered on the console\'s login page once its callback URL is registered at the provider, and an email and a password, offered while it is enabled. A provider signs in the system users you added under Members.'
+    : props.applicationId === null
     ? 'How your organization\'s members sign in to the portal: identity providers such as your Okta or Microsoft Entra ID directory, each offered on your organization\'s login page once its callback URL is registered at the provider, and an email and a password, offered only when you add it.'
     : 'How this application\'s users sign in and sign up: identity providers, offered on the application\'s login page, or on one tenant\'s for a provider of that tenant, and an email and a password, offered only when you add it. Google and Microsoft can be managed by Kinotic, which works with no setup; a provider with your own credentials works once its callback URL is registered at the provider.')
-const emptyStateText = computed(() => props.applicationId === null
+const emptyStateText = computed(() => props.owner === 'system'
+    ? 'No providers yet. Add one so system users sign in with your own accounts.'
+    : props.applicationId === null
     ? 'No providers yet. Add one so your members sign in with your organization\'s own accounts.'
     : 'No providers yet. Add one so this application\'s users can sign in.')
 
 // every application but the one the source is offered at
-const copyTargets = computed(() => APPLICATION_STATE.allApplications.filter(application => application.id !== props.applicationId))
+const copyTargets = computed(() => props.applications.filter(application => application.id !== props.applicationId))
 const copyDescription = computed(() => copySource.value ? `Offer ${copySource.value.name} at another application's login.` : undefined)
 
 watch(() => props.applicationId, loadTenants, { immediate: true })
@@ -228,10 +240,9 @@ function inScope(provider: SignInProvider): boolean {
   let ret: boolean
   if (provider.kind === 'password') {
     ret = provider.configuration.applicationId === props.applicationId
-  } else if (props.applicationId === null) {
-    ret = provider.configuration.type === OidcConfigurationType.ORGANIZATION
   } else {
-    ret = provider.configuration.type !== OidcConfigurationType.ORGANIZATION && provider.configuration.applicationId === props.applicationId
+    // the kinds of an owner's own login name no application
+    ret = (provider.configuration.applicationId ?? null) === props.applicationId
   }
   return ret
 }
@@ -272,7 +283,7 @@ function toRow(provider: SignInProvider): ConfigurationRow {
       source: provider,
       name: configuration.name,
       providerName: providerDisplayName(configuration.provider),
-      logo: PROVIDER_LOGOS[configuration.provider as OidcProviderType] ?? null,
+      logo: PROVIDER_LOGOS[configuration.provider] ?? null,
       providerAccount: configuration.providerAccount,
       scope: scopeOf(configuration.tenantId),
       enabled: configuration.enabled,
@@ -379,8 +390,8 @@ function openCopyForm(configuration: OwnedOidcConfiguration): void {
   copied.value = null
   copiedCallbackUrl.value = null
   copyFormVisible.value = true
-  if (APPLICATION_STATE.allApplications.length === 0) {
-    APPLICATION_STATE.loadAllApplications()
+  if (props.applications.length === 0) {
+    emit('load-applications')
   }
 }
 
@@ -408,7 +419,7 @@ function rowActions(row: ConfigurationRow): MenuItem[] {
   const source = row.source
   return [
     { label: 'Edit', icon: 'pi pi-pencil', command: () => openForm(source) },
-    ...(source.kind === 'oidc' && !isManaged(source.configuration)
+    ...(source.kind === 'oidc' && props.owner === 'organization' && !isManaged(source.configuration)
         ? [{ label: 'Copy to application', icon: 'pi pi-copy', command: () => openCopyForm(source.configuration) }]
         : []),
     {
