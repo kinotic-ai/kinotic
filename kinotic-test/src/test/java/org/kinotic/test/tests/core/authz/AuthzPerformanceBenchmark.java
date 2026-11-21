@@ -1072,7 +1072,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String binding = AuthzUtil.bindingObject(object, roleId);
         return List.of(new RelationshipTuple(AuthzUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
                        new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, binding),
-                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
+                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object),
+                       new RelationshipTuple(binding, "binding", "role_holders:" + roleId));
     }
 
     // ---------------------------------------------------------------- measuring

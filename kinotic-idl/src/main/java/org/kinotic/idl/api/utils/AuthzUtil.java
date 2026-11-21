@@ -98,6 +98,15 @@ public final class AuthzUtil {
     }
 
     /**
+     * The id of the role a binding grants, which its object is named by.
+     *
+     * @param bindingObject a binding as {@link #bindingObject(String, String)} names it
+     */
+    public static String bindingRole(String bindingObject) {
+        return bindingObject.substring(bindingObject.lastIndexOf('/') + 1);
+    }
+
+    /**
      * The id of the grant of a role to a member, on whichever resource it is made: the role's id and the member,
      * {@code project.editor:user:<userId>} or {@code project.editor:group:<groupId>#member}.
      *

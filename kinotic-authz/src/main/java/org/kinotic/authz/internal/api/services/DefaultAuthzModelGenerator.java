@@ -11,6 +11,7 @@ import org.kinotic.idl.api.schema.decorators.AuthzRoleDeclaration;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.JsonNodeFactory;
 import tools.jackson.databind.node.ObjectNode;
@@ -70,6 +71,23 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     static final String CHECKED_DEFINITION_HASH = "definition_hash";
     static final String PART_INDEX = "part";
     static final String PART_COUNT = "parts";
+    /**
+     * The type whose objects are named by role ids. One holds every binding of its role under {@link #BINDING},
+     * and its {@link #HOLDER} is everyone granted the role on anything in the store, so listing the objects a user
+     * is the holder of says which roles the user holds.
+     */
+    static final String ROLE_HOLDERS = "role_holders";
+    static final String BINDING = "binding";
+    static final String HOLDER = "holder";
+    /**
+     * The condition a resource holds a binding under, true of the bindings whose role the caller holds: the tuple
+     * carries the binding's role as {@link #BOUND_ROLE}, the check the roles the caller holds as the keys of
+     * {@link #HELD_ROLES}. A check so reads the bindings of the roles its caller holds, however many roles are
+     * granted on the resource; the binding still decides whether the caller is a member of it.
+     */
+    static final String ROLE_HELD = "role_held";
+    static final String BOUND_ROLE = "role";
+    static final String HELD_ROLES = "held";
     private static final String SERVICES = "service";
     private static final String PERMISSION = "permission";
     /**
@@ -79,7 +97,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
      */
     static final String SERVICE_PERMISSION = AuthzUtil.permissionName(SERVICES, PERMISSION);
     // the types a model defines beside the resource types, which a service's type would define a second time
-    private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION, ROLE_PART);
+    private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION, ROLE_PART, ROLE_HOLDERS);
     // the types an application's store places a resource of; any other type in it is one of the application's services
     private static final Set<String> APPLICATION_TYPES = AuthzModelGenerator.APPLICATION_TYPES;
     // who a binding may be made to in an application's store, and in the system's, which also has organizations
@@ -242,6 +260,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                                     Map<String, Set<String>> bindable,
                                     Map<String, Set<String>> roles,
                                     Map<String, Set<String>> servicePermissions) {
+        typeDefinitions.add(roleHoldersType(typeDefinitions));
         ObjectNode definition = JsonNodeFactory.instance.objectNode();
         definition.put("schema_version", SCHEMA_VERSION);
         definition.set("type_definitions", typeDefinitions);
@@ -256,10 +275,24 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 parents.put(type.name, type.parent);
             }
         }
+        ObjectNode conditions = definition.putObject("conditions");
+        conditions.set(ROLE_HELD, roleHeldCondition());
         if (types.declared().stream().anyMatch(type -> type.granular)) {
-            definition.set("conditions", definitionConditions());
+            conditions.setAll(definitionConditions());
         }
         return new AuthzModel(definition, ModelHash.of(definition), catalog, roles, bindable, parents, servicePermissions);
+    }
+
+    private static ObjectNode roleHeldCondition() {
+        ObjectNode ret = JsonNodeFactory.instance.objectNode();
+        ret.put("name", ROLE_HELD);
+        ret.put("expression", BOUND_ROLE + " in " + HELD_ROLES);
+        ObjectNode parameters = ret.putObject("parameters");
+        parameters.putObject(BOUND_ROLE).put("type_name", "TYPE_NAME_STRING");
+        ObjectNode held = parameters.putObject(HELD_ROLES);
+        held.put("type_name", "TYPE_NAME_MAP");
+        held.putArray("generic_types").addObject().put("type_name", "TYPE_NAME_BOOL");
+        return ret;
     }
 
     // IN_PART holds for the part of a role the checked definition's hash falls in, and FOR_DEFINITION for the tuple
@@ -580,6 +613,21 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         return typeDefinition(ROLE_PART, relations);
     }
 
+    // Holds a role's bindings, of whichever type each is attached to, and is held by the members of any of them
+    private static ObjectNode roleHoldersType(ArrayNode typeDefinitions) {
+        List<String> bindingTypes = new ArrayList<>();
+        for (JsonNode type : typeDefinitions) {
+            String name = type.get("type").asString();
+            if (name.endsWith(AuthzConstants.ROLE_BINDING_TYPE_SUFFIX)) {
+                bindingTypes.add(name);
+            }
+        }
+        Map<String, ObjectNode> relations = new LinkedHashMap<>();
+        relate(relations, BINDING, direct(bindingTypes));
+        relate(relations, HOLDER, tupleToUserset(BINDING, MEMBER));
+        return typeDefinition(ROLE_HOLDERS, relations);
+    }
+
     /**
      * A binding attached to a type is one role granted to some members on one resource of it: a member holds a
      * permission through it when the role bundles that permission. The engine refuses a binding of a role whose
@@ -606,7 +654,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         for (Map.Entry<String, String> inherited : type.inherited.entrySet()) {
             relate(relations, inherited.getKey(), tupleToUserset(inherited.getValue(), inherited.getKey()));
         }
-        relate(relations, ROLE_BINDING, direct(List.of(AuthzUtil.roleBindingType(type.name))));
+        relate(relations, ROLE_BINDING, directUnder(AuthzUtil.roleBindingType(type.name), ROLE_HELD));
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 String name = AuthzUtil.permissionName(about.name, permission.getKey());
@@ -634,7 +682,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
         relate(relations, DEFINITION, direct(List.of(ENTITY_DEFINITION)));
         relate(relations, TENANT, direct(List.of(TENANT)));
-        relate(relations, ROLE_BINDING, direct(List.of(AuthzUtil.roleBindingType(TENANT_DEFINITION))));
+        relate(relations, ROLE_BINDING, directUnder(AuthzUtil.roleBindingType(TENANT_DEFINITION), ROLE_HELD));
         relate(relations, PLACED, tupleToUserset(DEFINITION, PLACED));
         for (Map.Entry<String, Set<String>> permission : new TreeMap<>(definition.permissions).entrySet()) {
             String name = AuthzUtil.permissionName(definition.name, permission.getKey());

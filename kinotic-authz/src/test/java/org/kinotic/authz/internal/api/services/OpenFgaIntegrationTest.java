@@ -370,6 +370,73 @@ class OpenFgaIntegrationTest {
         }
     }
 
+    @Test
+    void aCheckCostsTheSameHoweverManyRolesAreGrantedOnItsPath() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
+        List<String> path = List.of("project:billing-roles-cost", "application:crm-roles-cost", "organization:acme-roles-cost");
+        await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple(path.get(2), "organization", path.get(1)),
+                                                         new RelationshipTuple(path.get(1), "application", path.get(0)))));
+        List<RelationshipTuple> roles = new ArrayList<>();
+        for (int i = 0; i <= 50; i++) {
+            roles.add(new RelationshipTuple("user:*", "project_can_edit", "project_role:project.custom" + i + "-roles-cost"));
+        }
+        await(relationshipService.ensure(SYSTEM, roles));
+        for (String object : path) {
+            await(relationshipService.bind(SYSTEM, "project.custom0-roles-cost", "user:holder-roles-cost", object));
+        }
+        // a refusal reads every path to the object, and higher consistency skips the engine's check cache
+        RelationshipTuple ofAHolder = new RelationshipTuple("user:holder-roles-cost", "project_can_delete", path.get(0));
+        RelationshipTuple ofNoHolder = new RelationshipTuple("user:nobody-roles-cost", "project_can_delete", path.get(0));
+        double holderWithOne = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, ofAHolder, Consistency.HIGHER_CONSISTENCY));
+        double nobodyWithOne = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, ofNoHolder, Consistency.HIGHER_CONSISTENCY));
+
+        for (int i = 1; i <= 50; i++) {
+            for (String object : path) {
+                await(relationshipService.bind(SYSTEM, "project.custom" + i + "-roles-cost", "user:member" + i + "-roles-cost", object));
+            }
+        }
+        double holderWithMany = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, ofAHolder, Consistency.HIGHER_CONSISTENCY));
+        double nobodyWithMany = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, ofNoHolder, Consistency.HIGHER_CONSISTENCY));
+
+        // a check that opened the binding of each role would read tens of times more
+        assertTrue(holderWithMany < 2 * holderWithOne,
+                   "a refused check of a holder of one role took " + holderWithOne + " datastore queries with one role granted on each"
+                           + " object of its path and " + holderWithMany + " with 51");
+        assertTrue(nobodyWithMany < 2 * nobodyWithOne,
+                   "a refused check of a holder of no role took " + nobodyWithOne + " datastore queries with one role granted on each"
+                           + " object of its path and " + nobodyWithMany + " with 51");
+        for (String object : path) {
+            await(relationshipService.removeObject(SYSTEM, object));
+        }
+        await(relationshipService.remove(SYSTEM, roles));
+    }
+
+    @Test
+    void aGrantMadeAfterARefusalAnswersTheNextCheck() throws Exception {
+        await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
+        String project = "project:billing-regrant";
+        RelationshipTuple editing = new RelationshipTuple("user:sally-regrant", "project_can_edit", project);
+        RelationshipTuple reading = new RelationshipTuple("user:sally-regrant", "project_can_read", project);
+        String viewing = await(relationshipService.bind(SYSTEM, "project.viewer", "user:sally-regrant", project));
+        // the roles the user holds are listed for the first check and kept for the ones after it
+        assertTrue(await(relationshipService.check(SYSTEM, reading, Consistency.HIGHER_CONSISTENCY)));
+        assertFalse(await(relationshipService.check(SYSTEM, editing, Consistency.HIGHER_CONSISTENCY)));
+
+        String granted = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-regrant", project));
+
+        assertTrue(await(relationshipService.check(SYSTEM, editing, Consistency.HIGHER_CONSISTENCY)));
+        await(relationshipService.revoke(SYSTEM, granted, project));
+        assertFalse(await(relationshipService.check(SYSTEM, editing, Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.check(SYSTEM, reading, Consistency.HIGHER_CONSISTENCY)));
+        await(relationshipService.revoke(SYSTEM, viewing, project));
+        // a binding leaves its role's holders with its last member
+        for (String roleId : List.of("project.editor", "project.viewer")) {
+            assertFalse(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject(project, roleId), "binding",
+                                                                                      "role_holders:" + roleId))));
+        }
+    }
+
     // The datastore queries the engine counts for one check, averaged over ten
     private double datastoreQueriesOf(Supplier<Future<Boolean>> check) throws Exception {
         double before = checkQueryCount();
@@ -401,11 +468,9 @@ class OpenFgaIntegrationTest {
                 new RelationshipTuple("organization:acme-checks", "organization", "application:crm-checks"),
                 new RelationshipTuple("application:crm-checks", "application", "project:billing-checks"),
                 new RelationshipTuple("application:crm-checks", "application", "project:shipping-checks"),
-                new RelationshipTuple("user:*", "project_can_edit", "project_role:project.editor_checks"),
-                new RelationshipTuple("project_role:project.editor_checks", "role", "project_role_binding:sally_edits_billing_checks"),
-                new RelationshipTuple("user:sally-checks", "member", "project_role_binding:sally_edits_billing_checks"),
-                new RelationshipTuple("project_role_binding:sally_edits_billing_checks", "role_binding", "project:billing-checks"));
+                new RelationshipTuple("user:*", "project_can_edit", "project_role:project.editor_checks"));
         await(relationshipService.ensure(SYSTEM, written));
+        String granted = await(relationshipService.bind(SYSTEM, "project.editor_checks", "user:sally-checks", "project:billing-checks"));
 
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // editing implies reading
@@ -415,7 +480,7 @@ class OpenFgaIntegrationTest {
         assertEquals(List.of("project:billing-checks"),
                      await(relationshipService.listObjects(SYSTEM, "user:sally-checks", "project_can_read", "project", Consistency.HIGHER_CONSISTENCY)));
         // the grant of a role bundling only editing explains reading, which editing implies
-        Grant editing = new Grant("sally_edits_billing_checks", "project.editor_checks", new Subject(SubjectType.USER, "sally-checks"),
+        Grant editing = new Grant(granted, "project.editor_checks", new Subject(SubjectType.USER, "sally-checks"),
                                   new Resource("project", "billing-checks"));
         assertEquals(List.of(editing), await(relationshipService.explain(SYSTEM, model,
                                                                        new RelationshipTuple("user:sally-checks", "project_can_read", "project:billing-checks"),
@@ -424,8 +489,7 @@ class OpenFgaIntegrationTest {
                                                                   new RelationshipTuple("user:sally-checks", "project_can_delete", "project:billing-checks"),
                                                                   List.of(), List.of(editing))).through());
 
-        await(relationshipService.remove(SYSTEM, List.of(
-                new RelationshipTuple("user:sally-checks", "member", "project_role_binding:sally_edits_billing_checks"))));
+        await(relationshipService.revoke(SYSTEM, granted, "project:billing-checks"));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-checks", "project_can_edit", "project:billing-checks"), Consistency.HIGHER_CONSISTENCY)));
         // the store is shared with the other tests and with a run against a persistent engine, so nothing written here stays
         await(relationshipService.remove(SYSTEM, written));
@@ -806,17 +870,13 @@ class OpenFgaIntegrationTest {
     void aConsistentCheckSeesARevokeACachedAnswerPredates() throws Exception {
         Assumptions.assumeTrue(openfga != null, "Only the engine this test starts is known to cache checks");
         await(storeService.ensureModel(SYSTEM, generator.systemModel(List.of(projectService()))));
-        RelationshipTuple membership = new RelationshipTuple("user:sally-cached", "member", "project_role_binding:sally_edits_billing_cached");
-        List<RelationshipTuple> written = List.of(
-                new RelationshipTuple("user:*", "project_can_edit", "project_role:project.editor_cached"),
-                new RelationshipTuple("project_role:project.editor_cached", "role", "project_role_binding:sally_edits_billing_cached"),
-                membership,
-                new RelationshipTuple("project_role_binding:sally_edits_billing_cached", "role_binding", "project:billing-cached"));
+        List<RelationshipTuple> written = List.of(new RelationshipTuple("user:*", "project_can_edit", "project_role:project.editor_cached"));
         await(relationshipService.ensure(SYSTEM, written));
+        String granted = await(relationshipService.bind(SYSTEM, "project.editor_cached", "user:sally-cached", "project:billing-cached"));
         RelationshipTuple editing = new RelationshipTuple("user:sally-cached", "project_can_edit", "project:billing-cached");
         assertTrue(await(relationshipService.check(SYSTEM, editing, Consistency.MINIMIZE_LATENCY)));
 
-        await(relationshipService.remove(SYSTEM, List.of(membership)));
+        await(relationshipService.revoke(SYSTEM, granted, "project:billing-cached"));
 
         // the cached allow outlives the revoke, which shows the cache answered; the consistent check does not read it
         assertTrue(await(relationshipService.check(SYSTEM, editing, Consistency.MINIMIZE_LATENCY)));

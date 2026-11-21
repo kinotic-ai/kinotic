@@ -247,6 +247,25 @@ public class AuthzModelGeneratorTest {
     }
 
     @Test
+    public void aResourceHoldsABindingUnderTheRolesACheckSaysItsCallerHolds() {
+        AuthzModel model = generator.systemModel(systemServices());
+
+        // the binding's role is compared with the roles the check names, so a check reads the bindings of those alone
+        assertEquals("role in held", model.definition().get("conditions").get("role_held").get("expression").asString());
+        assertEquals("TYPE_NAME_MAP", model.definition().get("conditions").get("role_held").get("parameters").get("held").get("type_name").asString());
+        for (String resource : List.of("system", "organization", "application", "project", "tenant")) {
+            assertEquals("role_held", type(model, resource).get("metadata").get("relations").get("role_binding")
+                                                            .get("directly_related_user_types").get(0).get("condition").asString());
+        }
+        // the roles a user holds are listed through the bindings of each role, of whichever type they are attached to
+        JsonNode holders = type(model, "role_holders");
+        Set<String> bindingTypes = new TreeSet<>();
+        typeNames(model).stream().filter(name -> name.endsWith("_role_binding")).forEach(bindingTypes::add);
+        assertEquals(bindingTypes, new TreeSet<>(directTypes(holders, "binding")));
+        assertEquals("ttu:binding->member", source(holders.get("relations").get("holder")));
+    }
+
+    @Test
     public void aBindingGrantsOnlyRolesHomedAtItsTypeOrInsideItWithinItsTrustBoundary() {
         AuthzModel model = generator.systemModel(systemServices());
 
@@ -268,7 +287,7 @@ public class AuthzModelGeneratorTest {
 
     // The kernel types, and each resource type beside its role and binding types
     private static Set<String> withRoleTypes(String... resourceTypes) {
-        Set<String> ret = new TreeSet<>(Set.of("user", "group"));
+        Set<String> ret = new TreeSet<>(Set.of("user", "group", "role_holders"));
         for (String type : resourceTypes) {
             ret.addAll(Set.of(type, AuthzUtil.roleType(type), AuthzUtil.roleBindingType(type)));
         }
@@ -467,6 +486,9 @@ public class AuthzModelGeneratorTest {
         assertEquals(List.of("entity_definition_role", "tenant_role"), directTypes(type(model, "tenant_role_binding"), "role"));
         assertEquals(List.of("entity_definition_role"), directTypes(type(model, "tenant_definition_role_binding"), "role"));
         assertEquals(List.of("tenant_definition_role_binding"), directTypes(type(model, "tenant_definition"), "role_binding"));
+        assertEquals("role_held", type(model, "tenant_definition").get("metadata").get("relations").get("role_binding")
+                                                                   .get("directly_related_user_types").get(0).get("condition").asString());
+        assertTrue(directTypes(type(model, "role_holders"), "binding").contains("tenant_definition_role_binding"));
         assertFalse(model.grantable("application.admin", "tenant"));
         // the application is placed in its own store by a wildcard tuple, and a definition under it is placed through it
         assertEquals(List.of("user:*"), directTypes(type(model, "application"), "placed"));
@@ -622,8 +644,8 @@ public class AuthzModelGeneratorTest {
         assertTrue(type(model, "entity_definition").get("relations").has("entity_definition_can_read"));
         assertTrue(type(model, "organization").get("relations").has("entity_definition_can_read"));
         assertTrue(model.roles().get("entity_definition.viewer").contains("entity_definition_can_read"));
-        // the system's definition keeps the derived ladder and names no definitions, so its model has no condition
-        assertFalse(model.definition().has("conditions"));
+        // the system's definition keeps the derived ladder and names no definitions, so its model has no condition for one
+        assertEquals(List.of("role_held"), List.copyOf(model.definition().get("conditions").propertyNames()));
     }
 
     @Test
