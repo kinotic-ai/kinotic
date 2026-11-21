@@ -1,6 +1,6 @@
 import { MANAGEMENT_API_ZONE } from '@/api/Zones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
-import type { FeedbackIssue } from '@/api/model/feedback/FeedbackIssue'
+import type { CreatedIssue } from '@/api/model/github/CreatedIssue'
 import type { FeedbackSubmission } from '@/api/model/feedback/FeedbackSubmission'
 
 /**
@@ -16,7 +16,7 @@ export interface IFeedbackService {
      * projects. An organization may send ten per hour.
      * @param submission the bug report or feature request
      */
-    send(submission: FeedbackSubmission): Promise<FeedbackIssue>
+    send(submission: FeedbackSubmission): Promise<CreatedIssue>
 
 }
 
@@ -28,7 +28,7 @@ export class FeedbackService implements IFeedbackService {
         this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.FeedbackService`)
     }
 
-    public send(submission: FeedbackSubmission): Promise<FeedbackIssue> {
+    public send(submission: FeedbackSubmission): Promise<CreatedIssue> {
         return this.serviceProxy.invoke('send', [submission])
     }
 

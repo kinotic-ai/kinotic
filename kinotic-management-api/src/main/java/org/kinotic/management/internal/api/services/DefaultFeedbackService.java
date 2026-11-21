@@ -12,8 +12,8 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.config.GithubInternalAppProperties;
 import org.kinotic.management.api.config.GithubProperties;
-import org.kinotic.management.api.model.feedback.FeedbackIssue;
 import org.kinotic.management.api.model.feedback.FeedbackSubmission;
+import org.kinotic.management.api.model.github.CreatedIssue;
 import org.kinotic.management.api.services.FeedbackService;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
 import org.kinotic.management.internal.api.services.github.client.GitHubAppJwtFactory;
@@ -57,7 +57,7 @@ public class DefaultFeedbackService implements FeedbackService {
     }
 
     @Override
-    public Future<FeedbackIssue> send(FeedbackSubmission submission) {
+    public Future<CreatedIssue> send(FeedbackSubmission submission) {
         Validate.notNull(submission, "submission is required");
         Validate.notNull(submission.getType(), "type is required");
         Validate.notBlank(submission.getTitle(), "title is required");

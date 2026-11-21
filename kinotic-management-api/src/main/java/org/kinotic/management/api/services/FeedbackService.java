@@ -3,7 +3,7 @@ package org.kinotic.management.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.idl.api.annotations.McpTool;
-import org.kinotic.management.api.model.feedback.FeedbackIssue;
+import org.kinotic.management.api.model.github.CreatedIssue;
 import org.kinotic.management.api.model.feedback.FeedbackSubmission;
 
 /**
@@ -28,6 +28,6 @@ public interface FeedbackService {
      */
     // filing a GitHub issue reaches outside Kinotic, and only the annotation can say so
     @McpTool(openWorldHint = true)
-    Future<FeedbackIssue> send(FeedbackSubmission submission);
+    Future<CreatedIssue> send(FeedbackSubmission submission);
 
 }

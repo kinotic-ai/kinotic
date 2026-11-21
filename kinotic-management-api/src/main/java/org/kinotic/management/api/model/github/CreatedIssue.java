@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.feedback;
+package org.kinotic.management.api.model.github;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -6,16 +6,16 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * The public GitHub issue a piece of feedback was filed as, where the Kinotic team answers it.
+ * An issue opened on GitHub.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class FeedbackIssue {
+public class CreatedIssue {
 
     /**
-     * The issue's number in the Kinotic repository.
+     * The issue's number in its repository.
      */
     private int number;
 

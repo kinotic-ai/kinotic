@@ -7,7 +7,7 @@ import Button from 'primevue/button'
 import SelectButton from 'primevue/selectbutton'
 import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
-import { type FeedbackIssue, FeedbackSubmission, FeedbackType } from '@kinotic-ai/management-api'
+import { type CreatedIssue, FeedbackSubmission, FeedbackType } from '@kinotic-ai/management-api'
 import { createDebug, FormDrawer, showErrorToast } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('feedback-drawer')
@@ -46,7 +46,7 @@ function emptyForm() {
 const form = reactive(emptyForm())
 
 const sending = ref(false)
-const sent = ref<FeedbackIssue | null>(null)
+const sent = ref<CreatedIssue | null>(null)
 
 const isBug = computed(() => form.type === FeedbackType.BUG_REPORT)
 const isSubmitDisabled = computed(() => sending.value || form.title.trim() === '' || form.description.trim() === '')
