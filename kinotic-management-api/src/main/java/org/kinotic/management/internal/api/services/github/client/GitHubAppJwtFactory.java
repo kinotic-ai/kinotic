@@ -3,8 +3,6 @@ package org.kinotic.management.internal.api.services.github.client;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.config.GithubProperties;
-import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
 import java.security.PrivateKey;
@@ -16,7 +14,7 @@ import java.util.Date;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Holds the GitHub App's RSA private key and produces App-level JWTs (RS256) used to
+ * Holds a GitHub App's RSA private key and produces App-level JWTs (RS256) used to
  * call install-token-mint endpoints. The signed JWT is cached so the cost of RSA
  * signing is paid once per refresh interval per node, not per request.
  * <p>
@@ -26,12 +24,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * for a 10-minute span. Forward lifetime from "now" is therefore 9 minutes — that's
  * the refresh interval, not a conservatism margin.
  * <p>
- * The key is read from {@code kinotic.managementApi.github.appPrivateKey}. Both PKCS#1
- * ({@code BEGIN RSA PRIVATE KEY}) and PKCS#8 ({@code BEGIN PRIVATE KEY}) PEM formats
- * are accepted — GitHub's download button emits PKCS#1.
+ * The private key may be a PKCS#1 ({@code BEGIN RSA PRIVATE KEY}) or PKCS#8
+ * ({@code BEGIN PRIVATE KEY}) PEM — GitHub's download button emits PKCS#1.
  */
 @Slf4j
-@Component
 @RequiredArgsConstructor
 public class GitHubAppJwtFactory {
 
@@ -41,7 +37,8 @@ public class GitHubAppJwtFactory {
     /** Forward lifetime from "now". {@code IAT_BACKDATE + JWT_TTL} must be <= 600s (GitHub's max). */
     private static final long JWT_TTL_SECONDS = 9 * 60;
 
-    private final GithubProperties githubProperties;
+    private final String appId;
+    private final String appPrivateKey;
 
     private final AtomicReference<PrivateKey> cachedKey = new AtomicReference<>();
     private final AtomicReference<CachedJwt> cachedJwt = new AtomicReference<>();
@@ -74,7 +71,7 @@ public class GitHubAppJwtFactory {
         PrivateKey key = ensureKey();
         Instant expiresAt = now.plus(JWT_TTL_SECONDS, ChronoUnit.SECONDS);
         String token = Jwts.builder()
-                .issuer(githubProperties.getAppId())
+                .issuer(appId)
                 .issuedAt(Date.from(now.minusSeconds(IAT_BACKDATE_SECONDS)))
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.RS256)
@@ -87,7 +84,7 @@ public class GitHubAppJwtFactory {
         if (existing != null) {
             return existing;
         }
-        PrivateKey parsed = parsePem(githubProperties.getAppPrivateKey());
+        PrivateKey parsed = parsePem(appPrivateKey);
         cachedKey.set(parsed);
         return parsed;
     }
