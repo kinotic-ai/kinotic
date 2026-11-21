@@ -3,7 +3,7 @@
     <PageHeader title="Quickstart" />
 
   <div class="mx-auto flex w-full max-w-[1120px] flex-col gap-6 pb-10">
-    <header class="pb-2 pt-8 text-center md:pt-14">
+    <header class="pb-2 text-center">
       <span class="text-base font-semibold text-teal-700 dark:text-teal-300">Getting started</span>
       <h2 class="mt-3 text-[2.25rem] font-medium leading-[2.75rem] tracking-[-0.015em] text-surface-950 dark:text-surface-0">
         Build your first app with your AI
