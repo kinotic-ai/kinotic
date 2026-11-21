@@ -186,9 +186,12 @@ systemSecrets:
   objects:
     # kinotic.domain.secretStorage.masterKey, the same for every server
     secretStorageMasterKey: kinotic-secret-storage-master-key
-    # kinotic.managementApi.github.appPrivateKey and webhookSecret, on a server with githubApp set
+    # kinotic.managementApi.github.appPrivateKey, webhookSecret and internalApp.appPrivateKey, on a server
+    # with githubApp set
     githubAppPrivateKey: kinotic-github-app-private-key
     githubWebhookSecret: kinotic-github-webhook-secret
+    # the kinotic-internal App's key; set it empty to run without it, and so without feedback
+    githubInternalAppPrivateKey: kinotic-github-internal-app-private-key
     # kinotic.domain.publishedSites.cloudflare.apiToken, on a server with cloudflareDns set: the management
     # server creates an organization's sites record at sign-up, the system server before its first publish
     cloudflareDnsApiToken: kinotic-cloudflare-dns-api-token

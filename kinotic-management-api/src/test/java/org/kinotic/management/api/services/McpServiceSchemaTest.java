@@ -17,6 +17,7 @@ import org.kinotic.management.api.services.telemetry.TelemetryService;
 import org.kinotic.management.api.services.vulnerability.VulnerabilityAlertService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
 import org.kinotic.management.internal.api.services.DefaultEntityDefinitionService;
+import org.kinotic.management.internal.api.services.DefaultFeedbackService;
 import org.kinotic.management.internal.api.services.DefaultJobMonitoringService;
 import org.kinotic.management.internal.api.services.DefaultMigrationService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
@@ -96,9 +97,10 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(JobMonitoringService.class, DefaultJobMonitoringService.class),
                                                            new ServiceDeclaration(MigrationService.class, DefaultMigrationService.class),
                                                            new ServiceDeclaration(ProjectArtifactService.class, DefaultProjectArtifactService.class),
-                                                           new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class)));
+                                                           new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class),
+                                                           new ServiceDeclaration(FeedbackService.class, DefaultFeedbackService.class)));
 
-        Assertions.assertEquals(16, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(17, namespaceDefinition.getServices().size());
     }
 
     @Test

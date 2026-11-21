@@ -3,7 +3,6 @@ package org.kinotic.core.internal.config;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ignite.IgniteSystemProperties;
-import org.apache.ignite.calcite.CalciteQueryEngineConfiguration;
 import org.apache.ignite.configuration.*;
 import org.apache.ignite.failure.FailureHandler;
 import org.apache.ignite.failure.StopNodeOrHaltFailureHandler;
@@ -147,11 +146,6 @@ public class KinoticIgniteConfig {
             cfg.setSslContextFactory(sslContextFactory);
             cfg.setClientConnectorConfiguration(new ClientConnectorConfiguration().setSslEnabled(true).setSslClientAuth(true));
         }
-
-        // Setup calcite sql engine
-        cfg.setSqlConfiguration(
-                new SqlConfiguration().setQueryEnginesConfiguration(
-                        new CalciteQueryEngineConfiguration().setDefault(true)));
 
         DataStorageConfiguration dataStorageConfiguration = new DataStorageConfiguration();
 

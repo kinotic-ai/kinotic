@@ -111,6 +111,9 @@
     <div class="flex shrink-0 items-center gap-2">
       <HeaderSearchButton @open="searchOpen = true" />
 
+      <HeaderIconButton v-if="feedbackEnabled" label="Send feedback about Kinotic" tooltip="Send feedback" @click="feedbackOpen = true">
+        <MessageSquarePlus :size="18" :stroke-width="1.75" aria-hidden="true" />
+      </HeaderIconButton>
       <HeaderIconButton class="max-sm:hidden" :href="DOCUMENTATION_URL" label="Help (opens the documentation in a new tab)" tooltip="Help">
         <CircleHelp :size="18" :stroke-width="1.75" aria-hidden="true" />
       </HeaderIconButton>
@@ -119,6 +122,7 @@
 
     <CommandPalette v-model:visible="searchOpen" :groups="searchGroups" label="Search applications, pages and actions"
                     @show="onSearchShow" />
+    <FeedbackDrawer v-if="feedbackEnabled" :visible="feedbackOpen" @close="feedbackOpen = false" />
   </div>
 </template>
 
@@ -129,9 +133,10 @@ import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
 import { Kinotic, Pageable } from '@kinotic-ai/core';
 import type { Project } from '@kinotic-ai/management-api';
-import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
+import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, CONNECTION_STATE, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
          sidebarPageEntries, ThemeToggleButton } from '@kinotic-ai/frontend-common'
-import { BookOpenText, CircleHelp, Plus } from '@lucide/vue';
+import { BookOpenText, CircleHelp, MessageSquarePlus, Plus } from '@lucide/vue';
+import FeedbackDrawer from '@/components/FeedbackDrawer.vue';
 import { DOCUMENTATION_URL } from '@/util/externalLinks';
 
 const debug = createDebug('header');
@@ -149,6 +154,9 @@ const route = useRoute();
 const router = useRouter();
 
 const searchOpen = ref(false);
+const feedbackOpen = ref(false);
+// stays off until the server says it sends feedback
+const feedbackEnabled = ref(false);
 
 const projectsForCurrentApp = ref<Project[]>([]);
 
@@ -210,6 +218,25 @@ const crumbProjectId = computed(() => projectId.value
 onMounted(() => {
   if (APPLICATION_STATE.allApplications.length === 0) {
     APPLICATION_STATE.loadAllApplications();
+  }
+  loadCapabilities();
+});
+
+let capabilitiesLoaded = false;
+
+function loadCapabilities(): void {
+  Kinotic.capabilities.findCapabilities()
+    .then(capabilities => {
+      feedbackEnabled.value = capabilities.feedbackEnabled;
+      capabilitiesLoaded = true;
+    })
+    .catch(error => debug('Failed to load the server capabilities: %O', error));
+}
+
+// a load that failed while the server was unreachable is retried once it answers again
+watch(() => CONNECTION_STATE.reachable, reachable => {
+  if (reachable && !capabilitiesLoaded) {
+    loadCapabilities();
   }
 });
 
