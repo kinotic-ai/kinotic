@@ -9,7 +9,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -90,7 +89,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     // a service's contract is read from the directory once and kept until the directory announces it written again;
     // the retention bounds how long a node that missed the announcement keeps an old check
     private static final Duration DEFINITION_RETENTION = Duration.ofMinutes(5);
-    private static final int DEFINITION_CAPACITY = 10_000;
+    // the functions kept, whatever the number of services they are of: what is kept of a function is a few hundred
+    // bytes, and an application runs thousands of services
+    private static final long FUNCTION_CAPACITY = 250_000;
+    private static final long SERVICE_TYPE_CAPACITY = 50_000;
 
     // the scope levels a check can be made on, each named by the template of its id, innermost first: a caller
     // missing one is checked on the next, and one missing them all on the system
@@ -112,15 +114,18 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     private final Vertx vertx;
     private final SecurityExceptionFactory securityExceptions;
     private final AsyncCache<String, Map<String, FunctionSpec>> definitions = Caffeine.newBuilder()
-                                                                                    .maximumSize(DEFINITION_CAPACITY)
+                                                                                    .maximumWeight(FUNCTION_CAPACITY)
+                                                                                    // a service kept with no function, as one the directory lacks is, still holds an entry
+                                                                                    .weigher((String entryId, Map<String, FunctionSpec> functions) -> Math.max(1, functions.size()))
                                                                                     .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
-    // The model of an application as far as one type of its own services goes, by serviceTypeKey: read once and
-    // kept until the directory announces the type decided again, with the retention a contract is kept by
-    private final AsyncCache<String, AuthzModel> serviceTypes = Caffeine.newBuilder()
-                                                                        .maximumSize(DEFINITION_CAPACITY)
-                                                                        .expireAfterWrite(DEFINITION_RETENTION)
-                                                                        .buildAsync();
+    // The roles holding each permission of one type of an application's own services, by serviceTypeKey: all a check
+    // needs of the model the services deciding the type make, which is tens of kilobytes for each type. Read once
+    // and kept until the directory announces the type decided again, with the retention a contract is kept by
+    private final AsyncCache<String, Map<String, Set<String>>> serviceTypes = Caffeine.newBuilder()
+                                                                                      .maximumSize(SERVICE_TYPE_CAPACITY)
+                                                                                      .expireAfterWrite(DEFINITION_RETENTION)
+                                                                                      .buildAsync();
 
     /**
      * Listens for the directory announcing a contract written, and drops what is kept of it, so a function's
@@ -413,9 +418,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
         return KinoticUtil.toFuture(serviceTypes.get(serviceTypeKey(store, type),
                                                      (k, executor) -> models.findApplicationModelOf(scope.organizationId(), scope.applicationId(),
                                                                                                     List.of(type), List.of())
+                                                                            .map(model -> model.rolesHoldingEach(type))
                                                                             .toCompletionStage()
                                                                             .toCompletableFuture()))
-                          .map(model -> model.rolesHolding(permission));
+                          .map(held -> held.getOrDefault(permission, Set.of()));
     }
 
     private static String serviceTypeKey(String store, String type) {

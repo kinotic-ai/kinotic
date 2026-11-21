@@ -803,6 +803,12 @@ public class AuthzModelGeneratorTest {
         assertEquals(Set.of("catalog.admin", "price.admin", "price.editor", "price.quoter"), model.rolesHolding("price_can_quote"));
         assertEquals(Set.of("catalog.admin"), model.rolesHolding("catalog_can_delete"));
         assertEquals(Set.of(), model.rolesHolding("invoice_can_send"));
+        // the same roles by each permission of one type, which is all a check of the type's services needs
+        Map<String, Set<String>> ofPrices = model.rolesHoldingEach("price");
+        assertTrue(ofPrices.keySet().containsAll(Set.of("price_can_read", "price_can_quote")), ofPrices.toString());
+        assertTrue(ofPrices.keySet().stream().allMatch(permission -> permission.startsWith("price_")), ofPrices.toString());
+        ofPrices.forEach((permission, roles) -> assertEquals(model.rolesHolding(permission), roles, permission));
+        assertEquals(Map.of(), model.rolesHoldingEach("invoice"));
         // the system's model holds every role
         AuthzModel system = generator.systemModel(systemServices());
         assertEquals(system.roles(), system.storedRoles());

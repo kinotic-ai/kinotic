@@ -172,6 +172,23 @@ public record AuthzModel(ObjectNode definition,
     }
 
     /**
+     * The built-in roles holding each permission of a type of an application's own services, as
+     * {@link #rolesHolding} gives them.
+     *
+     * @param type the type
+     * @return the model name of each of the type's permissions to the ids of the roles holding it, empty for a type
+     *         the model lacks
+     */
+    public Map<String, Set<String>> rolesHoldingEach(String type) {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        for (String permission : permissions.getOrDefault(type, Set.of())) {
+            String name = AuthzUtil.permissionName(type, permission);
+            ret.put(name, rolesHolding(name));
+        }
+        return ret;
+    }
+
+    /**
      * The built-in roles of a tier: those homed at one of its types.
      *
      * @param root the tier's root type
