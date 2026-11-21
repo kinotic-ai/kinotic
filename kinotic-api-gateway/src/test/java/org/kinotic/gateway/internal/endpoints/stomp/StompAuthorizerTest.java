@@ -24,7 +24,7 @@ public class StompAuthorizerTest {
         StompAuthorizerFactory factory = new StompAuthorizerFactory(partitioning,
                                                                     participant -> ZoneRules.of(Set.of("app.acme-org", "shared-api"),
                                                                                                 Set.of("app.acme-org")));
-        return factory.create(new ConnectedInfo(new TestParticipant("user"), REPLY_TO_ID, null));
+        return factory.create(new ConnectedInfo(new TestParticipant("user"), REPLY_TO_ID, null, null));
     }
 
     @Test

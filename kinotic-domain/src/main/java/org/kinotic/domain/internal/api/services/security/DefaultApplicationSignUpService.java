@@ -211,8 +211,13 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                     // a token carried to another application's host signs up no one there
                     Validate.isTrue(application.equals(new ApplicationKey(pending.getOrganizationId(), pending.getApplicationId())),
                                     "Invalid or already consumed token.");
-                    return identityService.createUser(newUser(application, pending.getEmail(), StringUtils.isNotBlank(displayName) ? displayName : null), password)
-                                          .compose(created -> pendingRepository.deleteById(pending.getId()).map(created));
+                    // claimed before the user is created, so concurrent completions with one token create one user;
+                    // a creation that fails releases the sign-up for another try
+                    return pendingRepository.claim(pending)
+                            .compose(claimed -> identityService.createUser(newUser(application, claimed.getEmail(), StringUtils.isNotBlank(displayName) ? displayName : null), password)
+                                    .compose(created -> pendingRepository.deleteById(claimed.getId()).map(created),
+                                             err -> pendingRepository.release(claimed)
+                                                                     .transform(released -> Future.failedFuture(err))));
                 });
     }
 

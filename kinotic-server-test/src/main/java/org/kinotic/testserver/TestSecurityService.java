@@ -72,4 +72,10 @@ public class TestSecurityService implements SecurityService {
         }
         return Future.succeededFuture(participant);
     }
+
+    @Override
+    public Future<Participant> reauthenticate(Participant participant) {
+        // there is no user store to resolve the participant against
+        return Future.succeededFuture(participant);
+    }
 }

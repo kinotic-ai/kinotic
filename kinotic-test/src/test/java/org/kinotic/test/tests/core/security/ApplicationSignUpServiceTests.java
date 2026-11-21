@@ -43,6 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -272,8 +273,15 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         assertInstanceOf(IllegalArgumentException.class, assertThrows(RuntimeException.class,
                                                                       () -> signUps.completePasswordSignUp(scope, token, "a-good-password", "n".repeat(201))));
 
-        // the name is chosen by the person who holds the email, when they complete the sign-up
-        ApplicationParticipantIdentity user = await(signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up"));
+        // the name is chosen by the person who holds the email, when they complete the sign-up, and two completions
+        // presenting the token at once create one user
+        Future<ApplicationParticipantIdentity> completion = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
+        Future<ApplicationParticipantIdentity> concurrent = signUps.completePasswordSignUp(scope, token, "a-good-password", "Pat Signs Up");
+        Future.join(completion, concurrent).toCompletionStage().toCompletableFuture().handle((v, e) -> null).get(30, TimeUnit.SECONDS);
+        assertTrue(completion.succeeded() ^ concurrent.succeeded(), "exactly one completion creates the user");
+        // the other is refused as a token in use or already consumed, whichever point the first had reached
+        assertInstanceOf(IllegalArgumentException.class, (completion.failed() ? completion : concurrent).cause());
+        ApplicationParticipantIdentity user = completion.succeeded() ? completion.result() : concurrent.result();
         assertEquals(email, user.getEmail());
         assertEquals("Pat Signs Up", user.getDisplayName());
         assertNotNull(user.getTenantId());

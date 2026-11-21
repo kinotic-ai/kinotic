@@ -17,4 +17,10 @@ public interface PendingVerification extends Identifiable<String> {
 
     /** The hard expiry after which {@link #getVerificationToken()} is invalid. */
     Date getExpiresAt();
+
+    /**
+     * The time, in epoch milliseconds, until which one completion of the flow holds this record, so that of several
+     * completions presenting the token at once only one proceeds; {@code null} while no completion holds it.
+     */
+    Long getClaimedUntil();
 }

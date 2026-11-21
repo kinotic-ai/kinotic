@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import type { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import type { VolumeMount, Workload } from '@kinotic-ai/management-api'
 
@@ -25,9 +25,10 @@ export class VolumeMountManager {
      * Validates every volume mount of a workload and creates the missing host directories of
      * the writable ones, leaving each mount ready for a provider to bind into the guest.
      *
-     * Every hostPath must resolve strictly inside the node's workload data directory: mounts
-     * are bound with the vm-manager's authority, so an unconstrained path would hand any host
-     * directory to the guest. A read-only mount must already exist and fails here naming the
+     * Every hostPath must resolve strictly inside the node's workload data directory, as written
+     * and as the filesystem resolves it through any symlink: mounts are bound with the
+     * vm-manager's authority, so an unconstrained path would hand any host directory to the
+     * guest. A read-only mount must already exist and fails here naming the
      * path, rather than the provider's runtime refusing the VM or an empty directory
      * appearing at the path.
      *
@@ -40,6 +41,15 @@ export class VolumeMountManager {
                 throw new Error(`Volume mount ${mount.hostPath} of workload ${workload.id} must be `
                                 + `an absolute path inside the workload data directory ${this.workloadDataDir}`)
             }
+            // A directory a workload can write may hold a symlink it planted, which the lexical check passes and
+            // both mkdirSync and the provider's bind follow, so the path is compared again as the filesystem
+            // resolves it, before anything is created through it
+            const dataDir = VolumeMountManager.resolved(this.workloadDataDir)
+            const resolvedPath = VolumeMountManager.resolved(hostPath)
+            if (!resolvedPath.startsWith(dataDir + sep)) {
+                throw new Error(`Volume mount ${mount.hostPath} of workload ${workload.id} resolves to `
+                                + `${resolvedPath}, outside the workload data directory ${dataDir}`)
+            }
             if (mount.readOnly) {
                 if (!existsSync(hostPath)) {
                     throw new Error(`Read-only volume mount ${mount.hostPath} of workload `
@@ -49,6 +59,17 @@ export class VolumeMountManager {
                 mkdirSync(hostPath, { recursive: true })
             }
         }
+    }
+
+    // The path with every symlink in the part of it that exists resolved, and the part that does not exist yet
+    // appended as written. lstat finds a dangling symlink, which realpath then refuses, where existsSync would
+    // report it missing and let mkdirSync create its target.
+    private static resolved(path: string): string {
+        let existing = path
+        while (lstatSync(existing, { throwIfNoEntry: false }) === undefined) {
+            existing = dirname(existing)
+        }
+        return join(realpathSync(existing), relative(existing, path))
     }
 
     /**
