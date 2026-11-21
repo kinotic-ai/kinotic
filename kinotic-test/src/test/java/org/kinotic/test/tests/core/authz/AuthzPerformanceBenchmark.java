@@ -373,8 +373,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     /**
      * Measures an application as the services its runtime registered grow in number, each declaring a type of its
      * own with three permissions: registering one more service, the time until a grant of its role admits a
-     * request, a pass of the store's reconcile, the requests of a user to a service and to the entities, and
-     * saving and listing the application's roles.
+     * request, generating the application's whole model and the model of one type, a pass of the store's
+     * reconcile, the requests of a user to a service and to the entities, and saving and listing the application's
+     * roles.
      */
     @Test
     @Timeout(value = 4, unit = TimeUnit.HOURS)
@@ -441,12 +442,17 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             line("the newest service's viewer was admitted " + ms(System.nanoTime() - registeredAt) + " ms after the last registration");
 
             long start = System.nanoTime();
-            AuthzModel model = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
-            line("model generated from the directory in " + ms(System.nanoTime() - start) + " ms: " + model.roles().size() + " roles, "
-                         + model.servicePermissions().size() + " permissions of services");
+            AuthzModel whole = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
+            line("the whole model, which the role and permission listings read, generated from the directory in " + ms(System.nanoTime() - start)
+                         + " ms: " + whole.roles().size() + " roles, " + whole.servicePermissions().size() + " permissions of services");
             start = System.nanoTime();
+            awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(newest), List.of()));
+            line("the model of the newest service's type, which a request and a grant read, generated in " + ms(System.nanoTime() - start) + " ms");
+            start = System.nanoTime();
+            AuthzModel model = awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(), List.of()));
             awaitLong(relationships.ensureModelWithRoles(appStore, model));
-            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms");
+            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms, for " + model.storedRoles().size()
+                         + " roles the store holds");
             AuthorizationModel engineModel = await(fga.readAuthorizationModels(appStoreId, 1, null)).getAuthorizationModels().getFirst();
             line("the engine's model has " + engineModel.getTypeDefinitions().size() + " types and "
                          + jsonMapper.writeValueAsString(engineModel).length() + " bytes");

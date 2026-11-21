@@ -558,34 +558,33 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureRole(store, "tenant.analyst", analyst));
         assertEquals(analyst, await(relationshipService.findRolePermissions(store, "tenant.analyst")));
         String analysing = await(relationshipService.bind(store, "tenant.analyst", "user:bob-services", "tenant:north"));
-        assertTrue(holdsOfServices(store, "user:bob-services", "report_can_generate", "tenant:north"));
-        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_read", "tenant:north"));
-        assertFalse(holdsOfServices(store, "user:bob-services", "chart_can_read", "tenant:north"));
+        assertTrue(holdsOfServices(store, model, "user:bob-services", "report_can_generate", "tenant:north"));
+        assertFalse(holdsOfServices(store, model, "user:bob-services", "report_can_read", "tenant:north"));
+        assertFalse(holdsOfServices(store, model, "user:bob-services", "chart_can_read", "tenant:north"));
         // the grant was made on one tenant
-        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_generate", "tenant:south"));
-        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_generate", application));
+        assertFalse(holdsOfServices(store, model, "user:bob-services", "report_can_generate", "tenant:south"));
+        assertFalse(holdsOfServices(store, model, "user:bob-services", "report_can_generate", application));
         // asked about no permission, none is held
         assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:bob-services", "service_permission", "tenant:north"),
                                                     Consistency.HIGHER_CONSISTENCY)));
 
-        // a built-in role of a service's type is held as a role of the tenant, and granted on the application it
-        // reaches every tenant
-        assertEquals(new RolePermissions(Set.of(), Map.of(), Set.of("report_can_read")),
-                     await(relationshipService.findRolePermissions(store, "report.viewer")));
-        assertFalse(await(relationshipService.read(store, "tenant_role:report.viewer")).isEmpty());
-        await(relationshipService.bind(store, "report.viewer", "user:sally-services", "tenant:north"));
+        // a built-in role of a service's type holds what the model says and the store holds nothing for it; it is
+        // granted as a role of the tenant, and granted on the application it reaches every tenant
+        assertEquals(Set.of("report.admin", "report.editor", "report.viewer"), model.rolesHolding("report_can_read"));
+        assertTrue(await(relationshipService.read(store, "tenant_role:report.viewer")).isEmpty());
+        String viewing = await(relationshipService.bind(store, "report.viewer", "user:sally-services", "tenant:north"));
         await(relationshipService.bind(store, "chart.viewer", "user:machine-services", application));
-        assertTrue(holdsOfServices(store, "user:sally-services", "report_can_read", "tenant:north"));
-        assertFalse(holdsOfServices(store, "user:sally-services", "report_can_generate", "tenant:north"));
-        assertFalse(holdsOfServices(store, "user:sally-services", "report_can_read", "tenant:south"));
-        assertTrue(holdsOfServices(store, "user:machine-services", "chart_can_read", application));
-        assertTrue(holdsOfServices(store, "user:machine-services", "chart_can_read", "tenant:south"));
-        assertFalse(holdsOfServices(store, "user:machine-services", "report_can_read", "tenant:south"));
+        assertTrue(holdsOfServices(store, model, "user:sally-services", "report_can_read", "tenant:north"));
+        assertFalse(holdsOfServices(store, model, "user:sally-services", "report_can_generate", "tenant:north"));
+        assertFalse(holdsOfServices(store, model, "user:sally-services", "report_can_read", "tenant:south"));
+        assertTrue(holdsOfServices(store, model, "user:machine-services", "chart_can_read", application));
+        assertTrue(holdsOfServices(store, model, "user:machine-services", "chart_can_read", "tenant:south"));
+        assertFalse(holdsOfServices(store, model, "user:machine-services", "report_can_read", "tenant:south"));
 
         // the application's administrator holds every permission of every service, one registered later included
         await(relationshipService.bind(store, "application.admin", "user:ada-services", application));
-        assertTrue(holdsOfServices(store, "user:ada-services", "report_can_generate", "tenant:south"));
-        assertTrue(holdsOfServices(store, "user:ada-services", "invoice_can_send", application));
+        assertTrue(holdsOfServices(store, model, "user:ada-services", "report_can_generate", "tenant:south"));
+        assertTrue(holdsOfServices(store, model, "user:ada-services", "invoice_can_send", application));
 
         AccessExplanation generates = await(relationshipService.explain(
                 store, model, new RelationshipTuple("user:bob-services", "report_can_generate", "tenant:north"), List.of(),
@@ -597,13 +596,18 @@ class OpenFgaIntegrationTest {
                 await(relationshipService.findGrants(store, "tenant:north"))));
         assertFalse(reads.allowed());
         assertTrue(reads.through().isEmpty());
+        AccessExplanation views = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:sally-services", "report_can_read", "tenant:north"), List.of(),
+                await(relationshipService.findGrants(store, "tenant:north"))));
+        assertTrue(views.allowed());
+        assertEquals(List.of(viewing), views.through().stream().map(Grant::id).toList());
 
         // an edit takes a permission away and names another
         RolePermissions edited = model.bundle(Set.of("chart_can_read"));
         await(relationshipService.ensureRole(store, "tenant.analyst", edited));
         assertEquals(edited, await(relationshipService.findRolePermissions(store, "tenant.analyst")));
-        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_generate", "tenant:north"));
-        assertTrue(holdsOfServices(store, "user:bob-services", "chart_can_read", "tenant:north"));
+        assertFalse(holdsOfServices(store, model, "user:bob-services", "report_can_generate", "tenant:north"));
+        assertTrue(holdsOfServices(store, model, "user:bob-services", "chart_can_read", "tenant:north"));
         await(storeService.deleteStore(store));
     }
 
@@ -612,7 +616,8 @@ class OpenFgaIntegrationTest {
         Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
         String store = "acme.crm-many-services";
         await(storeService.ensureStore(store));
-        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        await(relationshipService.ensureModelWithRoles(store, model));
         await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm-many-services", "application", "tenant:north"))));
         int services = 3000;
         Set<String> named = new TreeSet<>();
@@ -629,24 +634,25 @@ class OpenFgaIntegrationTest {
         assertEquals(many, await(relationshipService.findRolePermissions(store, "tenant.many")));
         assertTrue(await(relationshipService.read(store, "tenant_role:tenant.many", "part")).size() > 1);
         for (int service : List.of(0, services / 2, services - 1)) {
-            assertTrue(holdsOfServices(store, "user:mia-many", "service" + service + "_can_edit", "tenant:north"));
-            assertFalse(holdsOfServices(store, "user:mia-many", "service" + service + "_can_delete", "tenant:north"));
+            assertTrue(holdsOfServices(store, model, "user:mia-many", "service" + service + "_can_edit", "tenant:north"));
+            assertFalse(holdsOfServices(store, model, "user:mia-many", "service" + service + "_can_delete", "tenant:north"));
         }
-        assertTrue(holdsOfServices(store, "user:fay-many", "few_can_read", "tenant:north"));
+        assertTrue(holdsOfServices(store, model, "user:fay-many", "few_can_read", "tenant:north"));
 
         // a refusal reads every path to the tenant, and the holder of either role is refused a permission it does
         // not name
         double ofFew = datastoreQueriesOf(() -> relationshipService.checkServicePermission(
-                store, "user:fay-many", "unnamed_can_read", "tenant:north", Consistency.HIGHER_CONSISTENCY));
+                store, "user:fay-many", "unnamed_can_read", "tenant:north", Set.of(), Consistency.HIGHER_CONSISTENCY));
         double ofMany = datastoreQueriesOf(() -> relationshipService.checkServicePermission(
-                store, "user:mia-many", "unnamed_can_read", "tenant:north", Consistency.HIGHER_CONSISTENCY));
+                store, "user:mia-many", "unnamed_can_read", "tenant:north", Set.of(), Consistency.HIGHER_CONSISTENCY));
         assertEquals(ofFew, ofMany, 3, "a refused check took " + ofFew + " datastore queries through a role naming one permission and "
                 + ofMany + " through one naming " + named.size());
         await(storeService.deleteStore(store));
     }
 
-    private boolean holdsOfServices(String store, String user, String permission, String object) throws Exception {
-        return await(relationshipService.checkServicePermission(store, user, permission, object, Consistency.HIGHER_CONSISTENCY));
+    private boolean holdsOfServices(String store, AuthzModel model, String user, String permission, String object) throws Exception {
+        return await(relationshipService.checkServicePermission(store, user, permission, object, model.rolesHolding(permission),
+                                                                Consistency.HIGHER_CONSISTENCY));
     }
 
     @Test

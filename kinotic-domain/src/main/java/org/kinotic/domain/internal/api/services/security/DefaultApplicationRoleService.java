@@ -34,7 +34,8 @@ public class DefaultApplicationRoleService implements ApplicationRoleService {
     @Override
     public Future<List<RoleDefinition>> findRoles(Application application) {
         String store = storeOf(application);
-        return models.findApplicationModel(application.getOrganizationId(), application.getId())
+        // a role of the application's own is homed at the tenant, which the store places
+        return models.findApplicationModelOf(application.getOrganizationId(), application.getId(), List.of(), List.of())
                      // in name order, with the id ordering roles that share a name so the paging has a unique order
                      .compose(model -> CursorPaging.readAll(pageable -> roles.findAllForApplication(application.getId(), application.getOrganizationId(), pageable),
                                                             ROLE_PAGE_SIZE, Sort.by("name", "id"))
@@ -60,7 +61,10 @@ public class DefaultApplicationRoleService implements ApplicationRoleService {
         String store = storeOf(application);
         String member = AuthzGraphUtil.authzSubject(subject);
         String object = AuthzGraphUtil.authzObject(application.getOrganizationId(), resource);
-        return models.findApplicationModel(application.getOrganizationId(), application.getId()).compose(model -> {
+        return Future.succeededFuture(roleId)
+                     .map(AuthzUtil::roleHome)
+                     .compose(home -> models.findApplicationModelOf(application.getOrganizationId(), application.getId(), List.of(home), List.of()))
+                     .compose(model -> {
             model.requireGrantable(roleId, resource.type());
             // a role of the model never changes; one of the application's own is read once the lock a change or a
             // deletion of it takes is held

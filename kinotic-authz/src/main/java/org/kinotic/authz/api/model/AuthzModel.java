@@ -136,6 +136,42 @@ public record AuthzModel(ObjectNode definition,
     }
 
     /**
+     * The built-in roles a store running the model holds as relationships: those homed at a type the store has
+     * resources of. A role homed at a type of an application's own services is held as no relationship, and a check
+     * of a permission of such a service names the roles holding it, which {@link #rolesHolding} gives.
+     *
+     * @return each stored role's id to the model names of the permissions it bundles
+     */
+    public Map<String, Set<String>> storedRoles() {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        roles.forEach((roleId, permissions) -> {
+            if (bindable.containsKey(AuthzUtil.roleHome(roleId))) {
+                ret.put(roleId, permissions);
+            }
+        });
+        return ret;
+    }
+
+    /**
+     * The built-in roles holding a permission of an application's own services: those bundling it, or one that
+     * implies it.
+     *
+     * @param servicePermission the model name of the permission, such as {@code report_can_generate}
+     * @return the ids of the roles, empty for a permission the model lacks
+     */
+    public Set<String> rolesHolding(String servicePermission) {
+        Set<String> ret = new TreeSet<>();
+        roles.forEach((roleId, permissions) -> {
+            for (String bundled : permissions) {
+                if (servicePermissions.getOrDefault(bundled, Set.of()).contains(servicePermission)) {
+                    ret.add(roleId);
+                }
+            }
+        });
+        return ret;
+    }
+
+    /**
      * The built-in roles of a tier: those homed at one of its types.
      *
      * @param root the tier's root type

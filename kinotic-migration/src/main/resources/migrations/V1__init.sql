@@ -294,7 +294,10 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     online BOOLEAN,
     lastStatusChange DATE,
     livenessVerifiedAt LONG,
-    contractHash KEYWORD
+    contractHash KEYWORD,
+    authzTypes KEYWORD,
+    authzParent KEYWORD,
+    authzPermissions KEYWORD
 );
 
 -- Participant Identity: authenticated identities — a person of one scope (type=SYSTEM_USER for the

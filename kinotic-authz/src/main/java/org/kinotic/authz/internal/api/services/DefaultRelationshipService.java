@@ -261,7 +261,7 @@ public class DefaultRelationshipService implements RelationshipService {
         // write, valid for the engine's cache lifetime; the roles are written while no version yet grants through
         // their new relations, so no check against the model can read them before they are in step
         Map<String, RolePermissions> bundled = new HashMap<>();
-        model.roles().forEach((roleId, permissions) -> bundled.put(roleId, model.bundle(permissions)));
+        model.storedRoles().forEach((roleId, permissions) -> bundled.put(roleId, model.bundle(permissions)));
         return stores.ensureRoleRelations(store, model)
                      .compose(v -> converging(() -> reconcileRoles(store, bundled)))
                      .compose(v -> stores.ensureModel(store, model));
@@ -543,6 +543,8 @@ public class DefaultRelationshipService implements RelationshipService {
                 ? new RelationshipTuple(holds.user(), DefaultAuthzModelGenerator.SERVICE_PERMISSION, holds.object())
                 : holds;
         String named = ofService ? holds.relation() : definitionOf(holds.object());
+        List<RelationshipTuple> held = new ArrayList<>(context);
+        held.addAll(holdingByDeclaration(store, model.rolesHolding(holds.relation())));
         // a role has a relation only for the permissions of its home and of the types inside it, and the engine
         // refuses a check for any other, so a grant of a role that cannot hold the permission is left out unasked
         List<Grant> candidates = grants.stream()
@@ -550,27 +552,32 @@ public class DefaultRelationshipService implements RelationshipService {
                                        .toList();
         return stores.modelId(store).compose(modelId -> {
             // an administrator asks after changing access, so the answer must not predate the change
-            Future<Boolean> allowed = check(store, modelId, asked, Consistency.HIGHER_CONSISTENCY, context, named);
-            return requestEach(candidates, grant -> explains(store, modelId, grant, asked, named))
-                    .compose(explains -> allowed.map(held -> {
+            Future<Boolean> allowed = check(store, modelId, asked, Consistency.HIGHER_CONSISTENCY, held, named);
+            return requestEach(candidates, grant -> explains(store, modelId, grant, asked, held, named))
+                    .compose(explains -> allowed.map(holding -> {
                         List<Grant> through = new ArrayList<>();
                         for (int i = 0; i < candidates.size(); i++) {
                             if (explains.get(i)) {
                                 through.add(candidates.get(i));
                             }
                         }
-                        return new AccessExplanation(held, through);
+                        return new AccessExplanation(holding, through);
                     }));
         });
     }
 
     // Whether the grant gives the permission asked about to the user asked about: its role bundles the permission
     // or one implying it, and it was made to the user, or to a group or a tenant the user is a member of
-    private Future<Boolean> explains(String store, String modelId, Grant grant, RelationshipTuple holds, String named) {
+    private Future<Boolean> explains(String store,
+                                     String modelId,
+                                     Grant grant,
+                                     RelationshipTuple holds,
+                                     List<RelationshipTuple> context,
+                                     String named) {
         // the role's relation also holds every permission a bundled one implies, and one bundled for what the
         // question names, which only a check evaluates
         RelationshipTuple bundles = new RelationshipTuple(AuthzConstants.EVERYONE, holds.relation(), roleObject(store, grant.roleId()));
-        Future<Boolean> bundled = check(store, modelId, bundles, Consistency.HIGHER_CONSISTENCY, List.of(), named);
+        Future<Boolean> bundled = check(store, modelId, bundles, Consistency.HIGHER_CONSISTENCY, context, named);
         Future<Boolean> member;
         if (grant.subject().equals(subjectOf(holds.user()))) {
             member = Future.succeededFuture(true);
@@ -592,9 +599,26 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<Boolean> checkServicePermission(String store, String user, String permission, String object, Consistency consistency) {
+    public Future<Boolean> checkServicePermission(String store,
+                                                  String user,
+                                                  String permission,
+                                                  String object,
+                                                  Set<String> roles,
+                                                  Consistency consistency) {
         RelationshipTuple relationship = new RelationshipTuple(user, DefaultAuthzModelGenerator.SERVICE_PERMISSION, object);
-        return stores.modelId(store).compose(modelId -> check(store, modelId, relationship, consistency, List.of(), permission));
+        List<RelationshipTuple> held = holdingByDeclaration(store, roles);
+        return stores.modelId(store).compose(modelId -> check(store, modelId, relationship, consistency, held, permission));
+    }
+
+    // A built-in role of a type of an application's own services holds its permissions by the contracts declaring
+    // them and by no stored tuple, so a check of one such permission takes each role holding it as holding every
+    // permission of the services, for this check alone
+    private static List<RelationshipTuple> holdingByDeclaration(String store, Set<String> roles) {
+        List<RelationshipTuple> ret = new ArrayList<>();
+        for (String roleId : roles) {
+            ret.add(new RelationshipTuple(AuthzConstants.EVERYONE, DefaultAuthzModelGenerator.SERVICE_PERMISSION, roleObject(store, roleId)));
+        }
+        return ret;
     }
 
     // The definition a question about an object is asked for: the object when it is one, the one of a definition

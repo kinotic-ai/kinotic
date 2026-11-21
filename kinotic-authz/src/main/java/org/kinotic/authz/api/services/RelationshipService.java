@@ -155,9 +155,9 @@ public interface RelationshipService {
     Future<Void> ensureRole(String store, String roleId, RolePermissions permissions);
 
     /**
-     * Makes the store run the given model with the built-in roles it implies bundling exactly what the model has.
-     * The roles are brought in step before the model becomes the store's current version, so a check against
-     * the model reads every role it grants through as the model needs it.
+     * Makes the store run the given model with the built-in roles it holds, {@link AuthzModel#storedRoles()},
+     * bundling exactly what the model has. The roles are brought in step before the model becomes the store's
+     * current version, so a check against the model reads every role it grants through as the model needs it.
      *
      * @param store the store, named as its record is
      * @param model the model the store must run
@@ -296,16 +296,19 @@ public interface RelationshipService {
 
     /**
      * Whether a subject holds a permission of an application's own services on a tenant or on the application,
-     * through a role that holds every such permission or names this one, granted there or above.
+     * through a role granted there or above: one that holds every such permission, one of the application's own
+     * naming this one, or one of the given built-in roles.
      *
      * @param store       the application's store
      * @param user        the subject, in {@code type:id} form
      * @param permission  the model name of the permission, such as {@code report_can_generate}
      * @param object      the tenant or the application, in {@code type:id} form
+     * @param roles       the ids of the built-in roles holding the permission by the contracts of the application's
+     *                    services, as {@link org.kinotic.authz.api.model.AuthzModel#rolesHolding} gives them
      * @param consistency whether the answer may come from the engine's caches
      * @return true when the subject holds the permission on the object
      */
-    Future<Boolean> checkServicePermission(String store, String user, String permission, String object, Consistency consistency);
+    Future<Boolean> checkServicePermission(String store, String user, String permission, String object, Set<String> roles, Consistency consistency);
 
     /**
      * The objects of a type on which the user holds the relation, by the rules of the model the store runs. The

@@ -36,6 +36,7 @@ import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -83,7 +84,10 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         Validate.notNull(role.permissions(), "role permissions cannot be null");
         Validate.isTrue(role.resourceType() == null || CUSTOM_ROLE_HOME.equals(role.resourceType()),
                         "a role of an application is homed at %s, not %s", CUSTOM_ROLE_HOME, role.resourceType());
-        return requireApplication(applicationId).compose(application -> model(application).compose(model -> {
+        // the model as far as the role goes: the permissions it names, and the type its id is homed at
+        return requireApplication(applicationId).compose(application -> modelOf(application,
+                                                                                role.id() == null ? List.of() : List.of(AuthzUtil.roleHome(role.id())),
+                                                                                role.permissions()).compose(model -> {
             if (role.id() != null && model.roles().containsKey(role.id())) {
                 throw new IllegalArgumentException("Role " + role.id() + " is built in and defined by the model");
             }
@@ -152,7 +156,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
         // finds the role gone
         return requireApplication(applicationId).compose(application -> relationships.exclusively(role, () -> applicationRoles.requireRole(application, roleId)
-                .compose(row -> model(application))
+                .compose(row -> modelOf(application, List.of(), List.of()))
                 .compose(model -> relationships.findBindings(storeOf(application), role,
                                                              model.grantableOn(CUSTOM_ROLE_HOME, AuthzConstants.APPLICATION_TYPE)))
                 .compose(bindings -> {
@@ -209,7 +213,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
             String store = storeOf(application);
             RelationshipTuple holds = new RelationshipTuple(AuthzGraphUtil.authzSubject(subject), permission, objectOf(application, resource));
             return requireSubject(application, subject)
-                    .compose(v -> Future.all(model(application), grantsOn(application, resource)))
+                    .compose(v -> Future.all(modelOf(application, List.of(), List.of(permission)), grantsOn(application, resource)))
                     .compose(both -> relationships.explain(store, both.resultAt(0), holds, edgesOf(resource), both.resultAt(1)))
                     .map(AuthzGraphUtil::localExplanation);
         });
@@ -307,10 +311,14 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                            .map(application -> DomainUtil.requireOwned(application, organizationId, "No application of the organization has id " + applicationId));
     }
 
-    // The model the application's store runs: the system's services its users call and the services its
-    // runtimes registered
+    // The application's whole model: the system's services its users call and every service its runtimes registered
     private Future<AuthzModel> model(Application application) {
         return models.findApplicationModel(application.getOrganizationId(), application.getId());
+    }
+
+    // The application's model as far as the given types and permissions go
+    private Future<AuthzModel> modelOf(Application application, Collection<String> types, Collection<String> permissions) {
+        return models.findApplicationModelOf(application.getOrganizationId(), application.getId(), types, permissions);
     }
 
     // A grant in an application's store is made to one of its own users or machines, or to the users of one of its

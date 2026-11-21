@@ -1,6 +1,7 @@
 package org.kinotic.authz.internal.api.services;
 
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -223,6 +224,38 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         });
         declaredRoles(roles, declared);
         return model(declared, typeDefinitions, bindable, roles, servicePermissions);
+    }
+
+    @Override
+    public ServiceModelNames namesOf(ServiceDefinition service) {
+        Set<String> types = new TreeSet<>();
+        Set<String> permissions = new TreeSet<>();
+        AuthzResourceC3Decorator resource = service.findDecorator(AuthzResourceC3Decorator.class);
+        if (resource != null) {
+            types.add(resource.getResourceType());
+        }
+        requiredPermissions(service).forEach((type, required) -> {
+            types.add(type);
+            required.forEach(permission -> permissions.add(AuthzUtil.permissionName(type, permission)));
+        });
+        return new ServiceModelNames(types, resource == null ? null : resource.getParent(), permissions);
+    }
+
+    // The short names of the permissions a service's functions require, by the type each is a permission of
+    private static Map<String, Set<String>> requiredPermissions(ServiceDefinition service) {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        for (FunctionDefinition function : service.getFunctions()) {
+            AuthzCheckC3Decorator check = function.findDecorator(AuthzCheckC3Decorator.class);
+            if (check != null && !check.isUnchecked()) {
+                Set<String> ofType = ret.computeIfAbsent(check.getPermissionResource(), k -> new TreeSet<>());
+                if (check.getPermissionResolver() == null) {
+                    ofType.add(check.getPermission());
+                } else {
+                    check.getPossiblePermissions().forEach(choice -> ofType.add(choice.getPermission()));
+                }
+            }
+        }
+        return ret;
     }
 
     // The tenant every store has, with the members the identity model writes

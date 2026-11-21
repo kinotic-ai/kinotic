@@ -3,6 +3,7 @@ package org.kinotic.authz.internal.api.services;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.RolePermissions;
+import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzPermissionChoice;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -764,6 +766,81 @@ public class AuthzModelGeneratorTest {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> generator.systemModel(services));
 
         assertTrue(e.getMessage().contains("50"));
+    }
+
+    @Test
+    public void aServiceNamesTheTypesItDecidesTheParentOfItsOwnAndThePermissionsItRequires() {
+        FunctionDefinition runQuery = new FunctionDefinition().setName("runQuery");
+        runQuery.setDecorators(List.of(new AuthzCheckC3Decorator()
+                                               .setResource("report")
+                                               .setResourceId("{id}")
+                                               .setPermissionResource("report")
+                                               .setPermissionResolver("statement")
+                                               .setPossiblePermissions(List.of(new AuthzPermissionChoice("can_read", "the query reads rows"),
+                                                                               new AuthzPermissionChoice("can_delete", "the query is a DELETE")))));
+        FunctionDefinition ping = new FunctionDefinition().setName("ping");
+        ping.setDecorators(List.of(new AuthzCheckC3Decorator().setUnchecked(true)));
+        ServiceDefinition reports = service("ReportService", "report", "tenant", runQuery, ping,
+                                            function("chart", "chart", "chart", "can_draw"));
+
+        assertEquals(new ServiceModelNames(Set.of("chart", "report"), "tenant", Set.of("chart_can_draw", "report_can_delete", "report_can_read")),
+                     generator.namesOf(reports));
+        assertEquals(Set.of("chart", "report", "tenant"), generator.namesOf(reports).named());
+    }
+
+    @Test
+    public void aStoreHoldsTheRolesOfTheTypesItPlacesAndACheckNamesTheRolesOfAService() {
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), catalogAndPrices());
+
+        // the engine has a role type for the types the store places alone, and the tenant has no permission of
+        // its own here, so no role
+        assertEquals(Set.of("application", "entity_definition"),
+                     model.storedRoles().keySet().stream().map(AuthzUtil::roleHome).collect(Collectors.toSet()));
+        assertFalse(model.storedRoles().containsKey("price.viewer"));
+        // a role holds a permission it bundles and every one a bundled permission implies, an ancestor's
+        // administrator among them
+        assertEquals(Set.of("catalog.admin", "price.admin", "price.editor", "price.quoter", "price.viewer"), model.rolesHolding("price_can_read"));
+        assertEquals(Set.of("catalog.admin", "price.admin", "price.editor", "price.quoter"), model.rolesHolding("price_can_quote"));
+        assertEquals(Set.of("catalog.admin"), model.rolesHolding("catalog_can_delete"));
+        assertEquals(Set.of(), model.rolesHolding("invoice_can_send"));
+        // the system's model holds every role
+        AuthzModel system = generator.systemModel(systemServices());
+        assertEquals(system.roles(), system.storedRoles());
+    }
+
+    @Test
+    public void aModelOfTheServicesDecidingATypeAnswersForItAsTheWholeModelDoes() {
+        List<ServiceDefinition> all = new ArrayList<>(catalogAndPrices());
+        all.add(service("InvoiceService", "invoice", "tenant",
+                        List.of(role("invoice.sender", "can_send")),
+                        function("send", "invoice", "invoice", "can_send")));
+        AuthzModel whole = generator.applicationModel(List.of(entitiesRepository()), all);
+        AuthzModel partial = generator.applicationModel(List.of(entitiesRepository()), catalogAndPrices());
+
+        assertEquals(whole.definition(), partial.definition());
+        assertEquals(whole.storedRoles(), partial.storedRoles());
+        for (String permission : List.of("catalog_can_read", "catalog_can_delete", "price_can_read", "price_can_quote")) {
+            assertEquals(whole.rolesHolding(permission), partial.rolesHolding(permission), permission);
+            assertEquals(whole.servicePermissions().get(permission), partial.servicePermissions().get(permission), permission);
+        }
+        for (String role : List.of("catalog.viewer", "catalog.editor", "catalog.admin", "price.viewer", "price.editor", "price.admin", "price.quoter")) {
+            assertEquals(whole.roles().get(role), partial.roles().get(role), role);
+            assertEquals(whole.grantableOn(AuthzUtil.roleHome(role), "application"), partial.grantableOn(AuthzUtil.roleHome(role), "application"), role);
+        }
+        assertEquals(whole.catalog("tenant").get("price"), partial.catalog("tenant").get("price"));
+        assertFalse(partial.roles().containsKey("invoice.sender"));
+    }
+
+    // a catalog under the application, and its prices inside it with a role of their own
+    private static List<ServiceDefinition> catalogAndPrices() {
+        return List.of(service("CatalogService", "catalog", "application",
+                               function("findById", "catalog", "catalog", "can_read"),
+                               function("deleteById", "catalog", "catalog", "can_delete"),
+                               function("save", "catalog", "catalog", "can_edit")),
+                       service("PriceService", "price", "catalog",
+                               List.of(role("price.quoter", "can_quote")),
+                               function("findById", "price", "price", "can_read"),
+                               function("quote", "price", "price", "can_quote", "can_read")));
     }
 
 }

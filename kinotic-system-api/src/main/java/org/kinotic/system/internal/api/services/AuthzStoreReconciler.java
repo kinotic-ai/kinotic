@@ -14,13 +14,15 @@ import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.Reconciler;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 
 /**
  * The worker of the authorization stores: keeps the model a store runs equal to the one generated for it, the
  * system's from the directory entries that belong to it and an application's from the system's services
- * its users call and the services registered in its scope, and the store's built-in roles bundling what that
- * model has. The reconcile master calls it when a service of the store is registered, when the store is found
- * out of its desired state, and once when the master starts, so a model write the engine refused is made again
+ * its users call and the services registered in its scope on a type the store places, and the store's built-in
+ * roles bundling what that model has. The reconcile master calls it when such a service is registered, when the
+ * store is found out of its desired state, and once when the master starts, so a model write the engine refused is made again
  * and a master lost mid-write is caught up. The model is written as a new version only when it differs from
  * the one the engine runs.
  */
@@ -44,13 +46,14 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
     }
 
     // The system's model from the system's own services; an application's from the system's services its
-    // users call and whatever services its runtimes registered
+    // users call and the services its runtimes registered on the types the store places, which alone the engine
+    // has relations and roles for
     private Future<AuthzModel> modelOf(AuthzStore store) {
         Future<AuthzModel> ret;
         if (store.getApplicationId() == null) {
             ret = models.findSystemModel();
         } else {
-            ret = models.findApplicationModel(store.getOrganizationId(), store.getApplicationId());
+            ret = models.findApplicationModelOf(store.getOrganizationId(), store.getApplicationId(), List.of(), List.of());
         }
         return ret;
     }

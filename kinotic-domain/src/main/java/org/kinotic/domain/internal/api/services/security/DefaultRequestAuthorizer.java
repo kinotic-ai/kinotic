@@ -4,10 +4,12 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -24,6 +26,7 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -53,6 +56,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -103,6 +107,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final ObjectProvider<RequestPermissionResolver> permissionResolvers;
     private final RelationshipService relationships;
+    private final AuthzModelService models;
     private final JsonMapper jsonMapper;
     private final Vertx vertx;
     private final SecurityExceptionFactory securityExceptions;
@@ -110,6 +115,12 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                                     .maximumSize(DEFINITION_CAPACITY)
                                                                                     .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
+    // The model of an application as far as one type of its own services goes, by serviceTypeKey: read once and
+    // kept until the directory announces the type decided again, with the retention a contract is kept by
+    private final AsyncCache<String, AuthzModel> serviceTypes = Caffeine.newBuilder()
+                                                                        .maximumSize(DEFINITION_CAPACITY)
+                                                                        .expireAfterWrite(DEFINITION_RETENTION)
+                                                                        .buildAsync();
 
     /**
      * Listens for the directory announcing a contract written, and drops what is kept of it, so a function's
@@ -119,6 +130,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     void listenForContractChanges() {
         // TODO: remove this and similar cache eviction logic infavor of more advanced cache eviction done in the kinotic-persistence module
         vertx.eventBus().<String>consumer(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, message -> forget(message.body()));
+        vertx.eventBus().<JsonObject>consumer(AuthzModelService.TYPES_CHANGED_ADDRESS, message -> {
+            String store = message.body().getString("store");
+            message.body().getJsonArray("types").forEach(type -> serviceTypes.synchronous().invalidate(serviceTypeKey(store, (String) type)));
+        });
     }
 
     private void forget(String entryId) {
@@ -379,7 +394,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             // holds one by its name, which the check asks for
             boolean ofService = !SYSTEM.equals(store) && !AuthzModelGenerator.APPLICATION_TYPES.contains(check.getPermissionResource());
             Future<Boolean> held = ofService
-                    ? relationships.checkServicePermission(store, relationship.user(), relationship.relation(), object, consistency)
+                    ? rolesHolding(scope, store, check.getPermissionResource(), relationship.relation())
+                            .compose(roles -> relationships.checkServicePermission(store, relationship.user(), relationship.relation(), object,
+                                                                                   roles, consistency))
                     : relationships.check(store, relationship, consistency, edges);
             ret = held.compose(allowed -> allowed
                                        ? Future.succeededFuture()
@@ -388,6 +405,21 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             ret = Future.failedFuture(e);
         }
         return ret;
+    }
+
+    // The roles holding a permission of a type of the application's own services by declaration, which the contracts
+    // of the services deciding the type say and no store holds
+    private Future<Set<String>> rolesHolding(ParticipantScope scope, String store, String type, String permission) {
+        return KinoticUtil.toFuture(serviceTypes.get(serviceTypeKey(store, type),
+                                                     (k, executor) -> models.findApplicationModelOf(scope.organizationId(), scope.applicationId(),
+                                                                                                    List.of(type), List.of())
+                                                                            .toCompletionStage()
+                                                                            .toCompletableFuture()))
+                          .map(model -> model.rolesHolding(permission));
+    }
+
+    private static String serviceTypeKey(String store, String type) {
+        return store + "|" + type;
     }
 
     // A function acting on the rows of the tenants a call names serves an organization's members and the runtimes
