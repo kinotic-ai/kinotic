@@ -268,11 +268,14 @@ async function loadFound(): Promise<void> {
     if (current === latestSearch) {
       found.value = page
       searchError.value = null
-      // a single match opens at once; a list keeps the advisory opened if it is still listed
       const content = page.content ?? []
-      if (content.length === 1 && page.totalElements === 1) {
-        select(content[0]!)
-      } else if (!content.some(advisory => advisory.id === selected.value?.id)) {
+      // a single match opens at once; a list reopens the advisory opened before, as it reads now
+      const reopened = content.length === 1 && page.totalElements === 1
+                       ? content[0]
+                       : content.find(advisory => advisory.id === selected.value?.id)
+      if (reopened) {
+        select(reopened)
+      } else {
         selected.value = null
       }
     }
