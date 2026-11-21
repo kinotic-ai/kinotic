@@ -6,6 +6,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import com.github.slugify.Slugify;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
@@ -13,17 +14,21 @@ import org.kinotic.domain.api.model.ApplicationKey;
 import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
+import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -31,6 +36,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -78,6 +84,86 @@ public class DomainUtil {
     public static String applicationZone(String organizationId, String applicationId) {
         return APP_ZONE_PREFIX + "." + organizationId + "." + applicationId;
     }
+
+    /**
+     * Derives the zone rules of one of Kinotic OS's participants. Application participants send to the
+     * {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and subscribe in no
+     * zone at all. Organization participants send to the {@code management-api} management surface, {@code app-api},
+     * and their own {@code app.<organizationId>} zones, and subscribe within the zones they host services in; an
+     * application's runtime authenticates as an organization participant to host and call its services. System
+     * participants send everywhere and subscribe in the {@code system-api} zone, a system machine only under its own
+     * id as the scope: a worker node's vm-manager hosts its service at the address of the machine it authenticates as.
+     *
+     * @param participant the authenticated participant
+     * @param hostedZones the zones an organization participant hosts services in, each within its organization's
+     *                    {@code app.<organizationId>} zones; ignored for every other participant
+     * @return the participant's zone rules
+     * @throws IllegalArgumentException when the participant is of a type with no zone rules, one of its ids cannot
+     *                                  form a valid zone label, or a hosted zone lies outside the organization's
+     *                                  application zones
+     */
+    public static ZoneRules zoneRules(Participant participant, Collection<String> hostedZones) {
+        Validate.notNull(participant, "participant must not be null");
+        Validate.notNull(hostedZones, "hostedZones must not be null");
+        if (!(participant instanceof ScopedParticipant scopedParticipant)) {
+            throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
+                                                       + ", no zone routing rules exist for it");
+        }
+        return switch (scopedParticipant) {
+
+            // management-api and app-api are hosted in-process only, so no connection may ever
+            // subscribe to them; system-api stays subscribable for the vm-manager nodes that host there
+            case SystemParticipant system -> {
+                ZoneRules rules = ZoneRules.sendingToAnyZone(Set.of(SYSTEM_API_ZONE));
+                yield isMachineParticipant(system) ? rules.subscribingUnderScope(system.getId()) : rules;
+            }
+
+            // validatedApplicationZone validates the ids, so an id that could shift the zone's label structure
+            // fails instead of widening access
+            case ApplicationParticipant applicationParticipant ->
+                    ZoneRules.of(Set.of(APP_API_ZONE, validatedApplicationZone(applicationParticipant.getOrganizationId(),
+                                                                               applicationParticipant.getApplicationId())),
+                                 Set.of());
+
+            case OrganizationParticipant organizationParticipant -> {
+                // the organization id becomes a zone label, so it is validated the same way
+                ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
+                String orgAppsZone = APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
+                for (String hostedZone : hostedZones) {
+                    Validate.isTrue(ZoneUtil.zoneMatches(hostedZone, Set.of(orgAppsZone)),
+                                    "The zone '%s' is not one of the organization's application zones", hostedZone);
+                }
+                yield ZoneRules.of(Set.of(MANAGEMENT_API_ZONE, APP_API_ZONE, orgAppsZone), Set.copyOf(hostedZones));
+            }
+        };
+    }
+
+    /**
+     * {@link #applicationZone}, with each id validated as a zone label.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @return the zone
+     * @throws IllegalArgumentException when an id is not a single valid zone label
+     */
+    public static String validatedApplicationZone(String organizationId, String applicationId) {
+        // Each id must be a single dot-free label: a dot inside an id would shift the
+        // app.<organizationId>.<applicationId> label structure, letting one (org, app) pair
+        // produce the same zone as a different pair plus a sub zone
+        ZoneUtil.validateLabel(organizationId);
+        ZoneUtil.validateLabel(applicationId);
+        return applicationZone(organizationId, applicationId);
+    }
+
+    /**
+     * The participant metadata key naming the owner a delegate acts for, whose authority the delegate holds.
+     */
+    public static final String ON_BEHALF_OF_METADATA_KEY = "onBehalfOf";
+
+    /**
+     * The participant metadata key naming a delegate's {@link DelegateType}, which bounds the owner's permissions it exercises.
+     */
+    public static final String DELEGATE_TYPE_METADATA_KEY = "delegateType";
 
     /**
      * The prefix of the Elasticsearch indices the platform creates, including the index that holds
@@ -441,6 +527,19 @@ public class DomainUtil {
         return participant.getMetadata().get(DISPLAY_NAME_METADATA_KEY);
     }
 
+    /** The name an invitation names the participant by as its sender: its display name, else its email, else its id. */
+    public static String senderNameOf(Participant participant) {
+        String ret = participant.getId();
+        String name = displayNameOf(participant);
+        String email = participant.getMetadata().get("email");
+        if (name != null && !name.isBlank()) {
+            ret = name;
+        } else if (email != null && !email.isBlank()) {
+            ret = email;
+        }
+        return ret;
+    }
+
     /** Whether the participant is a machine, as opposed to a person or a delegate acting for one. */
     public static boolean isMachineParticipant(Participant participant) {
         return ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(participant.getMetadata().get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY));
@@ -533,7 +632,8 @@ public class DomainUtil {
                              user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
             }
             case DelegatingParticipantIdentity delegate -> {
-                metadata.put("onBehalfOf", delegate.getOwnerId());
+                metadata.put(ON_BEHALF_OF_METADATA_KEY, delegate.getOwnerId());
+                metadata.put(DELEGATE_TYPE_METADATA_KEY, delegate.getDelegateType().name());
                 metadata.put(DISPLAY_NAME_METADATA_KEY,
                              delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
             }

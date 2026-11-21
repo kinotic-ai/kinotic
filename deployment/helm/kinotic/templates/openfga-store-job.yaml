@@ -1,0 +1,49 @@
+# Creates the system store, the one store named kinotic-system, unless the engine has it; every
+# server looks the store up by name and never creates it. Runs before the servers on each install and
+# upgrade, as the migration does, and waits for the engine to answer its health check first, since
+# the openfga release is installed separately and may still be starting. Store names are not unique,
+# so the listing is checked before the create, and a listing that fails stops the script rather than
+# creating a second store.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kinotic.fullname" . }}-openfga-store-{{ .Release.Revision }}
+  labels:
+    app: {{ include "kinotic.name" . }}-openfga-store
+    release: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: {{ include "kinotic.name" . }}-openfga-store
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: openfga-store
+          image: curlimages/curl:8.17.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OPENFGA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kinotic.authz.secretName }}
+                  key: {{ .Values.kinotic.authz.secretKey }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              until curl -sf '{{ .Values.kinotic.authz.apiUrl }}/healthz' >/dev/null; do
+                echo 'Waiting for OpenFGA'; sleep 5
+              done
+              stores=$(curl -sf -H "Authorization: Bearer $OPENFGA_API_TOKEN" '{{ .Values.kinotic.authz.apiUrl }}/stores?name=kinotic-system')
+              if echo "$stores" | grep -Eq '"name":[[:space:]]*"kinotic-system"'; then
+                echo 'The system store kinotic-system exists'
+              else
+                curl -sf -X POST '{{ .Values.kinotic.authz.apiUrl }}/stores' -H "Authorization: Bearer $OPENFGA_API_TOKEN" -H 'Content-Type: application/json' -d '{"name":"kinotic-system"}'
+                echo; echo 'Created the system store kinotic-system'
+              fi

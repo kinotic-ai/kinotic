@@ -5,6 +5,9 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.management.api.model.AddApplicationUserRequest;
 import org.kinotic.management.api.model.PendingInviteSummary;
@@ -19,24 +22,29 @@ import org.kinotic.management.api.model.PendingInviteSummary;
  * application's.
  */
 @Publish
+@AuthzResource(value = AuthzConstants.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface MemberService {
 
     /** Lists the caller's organization's members: its users. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable);
 
     /**
      * Searches the caller's organization's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<OrganizationParticipantIdentity>> searchMembers(String searchText, Pageable pageable);
 
     /** Lists the users of application {@code applicationId} of the caller's organization. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<ApplicationParticipantIdentity>> findApplicationUsers(String applicationId, Pageable pageable);
 
     /**
      * Searches the users of application {@code applicationId} by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findApplicationUsers}.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<ApplicationParticipantIdentity>> searchApplicationUsers(String searchText, String applicationId, Pageable pageable);
 
     /**
@@ -52,6 +60,7 @@ public interface MemberService {
      * @param sendInvitation whether to email an invitation
      * @return the member as listed, pending until they first sign in
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS)
     Future<OrganizationParticipantIdentity> addOrganizationUser(String email, String displayName, boolean sendInvitation);
 
     /**
@@ -66,6 +75,7 @@ public interface MemberService {
      * @param request the person and the application, and whether to email an invitation
      * @return the user as listed, pending until they first sign in
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS)
     Future<ApplicationParticipantIdentity> addApplicationUser(AddApplicationUserRequest request);
 
     /**
@@ -76,32 +86,39 @@ public interface MemberService {
      * @param email         the pending member's or user's address
      * @param applicationId the application whose user is invited, or {@code null} for a member of the organization
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS)
     Future<Void> sendInvitation(String email, String applicationId);
 
     /**
      * Enables or disables a member of the caller's organization or of one of its applications: a user of the
      * organization, or an application user. Disabling gates future logins to that scope;
-     * established sessions last until they expire. Callers cannot disable themselves.
+     * established sessions last until they expire. Callers cannot disable themselves, nor the organization's last
+     * user who can sign in and holds {@code organization.admin} on it.
      *
      * @param identityId the member's id: an organization user's or an application user's
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS, consistent = true)
     Future<Void> setMemberEnabled(String identityId, boolean enabled);
 
     /**
      * Removes a member: a user of the caller's organization or an application user, each with its stored credentials
-     * and the invitation it never accepted. Callers cannot remove themselves.
+     * and the invitation it never accepted. Callers cannot remove themselves, nor the organization's last user who can
+     * sign in and holds {@code organization.admin} on it.
      *
      * @param identityId the member's id: an organization user's or an application user's
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS, consistent = true)
     Future<Void> removeMember(String identityId);
 
     /**
      * Lists the scope's live (unexpired) pending invitations: for the organization, those of pending members sent one;
      * for an application, those of its pending users sent one.
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable);
 
     /** Cancels a pending invitation belonging to the caller's organization. */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS)
     Future<Void> cancelInvite(String inviteId);
 
     /**
@@ -116,5 +133,6 @@ public interface MemberService {
      * @return the link, or {@code null} when email is enabled or no invitation into the scope is pending for the
      *         address
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS)
     Future<String> findInvitationLink(String email, String applicationId);
 }

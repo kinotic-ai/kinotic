@@ -85,17 +85,4 @@ public class ReconcileMasterTests extends KinoticTestBase {
         VmNode node = await(nodes.findById(NODE_ID));
         return node != null && StatusConditions.has(node.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE);
     }
-
-    // The master ticks every two seconds and the worker asks for its next call after the timeout
-    private static boolean awaitUntil(Check condition) throws Exception {
-        long deadline = System.currentTimeMillis() + 30_000;
-        while (!condition.holds() && System.currentTimeMillis() < deadline) {
-            Thread.sleep(250);
-        }
-        return condition.holds();
-    }
-
-    private interface Check {
-        boolean holds() throws Exception;
-    }
 }

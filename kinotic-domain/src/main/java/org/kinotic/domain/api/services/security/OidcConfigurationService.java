@@ -25,7 +25,8 @@ import java.util.Collection;
  * The OIDC provider configurations users sign up and in through: the system's managed registrations
  * and each organization's own, each made for one sign-in scope. A write is held to its kind's owner: a
  * {@link ManagedOidcConfiguration} is saved or deleted by a system participant only, an
- * {@link OwnedOidcConfiguration} by an organization participant of the organization it names, and an
+ * {@link OwnedOidcConfiguration} by an organization participant of the organization it names, a
+ * {@link TenantOidcConfiguration} also by a participant of the tenant it names, and an
  * {@link ApplicationOidcConfiguration} must name an application of that organization. An organization's
  * configuration signing in through a client of its own must name Google, which every organization may configure,
  * or, as a Kinotic Enterprise Feature, Okta or Microsoft Entra, and its account there in the form that provider
@@ -179,6 +180,16 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * @param organizationId the organization that owns the configurations
      */
     Future<Page<OwnedOidcConfiguration>> findOwnedByOrganization(String organizationId, Pageable pageable);
+
+    /**
+     * The configurations organization {@code organizationId} holds for tenant {@code tenantId} of its application
+     * {@code applicationId}, enabled or not, oldest first. Checks no participant.
+     *
+     * @param organizationId the organization that owns the configurations
+     * @param applicationId  the application the tenant belongs to
+     * @param tenantId       the tenant whose login offers the configurations
+     */
+    Future<List<TenantOidcConfiguration>> findOwnedByTenant(String organizationId, String applicationId, String tenantId);
 
     /**
      * Saves the configuration as {@link #save(Object)} does and, when {@code clientSecret} is given, makes it

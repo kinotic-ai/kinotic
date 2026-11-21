@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    api project(':kinotic-authz')
     // OidcProviderType, in the public model, is kinotic-common's
     api project(':kinotic-common')
     implementation project(':kinotic-core')

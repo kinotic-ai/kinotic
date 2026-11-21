@@ -7,6 +7,10 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchEventType;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.RepositoryHost;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
@@ -21,15 +25,87 @@ import java.util.List;
  */
 @Publish
 @McpTool
+@AuthzResource(value = ProjectService.RESOURCE_TYPE, parent = AuthzConstants.APPLICATION_TYPE)
 public interface ProjectService extends ApplicationScopedCrudService<Project, String> {
 
+    /** The resource type a project is in the authorization model. */
+    String RESOURCE_TYPE = AuthzConstants.PROJECT_TYPE;
+
     /**
-     * Creates a new project if it does not already exist. If a project with the same id
-     * is already present, returns the existing project without modification.
+     * Returns the project with the given id when the caller may see it: a project the caller may read, or one
+     * containing an entity definition the caller may read.
+     *
+     * @param id the project's id
+     * @return a {@link Future} emitting the project, or null when none has the id or the caller may not see it
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Project> findById(String id);
+
+    /**
+     * Returns the number of projects the caller may see: those the caller may read, and those containing an
+     * entity definition the caller may read.
+     *
+     * @return {@link Future} emitting the number of projects
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Long> count();
+
+    /**
+     * Returns a {@link Page} of the projects the caller may see: those the caller may read, and those containing
+     * an entity definition the caller may read.
+     *
+     * @param pageable the page settings to be used
+     * @return a page of projects
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<Project>> findAll(Pageable pageable);
+
+    /**
+     * Returns a {@link Page} of the projects matching the search text among those the caller may see, as
+     * {@link #findAll(Pageable)} lists them.
+     *
+     * @param searchText the text to search for projects for
+     * @param pageable   the page settings to be used
+     * @return a page of projects
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<Project>> search(String searchText, Pageable pageable);
+
+    /**
+     * Returns the number of the application's projects the caller may see, as {@link #findAll(Pageable)} lists
+     * them.
+     *
+     * @param applicationId the application's id
+     * @return {@link Future} emitting the number of projects
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Long> countForApplication(String applicationId);
+
+    /**
+     * Returns a {@link Page} of the application's projects the caller may see, as {@link #findAll(Pageable)}
+     * lists them.
+     *
+     * @param applicationId the application's id
+     * @param pageable      the page settings to be used
+     * @return a page of projects
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<Project>> findAllForApplication(String applicationId, Pageable pageable);
+
+    /**
+     * Creates a new project if it does not already exist. If the project's application already holds a project
+     * with the same id, returns the existing project without modification.
      *
      * @param project the project to create; the id is auto-derived from the application id
      *                and slugified name if not set
-     * @return a {@link Future} emitting the created or existing project
+     * @return a {@link Future} emitting the created or existing project, or failing with an
+     *         {@link IllegalArgumentException} when another application's project holds the id
      */
     Future<Project> createProjectIfNotExist(Project project);
 
@@ -38,6 +114,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * App before it creates a project, or the Gitea server a demonstration server runs, which needs no linking. Also
      * gives the base URL of a repository's web page.
      */
+    @AuthzUnchecked
     Future<RepositoryHost> getRepositoryHost();
 
     /**
@@ -104,6 +181,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link Future} emitting the updated project
      * @throws IllegalStateException when the project is not awaiting an initialization retry
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT)
     @McpTool(openWorldHint = true)
     Future<Project> retryRepoInitialization(String projectId);
 

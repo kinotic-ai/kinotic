@@ -1,9 +1,11 @@
 package org.kinotic.client_test.gateway;
 
+import io.vertx.core.Future;
 import org.kinotic.client_autoconfig.KinoticClientAutoConfiguration;
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.event.ZoneRulesResolver;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.core.api.security.SecurityService;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jmx.JmxAutoConfiguration;
@@ -22,7 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * A gateway for the client tests: kinotic-core and the api gateway in one Ignite node of their own, with
- * {@link TestGatewaySecurityService} authenticating connections, {@link ClientTestService} to call and
+ * {@link TestGatewaySecurityService} authenticating connections, {@link TestGatewayRequestAuthorizer} admitting every
+ * request, {@link ClientTestService} to call and
  * {@link RestrictedService} in a zone the test participant may not address. The fixtures of this suite are defined
  * outside {@code org.kinotic.client} because the client's component scan must not sweep them into the client node.
  *
@@ -42,8 +45,13 @@ public class TestGatewayApplication {
     }
 
     @Bean
+    public RequestAuthorizer requestAuthorizer() {
+        return new TestGatewayRequestAuthorizer();
+    }
+
+    @Bean
     public ZoneRulesResolver zoneRulesResolver() {
-        return participant -> ZoneRules.of(Set.of(ZONE), Set.of());
+        return participant -> Future.succeededFuture(ZoneRules.of(Set.of(ZONE), Set.of()));
     }
 
     /**

@@ -8,8 +8,10 @@ import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * CRIs are backed by {@link java.net.URI}, whose server-based authority parsing rejects
@@ -132,6 +134,13 @@ public class CRITests {
 
         assertNull(cri.zone());
         assertEquals(SERVICE_NAME, cri.resourceName());
+    }
+
+    @Test
+    public void aCRIOfAuthorityAloneHasNoPath(){
+        assertFalse(CRI.create(SERVICE_LITERAL1).hasPath());
+        assertFalse(CRI.create(SERVICE_LITERAL2).hasPath());
+        assertTrue(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME + "://" + SERVICE_NAME + "/find#" + SERVICE_VERSION).hasPath());
     }
 
     @Test

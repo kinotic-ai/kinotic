@@ -1,0 +1,45 @@
+# Values for the upstream openfga chart (https://openfga.github.io/helm-charts): OpenFGA, the
+# authorization engine every server checks against, on the Postgres whose connection URI the
+# environment's terraform places in the `openfga-db` Secret. The engine migrates the schema in an
+# init container of its own pods, so the release is ready when its pods are, which `helm --wait`
+# sees. The check caches match compose.openfga.yml: a check answers from cached subproblems, which
+# the cache controller invalidates once it reads a write from the store's changelog, so a cached
+# answer can predate a write by the controller's interval, ten seconds by default.
+
+image:
+  tag: v1.21.0
+  pullPolicy: IfNotPresent
+
+datastore:
+  engine: postgres
+  # The Secret terraform creates, with the connection URI under the key `uri`
+  uriSecret: openfga-db
+  applyMigrations: true
+  # Each pod migrates before it serves, skipping what is already applied. Two pods migrating an
+  # empty database at once can collide; Kubernetes retries the failed init container until the
+  # schema is current.
+  migrationType: initContainer
+
+# Every API call carries the preshared key the `openfga-authn` Secret holds under `keys`, which the
+# environment's terraform creates and the kinotic chart hands to the servers and the store Job
+authn:
+  method: preshared
+  preshared:
+    keysSecret: openfga-authn
+
+playground:
+  enabled: false
+
+checkQueryCache:
+  enabled: true
+
+extraEnvVars:
+  - name: OPENFGA_CHECK_ITERATOR_CACHE_ENABLED
+    value: "true"
+  - name: OPENFGA_SHARED_ITERATOR_ENABLED
+    value: "true"
+  - name: OPENFGA_CACHE_CONTROLLER_ENABLED
+    value: "true"
+
+log:
+  format: json

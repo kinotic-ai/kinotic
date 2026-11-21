@@ -60,8 +60,8 @@ resource "azurerm_subnet" "firecracker" {
 }
 
 # ── Private endpoints ─────────────────────────────────────────────────────────
-# Storage accounts the cluster reaches only privately get their endpoint in this subnet, and
-# resolve to it through the blob private DNS zone linked to the VNet.
+# Storage accounts and databases the cluster reaches only privately get their endpoint in this
+# subnet, and resolve to it through their service's private DNS zone linked to the VNet.
 
 resource "azurerm_subnet" "private_endpoints" {
   name                 = "snet-${var.name_prefix}-private-endpoints"
@@ -80,6 +80,20 @@ resource "azurerm_private_dns_zone_virtual_network_link" "blob" {
   name                  = "blob-${var.name_prefix}"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.blob.name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
+}
+
+resource "azurerm_private_dns_zone" "postgres" {
+  name                = "privatelink.postgres.database.azure.com"
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
+  name                  = "postgres-${var.name_prefix}"
+  resource_group_name   = var.resource_group_name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
   virtual_network_id    = azurerm_virtual_network.main.id
   tags                  = var.tags
 }
@@ -118,6 +132,10 @@ output "private_endpoints_subnet_id" {
 
 output "blob_private_dns_zone_id" {
   value = azurerm_private_dns_zone.blob.id
+}
+
+output "postgres_private_dns_zone_id" {
+  value = azurerm_private_dns_zone.postgres.id
 }
 
 output "firecracker_subnet_id" {

@@ -31,6 +31,8 @@ import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.event.ZoneRules;
+import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
@@ -68,8 +70,9 @@ import static org.mockito.Mockito.when;
  * request releases it, a session under an open connection outlives its timeout, and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
  * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
- * connection, and a client that falls behind a stream has the stream suspended until it catches up, or
- * cancelled when the stream cannot be suspended.
+ * connection, a client that falls behind a stream has the stream suspended until it catches up, or
+ * cancelled when the stream cannot be suspended, and a request the authorizer refuses is answered with the
+ * refusal and never sent.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -90,7 +93,9 @@ public class EndpointConnectionHandlerTests {
     private ReplyFlowControl replyFlowControl;
 
     // The clustered session store needs a clustered Vert.x; one Ignite node on ports of its own, so a
-    // core test JVM running alongside never joins it
+    // core test JVM running alongside never joins it. The node takes the next port when its first is in use,
+    // so the IP finder names every port it may take: a node whose own address is among them starts the
+    // cluster, and one whose address is not waits without end for a node at the addresses it was given
     @BeforeAll
     public static void startCluster() throws Exception {
         IgniteConfiguration configuration = new IgniteConfiguration()
@@ -98,7 +103,8 @@ public class EndpointConnectionHandlerTests {
                 .setMetricsLogFrequency(0)
                 .setWorkDirectory("/tmp/ignite-gateway-tests")
                 .setDiscoverySpi(new TcpDiscoverySpi().setLocalPort(48500)
-                                                      .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:48500"))))
+                                                      .setLocalPortRange(10)
+                                                      .setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(List.of("127.0.0.1:48500..48509"))))
                 .setCommunicationSpi(new TcpCommunicationSpi().setLocalPort(48100));
         ignite = Ignition.start(configuration);
         vertx = Vertx.builder()
@@ -139,9 +145,11 @@ public class EndpointConnectionHandlerTests {
         services.jsonMapper = jsonMapper;
         services.exceptionConverter = new JacksonExceptionConverter(new KinoticProperties(), jsonMapper);
         services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
-                                                                    participant -> ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE)));
+                                                                    participant -> Future.succeededFuture(ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))));
         services.securityService = mock(SecurityService.class);
         when(services.securityService.authenticate(any(), any())).thenReturn(Future.succeededFuture(participant()));
+        services.requestAuthorizer = mock(RequestAuthorizer.class);
+        when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(Future.succeededFuture());
         services.eventBusService = eventBusService;
         services.requestLivenessWatcher = requestLivenessWatcher;
         services.serviceDirectoryProvider = mock(ObjectProvider.class);
@@ -166,6 +174,27 @@ public class EndpointConnectionHandlerTests {
         Assertions.assertEquals("corr-1", errorReply.metadata().get(EventConstants.CORRELATION_ID_HEADER));
         Assertions.assertTrue(errorReply.metadata().get(EventConstants.ERROR_HEADER).contains("node-2"));
         Assertions.assertTrue(new String(errorReply.data(), StandardCharsets.UTF_8).contains("RpcServiceUnavailableException"));
+    }
+
+    @Test
+    public void testRefusedRequestIsAnsweredOnTheReplyDestination() throws Exception {
+        when(services.requestAuthorizer.authorize(any(), any(), any(), any()))
+                .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized")));
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+
+        handler.send(request(replyTo, "corr-0")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the check is made with the connection's participant and the request's body, before anything is sent
+        verify(services.requestAuthorizer).authorize(eq(CRI.create(SERVICE_DESTINATION)), eq(participant()), any(), any());
+        verify(eventBusService, never()).sendWithAck(any());
+        verify(requestLivenessWatcher, never()).watch(any(), any(), any());
+        ArgumentCaptor<Event<byte[]>> sent = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).send(sent.capture());
+        Event<byte[]> errorReply = sent.getValue();
+        Assertions.assertEquals(replyTo, errorReply.cri().raw());
+        Assertions.assertEquals("corr-0", errorReply.metadata().get(EventConstants.CORRELATION_ID_HEADER));
+        Assertions.assertTrue(new String(errorReply.data(), StandardCharsets.UTF_8).contains("AuthorizationException"));
     }
 
     @Test
@@ -354,6 +383,38 @@ public class EndpointConnectionHandlerTests {
         verify(eventBusService).publish(published.capture());
         Assertions.assertEquals(EventConstants.CONTROL_VALUE_CANCEL, published.getValue().metadata().get(EventConstants.CONTROL_HEADER));
         verify(requestLivenessWatcher).unwatch(endsWith(":inv-6"));
+    }
+
+    @Test
+    public void testCancelOfARefusedRequestIsDropped() throws Exception {
+        when(services.requestAuthorizer.authorize(any(), any(), any(), any()))
+                .thenReturn(Future.failedFuture(new AuthorizationException("Not authorized")));
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "inv-11")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        Metadata metadata = Metadata.create(Map.of(EventConstants.REPLY_TO_HEADER, replyTo,
+                                                   EventConstants.CORRELATION_ID_HEADER, "inv-11",
+                                                   EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL));
+        handler.send(Event.create(CRI.create(SERVICE_DESTINATION), metadata, null)).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the services never received the request, so they are sent no cancel of it
+        verify(eventBusService, never()).sendWithAck(any());
+        verify(eventBusService, never()).publish(any());
+    }
+
+    @Test
+    public void testARequestAuthorizedAfterItsConnectionClosedIsNotSent() throws Exception {
+        Promise<Void> authorization = Promise.promise();
+        when(services.requestAuthorizer.authorize(any(), any(), any(), any())).thenReturn(authorization.future());
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Future<Void> requested = handler.send(request(replyTo, "inv-10"));
+
+        handler.shutdown();
+        authorization.complete();
+        requested.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        verify(eventBusService, never()).sendWithAck(any());
     }
 
     @Test

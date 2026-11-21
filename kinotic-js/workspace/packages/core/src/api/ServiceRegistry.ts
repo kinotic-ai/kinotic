@@ -14,7 +14,7 @@ import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
 import type {ContextInterceptor, ServiceContext} from './ContextInterceptor'
 import type { ServiceDefinition } from '@kinotic-ai/idl'
-import { isAdvertised } from './KinoticDecorators'
+import { authzDecoratorsOf, declaresAuthz, isAdvertised } from './KinoticDecorators'
 import type { ServiceDirectoryEntry } from './ServiceDirectoryEntry'
 
 /**
@@ -101,11 +101,55 @@ function servedFunctions(serviceInstance: object): string[] {
     return [...ret].sort()
 }
 
+// The parts of an AuthzResource decorator that kinotic sync reads from the source, in a fixed order, so a
+// definition's and an instance's compare equal exactly when they declare the same
+function resourceKey(resource: any): string {
+    return resource
+        ? JSON.stringify([resource.resourceType, resource.parent ?? null, resource.resourceId ?? null, resource.permission ?? null,
+                          (resource.roles ?? []).map((role: any) => [role.id, role.permissions ?? []])])
+        : 'none'
+}
+
+// The parts of an AuthzCheck decorator that kinotic sync reads from the source, in a fixed order
+function checkKey(check: any): string {
+    let ret: string
+    if (!check) {
+        ret = 'none'
+    } else if (check.unchecked) {
+        ret = 'unchecked'
+    } else {
+        ret = JSON.stringify([check.permission ?? null, check.resource ?? null, check.resourceId ?? null,
+                              check.implies ?? [], check.consistent === true])
+    }
+    return ret
+}
+
+// What the definition declares about authorization that the instance does not, or null when they agree: the
+// system authorizes every request by the definition, so one generated before a declaration changed would check
+// the service as it was declared then
+function authzDrift(definition: ServiceDefinition, serviceInstance: object): string | null {
+    const declared = authzDecoratorsOf(serviceInstance, definition.functions.map(f => f.name))
+    let ret: string | null = null
+    if (resourceKey(definition.decorators?.find(d => d.type === 'AuthzResource')) !== resourceKey(declared.resource)) {
+        ret = 'its @AuthzResource'
+    } else {
+        for (const fn of definition.functions) {
+            if (ret === null && checkKey(fn.decorators?.find(d => d.type === 'AuthzCheck')) !== checkKey(declared.checks.get(fn.name))) {
+                ret = `the @AuthzCheck or @AuthzUnchecked of ${fn.name}`
+            }
+        }
+    }
+    return ret
+}
+
 /**
  * The directory entry of a service registered in an application's zone: the definition the project declared
  * for it, which names exactly the functions the instance serves, with what the registration adds. Null for a
- * service in no application's zone, or one the project declared no definition for.
- * @throws when the definition declares other functions than the instance serves
+ * service in no application's zone, or one the project declared no definition for, which the system refuses
+ * to serve, since no contract says how.
+ * @throws when the definition declares other functions than the instance serves or other authorization than
+ *         the instance declares, or the service declares a resource or is marked unchecked and the project
+ *         declares no definition for it
  */
 function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIdentifier): ServiceDirectoryEntry | null {
     let ret: ServiceDirectoryEntry | null = null
@@ -120,6 +164,11 @@ function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIde
                 throw new Error(`${qualifiedName} serves the functions [${served}] but its definition declares [${declared}];`
                                 + ' run kinotic sync and import the generated ServiceDefinitions module')
             }
+            const drift = authzDrift(definition, serviceInstance)
+            if (drift) {
+                throw new Error(`${qualifiedName} declares other authorization than its definition, in ${drift};`
+                                + ' run kinotic sync and import the generated ServiceDefinitions module')
+            }
             ret = {
                 // the group is what the zone matched on
                 applicationId: application[1] as string,
@@ -128,6 +177,9 @@ function directoryEntryOf(serviceInstance: object, serviceIdentifier: ServiceIde
                 advertised: isAdvertised(serviceInstance),
                 serviceDefinition: definition
             }
+        } else if (declaresAuthz(serviceInstance)) {
+            throw new Error(`${qualifiedName} declares a resource or is marked unchecked, but the project declares no definition for it;`
+                            + ' run kinotic sync and import the generated ServiceDefinitions module')
         }
     }
     return ret

@@ -9,8 +9,8 @@ import org.kinotic.domain.api.model.persistence.EntityDefinition;
 /**
  * Cache eviction event specifically for caches that need to be evicted
  * This is used when a {@link EntityDefinition} or named query is updated and related caches need to be evicted.
- * It is published to every node consuming it, which every node running the persistence module does, where the
- * entity services that hold the caches run.
+ * It is published to every node consuming it: those running the persistence module, whose entity services hold
+ * caches of the definitions, and those running the gateway, whose named query permission resolver holds one too.
  */
 @Data
 @NoArgsConstructor

@@ -1,12 +1,12 @@
 package org.kinotic.persistence.internal.api.services.sql;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.NamedQueriesDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
 import org.kinotic.domain.api.services.EntityStatementResolver;
+import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
@@ -47,6 +47,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private final AuthorizationServiceFactory authorizationServiceFactory;
     private final MigrationParser migrationParser;
     private final EntityStatementResolver entityStatementResolver;
+    private final NamedQueryAuthorizer namedQueryAuthorizer;
     private final List<StatementExecutor<?, ?>> statementExecutors;
     private final CrudServiceTemplate crudServiceTemplate;
     private final ReadPreProcessor readPreProcessor;
@@ -88,7 +89,9 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,
                                                           String queryName,
                                                           String statements) {
-        Statement statement = entityStatementResolver.resolve(parse(statements, queryName), entityDescriptor).getFirst();
+        Statement statement = entityStatementResolver.resolve(List.of(migrationParser.parseStatement(statements, "Named query " + queryName)),
+                                                              entityDescriptor)
+                                                     .getFirst();
         return switch (statement) {
             case SelectStatement select -> new SelectQueryExecutor(entityDescriptor, queryName, select, crudServiceTemplate,
                                                                    readPreProcessor, readPostProcessor);
@@ -104,14 +107,6 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
         };
     }
 
-    private List<Statement> parse(String statements, String queryName) {
-        // a named query is one statement, usually written without the terminator the grammar requires
-        String sql = statements.strip();
-        List<Statement> ret = migrationParser.parse(sql.endsWith(";") ? sql : sql + ";", queryName).statements();
-        Validate.isTrue(ret.size() == 1, "Named query %s must be one statement", queryName);
-        return ret;
-    }
-
     @SuppressWarnings("unchecked")
     private QueryExecutor write(EntityDescriptor entityDescriptor, Statement statement) {
         StatementExecutor<Statement, ?> executor = (StatementExecutor<Statement, ?>) statementExecutors
@@ -119,6 +114,6 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
                 .filter(candidate -> candidate.supports(statement))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No executor found for statement: " + statement.getClass().getSimpleName()));
-        return new StatementQueryExecutor(entityDescriptor, statement, entityStatementResolver, executor, jsonMapper);
+        return new StatementQueryExecutor(entityDescriptor, statement, namedQueryAuthorizer, entityStatementResolver, executor, jsonMapper);
     }
 }

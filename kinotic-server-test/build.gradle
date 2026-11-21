@@ -10,6 +10,8 @@ dependencies {
 	implementation project(':kinotic-sql')
 
 	implementation 'io.vertx:vertx-core'
+	// TestRequestAuthorizer implements RequestAuthorizer's tool-call overload, which takes an ObjectNode
+	implementation 'tools.jackson.core:jackson-databind'
 
 	implementation 'io.projectreactor:reactor-core'
 }

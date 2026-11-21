@@ -2,6 +2,7 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.AuthzPermissionResolver;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
@@ -13,8 +14,13 @@ import org.kinotic.idl.api.directory.SchemaService;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.HasDecorators;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
+import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
@@ -34,12 +40,15 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -52,6 +61,7 @@ public class DefaultSchemaService implements SchemaService {
 
     private final GenericTypeConverter typeConverter;
     private final Set<Class<?>> skippedParameterTypes;
+    private final Supplier<List<AuthzPermissionResolver>> permissionResolvers;
     // extracted Javadoc resources by type; a type without a resource caches an empty map
     private final Map<Class<?>, Map<String, String>> javadocCache = new ConcurrentHashMap<>();
 
@@ -59,10 +69,15 @@ public class DefaultSchemaService implements SchemaService {
      * @param typeConverter         converts the types a signature names
      * @param skippedParameterTypes parameter types the platform supplies to a function rather than the request,
      *                              matched by assignability, which no function's contract advertises
+     * @param permissionResolvers   the permission resolvers a service's checks may name, read when services are
+     *                              converted
      */
-    public DefaultSchemaService(GenericTypeConverter typeConverter, Set<Class<?>> skippedParameterTypes) {
+    public DefaultSchemaService(GenericTypeConverter typeConverter,
+                                Set<Class<?>> skippedParameterTypes,
+                                Supplier<List<AuthzPermissionResolver>> permissionResolvers) {
         this.typeConverter = typeConverter;
         this.skippedParameterTypes = skippedParameterTypes;
+        this.permissionResolvers = permissionResolvers;
     }
 
     @Override
@@ -93,20 +108,116 @@ public class DefaultSchemaService implements SchemaService {
         // one conversion context for the whole batch, so complex types shared between services convert once
         DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
 
+        Map<String, AuthzPermissionResolver> resolvers = new HashMap<>();
+        for (AuthzPermissionResolver resolver : permissionResolvers.get()) {
+            AuthzPermissionResolver previous = resolvers.put(resolver.name(), resolver);
+            // a check names its resolver, so two of one name would leave which one runs to the beans' order
+            if (previous != null) {
+                throw new IllegalStateException("Two permission resolvers are named '" + resolver.name() + "': "
+                                                        + previous.getClass().getName() + " and " + resolver.getClass().getName());
+            }
+        }
+
         NamespaceDefinition ret = new NamespaceDefinition();
         // record equality collapses duplicates, so a service declared twice converts once
         for (ServiceDeclaration declaration : new LinkedHashSet<>(services)) {
             ret.addServiceDefinition(createForService(declaration.serviceInterface(),
                                                       declaration.serviceImplementation(),
-                                                      conversionContext));
+                                                      conversionContext,
+                                                      resolvers));
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());
         return ret;
     }
 
+    @Override
+    public ServiceDefinition deriveChecks(ServiceDefinition definition) {
+        Assert.notNull(definition, "definition cannot be null");
+        Assert.hasText(definition.getNamespace(), "The definition names no namespace");
+        Assert.hasText(definition.getName(), "The definition names no name");
+        String declarer = definition.getQualifiedName();
+        requireAtMostOne(definition, AuthzResourceC3Decorator.class, "The service " + declarer);
+        AuthzResourceC3Decorator declaredResource = definition.findDecorator(AuthzResourceC3Decorator.class);
+        AuthzResourceC3Decorator authzResource = declaredResource == null
+                ? null
+                : AuthzDecorators.resourceOf(declarer, declaredResource);
+        ServiceDefinition ret = new ServiceDefinition();
+        ret.setNamespace(definition.getNamespace());
+        ret.setName(definition.getName());
+        ret.setMetadata(definition.getMetadata());
+        ret.setDecorators(replaced(definition.getDecorators(), declaredResource, authzResource));
+        // the definition's types are declared inline, so nothing converts; the derivation reads references through the context
+        DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
+        for (FunctionDefinition function : definition.getFunctions()) {
+            // a runtime's definition leaves the parameters out of a function taking none
+            List<ParameterDefinition> parameters = function.getParameters() == null ? List.of() : function.getParameters();
+            requireAtMostOne(function, AuthzCheckC3Decorator.class, "The function " + function.getName() + " on " + declarer);
+            AuthzCheckC3Decorator declaredCheck = function.findDecorator(AuthzCheckC3Decorator.class);
+            AuthzCheckC3Decorator check;
+            if (declaredCheck != null && declaredCheck.getPermissionResolver() != null) {
+                throw new IllegalStateException("The function " + function.getName() + " on " + declarer
+                                                        + " names a permission resolver, which only the system's own services may name");
+            } else if (authzResource != null) {
+                check = AuthzDecorators.checkOf(declarer,
+                                                authzResource,
+                                                function.getName(),
+                                                declaredCheck,
+                                                parameters,
+                                                conversionContext,
+                                                Map.of());
+            } else if (declaredCheck != null && declaredCheck.isUnchecked()) {
+                // a service declaring no resource is marked unchecked as a whole, which its definition carries on
+                // each function
+                check = AuthzDecorators.uncheckedOf(function.getName() + " on " + declarer, declaredCheck);
+            } else if (declaredCheck != null) {
+                throw new IllegalStateException("The function " + function.getName() + " on " + declarer
+                                                        + " declares a check, but the service declares no resource");
+            } else {
+                // the gateway refuses every function its contract neither checks nor marks unchecked, so a service
+                // declaring neither could never be called through it
+                throw new IllegalStateException("The service " + declarer + " declares no resource and is not marked unchecked;"
+                                                        + " declare @AuthzResource or mark it @AuthzUnchecked");
+            }
+            FunctionDefinition derived = new FunctionDefinition();
+            derived.setName(function.getName());
+            derived.setReturnType(function.getReturnType());
+            derived.setParameters(new LinkedList<>(parameters));
+            derived.setMetadata(function.getMetadata());
+            derived.setDecorators(replaced(function.getDecorators(), declaredCheck, check));
+            ret.addFunction(derived);
+        }
+        return ret;
+    }
+
+    // Every reader takes the first decorator of a type, so a second one would reach the directory unresolved
+    private static void requireAtMostOne(HasDecorators declarer, Class<? extends C3Decorator> type, String where) {
+        List<C3Decorator> decorators = declarer.getDecorators();
+        if (decorators != null && decorators.stream().filter(type::isInstance).count() > 1) {
+            throw new IllegalStateException(where + " declares more than one " + type.getSimpleName());
+        }
+    }
+
+    // The decorators with the declared one replaced by its resolved form, or dropped when it resolves to none;
+    // null when nothing is left, as a definition declaring nothing carries
+    private static List<C3Decorator> replaced(List<C3Decorator> decorators, C3Decorator declared, C3Decorator resolved) {
+        List<C3Decorator> ret = new ArrayList<>();
+        if (decorators != null) {
+            for (C3Decorator decorator : decorators) {
+                if (decorator != declared) {
+                    ret.add(decorator);
+                }
+            }
+        }
+        if (resolved != null) {
+            ret.add(resolved);
+        }
+        return ret.isEmpty() ? null : ret;
+    }
+
     private ServiceDefinition createForService(Class<?> serviceInterface,
                                                Class<?> implementation,
-                                               ConversionContext conversionContext) {
+                                               ConversionContext conversionContext,
+                                               Map<String, AuthzPermissionResolver> resolvers) {
         Assert.notNull(serviceInterface, "serviceInterface cannot be null");
         Assert.notNull(implementation, "implementation cannot be null");
 
@@ -116,6 +227,11 @@ public class DefaultSchemaService implements SchemaService {
 
         // a type-level @McpTool marks every function a tool, and supplies their shared title and description
         McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(serviceInterface, McpTool.class);
+        AuthzResourceC3Decorator authzResource = AuthzDecorators.resourceOf(serviceInterface);
+        boolean unchecked = AuthzDecorators.uncheckedService(serviceInterface);
+        if (authzResource != null) {
+            serviceDefinition.setDecorators(List.of(authzResource));
+        }
 
         // IdlUtil.serviceFunctions decides WHICH functions exist — the same walk ReflectiveServiceDescriptor
         // registers with the ServiceRegistry, so the schema carries exactly the functions the registry serves
@@ -148,12 +264,31 @@ public class DefaultSchemaService implements SchemaService {
 
             functionDefinition.setName(function.getKey());
 
+            List<C3Decorator> decorators = new ArrayList<>();
             McpToolC3Decorator mcpTool = createMcpToolDecorator(serviceInterface,
                                                                  function.getValue(),
                                                                  specificMethod,
                                                                  typeLevelMcpTool);
             if (mcpTool != null) {
-                functionDefinition.setDecorators(List.of(mcpTool));
+                decorators.add(mcpTool);
+            }
+            if (authzResource != null) {
+                decorators.add(AuthzDecorators.checkOf(serviceInterface,
+                                                       authzResource,
+                                                       function.getKey(),
+                                                       function.getValue(),
+                                                       functionDefinition.getParameters(),
+                                                       conversionContext,
+                                                       resolvers));
+            } else if (AuthzDecorators.declaresCheck(function.getValue())) {
+                throw new IllegalStateException("The function " + function.getKey() + " on " + serviceInterface.getName()
+                                                        + " declares a check, but the service declares no resource;"
+                                                        + " declare one with @AuthzResource, or mark the service @AuthzUnchecked");
+            } else if (unchecked) {
+                decorators.add(AuthzDecorators.unchecked());
+            }
+            if (!decorators.isEmpty()) {
+                functionDefinition.setDecorators(decorators);
             }
 
             serviceDefinition.addFunction(functionDefinition);

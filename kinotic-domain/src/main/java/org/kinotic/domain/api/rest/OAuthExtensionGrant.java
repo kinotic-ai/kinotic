@@ -4,7 +4,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 /**
- * An RFC 6749 §4.5 extension grant the OAuth token endpoint redeems. The OAuth authorization server collects
+ * An OAuth extension grant, identified by an absolute-URI {@code grant_type}, that the OAuth token endpoint redeems. The OAuth authorization server collects
  * every {@link OAuthExtensionGrant} bean, so a module adds a grant simply by publishing an implementation: the
  * token endpoint dispatches the requests carrying its {@link #grantType()} to it, and the RFC 8414 metadata
  * lists that grant type along with whatever {@link #advertise(JsonObject, String)} adds.

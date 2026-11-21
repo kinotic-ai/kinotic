@@ -2,9 +2,13 @@ package org.kinotic.management.api.services.deployment;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
 import org.kinotic.management.api.model.deployment.ProjectDependencies;
 import org.kinotic.management.api.model.deployment.ProjectDeployment;
+import org.kinotic.management.api.services.ProjectService;
 
 /**
  * Records the artifacts a project's deployment workloads find on the project's
@@ -15,6 +19,7 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
  * after 30 seconds.
  */
 @Publish
+@AuthzResource(value = ProjectService.RESOURCE_TYPE, parent = AuthzConstants.APPLICATION_TYPE)
 public interface ProjectArtifactService {
 
     /**
@@ -27,6 +32,7 @@ public interface ProjectArtifactService {
      *                  and a UI's name must not contain {@code --}
      * @return a future completing once the deployment record holds the artifacts
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT)
     Future<Void> recordArtifacts(String projectId, ProjectArtifacts artifacts);
 
     /**
@@ -44,6 +50,7 @@ public interface ProjectArtifactService {
      *         vulnerability advisories has ended, raising an alert for each advisory that affects
      *         it; the call succeeds whether or not that check does
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_EDIT)
     Future<Void> recordSbom(String projectId, String dependencyHash, ProjectDependencies dependencies);
 
 }

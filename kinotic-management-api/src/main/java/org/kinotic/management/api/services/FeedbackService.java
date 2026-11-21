@@ -2,6 +2,7 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.management.api.model.github.CreatedIssue;
 import org.kinotic.management.api.model.feedback.FeedbackSubmission;
@@ -12,6 +13,7 @@ import org.kinotic.management.api.model.feedback.FeedbackSubmission;
  */
 @Publish
 @McpTool
+@AuthzUnchecked
 public interface FeedbackService {
 
     /**

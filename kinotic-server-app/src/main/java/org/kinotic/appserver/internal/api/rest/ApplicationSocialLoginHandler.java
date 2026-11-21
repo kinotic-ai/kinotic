@@ -70,11 +70,11 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code GET /api/auth/app/login/social/authorize?organizationId&applicationId&configurationId&origin&binding[&tenantId]},
+     * {@code GET /api/auth/app/login/social/authorize?organizationId&applicationId&configurationId&origin&binding[&tenantId][&companyName]},
      * at the shared host — begins the provider round-trip through Kinotic's registration for a sign-in to the
      * application, or to its tenant from one of the tenant's sites or when {@code tenantId} names one, from the page at
      * {@code origin}, through the application's configuration {@code configurationId}, redirecting the browser to the
-     * provider. {@code binding} is the value the application's host put in the browser's session, which the completion
+     * provider. {@code companyName} is the company a person signing up founds a tenant for. {@code binding} is the value the application's host put in the browser's session, which the completion
      * there requires again. {@code 400} for a page that is not one of the application's UIs or a start that carries no
      * binding; a configuration the login does not offer through Kinotic's registration returns the browser to the
      * page's login with {@code config_not_found}.
@@ -103,6 +103,7 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
                   // flow startFlow stored, so the keys and the flow always belong to the same start
                   ctx.session().put(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY, binding);
                   ctx.session().put(CONFIGURATION_SESSION_KEY, configId);
+                  authEndpointSupport.holdCompanyName(ctx);
                   ctx.response().setStatusCode(302).putHeader("Location", url).end();
               })
               .onFailure(err -> {
@@ -165,10 +166,11 @@ public class ApplicationSocialLoginHandler implements SuppliesGatewayRoutes {
 
     private Future<Void> handOff(RoutingContext ctx, CallbackResult<? extends OidcConfiguration> result, ApplicationOidcConfiguration configuration) {
         Future<Void> ret = Future.succeededFuture();
+        String companyName = ctx.session().remove(ApplicationAuthEndpointSupport.COMPANY_NAME);
         if (authEndpointSupport.verifiedSubject(ctx, result) != null) {
             ApplicationKey applicationKey = new ApplicationKey(result.orgId(), result.applicationId());
             ret = authEndpointSupport.loginScope(applicationKey, result.tenantId())
-                    .compose(scope -> authEndpointSupport.findOrCreateUser(scope, configuration, result.claims()))
+                    .compose(scope -> authEndpointSupport.findOrCreateUser(scope, configuration, result.claims(), companyName))
                     .map(user -> {
                         if (user == null) {
                             authEndpointSupport.redirectError(ctx, result.origin(), OidcErrorCodes.NO_USER, result.config().getProvider());

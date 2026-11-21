@@ -24,6 +24,9 @@ const SERVER_PORTS = {
 /** A server of the e2e compose stack, by its compose service name. */
 export type KinoticServerName = keyof typeof SERVER_PORTS
 
+/** The port OpenFGA serves its HTTP API on, where its health endpoint answers. */
+const OPENFGA_PORT = 8080
+
 /** How long a server may take to answer /health, matching the start_period of its compose healthcheck. */
 const SERVER_STARTUP_TIMEOUT_MS = 120_000
 
@@ -44,9 +47,9 @@ export interface GlobalSetup {
 /**
  * Builds the globalSetup of a suite that runs against the compose stack in
  * deployment/docker-compose/compose.kinotic-e2e-test.yml. With VITE_USE_KINOTIC_DOCKER=true the
- * setup brings up Elasticsearch, the migration and the given servers, and provides KINOTIC_HOST plus
- * KINOTIC_PORTS, the mapped REST and STOMP port of each server by name. Otherwise it points the suite
- * at 127.0.0.1 on the ports the compose file publishes, for a stack started by hand.
+ * setup brings up Elasticsearch, OpenFGA, the migration and the given servers, and provides KINOTIC_HOST plus
+ * KINOTIC_PORTS, the mapped REST and STOMP port of each server by name. Otherwise it points the suite at
+ * 127.0.0.1 on the ports the compose file publishes, for a stack started by hand.
  * @param serverNames the servers to start
  */
 export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup {
@@ -62,7 +65,17 @@ export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup
                 const files = ['compose.kinotic-e2e-test.yml']
                 let compose = new DockerComposeEnvironment(resolvedPath, files)
                     .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
+                    // the OpenFGA image has no shell, which the default port wait strategy needs
+                    .withWaitStrategy('openfga', Wait.forHttp('/healthz', OPENFGA_PORT))
                     .withEnvironmentFile(path.resolve('../../', 'gradle.properties'))
+                    // with the engine's caches on, a call answers from a cached check for up to ten seconds after
+                    // a grant or revoke, which every test that changes access would wait out
+                    .withEnvironment({
+                        OPENFGA_CHECK_QUERY_CACHE_ENABLED: 'false',
+                        OPENFGA_CHECK_ITERATOR_CACHE_ENABLED: 'false',
+                        OPENFGA_SHARED_ITERATOR_ENABLED: 'false',
+                        OPENFGA_CACHE_CONTROLLER_ENABLED: 'false'
+                    })
                 for(const serverName of serverNames){
                     compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName])
                                                                        .withStartupTimeout(SERVER_STARTUP_TIMEOUT_MS))

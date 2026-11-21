@@ -4,8 +4,10 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ParameterDefinition;
+import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.persistence.api.model.QueryParameter;
@@ -92,14 +94,19 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
     //       This way we do not do a bunch of string comparisons during the query request
     private void addPropertyToContext(String property,
                                       Object value,
-                                      QueryContext context) {
+                                      QueryContext context,
+                                      boolean tenantBound) {
         if(property.equals(queryMetadata.getTenantSelectionParameterName())) {
             if (!(value instanceof List<?> list)) {
                 throw new IllegalArgumentException("Tenant selection must be a List");
             }
             @SuppressWarnings("unchecked")
             List<String> tenantList = (List<String>) list;
-            context.getEntityContext().setTenantSelection(tenantList);
+            EntityContext entityContext = context.getEntityContext();
+            if (tenantBound && !List.of(entityContext.getTenantId()).equals(tenantList)) {
+                throw new AuthorizationException("Participant may only select its own tenant");
+            }
+            entityContext.setTenantSelection(tenantList);
         }else if(property.equals(queryMetadata.getQueryOptionsParameterName())) {
             context.setQueryOptions((QueryOptions) value);
         }else if(property.toLowerCase().equals(timeZoneOptionName)){
@@ -126,6 +133,13 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
         if(queryMetadata.queryExpectsParameters()) {
             ParameterHolder parameterHolder = context.getParameterHolder();
             Validate.notNull(parameterHolder, "parameters must not be null");
+            // the tenant-scoped repository builds a context with the caller's tenant and no selection, and its
+            // functions are checked within that tenant, so a parameter of the query may not widen it; a context
+            // carrying a selection is the admin repository's, whose functions are checked across tenants. Decided
+            // once per request: a list of parameters may name the selection twice, and the first value setting the
+            // selection must not exempt the second from the check
+            EntityContext entityContext = context.getEntityContext();
+            boolean tenantBound = entityContext.getTenantId() != null && !entityContext.hasTenantSelection();
 
             if(parameterHolder instanceof ListParameterHolder listParameterHolder) {
 
@@ -135,7 +149,7 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
                 // We may need to use the parameterNames list to reorder them.
                 // So far the javascript client provides the order of the parameters in the list is the same as the order of the parameterNames list
                 for (QueryParameter queryParameter : queryParameters) {
-                    addPropertyToContext(queryParameter.getKey(), queryParameter.getValue(), context);
+                    addPropertyToContext(queryParameter.getKey(), queryParameter.getValue(), context, tenantBound);
                 }
             }else if(parameterHolder instanceof MapParameterHolder mapParameterHolder){
 
@@ -144,7 +158,7 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
                 for(String key : queryMetadata.getQueryParameterNames()){
                     Object value = queryParameters.get(key);
                     if(value != null){
-                        addPropertyToContext(key, value, context);
+                        addPropertyToContext(key, value, context, tenantBound);
                     }else{
                         throw new IllegalArgumentException("Parameter " + key + " is missing from expected parameters");
                     }

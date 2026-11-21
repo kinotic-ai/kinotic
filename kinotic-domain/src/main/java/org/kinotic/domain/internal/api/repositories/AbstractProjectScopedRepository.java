@@ -8,6 +8,11 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * Repository tier for entities that belong to a project within an application and organization.
  * Adds {@code projectId}-scoped query helpers, each with an {@code orgId}-aware overload.
@@ -22,13 +27,38 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
     }
 
     public Future<Long> countForProject(String projectId, String orgId) {
+        return countForProject(projectId, orgId, null);
+    }
+
+    /**
+     * Counts the project's documents among the given ids; every document when {@code ids} is null, none
+     * when it is empty.
+     */
+    public Future<Long> countForProject(String projectId, String orgId, Collection<String> ids) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
+        return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId), idsFilter(ids))));
     }
 
     public Future<Page<T>> findAllForProject(String projectId, String orgId, Pageable pageable) {
+        return findAllForProject(projectId, orgId, null, pageable);
+    }
+
+    /**
+     * The page of the project's documents among the given ids; every document when {@code ids} is null,
+     * none when it is empty.
+     */
+    public Future<Page<T>> findAllForProject(String projectId, String orgId, Collection<String> ids, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
+        return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId), idsFilter(ids))));
+    }
+
+    /**
+     * The projects named by the documents with the given ids in {@code orgId}: each project's id with the ids of
+     * the applications the documents naming it belong to.
+     */
+    public Future<Map<String, Set<String>>> findProjectIdsOf(Collection<String> ids, String orgId) {
+        return findAllByIds(ids, orgId).map(found -> found.stream().collect(Collectors.groupingBy(ProjectScoped::getProjectId,
+                                                                                                  Collectors.mapping(ProjectScoped::getApplicationId, Collectors.toSet()))));
     }
 
     protected Query projectIdFilter(String projectId) {

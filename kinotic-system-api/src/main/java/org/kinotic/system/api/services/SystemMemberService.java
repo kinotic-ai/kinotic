@@ -7,6 +7,9 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 /**
  * The system's own members: the system users who sign in to the system console, and the
@@ -16,6 +19,7 @@ import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
  * manage through {@code MachineService}.
  */
 @Publish
+@AuthzResource(value = AuthzConstants.SYSTEM_TYPE, resourceId = AuthzConstants.SYSTEM_OBJECT_ID)
 public interface SystemMemberService {
 
     /**
@@ -24,6 +28,7 @@ public interface SystemMemberService {
      * @param pageable the page settings to use
      * @return a page of system users
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<SystemParticipantIdentity>> findUsers(Pageable pageable);
 
     /**
@@ -33,10 +38,11 @@ public interface SystemMemberService {
      * @param pageable the page settings to use
      * @return a page of matching system users
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MEMBERS)
     Future<Page<SystemParticipantIdentity>> searchUsers(String searchText, Pageable pageable);
 
     /**
-     * Adds a system user, who holds the system's full authority once signed in. The user is
+     * Adds a system user, who may do what the roles granted to it on the system allow. The user is
      * {@link SystemParticipantIdentity#isPending() pending} until it first signs in: through one of the providers
      * the system console's login offers, which signs in the account whose verified email is {@code email}, or with
      * a password {@link #resetUserPassword} issues, whichever comes first.
@@ -45,6 +51,7 @@ public interface SystemMemberService {
      * @param displayName how the user is listed, or {@code null} to list it by its email
      * @return the added user
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS)
     Future<SystemParticipantIdentity> addUser(String email, String displayName);
 
     /**
@@ -53,6 +60,7 @@ public interface SystemMemberService {
      *
      * @param userId a system user
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS, consistent = true)
     Future<Void> setUserEnabled(String userId, boolean enabled);
 
     /**
@@ -62,6 +70,7 @@ public interface SystemMemberService {
      * @param userId a system user
      * @return the new password in plaintext, shown exactly once
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MEMBERS, consistent = true)
     Future<String> resetUserPassword(String userId);
 
     /**
@@ -70,6 +79,7 @@ public interface SystemMemberService {
      * @param pageable the page settings to use
      * @return a page of SYSTEM-scope {@link MachineParticipantIdentity}s
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_MACHINES)
     Future<Page<MachineParticipantIdentity>> findMachines(Pageable pageable);
 
     /**
@@ -80,6 +90,7 @@ public interface SystemMemberService {
      * @param displayName how the machine is listed wherever machines are shown
      * @return the provisioned machine and its one-time secret
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MACHINES)
     Future<MachineProvisionResult> createMachine(String displayName);
 
     /**
@@ -90,6 +101,7 @@ public interface SystemMemberService {
      * @param machineId a SYSTEM-scope machine
      * @return the new secret in plaintext, shown exactly once
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MACHINES, consistent = true)
     Future<String> rotateSecret(String machineId);
 
     /**
@@ -98,6 +110,7 @@ public interface SystemMemberService {
      *
      * @param machineId a SYSTEM-scope machine
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MACHINES, consistent = true)
     Future<Void> setMachineEnabled(String machineId, boolean enabled);
 
     /**
@@ -106,6 +119,7 @@ public interface SystemMemberService {
      *
      * @param machineId a SYSTEM-scope machine
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_MACHINES, consistent = true)
     Future<Void> removeMachine(String machineId);
 
 }

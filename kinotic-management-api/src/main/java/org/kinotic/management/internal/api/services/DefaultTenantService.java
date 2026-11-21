@@ -25,6 +25,7 @@ public class DefaultTenantService implements TenantService {
 
     private final TenantRepository tenantRepository;
     private final ApplicationRepository applications;
+    private final ApplicationStoreProvisioner provisioner;
     private final PasswordConfigurationService passwordConfigurationService;
     private final SecurityContext securityContext;
 
@@ -80,8 +81,12 @@ public class DefaultTenantService implements TenantService {
         Validate.notBlank(applicationId, "applicationId cannot be blank");
         Validate.notBlank(tenantId, "tenantId cannot be blank");
         String organizationId = requireOrganizationId();
-        return passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, applicationId, tenantId), organizationId)
-                                           .compose(v -> tenantRepository.deleteById(applicationId, tenantId, organizationId));
+        // the graph first, then the record: a record that outlives its graph is deleted again, while grants that
+        // outlived their record would come back with a tenant created under the same id
+        return tenantRepository.findById(applicationId, tenantId, organizationId)
+                               .compose(tenant -> tenant == null ? Future.succeededFuture() : provisioner.removeTenant(tenant))
+                               .compose(v -> passwordConfigurationService.deleteById(PasswordConfiguration.idOf(organizationId, applicationId, tenantId), organizationId))
+                               .compose(v -> tenantRepository.deleteById(applicationId, tenantId, organizationId));
     }
 
     private String requireOrganizationId() {

@@ -7,7 +7,9 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.exceptions.ExistingTenantException;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
+import org.kinotic.domain.api.model.security.SignUpDetails;
 import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.core.api.service.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.rest.support.AuthEndpointSupport;
@@ -100,11 +102,14 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/app/signup/complete {token, password[, displayName]}} — completes the sign-up the token
-     * was emailed for, creating the application's user with the verified email, the password and the name, and answers {@code 204} with the
-     * session cookie, signed in on the page that sent it. {@code 400} for a token that is unknown, spent, expired or
-     * for another application, a missing password, or a name longer than 200 characters; {@code 409} when the email has a user already, which the person
-     * signs in as instead; {@code 403} from a page that is not one of the application's UIs, from a tenant's site, or
+     * {@code POST /api/auth/app/signup/complete {token, password[, displayName][, companyName]}} — completes the
+     * sign-up the token was emailed for, creating the application's user with the verified email, the password and
+     * the name, and answers {@code 204} with the session cookie, signed in on the page that sent it. Where the
+     * application's administrators manage its tenants, {@code companyName} is required: it becomes the tenant the
+     * user is created in and administers. {@code 400} for a token that is unknown, spent, expired or for another
+     * application, a missing password, a name longer than 200 characters, or a missing or unusable company name;
+     * {@code 409} when the email has a user already, which the person signs in as instead, or the application
+     * already has a tenant for the company; {@code 403} from a page that is not one of the application's UIs, from a tenant's site, or
      * once the application no longer offers sign-up; {@code 404} for an application that does not exist.
      */
     private void handleComplete(RoutingContext ctx) {
@@ -117,12 +122,14 @@ public class ApplicationSignUpHandler implements SuppliesGatewayRoutes {
         String displayName = AuthEndpointSupport.stringField(body, "displayName");
 
         authEndpointSupport.loginScope(ctx, null)
-              .compose(scope -> signUpService.completePasswordSignUp(scope, token, password, displayName))
+              .compose(scope -> signUpService.completePasswordSignUp(scope, token, password,
+                                                                     new SignUpDetails(displayName, AuthEndpointSupport.stringField(body, "companyName"))))
               .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, AuthEndpointSupport.participantOf(user)))
               .onFailure(err -> {
                   switch (err) {
                       // the person has shown the email is theirs, so telling them it has a user reveals nothing to anyone else
                       case ExistingUserException _ -> authEndpointSupport.respondError(ctx, 409, "This email already has an account; sign in instead");
+                      case ExistingTenantException _ -> authEndpointSupport.respondError(ctx, 409, err.getMessage());
                       case IllegalStateException _ -> authEndpointSupport.respondError(ctx, 403, err.getMessage());
                       case IllegalArgumentException _ -> authEndpointSupport.respondError(ctx, 400, err.getMessage());
                       default -> authEndpointSupport.fail(ctx, err, "Failed to complete sign-up");

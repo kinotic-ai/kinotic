@@ -5,6 +5,8 @@ package org.kinotic.idl.api.directory;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
+import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 
 import java.util.Collection;
 
@@ -31,7 +33,8 @@ public interface SchemaService {
      * the published names are the ones named-argument binding resolves at invocation. Generic bindings and
      * annotations resolve against the implementation's most specific method.
      * A parameter of a type the factory is told the platform supplies is left out of its function, as the
-     * request leaves it out.
+     * request leaves it out. A service declaring {@code @AuthzResource} carries its resource decorator, and each
+     * of its functions the check derived from its name, parameters and {@code @AuthzCheck}.
      * All services are converted in one session, so complex types shared between services are converted once and
      * appear once in the returned namespace. Equal declarations convert once, and a service that fails to
      * convert fails the call, so a caller never publishes a contract that is missing a service. Each
@@ -39,10 +42,29 @@ public interface SchemaService {
      *
      * @param services the services to create definitions for
      * @return the newly created {@link NamespaceDefinition} with every converted service and every referenced complex type
-     * @throws IllegalStateException    when a service overloads a function or a signature cannot be described to a
-     *                                  wire consumer
+     * @throws IllegalStateException    when a service overloads a function, a signature cannot be described to a
+     *                                  wire consumer, or an authorization declaration of a resource service does
+     *                                  not resolve
      * @throws IllegalArgumentException when a type in a signature has no converter
      */
     NamespaceDefinition createForServices(Collection<ServiceDeclaration> services);
+
+    /**
+     * Derives the checks of a service definition a runtime declares, as a TypeScript service's generated
+     * definition is: for a definition carrying an {@link AuthzResourceC3Decorator}, the resource decorator is
+     * resolved and each function's {@link AuthzCheckC3Decorator} is derived from its name, its parameters and
+     * the check it declares, exactly as a {@code @Publish} interface's is, a function declared unchecked
+     * carrying none; a definition marked unchecked as a whole carries the mark on every function. The given
+     * definition is left as it is.
+     *
+     * @param definition the declared definition
+     * @return the definition the directory stores for the service
+     * @throws IllegalStateException    when the definition declares no resource and is not marked unchecked, a
+     *                                  function of a resource service derives no check and declares none, a
+     *                                  function declares a check on a service declaring no resource, or an
+     *                                  authorization declaration does not resolve
+     * @throws IllegalArgumentException when the definition names no namespace or no name
+     */
+    ServiceDefinition deriveChecks(ServiceDefinition definition);
 
 }

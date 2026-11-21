@@ -10,6 +10,14 @@ overrides:
   brace-expansion@2: '^2.1.2'
   brace-expansion@5: '^5.0.7'
   protobufjs@7: '^7.5.5'
+  # Branch-only: resolves the first-party packages to their sources in ../workspace (built with
+  # `bunx bunup`) and ../kinotic-cli (built with `pnpm build`), so this branch needs no npm publish.
+  # Never merge into develop.
+  '@kinotic-ai/core': link:../workspace/packages/core
+  '@kinotic-ai/idl': link:../workspace/packages/idl
+  '@kinotic-ai/kinotic-cli': link:../kinotic-cli
+  '@kinotic-ai/management-api': link:../workspace/packages/management-api
+  '@kinotic-ai/persistence': link:../workspace/packages/persistence
 minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rejected
 # First-party packages are trusted at any version, so a freshly published release
 # never blocks the build.

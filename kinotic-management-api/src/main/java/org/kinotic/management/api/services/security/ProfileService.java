@@ -5,6 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.LoginProviderSummary;
 import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.management.api.model.SignInMethod;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.List;
  * meant — and only a person (never a delegate) may call these at all.
  */
 @Publish
+@AuthzUnchecked
 public interface ProfileService {
 
     /** Returns the calling user's identity. */

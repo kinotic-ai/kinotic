@@ -61,10 +61,10 @@ public abstract sealed class OwnedOidcConfiguration extends OidcConfiguration im
      * scope is bound to becomes a user of the scope on its first sign-in, created from the provider's verified
      * email and name and bound to the identity. Off, such an identity is refused and a user must be invited or
      * created first. An identity whose email the scope already holds under another method is refused either
-     * way. Taken by an application's configuration, while the system manages the application's tenants, and
-     * by a tenant's: an organization's members are added by its administrators, whom its provider then signs
-     * in, and a user of an application whose tenants their administrators manage joins a tenant only through
-     * that tenant's own login.
+     * way. Taken by an application's configuration and by a tenant's: an application's new user gets a tenant of
+     * its own from the system where it manages the application's tenants, and otherwise founds the tenant of the
+     * company its sign-up names; a tenant's joins that tenant; and an organization's members are added by its
+     * administrators, whom its provider then signs in.
      */
     private boolean createUserOnSignIn;
 }

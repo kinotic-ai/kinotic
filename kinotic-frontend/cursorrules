@@ -18,7 +18,7 @@ Modern Vue.js 3 frontend with OIDC authentication, TypeScript, and Vite build sy
 5. **OIDC Integration**: Use oidc-client-ts library patterns
 
 ## Key Directories
-This is a pnpm workspace: `apps/portal` (OS dashboard), `apps/system` (operator console),
+This is a pnpm workspace: `apps/portal` (OS dashboard), `apps/system` (system console),
 `packages/common` (shared UI code). Within an app:
 - `src/pages/`: Page components with routing
 - `src/components/`: Reusable UI components

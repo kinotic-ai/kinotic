@@ -6,6 +6,8 @@
 !kinotic-frontend/pnpm-workspace.yaml
 !kinotic-frontend/apps
 !kinotic-frontend/packages
+# Branch-only: the first-party packages' sources the js stage builds. Never merge into develop.
+!kinotic-js/workspace
 **/node_modules
 **/dist
 !deployment/docker-compose/kinotic-ui.ts

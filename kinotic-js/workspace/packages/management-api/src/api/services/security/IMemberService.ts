@@ -70,13 +70,15 @@ export interface IMemberService {
 
     /**
      * Enables or disables a member of the caller's organization or a user of one of its applications. Disabling gates future
-     * logins; established sessions last until they expire. Callers cannot disable themselves.
+     * logins; established sessions last until they expire. Callers cannot disable themselves, nor the organization's last
+     * user who can sign in and holds organization.admin on it.
      */
     setMemberEnabled(userId: string, enabled: boolean): Promise<void>
 
     /**
      * Removes a member of the caller's organization or an application user, each with its stored credentials and the
-     * invitation it never accepted. Callers cannot remove themselves.
+     * invitation it never accepted. Callers cannot remove themselves, nor the organization's last user who can sign in and
+     * holds organization.admin on it.
      */
     removeMember(userId: string): Promise<void>
 

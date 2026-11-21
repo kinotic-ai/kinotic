@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Covers the wire mapping of a Client ID Metadata Document: the snake_case property names a real
- * document uses, and the additional properties Section 4.1 permits it to carry.
+ * document uses, and the properties this server does not map, which are ignored.
  */
 class ClientMetadataDocumentTest {
 
@@ -36,8 +36,8 @@ class ClientMetadataDocumentTest {
 
         assertEquals("https://claude.ai/oauth/claude-code-client-metadata", document.getClientId());
         assertEquals("Claude Code", document.getClientName());
-        // portless by design: the callback binds an ephemeral port, which RFC 8252 Section 7.3
-        // requires the authorization server to ignore when matching
+        // portless by design: the callback binds an ephemeral port, which the authorization server
+        // ignores when matching a loopback redirect URI
         assertEquals(List.of("http://localhost/callback", "http://127.0.0.1/callback"),
                      document.getRedirectUris());
         assertEquals("none", document.getTokenEndpointAuthMethod());

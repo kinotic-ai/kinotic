@@ -52,16 +52,15 @@ public class ClientMetadataDocumentService {
 
     @PostConstruct
     public void start() {
-        // redirects are followed manually nowhere: Section 4 forbids following them automatically,
-        // since a redirect would let the document be served from a host other than the client_id's
+        // a redirect would let the document be served from a host other than the client_id's
         webClient = WebClient.create(vertx, new WebClientOptions().setFollowRedirects(false));
     }
 
     /**
      * Resolves {@code clientId} into the client metadata document it names, fetching and validating it
-     * unless a still-valid cached copy is held. The returned document has passed every rule in
-     * Section 4.1, so its {@code redirectUris} are non-empty and usable and its {@code clientName}
-     * is set to something displayable.
+     * unless a still-valid cached copy is held. The returned document names {@code clientId} as its
+     * own, carries no client secret, registers at least one https (or loopback http) redirect URI,
+     * and has a displayable {@code clientName}.
      *
      * @param clientId the {@code client_id} from the authorization request
      * @return a {@link Future} emitting the validated document, failing when the
@@ -87,9 +86,8 @@ public class ClientMetadataDocumentService {
     }
 
     /**
-     * Client identifier rules from Section 3, plus the deployment's allowlist. Section 6.10 makes
-     * pre-registering document URLs an explicit deployment choice for servers that do not want to
-     * accept unknown clients.
+     * Accepts a {@code client_id} only when it is listed in {@code allowedClientIds} and is an https
+     * URL with a host and a path, and no dot segments, fragment or user info.
      */
     private URI validateClientIdUrl(String clientId) {
         OAuthProperties oauth = domainProperties.getDomain().getOauth();
@@ -136,8 +134,9 @@ public class ClientMetadataDocumentService {
     }
 
     /**
-     * Section 6.5 — the document URL must not resolve to a special-use address, or the client could
-     * steer the fetch at hosts only this server can reach.
+     * Requires every address {@code host} resolves to be routable: not loopback, wildcard,
+     * link-local, site-local or multicast, so a client cannot steer the fetch at hosts only this
+     * server can reach.
      */
     private Future<Void> requireRoutableHost(String host) {
         // getAllByName blocks on DNS; the resolution is advisory because the connect re-resolves,
@@ -181,10 +180,13 @@ public class ClientMetadataDocumentService {
         }
     }
 
-    /** Applies the document rules from Section 4.1, returning the document it validated. */
+    /**
+     * Requires the document to name {@code clientId} exactly, carry no client secret and register
+     * valid redirect URIs, and defaults a missing {@code clientName} to {@code clientId}.
+     */
     private static ClientMetadataDocument validateDocument(String clientId, ClientMetadataDocument document) {
-        // simple string comparison per RFC 3986 6.2.1 — the document must name the URL it was
-        // served from, so a document cannot claim an identity its host does not own
+        // exact string match: the document must name the URL it was served from, so a document
+        // cannot claim an identity its host does not own
         if (!clientId.equals(document.getClientId())) {
             throw new IllegalArgumentException("client metadata document does not match its client_id");
         }
@@ -226,7 +228,7 @@ public class ClientMetadataDocumentService {
 
     /**
      * A redirect URI must be absolute with an https scheme; plain http is allowed only for
-     * loopback hosts (RFC 8252 native clients such as Claude Code's localhost callback).
+     * loopback hosts, which native clients such as Claude Code use for their localhost callback.
      * <p>
      * The scheme restriction is load-bearing beyond transport: the consent page navigates to this
      * URI with {@code window.location.href}, so a {@code javascript:} or {@code data:} entry would

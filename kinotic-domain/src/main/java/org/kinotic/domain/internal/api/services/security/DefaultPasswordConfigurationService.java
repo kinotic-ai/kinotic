@@ -9,7 +9,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
@@ -59,7 +58,8 @@ public class DefaultPasswordConfigurationService implements PasswordConfiguratio
         Validate.notNull(configuration, "configuration cannot be null");
         String organizationId = configuration.getOrganizationId();
         requireOwner(organizationId);
-        // sign-up gives each new user a tenant of its own, which only an application's own login can
+        // sign-up gives each new user a tenant of its own, the system's or the one founded for its company, which only
+        // an application's own login can
         Validate.isTrue(!configuration.isCreateUserOnSignIn() || (configuration.getApplicationId() != null && configuration.getTenantId() == null),
                         "Sign-up with an email and a password is taken at an application's own login: an organization's"
                                 + " administrators add its members, and a tenant's decide who joins it");
@@ -117,14 +117,7 @@ public class DefaultPasswordConfigurationService implements PasswordConfiguratio
         if (applicationId == null) {
             ret = Future.succeededFuture();
         } else if (tenantId == null) {
-            ret = applicationRepository.requireById(applicationId, organizationId).map(application -> {
-                // a new user gets a tenant of its own only while the system manages the application's tenants
-                Validate.isTrue(!configuration.isCreateUserOnSignIn() || application.getTenantManagement() == TenantManagement.SYSTEM,
-                                "Sign-up with an email and a password needs the system to manage the application's tenants;"
-                                        + " a user of an application whose tenants their administrators manage joins a tenant by"
-                                        + " invitation or through the tenant's own sign-in providers");
-                return null;
-            });
+            ret = applicationRepository.requireById(applicationId, organizationId).mapEmpty();
         } else {
             ret = tenantRepository.findById(applicationId, tenantId, organizationId).map(tenant -> {
                 Validate.isTrue(tenant != null, "Application %s of organization %s has no tenant %s", applicationId, organizationId, tenantId);

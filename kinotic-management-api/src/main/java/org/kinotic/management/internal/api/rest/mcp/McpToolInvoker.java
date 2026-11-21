@@ -9,9 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
@@ -42,6 +44,7 @@ public class McpToolInvoker {
                                             UUID.randomUUID().toString(),
                                             "org.kinotic.gateway.McpToolInvoker");
     private final ServiceDirectory serviceDirectory;
+    private final RequestAuthorizer requestAuthorizer;
     private final RequestLivenessWatcher requestLivenessWatcher;
     private final ZonePartitioningService zonePartitioningService;
     private final ZoneRulesResolver zoneRulesResolver;
@@ -110,12 +113,27 @@ public class McpToolInvoker {
         // defense in depth over the zone visibility filter in findMcpToolByName: the resolved CRI must pass
         // the same zone send rules StompAuthorizer enforces, so a directory or query defect can never
         // dispatch across zones — logged as a server fault, answered as an unknown tool
-        if (!zoneRulesResolver.resolve(participant).restrictedTo(zonePartitioningService).sendAllowed(requestCri)) {
-            log.error("MCP tool '{}' resolved to CRI {} which participant {} may not address",
-                      tool.getName(), tool.getCri(), participant.getId());
-            return Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
-        }
+        return zoneRulesResolver.resolve(participant)
+                                .compose(zoneRules -> {
+                                    Future<McpCallToolResult> ret;
+                                    if (zoneRules.restrictedTo(zonePartitioningService).sendAllowed(requestCri)) {
+                                        // the zone admitted the tool; the function's own check decides the caller may
+                                        // invoke it, and a refusal is the tool's answer rather than a failed call
+                                        ret = requestAuthorizer.authorize(requestCri, participant, arguments)
+                                                               .compose(v -> send(tool, requestCri, jsonMapper.writeValueAsBytes(arguments), participant),
+                                                                        error -> error instanceof AuthorizationException
+                                                                                ? Future.succeededFuture(McpCallToolResult.error(error.getMessage()))
+                                                                                : Future.failedFuture(error));
+                                    } else {
+                                        log.error("MCP tool '{}' resolved to CRI {} which participant {} may not address",
+                                                  tool.getName(), tool.getCri(), participant.getId());
+                                        ret = Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
+                                    }
+                                    return ret;
+                                });
+    }
 
+    private Future<McpCallToolResult> send(McpToolDefinition tool, CRI requestCri, byte[] body, Participant participant) {
         String correlationId = UUID.randomUUID().toString();
         Promise<McpCallToolResult> ret = Promise.promise();
         pendingCalls.put(correlationId, ret);
@@ -126,7 +144,7 @@ public class McpToolInvoker {
         metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_NAMED_JSON);
         Event<byte[]> event = Event.create(requestCri,
                                            metadata,
-                                           jsonMapper.writeValueAsBytes(arguments),
+                                           body,
                                            participant);
         eventBusService.sendWithAck(event)
                        .onComplete(ar -> {

@@ -19,7 +19,8 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
     /**
      * Creates a new project if it does not already exist.
      * @param project the project to create
-     * @return Promise emitting the created project or the existing project if it already exists
+     * @return Promise emitting the created project or the project its application already holds under the id;
+     *         rejected when another application's project holds the id
      */
     createProjectIfNotExist(project: Project): Promise<Project>
 

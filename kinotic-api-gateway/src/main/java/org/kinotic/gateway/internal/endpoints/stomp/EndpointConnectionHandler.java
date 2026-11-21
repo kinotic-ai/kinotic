@@ -28,7 +28,6 @@ import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.jackson.core.JacksonException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -160,19 +159,28 @@ public class EndpointConnectionHandler {
                 if (connectedInfo.getReplyToId() == null) {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
-                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+                ret = services.stompAuthorizerFactory
+                        .create(connectedInfo)
+                        .recover(throwable -> Future.failedFuture(throwable instanceof IllegalArgumentException
+                                                                          ? new AuthenticationException("Invalid CONNECT frame", throwable)
+                                                                          : throwable))
+                        .compose(authorizer -> {
+                            // the zone rules resolve asynchronously, so the connection may have closed meanwhile
+                            if (connectedInfo == null) {
+                                return Future.failedFuture(new AuthenticationException("The connection closed before CONNECT completed"));
+                            }
+                            stompAuthorizer = authorizer;
 
-                signalActivity();
-                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
-                    // the upgrade response never reaches the store, so the connection's first write is this one
-                    touchSession();
-                    startSessionTouchTimer();
-                }
-                ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                    services.jsonMapper.writeValueAsString(connectedInfo)));
+                            signalActivity();
+                            if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                                // the upgrade response never reaches the store, so the connection's first write is this one
+                                touchSession();
+                                startSessionTouchTimer();
+                            }
+                            return Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                                 services.jsonMapper.writeValueAsString(connectedInfo)));
+                        });
             }
-        } catch (JacksonException e) {
-            ret = Future.failedFuture(e);
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
         }
@@ -250,12 +258,27 @@ public class EndpointConnectionHandler {
                 }
 
                 incomingInvocationTracker.requestSent(incomingEvent);
-                return services.eventBusService
-                        .sendWithAck(incomingEvent)
+                // the zone admitted the destination; the function's own check decides the caller may invoke it
+                return services.requestAuthorizer
+                        .authorize(incomingEvent.cri(),
+                                   connectedInfo.getParticipant(),
+                                   incomingEvent.metadata().get(EventConstants.CONTENT_TYPE_HEADER),
+                                   incomingEvent.data())
+                        .compose(v -> {
+                            Future<String> accepted;
+                            // the connection closed while the request waited for its check
+                            if (connectedInfo == null) {
+                                accepted = Future.failedFuture(new IllegalStateException("The connection closed before the request to "
+                                                                                                 + incomingEvent.cri() + " was sent"));
+                            } else {
+                                accepted = services.eventBusService.sendWithAck(incomingEvent);
+                            }
+                            return accepted;
+                        })
+                        // no reply will come for a request that never left
+                        .onFailure(throwable -> incomingInvocationTracker.requestFinished(correlationId))
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
-                            // no reply will come for a request that never left
-                            incomingInvocationTracker.requestFinished(correlationId);
                             throwable = KinoticUtil.mapSendFailure(throwable,
                                                                    incomingEvent.cri(),
                                                                    services.serviceDirectoryProvider.getIfAvailable());
