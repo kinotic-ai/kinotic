@@ -18,6 +18,7 @@ import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.utils.HostLabelUtil;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.domain.api.exceptions.ExistingTenantException;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
 import org.kinotic.domain.api.exceptions.UserDisabledException;
@@ -56,6 +57,8 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
      * configuration that uses one of the system's social registrations; {@link #socialAuthorizeUrl} builds the URL a start answers with.
      */
     public static final String SOCIAL_AUTHORIZE_PATH = "/api/auth/app/login/social/authorize";
+    /** The request parameter a sign-in's start names a sign-up's company in, and the session key it is held under through the provider round-trip. */
+    public static final String COMPANY_NAME = "companyName";
 
     /**
      * Session key of the value that binds a social sign-in in transit to the browser that started it: the
@@ -229,14 +232,18 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
      * {@link ApplicationSignUpService#findOrCreateOidcUser}), or {@code null} when there is none. A user that would be
      * created under an email the application holds under another method fails with an {@link OidcCallbackException}
      * carrying {@link OidcErrorCodes#USER_EXISTS}, and one under an email the claims do not prove is the person's with
-     * {@link OidcErrorCodes#EMAIL_NOT_VERIFIED}, and a disabled user the identity would claim with {@link OidcErrorCodes#USER_DISABLED}.
+     * {@link OidcErrorCodes#EMAIL_NOT_VERIFIED}, a disabled user the identity would claim with {@link OidcErrorCodes#USER_DISABLED},
+     * and a sign-up naming a company the application has a tenant for with {@link OidcErrorCodes#TENANT_EXISTS}.
      *
-     * @param claims the claims the provider verified, which {@link #verifiedSubject} has accepted
+     * @param claims      the claims the provider verified, which {@link #verifiedSubject} has accepted
+     * @param companyName the company the sign-in's start named for a sign-up, or {@code null}
      */
-    public Future<ApplicationParticipantIdentity> findOrCreateUser(LoginScope scope, OwnedOidcConfiguration configuration, Map<String, Object> claims) {
-        return signUpService.findOrCreateOidcUser(scope, configuration, claims)
+    public Future<ApplicationParticipantIdentity> findOrCreateUser(LoginScope scope, OwnedOidcConfiguration configuration, Map<String, Object> claims,
+                                                                   String companyName) {
+        return signUpService.findOrCreateOidcUser(scope, configuration, claims, companyName)
                             .recover(err -> Future.failedFuture(switch (err) {
                                 case ExistingUserException _ -> new OidcCallbackException(OidcErrorCodes.USER_EXISTS);
+                                case ExistingTenantException _ -> new OidcCallbackException(OidcErrorCodes.TENANT_EXISTS);
                                 case UnverifiedEmailException _ -> new OidcCallbackException(OidcErrorCodes.EMAIL_NOT_VERIFIED, configuration.getProvider());
                                 case UserDisabledException _ -> new OidcCallbackException(OidcErrorCodes.USER_DISABLED);
                                 default -> err;
@@ -254,6 +261,19 @@ public class ApplicationAuthEndpointSupport extends AuthEndpointSupport {
         } else {
             log.warn("{} at {}: {}", message, ctx.request().authority(), err.getMessage());
             respondError(ctx, 500, message);
+        }
+    }
+
+    /**
+     * Holds the company a sign-in's start names for a sign-up in the browser's session through the provider
+     * round-trip, in place of any an earlier start left there.
+     */
+    public void holdCompanyName(RoutingContext ctx) {
+        String companyName = ctx.request().getParam(COMPANY_NAME);
+        if (companyName == null || companyName.isBlank()) {
+            ctx.session().remove(COMPANY_NAME);
+        } else {
+            ctx.session().put(COMPANY_NAME, companyName);
         }
     }
 

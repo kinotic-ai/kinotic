@@ -46,8 +46,8 @@ export class AuthzCheckDecorator extends C3Decorator {
     public consistent: boolean = false
 
     /**
-     * True for a check on an `entity_definition` made on the definition itself for every caller, where a tenant's
-     * user is otherwise checked on the definition within its tenant: the function acts on the rows of every tenant.
+     * True for a check on an `entity_definition` whose function acts on the rows of every tenant: a participant of
+     * an application is refused it, and every other caller is checked on the definition itself.
      */
     public acrossTenants: boolean = false
 

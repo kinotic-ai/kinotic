@@ -156,7 +156,7 @@ export async function shutdownKinoticClient(): Promise<void> {
  * @param entityNames the names of the entity definitions the client will act on, each published already
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string, ...entityNames: string[]): Promise<KinoticSingleton> {
-    await grantTenantAdmin(applicationId, tenantId, entityNames)
+    await grantTenantRows(applicationId, tenantId, entityNames)
     return connectAppClient(applicationId, tenantId)
 }
 
@@ -199,18 +199,18 @@ export async function appFixtureSubject(applicationId: string, tenantId: string,
 }
 
 /**
- * Grants the fixture user of the (applicationId, tenantId) pair the tenant admin role on its tenant, which reaches
+ * Grants the fixture user of the (applicationId, tenantId) pair the definition admin role on its tenant, which reaches
  * the rows of every definition of the application in that tenant; then waits until the store answers for each
  * entity named within the tenant, which the definition's creation placed in the store. A user already holding the
  * role is granted nothing again.
  */
-export async function grantTenantAdmin(applicationId: string, tenantId: string, entityNames: string[]): Promise<void> {
+export async function grantTenantRows(applicationId: string, tenantId: string, entityNames: string[]): Promise<void> {
     const subject = await appFixtureSubject(applicationId, tenantId)
     const tenant: Resource = {type: 'tenant', id: tenantId}
     await until(async () => {
         const grants = await Kinotic.applicationAccess.findGrants(applicationId, tenant)
-        if (!grants.some(grant => grant.roleId === 'tenant.admin' && grant.subject.id === subject.id)) {
-            await Kinotic.applicationAccess.grant(applicationId, subject, 'tenant.admin', tenant)
+        if (!grants.some(grant => grant.roleId === 'entity_definition.admin' && grant.subject.id === subject.id)) {
+            await Kinotic.applicationAccess.grant(applicationId, subject, 'entity_definition.admin', tenant)
         }
         return true
     })

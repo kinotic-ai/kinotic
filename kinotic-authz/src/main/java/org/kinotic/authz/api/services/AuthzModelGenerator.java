@@ -2,8 +2,10 @@ package org.kinotic.authz.api.services;
 
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * Generates a store's authorization model from the services it serves. The model is a pure function of its
@@ -19,10 +21,19 @@ import java.util.Collection;
  * its functions require, the entities repository among them, so a definition's rows have the permissions it
  * declares. A permission is named {@code <type>_<permission>} throughout, it is
  * held by a binding of a role that bundles it on the resource or on any ancestor, and the derived
- * {@code can_delete}, {@code can_edit} and {@code can_read} imply each other in that order.
+ * {@code can_delete}, {@code can_edit} and {@code can_read} imply each other in that order. The types of an
+ * application's own services are names in its model's catalog alone: the engine's definition of an application's
+ * model is the same for any number of them.
  * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public interface AuthzModelGenerator {
+
+    /**
+     * The resource types an application's store places a resource of: the application, its tenants and its entity
+     * definitions. Any other type in the store is one of the application's own services, which the store holds no
+     * resource of.
+     */
+    Set<String> APPLICATION_TYPES = Set.of(AuthzConstants.APPLICATION_TYPE, AuthzConstants.TENANT_TYPE, AuthzConstants.ENTITY_DEFINITION_TYPE);
 
     /**
      * The model of the system store, from the system's own services.
@@ -41,7 +52,9 @@ public interface AuthzModelGenerator {
      * and the entities repository, whose permissions a definition's rows have; a system service declared on
      * any other type stays out of the application's model. The model does not depend on the application's
      * definitions: every definition's rows are typed {@code entity_definition}, and the definition itself is
-     * the object a check or a grant names.
+     * the object a check or a grant names. A type of the application's own services adds its permissions and
+     * roles to the model's catalog and nothing to its definition, unless it is one of
+     * {@link #APPLICATION_TYPES}: its permissions are {@link AuthzModel#servicePermissions()}.
      *
      * @param systemServices the converted contracts of the system's own services
      * @param services         the converted contracts of the application's own services

@@ -25,7 +25,7 @@
           <Skeleton v-for="n in 2" :key="n" height="2.5rem" />
         </div>
         <EmptyChartCharacter v-else-if="shown.length === 0" class="py-6" :title="subjectFilter ? 'No grants for them yet' : 'No grants here yet'"
-                             :hint="canManageAccess ? 'Grant a user or a machine a role to let them read or write the application\'s data here.' : 'Access to the application\'s data comes from grants made here.'" />
+                             :hint="canManageAccess ? 'Grant a user, a machine or everyone in a tenant a role to let them read or write the application\'s data here.' : 'Access to the application\'s data comes from grants made here.'" />
         <GrantsTable v-else :grants="shown" :roles="roles" :label-of="labelOf" :detail-of="detailOf" where-header="Where"
                      :revoke="canManageAccess ? revoke : undefined" :revoke-where="grant => `on ${resourceLabel(grant.resource, definitions)}`"
                      revoke-consequence="They keep whatever other grants reach them." @revoked="onRevoked">
@@ -34,6 +34,9 @@
           </template>
         </GrantsTable>
       </DashboardSection>
+
+      <RolesTab v-if="contextLoaded" :application-id="applicationId" :definitions="definitions" :can-manage="canManageAccess" :tint="TINTS.blue"
+                @changed="reloadRoles" />
 
       <EndUserAccessCheckPanel v-if="contextLoaded" :tint="TINTS.blue" :application-id="applicationId" :users="members" :search-users="searchMembers" :machines="machines" :roles="roles"
                                :catalog="catalog" :tenants="tenants" :definitions="definitions" :label-of="labelOf" :initial-subject-id="subjectFilter?.id"
@@ -60,15 +63,17 @@ import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS
 import { GrantsTable } from '@kinotic-ai/frontend-common/management'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDrawer from '@/components/access/EndUserGrantDrawer.vue'
+import RolesTab from '@/components/access/RolesTab.vue'
 import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, resourceLabel, resourceOf, reaches, tenantOf,
-         whereChoices } from '@/components/access/applicationResources'
+         tenantOption, whereChoices } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
 
 /**
  * The end-user access page of one application: the grants in the application's own store that reach the whole
  * application, one tenant, one definition's rows in every tenant or those rows in one tenant, a grant of a role
- * to one of the application's users or machines, and a check that explains anyone's access. Opened for one user
- * from the Users page, it shows that user's grants alone.
+ * to one of the application's users or machines or to every user of a tenant, the application's roles, among them
+ * the ones it defines itself, and a check that explains anyone's access. Opened for one user from the Users page,
+ * it shows that user's grants alone.
  */
 const props = defineProps<{
   applicationId: string
@@ -80,7 +85,12 @@ const PICKER_PAGE_SIZE = 500
 
 const route = useRoute()
 const router = useRouter()
-const { members, machines, load: loadSubjects, searchMembers, labelOf } = useSubjects(() => props.applicationId)
+const { members, machines, load: loadSubjects, searchMembers, labelOf: identityLabelOf } = useSubjects(() => props.applicationId)
+
+/** The name of a grant's subject: a user or a machine as the pickers name it, a tenant as everyone in it. */
+const labelOf = computed(() => (subject: Subject) => subject.type === SubjectType.TENANT
+    ? tenantOption(subject.id).label
+    : identityLabelOf.value(subject))
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
@@ -115,7 +125,7 @@ const subjectFilter = computed<Subject | null>(() => {
 const resource = computed<Resource>(() => resourceOf(props.applicationId, where.value.trim(), definition.value))
 
 const shown = computed(() => subjectFilter.value
-    ? grants.value.filter(grant => grant.subject.id === subjectFilter.value?.id)
+    ? grants.value.filter(grant => grant.subject.type === subjectFilter.value?.type && grant.subject.id === subjectFilter.value?.id)
     : grants.value)
 
 const whereTitle = computed(() => resource.value.type === 'application'
@@ -196,6 +206,21 @@ async function loadContext(): Promise<void> {
   }
 }
 
+// The grants table and the drawers name a role the roles section created, edited or deleted
+async function reloadRoles(): Promise<void> {
+  const applicationId = props.applicationId
+  try {
+    const defined = await Kinotic.applicationAccess.findRoles(applicationId)
+    if (applicationId === props.applicationId) {
+      roles.value = defined
+    }
+  } catch (err) {
+    if (applicationId === props.applicationId) {
+      contextFailure.value = err
+    }
+  }
+}
+
 // A picker's list the caller may not read is left empty, as the subjects are: a caller who may read access but not
 // the definitions or the tenants still sees the grants, with a definition named by its id and a tenant's id typed;
 // any other failure fails the load
@@ -235,7 +260,13 @@ async function loadGrants(): Promise<void> {
 
 // a machine is a user subject to the store, so the row says which of the two it is
 function detailOf(subject: Subject): string {
-  return machines.value.some(option => option.subject.id === subject.id) ? 'Machine' : 'User'
+  let ret: string
+  if (subject.type === SubjectType.TENANT) {
+    ret = 'Every user of the tenant'
+  } else {
+    ret = machines.value.some(option => option.subject.id === subject.id) ? 'Machine' : 'User'
+  }
+  return ret
 }
 
 function clearSubject(): void {

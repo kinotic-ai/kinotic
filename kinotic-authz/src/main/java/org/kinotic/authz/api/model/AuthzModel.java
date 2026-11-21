@@ -1,5 +1,6 @@
 package org.kinotic.authz.api.model;
 
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -28,6 +29,10 @@ import java.util.TreeSet;
  *                    the type and the types inside it within its trust boundary, which the engine enforces
  * @param parents     for each resource type contained in another, the type containing it, which is also the
  *                    relation a resource of the type holds its parent under; a root type has no entry
+ * @param servicePermissions the permissions of an application's own services, which the definition has no relation
+ *                    for: each one's model name to the model names held with it, itself and every permission it
+ *                    implies. A role holds one by naming it, and a check names the one it asks about. Empty for
+ *                    the system's model
  * Created by Navíd Mitchell 🤪on 10/4/26
  */
 public record AuthzModel(ObjectNode definition,
@@ -35,7 +40,8 @@ public record AuthzModel(ObjectNode definition,
                          Map<String, Set<String>> permissions,
                          Map<String, Set<String>> roles,
                          Map<String, Set<String>> bindable,
-                         Map<String, String> parents) {
+                         Map<String, String> parents,
+                         Map<String, Set<String>> servicePermissions) {
 
     /**
      * The resource types of the tier rooted at a type: the root and the types inside it within its trust boundary,
@@ -92,22 +98,41 @@ public record AuthzModel(ObjectNode definition,
     }
 
     /**
-     * Whether a role can hold a permission: the model gives the roles of its home a relation for the permissions
-     * of the home and of every type inside it, and for no other.
+     * Whether the definition gives a type a relation.
      *
-     * @param roleId     the role, {@code <home type>.<name>}
-     * @param permission the model name of the permission
-     * @return true when the model has the permission as a relation of the role
+     * @param type     the type, such as {@code project_role}
+     * @param relation the relation, such as the model name of a permission
+     * @return true when the type has the relation
      */
-    public boolean canHold(String roleId, String permission) {
-        String roleType = AuthzUtil.roleType(AuthzUtil.roleHome(roleId));
+    public boolean hasRelation(String type, String relation) {
         boolean ret = false;
-        for (JsonNode type : definition.path("type_definitions")) {
-            if (roleType.equals(type.path("type").asString())) {
-                ret = type.path("relations").has(permission);
+        for (JsonNode definition : definition.path("type_definitions")) {
+            if (type.equals(definition.path("type").asString())) {
+                ret = definition.path("relations").has(relation);
             }
         }
         return ret;
+    }
+
+    /**
+     * What a role bundling the given permissions holds: each permission of an application's own services with
+     * every permission it implies, named, and every other permission on everything a grant of the role reaches.
+     *
+     * @param permissions the model names of the permissions the role bundles
+     * @return the role's permissions, naming no definition
+     */
+    public RolePermissions bundle(Set<String> permissions) {
+        Set<String> everywhere = new TreeSet<>();
+        Set<String> ofServices = new TreeSet<>();
+        for (String permission : permissions) {
+            Set<String> held = servicePermissions.get(permission);
+            if (held == null) {
+                everywhere.add(permission);
+            } else {
+                ofServices.addAll(held);
+            }
+        }
+        return new RolePermissions(everywhere, Map.of(), ofServices);
     }
 
     /**
@@ -122,7 +147,8 @@ public record AuthzModel(ObjectNode definition,
             String home = AuthzUtil.roleHome(role.getKey());
             if (tier(root).contains(home)) {
                 ret.add(new RoleDefinition(role.getKey(), AuthzUtil.builtInRoleName(role.getKey()), null, true, home,
-                                           grantableOn(home, root), role.getValue()));
+                                           grantableOn(home, root), role.getValue(), Map.of(),
+                                           AuthzConstants.TENANT_TYPE.equals(home)));
             }
         }
         return ret;

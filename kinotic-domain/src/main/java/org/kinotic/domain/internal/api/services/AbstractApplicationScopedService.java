@@ -8,6 +8,8 @@ import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
 
+import java.util.Collection;
+
 public abstract class AbstractApplicationScopedService<T extends ApplicationScoped<String>>
         extends AbstractOrganizationScopedService<T>
         implements ApplicationScopedCrudService<T, String> {
@@ -38,13 +40,26 @@ public abstract class AbstractApplicationScopedService<T extends ApplicationScop
     @Override
     public Future<Long> countForApplication(String applicationId) {
         String organizationId = requireOrganizationId();
-        return visibleIds().compose(ids -> applicationRepository.countForApplication(applicationId, organizationId, ids));
+        return visibleIdsWithin(applicationId).compose(ids -> applicationRepository.countForApplication(applicationId, organizationId, ids));
     }
 
     @Override
     public Future<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
         String organizationId = requireOrganizationId();
-        return visibleIds().compose(ids -> applicationRepository.findAllForApplication(applicationId, organizationId, ids, pageable));
+        return visibleIdsWithin(applicationId).compose(ids -> applicationRepository.findAllForApplication(applicationId, organizationId, ids, pageable));
+    }
+
+    /**
+     * Hook naming the records of one application the caller may see, which {@link #countForApplication} and
+     * {@link #findAllForApplication} are narrowed to. Override where what the caller holds on the application
+     * decides it without naming each record.
+     *
+     * @param applicationId the application listed
+     * @return a future emitting the ids of the records the caller may see, or null for every record of the
+     *         application
+     */
+    protected Future<? extends Collection<String>> visibleIdsWithin(String applicationId) {
+        return visibleIds();
     }
 
 }

@@ -19,7 +19,6 @@ import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.AuthzGraphSeedJob;
 import org.kinotic.management.internal.api.services.ApplicationStoreProvisioner;
 import org.springframework.stereotype.Component;
@@ -126,7 +125,7 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
     }
 
     // The containment is written last, so a run cut short leaves the organization for the next run to place again,
-    // and the creator is bound under an id of its own, so a binding made twice is held once
+    // and the creator's grant made twice is held once
     private Future<Boolean> placed(Organization organization, RelationshipTuple containment) {
         Set<String> enabled = new HashSet<>();
         return members(organization.getId(), enabled)
@@ -135,11 +134,7 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
                     // the creator administers the organization while it is an enabled member of it
                     if (organization.getCreatedBy() != null && enabled.contains(organization.getCreatedBy())) {
                         String creator = AuthzGraphUtil.authzUser(organization.getCreatedBy());
-                        ret = relationships.ensureBound(SYSTEM,
-                                                        AuthzUtil.roleBindingIdOf(AuthzConstants.ORGANIZATION_ADMIN_ROLE, AuthzUtil.idOf(creator)),
-                                                        AuthzConstants.ORGANIZATION_ADMIN_ROLE,
-                                                        creator,
-                                                        containment.object());
+                        ret = relationships.bind(SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE, creator, containment.object()).mapEmpty();
                     }
                     return ret;
                 })

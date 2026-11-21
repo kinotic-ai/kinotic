@@ -25,11 +25,12 @@ import java.util.List;
  *
  * Every function is checked on the definition the request names, for the permission of its rows the function
  * needs: reading, listing, counting, querying and searching need {@code can_read}, saving and updating
- * {@code can_edit}, since a save replaces a row of the same id, and deleting {@code can_delete}. Deleting implies
- * updating, and updating reading. A tenant's user is checked on the
- * definition within its tenant, so a grant made on the tenant, on the definition, on the definition within the
- * tenant or on the application reaches it; a caller above every application is checked on the definition in
- * the system's store.
+ * {@code can_edit}, since a save replaces a row of the same id, and deleting {@code can_delete}. A tenant's user
+ * is checked on the definition within its tenant, so a grant made on the tenant, on the definition, on the
+ * definition within the tenant or on the application reaches it, and holds each of the three permissions on its
+ * own: a role of the application may let its holders write rows they do not read. A caller above every
+ * application is checked on the definition in the system's store, where deleting implies updating, and updating
+ * reading.
  */
 @Publish
 @Zone(DomainUtil.APP_API_ZONE)

@@ -273,6 +273,13 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         return permissions.findAccessibleIds(EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ);
     }
 
+    // A caller reading every definition of the application is answered by one check, without a listing
+    @Override
+    protected Future<List<String>> visibleIdsWithin(String applicationId) {
+        return permissions.holdsThroughout(applicationId, EntityDefinitionService.RESOURCE_TYPE, AuthzConstants.CAN_READ)
+                          .compose(held -> held ? Future.succeededFuture(null) : visibleIds());
+    }
+
     @WithSpan
     @Override
     public Future<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId,

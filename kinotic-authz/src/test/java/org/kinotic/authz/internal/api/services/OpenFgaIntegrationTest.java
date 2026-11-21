@@ -16,6 +16,7 @@ import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
@@ -39,14 +40,20 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -98,7 +105,8 @@ class OpenFgaIntegrationTest {
             Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable(),
                                    "Docker or OPENFGA_URL is required for the OpenFGA integration test");
             openfga = new GenericContainer<>(openFgaImageFromCompose())
-                    .withExposedPorts(8080)
+                    // 2112 serves the engine's Prometheus metrics, which count the datastore queries of each check
+                    .withExposedPorts(8080, 2112)
                     .withCommand("run")
                     // with no cache controller, a cached check answer lives its whole time to live whatever is
                     // written meanwhile, so a check that skips the cache is told apart from one that reads it
@@ -223,20 +231,21 @@ class OpenFgaIntegrationTest {
     void aModelIsWrittenOnlyOnceTheRolesItGrantsThroughAreInStep() throws Exception {
         String store = "roles-first-" + System.nanoTime();
         AuthzModel kernel = generator.applicationModel(List.of(entitiesRepository()), List.of());
-        AuthzModel grown = generator.applicationModel(List.of(entitiesRepository()), List.of(reportService()));
+        AuthzModel grown = generator.applicationModel(List.of(entitiesRepository(), tenantService()), List.of());
         String storeId = await(storeService.ensureStore(store));
         await(relationshipService.ensureModelWithRoles(store, kernel));
 
         String grownModelId = await(relationshipService.ensureModelWithRoles(store, grown));
 
-        // the version before the grown one carries the report's role relations, and no type grants through them
+        // the version before the grown one carries the role relations of the tenant's permission, and no type
+        // grants through them
         List<AuthorizationModel> versions = await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels();
         assertEquals(grownModelId, versions.getFirst().getId());
         AuthorizationModel bridge = versions.get(1);
-        assertTrue(relationsOf(bridge, "tenant_role").contains("report_can_read"));
-        assertFalse(relationsOf(bridge, "tenant").contains("report_can_read"));
+        assertTrue(relationsOf(bridge, "tenant_role").contains("tenant_can_read"));
+        assertFalse(relationsOf(bridge, "tenant").contains("tenant_can_read"));
         assertTrue(relationsOf(bridge, "tenant").contains("entity_definition_can_read"));
-        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "report_can_read", AuthzUtil.roleObject("tenant.admin")))));
+        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "tenant_can_read", AuthzUtil.roleObject("application.admin")))));
         // a model in step writes nothing more
         assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)));
         assertEquals(versions.size(), await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().size());
@@ -267,10 +276,10 @@ class OpenFgaIntegrationTest {
         await(storeService.deleteStore(store));
 
         String recreated = await(storeService.ensureStore(store));
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(reportService()));
+        AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
         String grownModelId = await(storeService.ensureModel(store, grown));
         await(relationshipService.ensureRoles(store, grown.roles()));
-        await(relationshipService.bind(store, "report.viewer", "user:bob", "tenant:t1"));
+        await(relationshipService.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
 
         assertNotEquals(storeId, recreated);
         // the engine keeps answering for the deleted store, so the other node answers from it until the retention
@@ -281,7 +290,7 @@ class OpenFgaIntegrationTest {
         }
         assertFalse(await(relationshipsElsewhere.holds(store, bob)));
         assertEquals(grownModelId, await(elsewhere.modelId(store)));
-        assertTrue(await(relationshipsElsewhere.check(store, new RelationshipTuple("user:bob", "report_can_read", "tenant:t1"),
+        assertTrue(await(relationshipsElsewhere.check(store, new RelationshipTuple("user:bob", "tenant_can_read", "tenant:t1"),
                                                       Consistency.HIGHER_CONSISTENCY)));
         await(storeService.deleteStore(store));
     }
@@ -296,15 +305,15 @@ class OpenFgaIntegrationTest {
         // another node read the store's version before the model grew
         assertEquals(modelId, await(elsewhere.modelId(store)));
 
-        AuthzModel grown = generator.applicationModel(List.of(), List.of(reportService()));
+        AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
         await(storeService.ensureModel(store, grown));
         await(relationshipService.ensureRoles(store, grown.roles()));
-        await(relationshipService.bind(store, "report.viewer", "user:bob", "tenant:t1"));
+        await(relationshipService.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
 
         assertEquals(modelId, await(elsewhere.modelId(store)));
-        assertTrue(await(relationshipsElsewhere.check(store, new RelationshipTuple("user:bob", "report_can_read", "tenant:t1"),
+        assertTrue(await(relationshipsElsewhere.check(store, new RelationshipTuple("user:bob", "tenant_can_read", "tenant:t1"),
                                                       Consistency.HIGHER_CONSISTENCY)));
-        assertEquals(List.of("tenant:t1"), await(relationshipsElsewhere.listObjects(store, "user:bob", "report_can_read", "tenant",
+        assertEquals(List.of("tenant:t1"), await(relationshipsElsewhere.listObjects(store, "user:bob", "tenant_can_read", "tenant",
                                                                                     Consistency.HIGHER_CONSISTENCY)));
         // a relation no version has is held by no one
         assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:bob", "nothing_can_read", "tenant:t1"),
@@ -316,19 +325,71 @@ class OpenFgaIntegrationTest {
 
     @Test
     void listingReturnsEveryObjectPastTheEnginesListLimit() throws Exception {
-        await(storeService.ensureModel(SYSTEM, generator.systemModel(List.of(projectService()))));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
         // the engine's ListObjects stops at 1000 objects by default
         List<RelationshipTuple> written = new ArrayList<>();
         for (int i = 0; i < 1100; i++) {
             written.add(new RelationshipTuple("application:crm-lists", "application", "project:p" + i + "-lists"));
         }
         await(relationshipService.ensure(SYSTEM, written));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-lists", "application:crm-lists"));
+        String grantId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-lists", "application:crm-lists"));
 
         assertEquals(1100, await(relationshipService.listObjects(SYSTEM, "user:sally-lists", "project_can_read", "project",
                                                                  Consistency.HIGHER_CONSISTENCY)).size());
-        await(relationshipService.revoke(SYSTEM, bindingId, "application:crm-lists"));
+        await(relationshipService.revoke(SYSTEM, grantId, "application:crm-lists"));
         await(relationshipService.remove(SYSTEM, written));
+    }
+
+    @Test
+    void aCheckCostsTheSameHoweverManyHoldARoleOnItsPath() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        await(relationshipService.ensureModelWithRoles(SYSTEM, generator.systemModel(List.of(projectService()))));
+        List<String> path = List.of("project:billing-cost", "application:crm-cost", "organization:acme-cost");
+        await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple(path.get(2), "organization", path.get(1)),
+                                                         new RelationshipTuple(path.get(1), "application", path.get(0)))));
+        for (String object : path) {
+            await(relationshipService.bind(SYSTEM, "project.editor", "user:first-cost", object));
+        }
+        // a refusal reads every path to the object, and higher consistency skips the engine's check cache
+        RelationshipTuple refused = new RelationshipTuple("user:nobody-cost", "project_can_read", path.get(0));
+        double withOne = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, refused, Consistency.HIGHER_CONSISTENCY));
+
+        for (int i = 0; i < 100; i++) {
+            for (String object : path) {
+                await(relationshipService.bind(SYSTEM, "project.editor", "user:member" + i + "-cost", object));
+            }
+        }
+        double withMany = datastoreQueriesOf(() -> relationshipService.check(SYSTEM, refused, Consistency.HIGHER_CONSISTENCY));
+
+        // a check that opened each grant would read hundreds of times more
+        assertTrue(withMany < 2 * withOne,
+                   "a refused check took " + withOne + " datastore queries with one member of the role on each object of its path and "
+                           + withMany + " with 101");
+        for (String object : path) {
+            await(relationshipService.removeObject(SYSTEM, object));
+        }
+    }
+
+    // The datastore queries the engine counts for one check, averaged over ten
+    private double datastoreQueriesOf(Supplier<Future<Boolean>> check) throws Exception {
+        double before = checkQueryCount();
+        for (int i = 0; i < 10; i++) {
+            assertFalse(await(check.get()));
+        }
+        return (checkQueryCount() - before) / 10;
+    }
+
+    // The sum of the engine's histogram of datastore queries per Check request
+    private static double checkQueryCount() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + openfga.getHost() + ":" + openfga.getMappedPort(2112) + "/metrics")).build();
+        String metrics = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()).body();
+        double ret = 0;
+        for (String line : metrics.split("\n")) {
+            if (line.startsWith("openfga_datastore_query_count_sum{") && line.toLowerCase().contains("grpc_method=\"check\"")) {
+                ret += Double.parseDouble(line.substring(line.lastIndexOf(' ') + 1));
+            }
+        }
+        return ret;
     }
 
     @Test
@@ -372,21 +433,21 @@ class OpenFgaIntegrationTest {
 
     @Test
     void anExplanationNamesTheGrantsWhoseRolesHoldThePermission() throws Exception {
-        String store = "explains-test";
+        String store = "acme.crm-explains";
         await(storeService.ensureStore(store));
-        AuthzModel model = generator.systemModel(List.of(projectService(), applicationService()));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository(), tenantService()), List.of());
         await(relationshipService.ensureModelWithRoles(store, model));
-        String application = "application:crm-explains";
-        await(relationshipService.ensure(store, List.of(new RelationshipTuple("organization:acme-explains", "organization", application))));
-        // a role homed at the project, below the application it is granted on, and one homed at the application
-        String editing = await(relationshipService.bind(store, "project.editor", "user:sally-explains", application));
-        String viewing = await(relationshipService.bind(store, "application.viewer", "user:sally-explains", application));
-        List<Grant> grants = await(relationshipService.findGrants(store, application));
+        String tenant = "tenant:north-explains";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm-explains", "application", tenant))));
+        // a role homed at the definition, below the tenant it is granted on, and one homed at the tenant
+        String editing = await(relationshipService.bind(store, "entity_definition.editor", "user:sally-explains", tenant));
+        String viewing = await(relationshipService.bind(store, "tenant.viewer", "user:sally-explains", tenant));
+        List<Grant> grants = await(relationshipService.findGrants(store, tenant));
 
         AccessExplanation reads = await(relationshipService.explain(
-                store, model, new RelationshipTuple("user:sally-explains", "application_can_read", application), List.of(), grants));
+                store, model, new RelationshipTuple("user:sally-explains", "tenant_can_read", tenant), List.of(), grants));
         AccessExplanation edits = await(relationshipService.explain(
-                store, model, new RelationshipTuple("user:sally-explains", "project_can_edit", application), List.of(), grants));
+                store, model, new RelationshipTuple("user:sally-explains", "entity_definition_can_edit", tenant), List.of(), grants));
 
         assertTrue(reads.allowed());
         assertEquals(List.of(viewing), reads.through().stream().map(Grant::id).toList());
@@ -403,7 +464,7 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureModelWithRoles(store, model));
         String tenant = "tenant:north-carried";
         await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm-carried", "application", tenant))));
-        String administering = await(relationshipService.bind(store, "tenant.admin", "user:sally-carried", tenant));
+        String administering = await(relationshipService.bind(store, "entity_definition.admin", "user:sally-carried", tenant));
 
         AccessExplanation reads = await(relationshipService.explain(
                 store, model, new RelationshipTuple("user:sally-carried", "entity_definition_can_read", tenant), List.of(),
@@ -415,19 +476,274 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
+    void aRoleHoldsThePermissionsOfTheApplicationsServicesItNames() throws Exception {
+        String store = "acme.crm-services";
+        await(storeService.ensureStore(store));
+        String kernelModelId = await(relationshipService.ensureModelWithRoles(
+                store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of(reportService(), chartService()));
+        // a service's permissions are named by roles alone, so its registration writes no version of the model
+        assertEquals(kernelModelId, await(relationshipService.ensureModelWithRoles(store, model)));
+        String application = "application:crm-services";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple(application, "application", "tenant:north"),
+                                                        new RelationshipTuple(application, "application", "tenant:south"))));
+
+        // a role made for the application names the permissions it holds
+        RolePermissions analyst = model.bundle(Set.of("report_can_generate", "entity_definition_can_read"));
+        assertEquals(new RolePermissions(Set.of("entity_definition_can_read"), Map.of(), Set.of("report_can_generate")), analyst);
+        await(relationshipService.ensureRole(store, "tenant.analyst", analyst));
+        assertEquals(analyst, await(relationshipService.findRolePermissions(store, "tenant.analyst")));
+        String analysing = await(relationshipService.bind(store, "tenant.analyst", "user:bob-services", "tenant:north"));
+        assertTrue(holdsOfServices(store, "user:bob-services", "report_can_generate", "tenant:north"));
+        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_read", "tenant:north"));
+        assertFalse(holdsOfServices(store, "user:bob-services", "chart_can_read", "tenant:north"));
+        // the grant was made on one tenant
+        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_generate", "tenant:south"));
+        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_generate", application));
+        // asked about no permission, none is held
+        assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:bob-services", "service_permission", "tenant:north"),
+                                                    Consistency.HIGHER_CONSISTENCY)));
+
+        // a built-in role of a service's type is held as a role of the tenant, and granted on the application it
+        // reaches every tenant
+        assertEquals(new RolePermissions(Set.of(), Map.of(), Set.of("report_can_read")),
+                     await(relationshipService.findRolePermissions(store, "report.viewer")));
+        assertFalse(await(relationshipService.read(store, "tenant_role:report.viewer")).isEmpty());
+        await(relationshipService.bind(store, "report.viewer", "user:sally-services", "tenant:north"));
+        await(relationshipService.bind(store, "chart.viewer", "user:machine-services", application));
+        assertTrue(holdsOfServices(store, "user:sally-services", "report_can_read", "tenant:north"));
+        assertFalse(holdsOfServices(store, "user:sally-services", "report_can_generate", "tenant:north"));
+        assertFalse(holdsOfServices(store, "user:sally-services", "report_can_read", "tenant:south"));
+        assertTrue(holdsOfServices(store, "user:machine-services", "chart_can_read", application));
+        assertTrue(holdsOfServices(store, "user:machine-services", "chart_can_read", "tenant:south"));
+        assertFalse(holdsOfServices(store, "user:machine-services", "report_can_read", "tenant:south"));
+
+        // the application's administrator holds every permission of every service, one registered later included
+        await(relationshipService.bind(store, "application.admin", "user:ada-services", application));
+        assertTrue(holdsOfServices(store, "user:ada-services", "report_can_generate", "tenant:south"));
+        assertTrue(holdsOfServices(store, "user:ada-services", "invoice_can_send", application));
+
+        AccessExplanation generates = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:bob-services", "report_can_generate", "tenant:north"), List.of(),
+                await(relationshipService.findGrants(store, "tenant:north"))));
+        assertTrue(generates.allowed());
+        assertEquals(List.of(analysing), generates.through().stream().map(Grant::id).toList());
+        AccessExplanation reads = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:bob-services", "report_can_read", "tenant:north"), List.of(),
+                await(relationshipService.findGrants(store, "tenant:north"))));
+        assertFalse(reads.allowed());
+        assertTrue(reads.through().isEmpty());
+
+        // an edit takes a permission away and names another
+        RolePermissions edited = model.bundle(Set.of("chart_can_read"));
+        await(relationshipService.ensureRole(store, "tenant.analyst", edited));
+        assertEquals(edited, await(relationshipService.findRolePermissions(store, "tenant.analyst")));
+        assertFalse(holdsOfServices(store, "user:bob-services", "report_can_generate", "tenant:north"));
+        assertTrue(holdsOfServices(store, "user:bob-services", "chart_can_read", "tenant:north"));
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aCheckCostsTheSameHoweverManyServicePermissionsARoleNames() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        String store = "acme.crm-many-services";
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm-many-services", "application", "tenant:north"))));
+        int services = 3000;
+        Set<String> named = new TreeSet<>();
+        for (int i = 0; i < services; i++) {
+            named.add("service" + i + "_can_read");
+            named.add("service" + i + "_can_edit");
+        }
+        RolePermissions many = new RolePermissions(Set.of(), Map.of(), named);
+        await(relationshipService.ensureRole(store, "tenant.many", many));
+        await(relationshipService.ensureRole(store, "tenant.few", new RolePermissions(Set.of(), Map.of(), Set.of("few_can_read"))));
+        await(relationshipService.bind(store, "tenant.many", "user:mia-many", "tenant:north"));
+        await(relationshipService.bind(store, "tenant.few", "user:fay-many", "tenant:north"));
+
+        assertEquals(many, await(relationshipService.findRolePermissions(store, "tenant.many")));
+        assertTrue(await(relationshipService.read(store, "tenant_role:tenant.many", "part")).size() > 1);
+        for (int service : List.of(0, services / 2, services - 1)) {
+            assertTrue(holdsOfServices(store, "user:mia-many", "service" + service + "_can_edit", "tenant:north"));
+            assertFalse(holdsOfServices(store, "user:mia-many", "service" + service + "_can_delete", "tenant:north"));
+        }
+        assertTrue(holdsOfServices(store, "user:fay-many", "few_can_read", "tenant:north"));
+
+        // a refusal reads every path to the tenant, and the holder of either role is refused a permission it does
+        // not name
+        double ofFew = datastoreQueriesOf(() -> relationshipService.checkServicePermission(
+                store, "user:fay-many", "unnamed_can_read", "tenant:north", Consistency.HIGHER_CONSISTENCY));
+        double ofMany = datastoreQueriesOf(() -> relationshipService.checkServicePermission(
+                store, "user:mia-many", "unnamed_can_read", "tenant:north", Consistency.HIGHER_CONSISTENCY));
+        assertEquals(ofFew, ofMany, 3, "a refused check took " + ofFew + " datastore queries through a role naming one permission and "
+                + ofMany + " through one naming " + named.size());
+        await(storeService.deleteStore(store));
+    }
+
+    private boolean holdsOfServices(String store, String user, String permission, String object) throws Exception {
+        return await(relationshipService.checkServicePermission(store, user, permission, object, Consistency.HIGHER_CONSISTENCY));
+    }
+
+    @Test
+    void aRoleBundlesAPermissionForTheDefinitionsItNames() throws Exception {
+        String store = "acme.crm-named";
+        await(storeService.ensureStore(store));
+        AuthzModel model = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        await(relationshipService.ensureModelWithRoles(store, model));
+        String application = "application:crm-named";
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("user:*", "placed", application),
+                                                        new RelationshipTuple(application, "application", "tenant:north"),
+                                                        new RelationshipTuple(application, "application", "tenant:south"),
+                                                        new RelationshipTuple(application, "application", "entity_definition:crm.invoice"),
+                                                        new RelationshipTuple(application, "application", "entity_definition:crm.item"),
+                                                        new RelationshipTuple(application, "application", "entity_definition:crm.order"))));
+        RolePermissions accountant = new RolePermissions(Set.of(), Map.of("crm.invoice", Set.of("entity_definition_can_edit", "entity_definition_can_read"),
+                                                                           "crm.item", Set.of("entity_definition_can_read"),
+                                                                           "crm.order", Set.of("entity_definition_can_edit")), Set.of());
+        await(relationshipService.ensureRole(store, "tenant.accountant", accountant));
+        String granted = await(relationshipService.bind(store, "tenant.accountant", "user:bob-named", "tenant:north"));
+
+        assertEquals(accountant, await(relationshipService.findRolePermissions(store, "tenant.accountant")));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_read", "crm.invoice", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_edit", "crm.invoice", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_delete", "crm.invoice", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_read", "crm.item", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_edit", "crm.item", "north"));
+        // each permission stands alone, so a role writes rows it does not read
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_edit", "crm.order", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_read", "crm.order", "north"));
+        // the grant was made on one tenant
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_read", "crm.invoice", "south"));
+        // asked about no definition, a permission bundled for named ones is not held
+        assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:bob-named", "entity_definition_can_read", "tenant:north"),
+                                                    Consistency.HIGHER_CONSISTENCY)));
+
+        String rows = "tenant_definition:crm.invoice@north";
+        AccessExplanation reads = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:bob-named", "entity_definition_can_read", rows),
+                edgesOf("crm.invoice", "north"), await(relationshipService.findGrants(store, "tenant:north"))));
+        assertTrue(reads.allowed());
+        assertEquals(List.of(granted), reads.through().stream().map(Grant::id).toList());
+        AccessExplanation deletes = await(relationshipService.explain(
+                store, model, new RelationshipTuple("user:bob-named", "entity_definition_can_delete", rows),
+                edgesOf("crm.invoice", "north"), await(relationshipService.findGrants(store, "tenant:north"))));
+        assertFalse(deletes.allowed());
+        assertTrue(deletes.through().isEmpty());
+
+        // an edit names other definitions for a permission, takes one away, and bundles one for every definition
+        RolePermissions edited = new RolePermissions(Set.of("entity_definition_can_delete"),
+                                                     Map.of("crm.order", Set.of("entity_definition_can_read")), Set.of());
+        await(relationshipService.ensureRole(store, "tenant.accountant", edited));
+        assertEquals(edited, await(relationshipService.findRolePermissions(store, "tenant.accountant")));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_read", "crm.invoice", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-named", "can_edit", "crm.order", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_read", "crm.order", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-named", "can_delete", "crm.item", "north"));
+        // in step already: nothing is written
+        await(relationshipService.ensureRole(store, "tenant.accountant", edited));
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
+    void aCheckCostsTheSameHoweverManyDefinitionsARoleNames() throws Exception {
+        Assumptions.assumeTrue(openfga != null, "the engine's metrics are read from the container this test starts");
+        String store = "acme.crm-many";
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        String application = "application:crm-many";
+        int definitions = 5000;
+        List<String> checked = List.of(definitionOf(0), definitionOf(definitions / 2), definitionOf(definitions - 1), "crm.unnamed", "crm.few");
+        List<RelationshipTuple> placed = new ArrayList<>(List.of(new RelationshipTuple("user:*", "placed", application),
+                                                                 new RelationshipTuple(application, "application", "tenant:north")));
+        checked.forEach(definition -> placed.add(new RelationshipTuple(application, "application", "entity_definition:" + definition)));
+        await(relationshipService.ensure(store, placed));
+
+        Map<String, Set<String>> named = new HashMap<>();
+        for (int i = 0; i < definitions; i++) {
+            // every definition is read and every other one edited, so the permissions name different definitions
+            named.put(definitionOf(i), i % 2 == 0 ? Set.of("entity_definition_can_read", "entity_definition_can_edit") : Set.of("entity_definition_can_read"));
+        }
+        RolePermissions many = new RolePermissions(Set.of(), named, Set.of());
+        await(relationshipService.ensureRole(store, "tenant.many", many));
+        await(relationshipService.ensureRole(store, "tenant.few", new RolePermissions(Set.of(), Map.of("crm.few", Set.of("entity_definition_can_read")), Set.of())));
+        String granted = await(relationshipService.bind(store, "tenant.many", "user:mia-many", "tenant:north"));
+        await(relationshipService.bind(store, "tenant.few", "user:fay-many", "tenant:north"));
+
+        assertEquals(many, await(relationshipService.findRolePermissions(store, "tenant.many")));
+        for (String definition : checked.subList(0, 3)) {
+            assertTrue(holdsOnRows(store, "user:mia-many", "can_read", definition, "north"), definition);
+            assertFalse(holdsOnRows(store, "user:mia-many", "can_delete", definition, "north"), definition);
+        }
+        assertTrue(holdsOnRows(store, "user:mia-many", "can_edit", definitionOf(0), "north"));
+        assertFalse(holdsOnRows(store, "user:mia-many", "can_edit", definitionOf(definitions - 1), "north"));
+        assertFalse(holdsOnRows(store, "user:mia-many", "can_read", "crm.few", "north"));
+        assertTrue(holdsOnRows(store, "user:fay-many", "can_read", "crm.few", "north"));
+
+        // a refusal reads every path to the rows, and the holder of either role is refused a definition it does not name
+        double ofFew = datastoreQueriesOf(() -> relationshipService.check(
+                store, new RelationshipTuple("user:fay-many", "entity_definition_can_read", "tenant_definition:crm.unnamed@north"),
+                Consistency.HIGHER_CONSISTENCY, edgesOf("crm.unnamed", "north")));
+        double ofMany = datastoreQueriesOf(() -> relationshipService.check(
+                store, new RelationshipTuple("user:mia-many", "entity_definition_can_read", "tenant_definition:crm.unnamed@north"),
+                Consistency.HIGHER_CONSISTENCY, edgesOf("crm.unnamed", "north")));
+        // the engine answers a branch it need not finish in a different number of reads from one check to the next;
+        // a check that read every part of the role would read ten more
+        assertEquals(ofFew, ofMany, 3, "a refused check took " + ofFew + " datastore queries through a role naming one definition and "
+                + ofMany + " through one naming " + definitions);
+
+        // an edit takes one definition away and leaves the rest
+        named.remove(definitionOf(0));
+        RolePermissions edited = new RolePermissions(Set.of(), named, Set.of());
+        await(relationshipService.ensureRole(store, "tenant.many", edited));
+        assertEquals(edited, await(relationshipService.findRolePermissions(store, "tenant.many")));
+        assertFalse(holdsOnRows(store, "user:mia-many", "can_read", definitionOf(0), "north"));
+        assertTrue(holdsOnRows(store, "user:mia-many", "can_read", definitionOf(definitions - 1), "north"));
+
+        // the role's parts leave the store with it
+        List<String> parts = await(relationshipService.read(store, "tenant_role:tenant.many", "part")).stream().map(RelationshipTuple::user).toList();
+        assertTrue(parts.size() > 1, "the role named its definitions in " + parts.size() + " part");
+        await(relationshipService.revoke(store, granted, "tenant:north"));
+        await(relationshipService.removeObject(store, "tenant_role:tenant.many"));
+        assertEquals(new RolePermissions(Set.of()), await(relationshipService.findRolePermissions(store, "tenant.many")));
+        for (String part : parts) {
+            assertEquals(List.of(), await(relationshipService.read(store, part)), part);
+        }
+        await(storeService.deleteStore(store));
+    }
+
+    private static String definitionOf(int index) {
+        return "crm.entity" + index;
+    }
+
+    private boolean holdsOnRows(String store, String user, String permission, String definition, String tenant) throws Exception {
+        return await(relationshipService.check(store,
+                                               new RelationshipTuple(user, "entity_definition_" + permission, "tenant_definition:" + definition + "@" + tenant),
+                                               Consistency.HIGHER_CONSISTENCY, edgesOf(definition, tenant)));
+    }
+
+    private static List<RelationshipTuple> edgesOf(String definition, String tenant) {
+        String rows = "tenant_definition:" + definition + "@" + tenant;
+        return List.of(new RelationshipTuple("entity_definition:" + definition, "definition", rows),
+                       new RelationshipTuple("tenant:" + tenant, "tenant", rows));
+    }
+
+    @Test
     void theGrantsOfAResourceAreAllFoundHoweverManyItHas() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(relationshipService.ensureModelWithRoles(SYSTEM, model));
         String project = "project:billing-many";
         Set<String> made = new HashSet<>();
-        for (int i = 0; i < 40; i++) {
+        // more members than one page of a read holds, all of them in the role's one binding on the project
+        for (int i = 0; i < 150; i++) {
             made.add(await(relationshipService.bind(SYSTEM, "project.editor", "user:member" + i + "-many", project)));
         }
 
         List<Grant> grants = await(relationshipService.findGrants(SYSTEM, project));
 
         assertEquals(made, grants.stream().map(Grant::id).collect(Collectors.toSet()));
-        assertEquals(40, grants.stream().map(Grant::subject).distinct().count());
+        assertEquals(150, grants.stream().map(Grant::subject).distinct().count());
+        assertEquals(1, await(relationshipService.read(SYSTEM, project, "role_binding")).size());
         await(relationshipService.removeObject(SYSTEM, project));
         assertEquals(List.of(), await(relationshipService.findGrants(SYSTEM, project)));
     }
@@ -450,8 +766,8 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureRoles(SYSTEM, model.roles()));
 
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-roles", "application", "project:billing-roles"))));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-roles", "project:billing-roles"));
-        assertTrue(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject("project:billing-roles", bindingId), "role_binding", "project:billing-roles"))));
+        await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-roles", "project:billing-roles"));
+        assertTrue(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject("project:billing-roles", "project.editor"), "role_binding", "project:billing-roles"))));
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-roles", "project_can_edit", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-roles", "project_can_delete", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         // a binding of the organization admin on the organization reaches the project inside it
@@ -531,25 +847,43 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
-    void revokeLeavesNothingOfABindingAndReadsByUserFindItsHolders() throws Exception {
+    void revokeTakesOneMemberOutAndTheBindingGoesWithItsLast() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(storeService.ensureModel(SYSTEM, model));
         await(relationshipService.ensureRoles(SYSTEM, model.roles()));
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
-        String binding = AuthzUtil.bindingObject("project:billing-unbind", bindingId);
+        await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:payroll-unbind"))));
+        String sallys = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
+        String marcuss = await(relationshipService.bind(SYSTEM, "project.editor", "user:marcus-unbind", "project:billing-unbind"));
+        // a grant made again is the same grant, held once
+        assertEquals(sallys, await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind")));
+        assertEquals(2, await(relationshipService.findGrants(SYSTEM, "project:billing-unbind")).size());
+        String binding = AuthzUtil.bindingObject("project:billing-unbind", "project.editor");
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
         assertTrue(await(relationshipService.readByUser(SYSTEM, AuthzUtil.roleObject("project.editor"), "project_role_binding")).stream()
                         .anyMatch(tuple -> tuple.object().equals(binding)));
+        // a grant is revoked where it was made: the same role granted to the same member elsewhere is another grant
+        assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, sallys, "project:payroll-unbind")));
 
-        await(relationshipService.revoke(SYSTEM, bindingId, "project:billing-unbind"));
+        await(relationshipService.revoke(SYSTEM, sallys, "project:billing-unbind"));
 
+        // the other member of the binding still holds the role
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        assertEquals(List.of(marcuss), await(relationshipService.findGrants(SYSTEM, "project:billing-unbind")).stream().map(Grant::id).toList());
+        // a grant already revoked is no grant made on the object
+        assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, sallys, "project:billing-unbind")));
+
+        await(relationshipService.revoke(SYSTEM, marcuss, "project:billing-unbind"));
+
+        // the binding leaves the store with its last member
         assertTrue(await(relationshipService.read(SYSTEM, binding)).isEmpty());
         assertFalse(await(relationshipService.holds(SYSTEM, new RelationshipTuple(binding, "role_binding", "project:billing-unbind"))));
-        // a grant already revoked is no grant made on the object
-        assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, bindingId, "project:billing-unbind")));
-        await(relationshipService.remove(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
+        // a member joining afterwards attaches the binding again
+        await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
+        assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
+        await(relationshipService.removeObject(SYSTEM, "project:billing-unbind"));
+        await(relationshipService.removeObject(SYSTEM, "project:payroll-unbind"));
     }
 
     @Test
@@ -565,11 +899,11 @@ class OpenFgaIntegrationTest {
         }
         await(relationshipService.ensure(SYSTEM, List.of(contained)));
         await(relationshipService.ensure(SYSTEM, endUsers));
-        String bindingId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-relation", "application:crm-relation"));
+        String grantId = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-relation", "application:crm-relation"));
 
         assertEquals(List.of(contained), await(relationshipService.read(SYSTEM, "application:crm-relation", "organization")));
         assertEquals(150, await(relationshipService.read(SYSTEM, "application:crm-relation", "end_user")).size());
-        assertEquals(List.of(new Grant(bindingId, "project.editor", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
+        assertEquals(List.of(new Grant(grantId, "project.editor", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
                      await(relationshipService.findGrants(SYSTEM, "application:crm-relation")));
 
         await(relationshipService.removeObject(SYSTEM, "application:crm-relation"));
@@ -598,7 +932,7 @@ class OpenFgaIntegrationTest {
         // the object loses its place and every grant made on it
         await(relationshipService.removeObject(SYSTEM, "project:billing-gone"));
         assertTrue(await(relationshipService.read(SYSTEM, "project:billing-gone")).isEmpty());
-        assertTrue(await(relationshipService.read(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", kept))).isEmpty());
+        assertTrue(await(relationshipService.read(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", "project.editor"))).isEmpty());
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-gone", "project_can_edit", "project:billing-gone"), Consistency.HIGHER_CONSISTENCY)));
 
         // a store that does not exist holds nothing of anyone
@@ -609,21 +943,23 @@ class OpenFgaIntegrationTest {
     @Test
     void aRemovedSubjectLeavesTheGrantsOfATypeTheModelDropped() throws Exception {
         String store = "dropped-type-" + System.nanoTime();
-        AuthzModel withReports = generator.applicationModel(List.of(), List.of(reportService()));
+        AuthzModel withDefinitions = generator.applicationModel(List.of(entitiesRepository()), List.of());
+        String definition = "entity_definition:crm.invoice";
         await(storeService.ensureStore(store));
-        await(relationshipService.ensureModelWithRoles(store, withReports));
-        await(relationshipService.ensure(store, List.of(new RelationshipTuple("tenant:t1", "tenant", "report:q3"))));
-        await(relationshipService.bind(store, "report.viewer", "user:sally", "report:q3"));
-        await(relationshipService.bind(store, "report.viewer", "user:marcus", "report:q3"));
+        await(relationshipService.ensureModelWithRoles(store, withDefinitions));
+        await(relationshipService.ensure(store, List.of(new RelationshipTuple("application:crm", "application", definition))));
+        await(relationshipService.bind(store, "entity_definition.viewer", "user:sally", definition));
+        await(relationshipService.bind(store, "entity_definition.viewer", "user:marcus", definition));
 
-        // the contract is published again without the report, and sally is removed while the model has no such type
+        // the system's contracts are published again without the definitions, and sally is removed while the
+        // model has no such type
         await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(), List.of())));
         await(relationshipService.removeSubject(store, "user:sally"));
-        await(relationshipService.ensureModelWithRoles(store, withReports));
+        await(relationshipService.ensureModelWithRoles(store, withDefinitions));
 
-        assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:sally", "report_can_read", "report:q3"), Consistency.HIGHER_CONSISTENCY)));
-        assertTrue(await(relationshipService.readByUser(store, "user:sally", "report_role_binding")).isEmpty());
-        assertTrue(await(relationshipService.check(store, new RelationshipTuple("user:marcus", "report_can_read", "report:q3"), Consistency.HIGHER_CONSISTENCY)));
+        assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:sally", "entity_definition_can_read", definition), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(relationshipService.readByUser(store, "user:sally", "entity_definition_role_binding")).isEmpty());
+        assertTrue(await(relationshipService.check(store, new RelationshipTuple("user:marcus", "entity_definition_can_read", definition), Consistency.HIGHER_CONSISTENCY)));
         await(storeService.deleteStore(store));
     }
 
@@ -661,21 +997,30 @@ class OpenFgaIntegrationTest {
                        function("deleteById", "project", "project", "can_delete"));
     }
 
-    private static ServiceDefinition applicationService() {
-        return service("ApplicationService", "application", "organization",
-                       function("findById", "application", "application", "can_read"));
-    }
-
-    // an application's own service, declared on the tenant, so the tenant carries its permission
+    // an application's own services, whose permissions its model names in no relation of their own
     private static ServiceDefinition reportService() {
         return service("ReportService", "report", "tenant",
-                       function("findById", "report", "report", "can_read"));
+                       function("findById", "report", "report", "can_read"),
+                       function("generate", "report", "report", "can_generate"));
+    }
+
+    private static ServiceDefinition chartService() {
+        return service("ChartService", "chart", "application",
+                       function("findById", "chart", "chart", "can_read"));
+    }
+
+    // a system service declared on the tenant, whose permission an application's model carries as a relation
+    private static ServiceDefinition tenantService() {
+        return service("TenantService", "tenant", "application",
+                       function("findById", "tenant", "tenant", "can_read"));
     }
 
     // the system's entities repository, whose declaration gives a definition's rows their permissions
     private static ServiceDefinition entitiesRepository() {
         return service("JsonEntitiesRepository", "entity_definition", "application",
-                       function("findById", "entity_definition", "entity_definition", "can_read"));
+                       function("findById", "entity_definition", "entity_definition", "can_read"),
+                       function("save", "entity_definition", "entity_definition", "can_edit"),
+                       function("deleteById", "entity_definition", "entity_definition", "can_delete"));
     }
 
     private static ServiceDefinition vmNodeService() {

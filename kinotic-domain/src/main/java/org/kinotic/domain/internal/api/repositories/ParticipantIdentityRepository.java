@@ -131,6 +131,14 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .map(page -> page.map(ApplicationParticipantIdentity.class::cast));
     }
 
+    /** The users of tenant {@code tenantId} of application {@code applicationId} of organization {@code organizationId}. */
+    public Future<Page<ApplicationParticipantIdentity>> findTenantUsers(String organizationId, String applicationId, String tenantId, Pageable pageable) {
+        return findUsers(ParticipantIdentityType.APPLICATION_USER,
+                         composeFilter(applicationFilter(organizationId, applicationId), termFilter("tenantId", tenantId)),
+                         pageable)
+                .map(page -> page.map(ApplicationParticipantIdentity.class::cast));
+    }
+
     /** The users of the application whose email or display name matches {@code searchText}; blank text lists them all. */
     public Future<Page<ApplicationParticipantIdentity>> searchApplicationUsers(String searchText,
                                                                                   String organizationId,

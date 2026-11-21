@@ -31,8 +31,8 @@ public interface OwnedPasswordConfigurationService {
      * own login when {@code applicationId} is null, the application's login when {@code tenantId} is null, else the
      * tenant's. Its {@code organizationId} is the caller's and its id is derived from the scope, whatever either
      * carried. {@code createUserOnSignIn}, which lets new people sign up with an email and a password, is taken by an
-     * application's own configuration only, and only while the system manages the application's tenants, which gives
-     * each new user a tenant of its own.
+     * application's own configuration only: each new user gets a tenant of its own, the system's or the one founded
+     * for the company the person names.
      * Disabling the organization's own configuration fails, naming the members it would lock out, while an enabled
      * member holds a password and no identity of a provider the organization's login offers.
      *

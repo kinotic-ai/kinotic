@@ -63,7 +63,8 @@ import static org.mockito.Mockito.when;
  * system participant, and on its own application's store for an application participant, on its tenant, or on
  * the application when it has none; a definition's rows checked on the definition a request names, within the
  * caller's tenant with the object's two edges supplied, on the definition itself for a user without a tenant, and
- * in the system's store for an organization member; an application or a project named within the caller's
+ * in the system's store for an organization member; a permission of an application's own service asked by its
+ * name on the caller's tenant, or on the application for a caller in no tenant; an application or a project named within the caller's
  * organization, which a system participant cannot name; a
  * delegate checked as its owner, within its type's ceiling and refused beyond it or with no known type; a function its contract marks unchecked passing without the engine; and the
  * refusals: a denied check, a request naming no object, a body no id can be read from or whose object the check
@@ -78,6 +79,7 @@ class DefaultRequestAuthorizerTest {
 
     private static final String SERVICE = "management-api~org.kinotic.management.api.services.ProjectService";
     private static final String ENTITIES = "app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository";
+    private static final String REPORTS = "app.acme.crm~org.acme.crm.ReportService";
     private static final String STATEMENT_RESOLVER = "statement";
     private static final AuthzPermissionChoice READ = new AuthzPermissionChoice("can_read", "the query reads rows");
     private static final AuthzPermissionChoice DELETE = new AuthzPermissionChoice("can_delete", "the query is a DELETE");
@@ -127,6 +129,11 @@ class DefaultRequestAuthorizerTest {
         entities.addFunction(function("count", check("entity_definition", "{entityDefinitionId}", "entity_definition", "can_read", false).setAcrossTenants(true),
                                       "entityDefinitionId", "tenantSelection"));
         when(directory.findEntry(ENTITIES)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(ENTITIES).setServiceDefinition(entities)));
+
+        // a service of the application crm, declaring a type of its own
+        ServiceDefinition reports = new ServiceDefinition().setNamespace("org.acme.crm").setName("ReportService");
+        reports.addFunction(function("generate", check("report", "{reportId}", "report", "can_generate", false), "reportId"));
+        when(directory.findEntry(REPORTS)).thenReturn(Future.succeededFuture(new ServiceDirectoryEntry().setId(REPORTS).setServiceDefinition(reports)));
     }
 
     @AfterEach
@@ -334,14 +341,16 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
-    void aTenantsUserIsCheckedOnTheDefinitionItselfForAFunctionActingAcrossTenants() throws Exception {
-        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), bob("t1"),
-                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
-                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+    void aParticipantOfAnApplicationIsRefusedAFunctionActingAcrossTenantsWithoutTheEngine() {
+        for (Participant caller : List.of(bob("t1"), bob(null))) {
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                                                      () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), caller,
+                                                                                 EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
+                                                                      .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
-        // no edge is supplied: the definition's object is held by the store, and a grant within the tenant does not reach it
-        assertEquals(new RelationshipTuple("user:bob", "entity_definition_can_read", "entity_definition:acme.crm.person"),
-                     checked("acme.crm", Consistency.MINIMIZE_LATENCY));
+            assertTrue(assertInstanceOf(AuthorizationException.class, failure.getCause()).getMessage().contains("across tenants"));
+        }
+        verify(relationships, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -366,6 +375,34 @@ class DefaultRequestAuthorizerTest {
     }
 
     @Test
+    void aPermissionOfAnApplicationsOwnServiceIsAskedByItsNameOnTheCallersTenant() throws Exception {
+        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+
+        authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // a caller in no tenant, as the application's machine is, is asked on the application
+        authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob(null), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "tenant:t1", Consistency.MINIMIZE_LATENCY);
+        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "application:acme.crm", Consistency.MINIMIZE_LATENCY);
+        verify(relationships, never()).check(any(), any(), any(), any());
+    }
+
+    @Test
+    void aPermissionOfAnApplicationsOwnServiceTheCallerLacksRefusesTheRequest() {
+        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any())).thenReturn(Future.succeededFuture(false));
+
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"),
+                                                                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
+                                                                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
+
+        AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
+        assertTrue(refused.getMessage().contains("report_can_generate on tenant:t1"), refused.getMessage());
+    }
+
+    @Test
     void anOrganizationMemberIsCheckedOnTheDefinitionInTheSystemsStore() throws Exception {
         authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/save#1.0.0"), sally(),
                              EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",{}]"))
@@ -374,6 +411,16 @@ class DefaultRequestAuthorizerTest {
         assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_edit", "entity_definition:acme.crm.person"),
                      checked(Consistency.MINIMIZE_LATENCY));
         verify(relationships, never()).check(eq("acme.crm"), any(), any(), any());
+    }
+
+    @Test
+    void anOrganizationMemberIsCheckedOnTheDefinitionItselfForAFunctionActingAcrossTenants() throws Exception {
+        authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/count#1.0.0"), sally(),
+                             EventConstants.CONTENT_TYPE_JSON, bytes("[\"acme.crm.person\",[\"*\"]]"))
+                  .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_read", "entity_definition:acme.crm.person"),
+                     checked(Consistency.MINIMIZE_LATENCY));
     }
 
     @Test

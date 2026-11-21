@@ -73,7 +73,7 @@ public interface ServiceDirectory {
      * decorators it declares. The directory derives the checks of a service declaring a resource, as
      * {@link SchemaService#deriveChecks} does, derives the MCP tools its functions declare, and owns the
      * entry's id, address and liveness, which follows the service's registrations on the event bus. The
-     * application's store reconciles to a model carrying the service, and an entry equal to the one stored
+     * application's store takes up the service's permissions and roles, and an entry equal to the one stored
      * leaves it as it is. A definition naming no namespace, a service published in none, is in its zone's
      * namespace and addressed {@code <zone>~<Name>}, as the runtime serves it.
      *

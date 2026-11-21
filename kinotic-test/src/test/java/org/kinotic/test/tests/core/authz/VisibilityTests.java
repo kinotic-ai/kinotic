@@ -4,11 +4,13 @@ import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -27,6 +29,7 @@ import org.kinotic.domain.api.model.security.participant.DefaultOrganizationPart
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.utils.AuthzConstants;
@@ -41,6 +44,7 @@ import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,7 +66,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * entity definition it reads, where a project contains the definitions of its own application that name it, and a
  * definition names a project of its application that its author may edit. What is hidden is absent from a listing
  * and answered as not found by id, a project another application holds is refused to a create naming its id, and
- * the organization's administrator sees everything.
+ * the organization's administrator sees everything. A member reading every project of an application lists them
+ * inside it however many there are, and a listing the engine's deadline ends is reported, never answered short.
  */
 @SpringBootTest
 public class VisibilityTests extends KinoticTestBase {
@@ -81,6 +86,9 @@ public class VisibilityTests extends KinoticTestBase {
 
     @Autowired
     private PermissionService permissions;
+
+    @Autowired
+    private RelationshipService relationships;
 
     @Autowired
     private ParticipantIdentityService identityService;
@@ -291,6 +299,37 @@ public class VisibilityTests extends KinoticTestBase {
         again.setOrganizationId(TEST_ORG_ID);
         again.setApplicationId(y.getId());
         assertEquals(held.getId(), await(runAsOrganization(() -> projectService.createProjectIfNotExist(again))).getId());
+    }
+
+    @Test
+    public void aMemberReadingEveryProjectOfAnApplicationListsThemWithoutTheEnginesListing() throws Exception {
+        Application x = application();
+        Project a = project(x);
+        // more projects than the engine lists before its deadline, placed in the graph alone
+        String applicationObject = AuthzGraphUtil.authzApplication(TEST_ORG_ID, x.getId());
+        List<RelationshipTuple> placed = new ArrayList<>();
+        for (int i = 0; i < 3000; i++) {
+            placed.add(AuthzGraphUtil.containment(applicationObject,
+                                                  AuthzUtil.object(ProjectService.RESOURCE_TYPE, TEST_ORG_ID + "." + x.getId() + "-placed-" + i)));
+        }
+        await(relationships.ensure(AuthzStoreService.SYSTEM, placed));
+        OrganizationParticipantIdentity sally = member(TEST_ORG_ID, "visible");
+        await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, sally.getId()), "project.viewer",
+                                                        new Resource(AuthzConstants.APPLICATION_TYPE, x.getId()))));
+        OrganizationParticipant caller = participant(sally.getId());
+
+        // inside the application one check answers for every project of it
+        assertTrue(awaitUntil(() -> ids(await(runAs(caller, () -> projectService.findAllForApplication(x.getId(), FIRST_PAGE)))).contains(a.getId())),
+                   "the application's projects never became visible");
+        assertEquals(1L, await(runAs(caller, () -> projectService.countForApplication(x.getId()))));
+        // across the organization the engine lists each project the caller reads, and a listing its deadline ends is
+        // reported instead of answered short
+        ExecutionException failure = assertThrows(ExecutionException.class,
+                                                  () -> await(runAs(caller, () -> permissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
+        assertInstanceOf(IllegalStateException.class, failure.getCause());
+        assertTrue(failure.getCause().getMessage().contains("deadline"), failure.getCause().getMessage());
+
+        await(relationships.remove(AuthzStoreService.SYSTEM, placed));
     }
 
     @Test

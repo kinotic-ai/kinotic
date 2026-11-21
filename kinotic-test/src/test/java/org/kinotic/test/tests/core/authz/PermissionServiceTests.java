@@ -122,7 +122,7 @@ public class PermissionServiceTests extends KinoticTestBase {
 
         RoleDefinition saved = await(runAsOrganization(() -> permissions.saveRole(
                 new RoleDefinition(null, "Release Manager " + suffix(), "ships projects", false, ProjectService.RESOURCE_TYPE, null,
-                                   Set.of("project_can_edit", "project_can_read")))));
+                                   Set.of("project_can_edit", "project_can_read"), Map.of(), false))));
         assertNotNull(saved.id());
         assertEquals(ProjectService.RESOURCE_TYPE, AuthzUtil.roleHome(saved.id()));
         assertFalse(saved.builtIn());
@@ -137,16 +137,16 @@ public class PermissionServiceTests extends KinoticTestBase {
         // a permission the model does not have, one from above the role's home, a home outside the organization's
         // tier, and a built-in role, are refused
         assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition(null, "Pilot", null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_fly"))))));
+                new RoleDefinition(null, "Pilot", null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_fly"), Map.of(), false)))));
         assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition(null, "Climber", null, false, ProjectService.RESOURCE_TYPE, null, Set.of("application_can_edit"))))));
+                new RoleDefinition(null, "Climber", null, false, ProjectService.RESOURCE_TYPE, null, Set.of("application_can_edit"), Map.of(), false)))));
         assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition(null, "Reader", null, false, AuthzConstants.SYSTEM_TYPE, null, Set.of("project_can_read"))))));
+                new RoleDefinition(null, "Reader", null, false, AuthzConstants.SYSTEM_TYPE, null, Set.of("project_can_read"), Map.of(), false)))));
         assertThrows(ExecutionException.class, () -> await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition("project.editor", "Project Editor", null, true, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_edit"))))));
+                new RoleDefinition("project.editor", "Project Editor", null, true, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_edit"), Map.of(), false)))));
 
         // reshaping the role changes what it bundles
-        await(runAsOrganization(() -> permissions.saveRole(new RoleDefinition(saved.id(), saved.name(), null, false, null, null, Set.of("project_can_read")))));
+        await(runAsOrganization(() -> permissions.saveRole(new RoleDefinition(saved.id(), saved.name(), null, false, null, null, Set.of("project_can_read"), Map.of(), false))));
         assertEquals(Set.of("project_can_read"), bundled(saved.id()));
 
         // a role a grant holds stays until the grant is revoked
@@ -350,18 +350,18 @@ public class PermissionServiceTests extends KinoticTestBase {
         String canRegisterServices = AuthzUtil.permissionName(AuthzConstants.APPLICATION_TYPE, AuthzConstants.CAN_REGISTER_SERVICES);
         RoleDefinition hosting = await(runAsOrganization(() -> permissions.saveRole(
                 new RoleDefinition(null, "Hosting " + suffix(), null, false, AuthzConstants.APPLICATION_TYPE, null,
-                                   Set.of(canRegisterServices, "application_can_read")))));
+                                   Set.of(canRegisterServices, "application_can_read"), Map.of(), false))));
         await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId), hosting.id(), onApplication)));
         assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
 
         // an edit that takes no permission from the role leaves the machine connected
         await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, hosting.permissions()))));
+                new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, hosting.permissions(), Map.of(), false))));
         assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
         assertFalse(connectionRevocations.isRevoked(machineId));
 
         await(runAsOrganization(() -> permissions.saveRole(
-                new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, Set.of("application_can_read")))));
+                new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, Set.of("application_can_read"), Map.of(), false))));
         assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
         assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
     }
@@ -409,7 +409,7 @@ public class PermissionServiceTests extends KinoticTestBase {
             await(groupDeleted.otherwiseEmpty());
 
             RoleDefinition role = await(runAsOrganization(() -> permissions.saveRole(
-                    new RoleDefinition(null, "Raced " + suffix(), null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_read")))));
+                    new RoleDefinition(null, "Raced " + suffix(), null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_read"), Map.of(), false))));
             Future<Grant> roleGranted = runAsOrganization(() -> permissions.grant(holder, role.id(), onProject));
             Future<Void> roleDeleted = runAsOrganization(() -> permissions.deleteRole(role.id()));
             await(roleGranted.otherwiseEmpty());
@@ -427,10 +427,10 @@ public class PermissionServiceTests extends KinoticTestBase {
     public void aRoleEditedAsItIsDeletedStaysDeleted() throws Exception {
         for (int i = 0; i < 5; i++) {
             RoleDefinition role = await(runAsOrganization(() -> permissions.saveRole(
-                    new RoleDefinition(null, "Raced " + suffix(), null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_read")))));
+                    new RoleDefinition(null, "Raced " + suffix(), null, false, ProjectService.RESOURCE_TYPE, null, Set.of("project_can_read"), Map.of(), false))));
             Future<Void> deleted = runAsOrganization(() -> permissions.deleteRole(role.id()));
             Future<RoleDefinition> edited = runAsOrganization(() -> permissions.saveRole(
-                    new RoleDefinition(role.id(), "Edited " + suffix(), null, false, null, null, Set.of("project_can_read", "project_can_edit"))));
+                    new RoleDefinition(role.id(), "Edited " + suffix(), null, false, null, null, Set.of("project_can_read", "project_can_edit"), Map.of(), false)));
             await(deleted.otherwiseEmpty());
             await(edited.otherwiseEmpty());
 

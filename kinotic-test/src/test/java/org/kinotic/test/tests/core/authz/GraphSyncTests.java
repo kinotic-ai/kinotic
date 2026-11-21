@@ -335,8 +335,8 @@ public class GraphSyncTests extends KinoticTestBase {
                                                                           AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, saved.getId()));
         assertTrue(holds(definitionInApplication));
         String definitionObject = AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, saved.getId());
-        await(relationships.ensureBound(AuthzStoreService.SYSTEM, "graph-cross-" + suffix, "entity_definition.viewer",
-                                        AuthzUtil.object(AuthzConstants.USER_TYPE, "graph-cross-reader-" + suffix), definitionObject));
+        await(relationships.bind(AuthzStoreService.SYSTEM, "entity_definition.viewer",
+                                 AuthzUtil.object(AuthzConstants.USER_TYPE, "graph-cross-reader-" + suffix), definitionObject));
         assertEquals(1, await(relationships.findGrants(AuthzStoreService.SYSTEM, definitionObject)).size());
 
         // another organization's administrator, with an application and a project of the same ids in its own

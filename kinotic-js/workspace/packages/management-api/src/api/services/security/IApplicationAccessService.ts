@@ -8,19 +8,43 @@ import type { Subject } from '@/api/model/security/Subject'
 
 /**
  * The access control of one application's users, in the application's own store: the roles its users and
- * machines can be granted, and the grants made on the application, on one of its tenants, on one of its entity
+ * machines can be granted, the application's own roles among them, and the grants made on the application, on one of its tenants, on one of its entity
  * definitions or on a definition within a tenant, which reach the rows below where they are made. A definition
  * within a tenant is named `<definition id>@<tenant id>`. Every function names the application, which must belong
- * to the caller's organization, and a subject named must be one of the application's own users or machines.
+ * to the caller's organization, and a subject named must be one of the application's own users or machines, or
+ * one of its tenants, standing for every user of that tenant.
+ *
+ * A role of the application's own says what its holders may do with each entity and each service of the
+ * application: Accountant reads and edits the rows of Invoice and reads those of InventoryItem. Reading, editing
+ * and deleting the rows of a definition are each held on their own.
  */
 export interface IApplicationAccessService {
 
     /**
-     * The built-in roles the application's model defines: a viewer, an editor and an admin of a definition's rows,
-     * the same for every definition, and an admin of a tenant and of the application, each with the permissions it
-     * bundles.
+     * The catalog a role of the application's own is defined from: the model names of the permissions of a tenant
+     * and of everything in it, such as entity_definition_can_read, grouped by the resource type they are about.
+     */
+    findPermissions(applicationId: string): Promise<Record<string, string[]>>
+
+    /**
+     * The built-in roles the application's model defines, then the application's own: a viewer, an editor and an
+     * admin of a definition's rows, the same for every definition, and an admin of a tenant and of the application,
+     * each with the permissions it bundles.
      */
     findRoles(applicationId: string): Promise<RoleDefinition[]>
+
+    /**
+     * Defines a role of the application's own, or reshapes one: with no id a new role is created, with the id of
+     * one its name, description and permissions are replaced, which changes every grant of it at once. The role is
+     * homed at the tenant, so it is granted on a tenant or on the application. Its permissions are held on
+     * everything such a grant reaches, and its definitionPermissions on the entity definitions they name alone.
+     * A built-in role cannot be saved, and a permission a tenant's role cannot bundle or a definition the
+     * application does not hold is refused.
+     */
+    saveRole(applicationId: string, role: RoleDefinition): Promise<RoleDefinition>
+
+    /** Deletes a role of the application's own that no grant holds. */
+    deleteRole(applicationId: string, roleId: string): Promise<void>
 
     /**
      * The grants that reach a resource: those made on it, then those made above it, on the tenant and the
@@ -36,8 +60,9 @@ export interface IApplicationAccessService {
      * every tenant, and one on the application the rows of every definition in every tenant. A definition named
      * must be one the application holds, and a tenant named one the application has where its administrators
      * manage its tenants.
-     * @param subject a user naming the identity id of one of the application's users or machines
-     * @param roleId a built-in role's id, such as entity_definition.editor or tenant.admin
+     * @param subject a user naming the identity id of one of the application's users or machines, or a tenant
+     *                naming the id of one of its tenants, whose every user then holds the grant
+     * @param roleId a built-in role's id, such as entity_definition.editor or tenant.admin, or the id of one of the application's own
      */
     grant(applicationId: string, subject: Subject, roleId: string, resource: Resource): Promise<Grant>
 
@@ -61,8 +86,20 @@ export class ApplicationAccessService implements IApplicationAccessService {
         this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.security.ApplicationAccessService`)
     }
 
+    public findPermissions(applicationId: string): Promise<Record<string, string[]>> {
+        return this.serviceProxy.invoke('findPermissions', [applicationId])
+    }
+
     public findRoles(applicationId: string): Promise<RoleDefinition[]> {
         return this.serviceProxy.invoke('findRoles', [applicationId])
+    }
+
+    public saveRole(applicationId: string, role: RoleDefinition): Promise<RoleDefinition> {
+        return this.serviceProxy.invoke('saveRole', [applicationId, role])
+    }
+
+    public deleteRole(applicationId: string, roleId: string): Promise<void> {
+        return this.serviceProxy.invoke('deleteRole', [applicationId, roleId])
     }
 
     public findGrants(applicationId: string, resource: Resource): Promise<Grant[]> {

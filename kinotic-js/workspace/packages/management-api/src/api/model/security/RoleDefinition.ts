@@ -1,7 +1,7 @@
 /**
  * A role as the console edits it: a name, a description and the permissions it bundles. A built-in role is
  * defined by the model, named after its type and level, and cannot be changed; a custom role is defined by an
- * organization from the permissions the model has. Every role is homed at a resource type, bundles only
+ * organization, for itself or for one of its applications, from the permissions the model has. Every role is homed at a resource type, bundles only
  * permissions of that type and of the types inside it, and is granted only on that type or on one above it within
  * the same tier.
  */
@@ -17,6 +17,17 @@ export interface RoleDefinition {
     resourceType: string
     /** The resource types of the caller's tier the role may be granted on; ignored when saving. */
     grantableOn: string[]
-    /** The model names of the permissions the role bundles, such as project_can_edit. */
+    /** The model names of the permissions the role bundles on everything a grant of it reaches, such as project_can_edit. */
     permissions: string[]
+    /**
+     * For a role of an application, the permissions it bundles for single entity definitions: each definition's id
+     * to the model names of the definition's permissions held on it alone, such as entity_definition_can_read.
+     * Empty for every other role.
+     */
+    definitionPermissions: Record<string, string[]>
+    /**
+     * True for a role the administrators of a tenant may grant to the users of their tenant: a built-in role homed
+     * at the tenant, and a role of an application its developer marked so.
+     */
+    tenantAssignable: boolean
 }

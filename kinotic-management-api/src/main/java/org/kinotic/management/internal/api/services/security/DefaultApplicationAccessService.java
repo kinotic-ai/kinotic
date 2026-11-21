@@ -9,19 +9,23 @@ import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.TenantManagement;
+import org.kinotic.domain.api.model.security.Role;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
+import org.kinotic.domain.api.repositories.RoleRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
+import org.kinotic.domain.api.services.security.ApplicationRoleService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -32,11 +36,20 @@ import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class DefaultApplicationAccessService implements ApplicationAccessService {
+
+    private static final String CUSTOM_ROLE_HOME = ApplicationRoleService.ROLE_HOME;
 
     private final SecurityContext securityContext;
     private final ApplicationRepository applications;
@@ -45,10 +58,120 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     private final EntityDefinitionRepository entityDefinitions;
     private final TenantRepository tenants;
     private final AuthzModelService models;
+    private final RoleRepository roles;
+    private final ApplicationRoleService applicationRoles;
+
+    @Override
+    public Future<Map<String, Set<String>>> findPermissions(String applicationId) {
+        return requireApplication(applicationId).compose(this::model).map(model -> model.catalog(CUSTOM_ROLE_HOME));
+    }
 
     @Override
     public Future<List<RoleDefinition>> findRoles(String applicationId) {
-        return requireApplication(applicationId).compose(this::model).map(model -> model.builtInRoles(AuthzConstants.APPLICATION_TYPE));
+        return requireApplication(applicationId).compose(application -> Future.all(model(application), applicationRoles.findRoles(application)).map(both -> {
+            AuthzModel model = both.resultAt(0);
+            List<RoleDefinition> ret = new ArrayList<>(model.builtInRoles(AuthzConstants.APPLICATION_TYPE));
+            ret.addAll(both.<List<RoleDefinition>>resultAt(1));
+            return ret;
+        }));
+    }
+
+    @Override
+    public Future<RoleDefinition> saveRole(String applicationId, RoleDefinition role) {
+        Validate.notNull(role, "role cannot be null");
+        Validate.notBlank(role.name(), "role name cannot be blank");
+        Validate.notNull(role.permissions(), "role permissions cannot be null");
+        Validate.isTrue(role.resourceType() == null || CUSTOM_ROLE_HOME.equals(role.resourceType()),
+                        "a role of an application is homed at %s, not %s", CUSTOM_ROLE_HOME, role.resourceType());
+        return requireApplication(applicationId).compose(application -> model(application).compose(model -> {
+            if (role.id() != null && model.roles().containsKey(role.id())) {
+                throw new IllegalArgumentException("Role " + role.id() + " is built in and defined by the model");
+            }
+            RolePermissions permissions = bundled(role, model);
+            String roleId = role.id() == null ? AuthzUtil.roleId(CUSTOM_ROLE_HOME, UUID.randomUUID().toString()) : role.id();
+            String organizationId = application.getOrganizationId();
+            // under the lock a grant and a deletion of the role take, with the role read under it, so an edit that
+            // waited for a deletion finds no role and writes none
+            return requireDefinitions(application, permissions.definitionPermissions().keySet())
+                    .compose(v -> relationships.exclusively(AuthzUtil.roleObject(roleId), () -> {
+                        Future<Role> row = role.id() == null
+                                ? Future.succeededFuture(new Role().setId(roleId)
+                                                                   .setOrganizationId(organizationId)
+                                                                   .setApplicationId(application.getId())
+                                                                   .setCreated(new Date()))
+                                : applicationRoles.requireRole(application, roleId);
+                        // the row first, then its permissions: a role whose permissions failed to write exists and
+                        // grants nothing
+                        return row.compose(existing -> roles.saveSync(existing.setName(role.name())
+                                                                              .setDescription(role.description())
+                                                                              .setTenantAssignable(role.tenantAssignable())
+                                                                              .setUpdated(new Date()),
+                                                                      organizationId))
+                                  .compose(saved -> relationships.ensureRole(storeOf(application), roleId, permissions).map(saved));
+                    }))
+                    .map(saved -> ApplicationRoleService.definitionOf(saved, model, permissions));
+        }));
+    }
+
+    // What the role bundles, each permission one a tenant's role can hold: on everything, or, for a permission of
+    // a definition's rows, on the definitions named. A permission bundled for everything names no definition
+    private static RolePermissions bundled(RoleDefinition role, AuthzModel model) {
+        Map<String, Set<String>> catalog = model.catalog(CUSTOM_ROLE_HOME);
+        Set<String> bundleable = new HashSet<>();
+        catalog.values().forEach(bundleable::addAll);
+        for (String permission : role.permissions()) {
+            if (!bundleable.contains(permission)) {
+                throw new IllegalArgumentException("No permission a role of the application can bundle is named '" + permission + "'");
+            }
+        }
+        RolePermissions held = model.bundle(role.permissions());
+        Set<String> ofRows = catalog.getOrDefault(AuthzConstants.ENTITY_DEFINITION_TYPE, Set.of());
+        Map<String, Set<String>> named = new TreeMap<>();
+        Map<String, Set<String>> requested = role.definitionPermissions() == null ? Map.of() : role.definitionPermissions();
+        for (Map.Entry<String, Set<String>> definition : requested.entrySet()) {
+            Set<String> onIt = new TreeSet<>();
+            for (String permission : definition.getValue()) {
+                if (!ofRows.contains(permission)) {
+                    throw new IllegalArgumentException("No permission of an entity definition's rows is named '" + permission + "'");
+                }
+                if (!held.permissions().contains(permission)) {
+                    onIt.add(permission);
+                }
+            }
+            if (!onIt.isEmpty()) {
+                named.put(definition.getKey(), onIt);
+            }
+        }
+        return new RolePermissions(held.permissions(), named, held.servicePermissions());
+    }
+
+    @Override
+    public Future<Void> deleteRole(String applicationId, String roleId) {
+        Validate.notBlank(roleId, "roleId cannot be blank");
+        String role = AuthzUtil.roleObject(roleId);
+        // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
+        // finds the role gone
+        return requireApplication(applicationId).compose(application -> relationships.exclusively(role, () -> applicationRoles.requireRole(application, roleId)
+                .compose(row -> model(application))
+                .compose(model -> relationships.findBindings(storeOf(application), role,
+                                                             model.grantableOn(CUSTOM_ROLE_HOME, AuthzConstants.APPLICATION_TYPE)))
+                .compose(bindings -> {
+                    // a grant is revoked where it was made, so a role a grant still holds stays
+                    if (!bindings.isEmpty()) {
+                        throw new IllegalStateException("Role " + roleId + " is still held by grants; revoke them first");
+                    }
+                    // its permissions first, then the row: a role whose row outlives its permissions grants nothing
+                    return relationships.removeObject(storeOf(application), role);
+                })
+                .compose(v -> roles.deleteByIdSync(roleId, application.getOrganizationId()))));
+    }
+
+    private Future<Void> requireDefinitions(Application application, Set<String> definitionIds) {
+        Future<Void> ret = Future.succeededFuture();
+        for (String definitionId : definitionIds) {
+            ret = ret.compose(v -> requireDefinition(application, definitionId));
+        }
+        return ret;
     }
 
     @Override
@@ -64,11 +187,9 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         validate(subject);
         Validate.notBlank(roleId, "roleId cannot be blank");
         return requireApplication(applicationId)
-                .compose(application -> requireGrantable(application, roleId, resource.type())
-                        .compose(v -> requireSubject(application, subject))
+                .compose(application -> requireSubject(application, subject)
                         .compose(v -> contained(application, resource))
-                        .compose(v -> relationships.bind(storeOf(application), roleId, AuthzGraphUtil.authzSubject(subject), objectOf(application, resource))))
-                .map(bindingId -> new Grant(bindingId, roleId, subject, resource));
+                        .compose(v -> applicationRoles.grant(application, subject, roleId, resource)));
     }
 
     @Override
@@ -147,7 +268,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                                                    List.of(AuthzGraphUtil.tenantContainment(application.getOrganizationId(), application.getId(), tenantId))));
     }
 
-    // A grant on a tenant is made on one the application has where its administrators manage its tenants; a tenant
+    // A tenant named by a grant is one the application has where its administrators manage its tenants; a tenant
     // the system gave a user has no record to require
     private Future<Void> requireTenant(Application application, String tenantId) {
         Future<Void> ret;
@@ -186,31 +307,27 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                            .map(application -> DomainUtil.requireOwned(application, organizationId, "No application of the organization has id " + applicationId));
     }
 
-    // A role of the application's model homed at the resource's type or inside it
-    private Future<Void> requireGrantable(Application application, String roleId, String resourceType) {
-        return model(application).map(model -> {
-            if (!model.roles().containsKey(roleId)) {
-                throw new IllegalArgumentException("No role of the application has id " + roleId);
-            }
-            model.requireGrantable(roleId, resourceType);
-            return null;
-        });
-    }
-
     // The model the application's store runs: the system's services its users call and the services its
     // runtimes registered
     private Future<AuthzModel> model(Application application) {
         return models.findApplicationModel(application.getOrganizationId(), application.getId());
     }
 
-    // A grant in an application's store is made to one of its own users or machines
+    // A grant in an application's store is made to one of its own users or machines, or to the users of one of its
+    // tenants
     private Future<Void> requireSubject(Application application, Subject subject) {
-        return identities.findById(subject.id()).map(identity -> {
-            if (!belongs(identity, application)) {
-                throw new IllegalArgumentException("No user or machine of the application has id " + subject.id());
-            }
-            return null;
-        });
+        Future<Void> ret;
+        if (subject.type() == SubjectType.TENANT) {
+            ret = requireTenant(application, subject.id());
+        } else {
+            ret = identities.findById(subject.id()).map(identity -> {
+                if (!belongs(identity, application)) {
+                    throw new IllegalArgumentException("No user or machine of the application has id " + subject.id());
+                }
+                return null;
+            });
+        }
+        return ret;
     }
 
     // a delegate carries its owner's scope but is withdrawn from no store when deleted, so it is never a subject
@@ -242,10 +359,11 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                         "a definition within a tenant is named <definition id>@<tenant id>, not %s", resource.id());
     }
 
-    // An application's store has no groups, so a subject is one of its identities
+    // An application's store has no groups, so a subject is one of its identities or the users of one of its tenants
     private static void validate(Subject subject) {
         Validate.notNull(subject, "subject cannot be null");
-        Validate.isTrue(subject.type() == SubjectType.USER, "a grant in an application is made to a user or a machine");
+        Validate.isTrue(subject.type() == SubjectType.USER || subject.type() == SubjectType.TENANT,
+                        "a grant in an application is made to a user, a machine or the users of a tenant");
         Validate.notBlank(subject.id(), "subject id cannot be blank");
     }
 

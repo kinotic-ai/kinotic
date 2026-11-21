@@ -6,6 +6,7 @@ import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.RolePermissions;
 
 import java.util.List;
 import java.util.Map;
@@ -54,12 +55,13 @@ public interface RelationshipService {
      *
      * @param store  the store, named as its record is
      * @param roleId the role, {@code <home type>.<name>}
-     * @return the model names of the permissions, in their natural order; empty for a role the store holds none for
+     * @return the permissions, each set in its natural order; empty for a role the store holds none for
      */
-    Future<Set<String>> findRolePermissions(String store, String roleId);
+    Future<RolePermissions> findRolePermissions(String store, String roleId);
 
     /**
-     * The role bindings a role or a subject is part of: the grants of the role, or the grants made to the subject.
+     * The role bindings a role or a subject is part of: one per resource the role is granted on, or one per grant
+     * made to the subject.
      *
      * @param store   the store, named as its record is
      * @param user    the role or the subject as a binding holds it: {@code <type>_role:<id>}, {@code user:<id>} or
@@ -74,8 +76,8 @@ public interface RelationshipService {
      *
      * @param store  the store, named as its record is
      * @param object the group or the binding, in {@code type:id} form
-     * @return the members as the store holds them: {@code user:<id>}, or {@code group:<id>#member} for a binding
-     *         made to a group
+     * @return the members as the store holds them: {@code user:<id>}, or {@code group:<id>#member} for a group
+     *         granted the binding's role
      */
     Future<List<String>> findMembers(String store, String object);
 
@@ -139,6 +141,20 @@ public interface RelationshipService {
     Future<Void> ensureRoles(String store, Map<String, Set<String>> roles);
 
     /**
+     * Makes one role of the store bundle exactly the given permissions, as {@link #ensureRoles} does for those held
+     * on everything, and for the definitions the role names. A permission whose definitions change is held for
+     * none of them from the moment the change starts until it completes.
+     *
+     * @param store       the store, named as its record is
+     * @param roleId      the role, {@code <home type>.<name>}
+     * @param permissions what the role must bundle; a permission bundled for everything is not also bundled for a
+     *                    definition
+     * @return completes when the role is in step; fails with the engine's validation error for a permission the
+     *         store's model does not let the role bundle that way
+     */
+    Future<Void> ensureRole(String store, String roleId, RolePermissions permissions);
+
+    /**
      * Makes the store run the given model with the built-in roles it implies bundling exactly what the model has.
      * The roles are brought in step before the model becomes the store's current version, so a check against
      * the model reads every role it grants through as the model needs it.
@@ -150,32 +166,19 @@ public interface RelationshipService {
     Future<String> ensureModelWithRoles(String store, AuthzModel model);
 
     /**
-     * Grants a role to a member on a resource: one binding, attached to the resource, holding the role and the
-     * member, through which the member holds every permission the role bundles on the resource and on
-     * everything inside it. The engine refuses a role whose home the resource's type may not grant.
+     * Grants a role to a member on a resource: the member joins the one binding the role has on the resource,
+     * through which it holds every permission the role bundles on the resource and on everything inside it.
+     * A grant made again, after a failure or by another server at the same time, adds nothing twice. The engine
+     * refuses a role whose home the resource's type may not grant.
      *
      * @param store  the store, named as its record is
      * @param roleId the role granted, {@code <home type>.<name>}, such as a built-in role's id
      * @param member who holds it, in {@code type:id} form, or a userset such as {@code group:id#member}
      * @param object the resource the grant is made on, in {@code type:id} form
-     * @return the id of the binding; fails with the engine's validation error when the resource's type may not
-     *         grant the role
+     * @return the grant's id, {@link org.kinotic.idl.api.utils.AuthzUtil#grantId}, which {@link #revoke} revokes it by; fails with the
+     *         engine's validation error when the resource's type may not grant the role
      */
     Future<String> bind(String store, String roleId, String member, String object);
-
-    /**
-     * Makes the binding {@link #bind} would make held under an id the caller chooses, adding whatever of it the
-     * store does not hold yet: a grant made again after a failure, or by another server at the same time, adds
-     * nothing twice.
-     *
-     * @param store     the store, named as its record is
-     * @param bindingId the binding's id, which {@link #revoke} revokes it by
-     * @param roleId    the role granted
-     * @param member    who holds it, in {@code type:id} form, or a userset such as {@code group:id#member}
-     * @param object    the resource the grant is made on, in {@code type:id} form
-     * @return completes when the binding is held
-     */
-    Future<Void> ensureBound(String store, String bindingId, String roleId, String member, String object);
 
     /**
      * Takes a resource out of a store: every grant made on it, and every relationship on it, such as its place
@@ -188,11 +191,12 @@ public interface RelationshipService {
     Future<Void> removeObject(String store, String object);
 
     /**
-     * Takes a user out of a store: every grant made to it, and every relationship it holds, such as its
-     * memberships. A user created again under the same id starts with no grant.
+     * Takes a user, or the members of a group or a tenant as a whole, out of a store: every grant made to it, and
+     * every relationship it holds, such as its memberships. A user created again under the same id starts with no
+     * grant.
      *
      * @param store the store, named as its record is
-     * @param user  the user, in {@code type:id} form
+     * @param user  the user, in {@code type:id} form, or the members, in {@code type:id#member} form
      * @return completes when the store holds nothing of the user, at once for a store that does not exist
      */
     Future<Void> removeSubject(String store, String user);
@@ -226,20 +230,20 @@ public interface RelationshipService {
     <T> Future<T> createExclusively(String object, Supplier<Future<T>> stored, Supplier<Future<Void>> clear, Supplier<Future<T>> create);
 
     /**
-     * Revokes a grant where it was made: its role, its members and its attachment to the object are removed, once
-     * the store confirms it is attached to the object, so a grant's id guessed from elsewhere revokes nothing.
+     * Revokes a grant where it was made: its member no longer holds its role on the object, and everyone else
+     * granted the role there still does. A grant made on another object is left as it is.
      *
-     * @param store     the store, named as its record is
-     * @param bindingId the grant's id, the one {@link #bind} returned
-     * @param object    the resource the grant was made on, in {@code type:id} form
-     * @return completes when nothing of the binding is held; fails with {@link IllegalArgumentException} when
-     *         no grant of the id was made on the object
+     * @param store   the store, named as its record is
+     * @param grantId the grant's id, the one {@link #bind} returned
+     * @param object  the resource the grant was made on, in {@code type:id} form
+     * @return completes when the grant is no longer held; fails with {@link IllegalArgumentException} when the id
+     *         is not a grant's, or no such grant was made on the object
      */
-    Future<Void> revoke(String store, String bindingId, String object);
+    Future<Void> revoke(String store, String grantId, String object);
 
     /**
-     * The grants made on a resource: one per binding attached to it, naming the binding's role and the user
-     * or group it was made to. A binding made to any other userset is not a grant and is left out.
+     * The grants made on a resource: one per user or group of each role bound on it. A member that is any other
+     * userset is not a grant and is left out.
      *
      * @param store  the store, named as its record is
      * @param object the resource, in {@code type:id} form
@@ -291,8 +295,22 @@ public interface RelationshipService {
     Future<Boolean> check(String store, RelationshipTuple relationship, Consistency consistency, List<RelationshipTuple> context);
 
     /**
-     * The objects of a type on which the user holds the relation, by the rules of the model the store runs, as
-     * many as the engine finds before its listing deadline passes.
+     * Whether a subject holds a permission of an application's own services on a tenant or on the application,
+     * through a role that holds every such permission or names this one, granted there or above.
+     *
+     * @param store       the application's store
+     * @param user        the subject, in {@code type:id} form
+     * @param permission  the model name of the permission, such as {@code report_can_generate}
+     * @param object      the tenant or the application, in {@code type:id} form
+     * @param consistency whether the answer may come from the engine's caches
+     * @return true when the subject holds the permission on the object
+     */
+    Future<Boolean> checkServicePermission(String store, String user, String permission, String object, Consistency consistency);
+
+    /**
+     * The objects of a type on which the user holds the relation, by the rules of the model the store runs. The
+     * future fails with an {@link IllegalStateException} when the engine's listing deadline, three seconds, ended
+     * the listing, which may then be missing objects.
      *
      * @param store       the store, named as its record is
      * @param user        who holds the relation

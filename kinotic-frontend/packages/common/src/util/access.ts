@@ -58,9 +58,16 @@ export function describePermission(name: string): string {
   return `${typeLabel(split.type)}: ${permissionLabel(split.permission).toLowerCase()}`
 }
 
-/** A role's permissions in one line, as a role picker describes it: the first three, and how many more. */
-export function summarizeRole(role: { permissions: string[] }): string {
+/**
+ * A role's permissions in one line, as a role picker describes it: the first three, and how many more, then how
+ * many entities a role of an application names.
+ */
+export function summarizeRole(role: { permissions: string[], definitionPermissions?: Record<string, string[]> }): string {
   const labels = role.permissions.map(describePermission)
+  const named = Object.keys(role.definitionPermissions ?? {}).length
+  if (named > 0) {
+    labels.push(named === 1 ? '1 entity it names' : `${named} entities it names`)
+  }
   return labels.length <= 3 ? labels.join(', ') : `${labels.slice(0, 3).join(', ')} and ${labels.length - 3} more`
 }
 

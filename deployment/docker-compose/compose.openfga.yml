@@ -40,7 +40,10 @@ services:
     command: run
     environment:
       OPENFGA_DATASTORE_ENGINE: postgres
-      OPENFGA_DATASTORE_URI: postgres://openfga:openfga@openfga-db:5432/openfga?sslmode=disable
+      # plan_cache_mode has Postgres plan each of the engine's prepared statements for its values. The generic
+      # plan it otherwise settles on reads a role's part through an index that visits a row for every role of
+      # the store, so a check slows as a store's roles grow
+      OPENFGA_DATASTORE_URI: postgres://openfga:openfga@openfga-db:5432/openfga?sslmode=disable&plan_cache_mode=force_custom_plan
       OPENFGA_PLAYGROUND_ENABLED: "false"
       OPENFGA_CHECK_QUERY_CACHE_ENABLED: ${OPENFGA_CHECK_QUERY_CACHE_ENABLED:-true}
       OPENFGA_CHECK_ITERATOR_CACHE_ENABLED: ${OPENFGA_CHECK_ITERATOR_CACHE_ENABLED:-true}

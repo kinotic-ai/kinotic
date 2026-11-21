@@ -9,7 +9,6 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.OrganizationOidcConfiguration;
-import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
@@ -20,7 +19,6 @@ import org.kinotic.domain.api.repositories.TenantRepository;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.management.api.model.AddApplicationUserRequest;
@@ -36,7 +34,6 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
     private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
     private final OidcConfigurationService oidcConfigurationService;
-    private final PasswordConfigurationService passwordConfigurationService;
     private final ApplicationRepository applicationRepository;
     private final TenantRepository tenantRepository;
     private final EmailService emailService;
@@ -87,30 +84,27 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
         String address = DomainUtil.normalizeEmail(request.getEmail());
         String organizationId = inviter.getOrganizationId();
         String tenantId = request.getTenantId();
-        if (request.isSendInvitation()) {
-            // checked before the user the invitation is for is saved
-            emailService.validateTemplate(emailTemplate);
-        }
-        ApplicationParticipantIdentity user = new ApplicationParticipantIdentity();
-        user.setOrganizationId(organizationId)
-            .setApplicationId(request.getApplicationId())
-            .setTenantId(tenantId)
-            .setEmail(address)
-            .setPending(true)
-            .setDisplayName(StringUtils.trimToNull(request.getDisplayName()));
         // the user persists references to the application and its tenant, so both must be the organization's
         return applicationRepository.requireById(request.getApplicationId(), organizationId)
-                                    .compose(application -> Future.all(requireTenant(application, tenantId),
-                                                                       request.isSendInvitation()
-                                                                               ? requireInvitationAcceptable(application, tenantId)
-                                                                               : requireProviderSignIn(application, tenantId)))
-                                    .compose(v -> identityService.createUser(user, null))
-                                    .compose(created -> {
-                                        Future<Void> invited = request.isSendInvitation()
-                                                ? invite(inviter, address, request.getDisplayName(), created, emailTemplate).mapEmpty()
-                                                : Future.succeededFuture();
-                                        return invited.map(created);
-                                    });
+                                    .compose(application -> requireTenant(application, tenantId).compose(v -> {
+                                        Future<ApplicationParticipantIdentity> ret;
+                                        if (request.isSendInvitation()) {
+                                            PendingInvite invite = invitation(inviter, address, request.getDisplayName())
+                                                    .setApplicationId(application.getId())
+                                                    .setTenantId(tenantId);
+                                            ret = inviteService.inviteApplicationUser(invite, emailTemplate);
+                                        } else {
+                                            ApplicationParticipantIdentity user = new ApplicationParticipantIdentity();
+                                            user.setOrganizationId(organizationId)
+                                                .setApplicationId(application.getId())
+                                                .setTenantId(tenantId)
+                                                .setEmail(address)
+                                                .setPending(true)
+                                                .setDisplayName(StringUtils.trimToNull(request.getDisplayName()));
+                                            ret = requireProviderSignIn(application, tenantId).compose(offered -> identityService.createUser(user, null));
+                                        }
+                                        return ret;
+                                    }));
     }
 
     // the system gives each user a tenant of its own; otherwise the user joins one of the application's tenants
@@ -139,21 +133,6 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
         });
     }
 
-    // an invitation is accepted with a password, or by signing in at the application's primary UI, which the accept
-    // page links to and whose login offers the application's own providers
-    private Future<Void> requireInvitationAcceptable(Application application, String tenantId) {
-        Future<Boolean> viaProvider = application.getPrimaryUiUrl() != null
-                ? oidcConfigurationService.findEnabledForScope(application.getOrganizationId(), application.getId()).map(offered -> !offered.isEmpty())
-                : Future.succeededFuture(false);
-        Future<PasswordConfiguration> password = passwordConfigurationService.findOffered(application.getOrganizationId(), application.getId(), tenantId);
-        return Future.all(viaProvider, password).map(v -> {
-            Validate.isTrue(viaProvider.result() || password.result() != null,
-                            "An invitation is accepted with a password, or with one of the application's own sign-in providers at its"
-                                    + " primary UI; add a password, or a provider and a primary UI, first.");
-            return null;
-        });
-    }
-
     @Override
     public Future<Void> sendInvitation(String email, String applicationId, EmailTemplate emailTemplate) {
         OrganizationParticipant inviter = requireOrgParticipant();
@@ -164,8 +143,7 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
                 .compose(user -> {
                     // an application's user is sent only an invitation they can accept
                     Future<Void> acceptable = user instanceof ApplicationParticipantIdentity applicationUser
-                            ? applicationRepository.requireById(applicationId, organizationId)
-                                                   .compose(application -> requireInvitationAcceptable(application, applicationUser.getTenantId()))
+                            ? inviteService.requireAcceptable(organizationId, applicationId, applicationUser.getTenantId())
                             : Future.succeededFuture();
                     return acceptable.compose(v -> inviteService.findPendingInvite(address, organizationId, applicationId))
                                      .compose(pending -> pending != null
@@ -187,12 +165,7 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
     // the invitation to claim user, whose scope it names
     private Future<PendingInvite> invite(OrganizationParticipant inviter, String email, String displayName,
                                          UserParticipantIdentity user, EmailTemplate emailTemplate) {
-        PendingInvite invite = new PendingInvite()
-                .setEmail(email)
-                .setDisplayName(displayName)
-                .setOrganizationId(inviter.getOrganizationId())
-                .setInvitedById(inviter.getId())
-                .setInvitedByName(participantDisplayName(inviter));
+        PendingInvite invite = invitation(inviter, email, displayName);
         if (user instanceof ApplicationParticipantIdentity applicationUser) {
             invite.setApplicationId(applicationUser.getApplicationId())
                   .setTenantId(applicationUser.getTenantId());
@@ -200,22 +173,17 @@ public class DefaultMemberInvitationService implements MemberInvitationService {
         return inviteService.createInvite(invite, emailTemplate);
     }
 
+    // an invitation into the inviter's organization, sent in the inviter's name
+    private static PendingInvite invitation(OrganizationParticipant inviter, String email, String displayName) {
+        return new PendingInvite().setEmail(email)
+                                  .setDisplayName(StringUtils.trimToNull(displayName))
+                                  .setOrganizationId(inviter.getOrganizationId())
+                                  .setInvitedById(inviter.getId())
+                                  .setInvitedByName(DomainUtil.senderNameOf(inviter));
+    }
+
     private OrganizationParticipant requireOrgParticipant() {
         // ApplicationParticipant is a sibling type, so app end-users are rejected here.
         return securityContext.requireParticipant(OrganizationParticipant.class);
-    }
-
-    private static String participantDisplayName(OrganizationParticipant participant) {
-        String ret = participant.getId();
-        if (participant.getMetadata() != null) {
-            String name = DomainUtil.displayNameOf(participant);
-            String email = participant.getMetadata().get("email");
-            if (name != null && !name.isBlank()) {
-                ret = name;
-            } else if (email != null && !email.isBlank()) {
-                ret = email;
-            }
-        }
-        return ret;
     }
 }

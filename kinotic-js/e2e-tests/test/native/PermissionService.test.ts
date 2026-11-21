@@ -54,7 +54,8 @@ describe('Kinotic JS', () => {
     it('defines a custom role from the catalog and deletes it once unused', async () => {
         const saved = await Kinotic.permissions.saveRole({id: null, name: 'Release Manager e2e', description: 'ships projects',
                                                           builtIn: false, resourceType: 'project', grantableOn: [],
-                                                          permissions: ['project_can_edit', 'project_can_read']})
+                                                          permissions: ['project_can_edit', 'project_can_read'],
+                                                          definitionPermissions: {}, tenantAssignable: false})
         expect(saved.id?.startsWith('project.')).toBe(true)
         expect(saved.builtIn).toBe(false)
         try {

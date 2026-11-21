@@ -20,7 +20,9 @@ import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.SystemOidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
@@ -183,8 +185,9 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     /**
      * Requires the bound participant to be the owner of {@code configuration}'s kind: a system participant
      * for a managed registration, since that row names a secret of the system's and is offered to
-     * every organization; a participant of the named organization for an organization's; a system participant
-     * for the system's own, which alone is kept under the system's id.
+     * every organization; a participant of the named organization for an organization's, or, for a tenant's, a
+     * participant of that tenant; a system participant for the system's own, which alone is kept under the
+     * system's id.
      *
      * @throws IllegalStateException  if no participant is bound to the current context
      * @throws AuthorizationException if the participant is not the owner
@@ -194,14 +197,25 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
             case ManagedOidcConfiguration _ -> securityContext.requireParticipant(SystemParticipant.class);
             case OwnedOidcConfiguration owned -> {
                 Validate.notBlank(owned.getOrganizationId(), "Organization id must be set on %s", owned.getClass().getSimpleName());
-                String orgId = DomainUtil.signInOwnerIdOf(securityContext.requireParticipant(Participant.class));
-                // the system's kind is the only one kept under the system's id, so neither owner can write the other's
-                Validate.isTrue(DomainUtil.SYSTEM_ID.equals(owned.getOrganizationId()) == (owned instanceof SystemOidcConfiguration),
-                                "%s cannot be kept under '%s'", owned.getClass().getSimpleName(), owned.getOrganizationId());
-                if (!orgId.equals(owned.getOrganizationId())) {
-                    throw new AuthorizationException("Cannot write " + owned.getClass().getSimpleName() + " with organizationId '"
-                                                     + owned.getOrganizationId() + "' while authenticated as organization '"
-                                                     + orgId + "'");
+                Participant participant = securityContext.requireParticipant(Participant.class);
+                if (participant instanceof ApplicationParticipant ofTenant) {
+                    // a tenant's own participant writes the configurations of its tenant's login, and no other
+                    ParticipantScope written = owned instanceof TenantOidcConfiguration forTenant
+                            ? new ParticipantScope(forTenant.getOrganizationId(), forTenant.getApplicationId(), forTenant.getTenantId())
+                            : null;
+                    if (ofTenant.getTenantId() == null || !ofTenant.getScope().equals(written)) {
+                        throw new AuthorizationException("Cannot write " + owned.getClass().getSimpleName() + " of another scope than the caller's tenant");
+                    }
+                } else {
+                    String orgId = DomainUtil.signInOwnerIdOf(participant);
+                    // the system's kind is the only one kept under the system's id, so neither owner can write the other's
+                    Validate.isTrue(DomainUtil.SYSTEM_ID.equals(owned.getOrganizationId()) == (owned instanceof SystemOidcConfiguration),
+                                    "%s cannot be kept under '%s'", owned.getClass().getSimpleName(), owned.getOrganizationId());
+                    if (!orgId.equals(owned.getOrganizationId())) {
+                        throw new AuthorizationException("Cannot write " + owned.getClass().getSimpleName() + " with organizationId '"
+                                                         + owned.getOrganizationId() + "' while authenticated as organization '"
+                                                         + orgId + "'");
+                    }
                 }
             }
         }
@@ -383,6 +397,11 @@ public class DefaultOidcConfigurationService extends AbstractCrudService<OidcCon
     public Future<Page<OwnedOidcConfiguration>> findOwnedByOrganization(String organizationId, Pageable pageable) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         return oidcRepository.findOwnedByOrganization(organizationId, pageable);
+    }
+
+    @Override
+    public Future<List<TenantOidcConfiguration>> findOwnedByTenant(String organizationId, String applicationId, String tenantId) {
+        return oidcRepository.findOwnedByTenant(organizationId, applicationId, tenantId);
     }
 
     @Override

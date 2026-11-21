@@ -236,13 +236,19 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
             }
             ret = changed ? bridged : null;
         }
+        // a role relation of the target may admit a tuple under a condition, which the version must then define
+        if (ret != null && target.has("conditions")) {
+            ret.set("conditions", target.get("conditions").deepCopy());
+        }
         return ret;
     }
 
     private static List<ObjectNode> roleTypes(ObjectNode definition) {
         List<ObjectNode> ret = new ArrayList<>();
         for (JsonNode typeDefinition : definition.path("type_definitions")) {
-            if (typeDefinition.path("type").asString().endsWith(AuthzConstants.ROLE_TYPE_SUFFIX)) {
+            String type = typeDefinition.path("type").asString();
+            // a role type holds its parts by a relation, so the type of the parts is defined wherever a role type is
+            if (type.endsWith(AuthzConstants.ROLE_TYPE_SUFFIX) || DefaultAuthzModelGenerator.ROLE_PART.equals(type)) {
                 ret.add((ObjectNode) typeDefinition);
             }
         }

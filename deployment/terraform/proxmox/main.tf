@@ -157,10 +157,12 @@ locals {
   es_healthy = "curl -sf 'http://${local.es_ips[0]}:9200/_cluster/health?wait_for_nodes=3&wait_for_status=yellow&timeout=30s' >/dev/null"
 
   # OpenFGA's Postgres, with trust authentication: the private network is the isolation, the
-  # decision Elasticsearch runs under, so there is no password to place
+  # decision Elasticsearch runs under, so there is no password to place. plan_cache_mode has
+  # Postgres plan each of the engine's prepared statements for its values, as compose.openfga.yml
+  # explains
   openfga_datastore_env = {
     OPENFGA_DATASTORE_ENGINE = "postgres"
-    OPENFGA_DATASTORE_URI    = "postgres://openfga@${local.openfga_db_private_ip}:5432/openfga?sslmode=disable"
+    OPENFGA_DATASTORE_URI    = "postgres://openfga@${local.openfga_db_private_ip}:5432/openfga?sslmode=disable&plan_cache_mode=force_custom_plan"
   }
   # Postgres listens on TCP only once its initialization is done, so a connection is readiness
   openfga_db_listening = "timeout 2 bash -c 'exec 3<>/dev/tcp/${local.openfga_db_private_ip}/5432'"

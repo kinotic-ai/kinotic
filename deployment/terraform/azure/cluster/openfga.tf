@@ -73,9 +73,10 @@ resource "kubernetes_secret" "openfga_db" {
   }
 
   # The URI the engine and its migration connect with: the server's name, which the privatelink
-  # zone resolves to the endpoint's address inside the VNet, over TLS
+  # zone resolves to the endpoint's address inside the VNet, over TLS. plan_cache_mode has Postgres
+  # plan each of the engine's prepared statements for its values, as compose.openfga.yml explains
   data = {
-    uri = "postgres://openfga:${urlencode(random_password.openfga_db.result)}@${azurerm_postgresql_flexible_server.openfga.fqdn}:5432/openfga?sslmode=require"
+    uri = "postgres://openfga:${urlencode(random_password.openfga_db.result)}@${azurerm_postgresql_flexible_server.openfga.fqdn}:5432/openfga?sslmode=require&plan_cache_mode=force_custom_plan"
   }
 }
 

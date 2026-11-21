@@ -83,7 +83,7 @@ public class DefaultPermissionService implements PermissionService {
 
     // In name order, with the id ordering roles that share a name so the paging has a unique order
     private Future<List<Role>> customRoles(String organizationId) {
-        return CursorPaging.readAll(pageable -> roles.findAll(organizationId, pageable), ROLE_PAGE_SIZE, Sort.by("name", "id"));
+        return CursorPaging.readAll(pageable -> roles.findAllOfOrganization(organizationId, pageable), ROLE_PAGE_SIZE, Sort.by("name", "id"));
     }
 
     @Override
@@ -126,14 +126,14 @@ public class DefaultPermissionService implements PermissionService {
                           .compose(saved -> relationships.findRolePermissions(SYSTEM, saved.getId())
                                   // read before the permissions are written, so an edit whose read failed is made
                                   // again as the same edit
-                                  .compose(before -> role.permissions().containsAll(before)
+                                  .compose(before -> role.permissions().containsAll(before.permissions())
                                           ? Future.succeededFuture(List.<String>of())
                                           : holders(saved.getId(), model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE)).compose(this::machines))
                                   .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
                                                                     .compose(v -> reconnected(machines)))
                                   .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
-                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions())));
+                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions()), Map.of(), false));
         });
     }
 
@@ -246,7 +246,7 @@ public class DefaultPermissionService implements PermissionService {
                                                                                     AuthzGraphUtil.authzObject(organizationId, resource));
                             return stored.type() == SubjectType.GROUP ? whileGroupKept(stored.id(), organizationId, bind) : bind.get();
                         }))))
-                .map(bindingId -> new Grant(bindingId, roleId, subject, resource));
+                .map(grantId -> new Grant(grantId, roleId, subject, resource));
     }
 
     // A role of the organization's own is granted while no edit or deletion of it is under way, so saveRole finds
@@ -265,9 +265,7 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return model().compose(model -> requireInOrganization(model, resource, organizationId))
-                // read before the grant is revoked, after which a failed read could not be made again
-                .compose(lineage -> relationships.findMembers(SYSTEM, AuthzUtil.bindingObject(object, grantId)))
-                .compose(this::machines)
+                .compose(lineage -> machines(List.of(AuthzUtil.grantMember(grantId))))
                 .compose(machines -> (AuthzConstants.ORGANIZATION_TYPE.equals(resource.type())
                         ? identities.removeAdministrators(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class,
                                                           () -> relationships.revoke(SYSTEM, grantId, object))
@@ -401,9 +399,10 @@ public class DefaultPermissionService implements PermissionService {
         return ret;
     }
 
+    // A role of one of the organization's applications is granted in that application's store, never here
     private Future<Role> requireRole(String roleId, String organizationId) {
         return roles.findById(roleId, organizationId).map(role -> {
-            if (role == null) {
+            if (role == null || role.getApplicationId() != null) {
                 throw new IllegalArgumentException("No role of the organization has id " + roleId);
             }
             return role;
@@ -450,7 +449,7 @@ public class DefaultPermissionService implements PermissionService {
     private Future<Void> requireUnused(String user, Set<String> boundOn, String what) {
         return relationships.findBindings(SYSTEM, user, boundOn).map(bindings -> {
             if (!bindings.isEmpty()) {
-                throw new IllegalStateException(what + " is held by " + bindings.size() + " grant(s); revoke them first");
+                throw new IllegalStateException(what + " is still held by grants; revoke them first");
             }
             return null;
         });
@@ -459,8 +458,8 @@ public class DefaultPermissionService implements PermissionService {
     private Future<RoleDefinition> defined(Role role, AuthzModel model) {
         String home = AuthzUtil.roleHome(role.getId());
         return relationships.findRolePermissions(SYSTEM, role.getId())
-                            .map(permissions -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
-                                                                   model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), permissions));
+                            .map(bundled -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
+                                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), bundled.permissions(), Map.of(), false));
     }
 
     private Future<AuthzModel> model() {
@@ -474,6 +473,8 @@ public class DefaultPermissionService implements PermissionService {
     private static void validate(Subject subject) {
         Validate.notNull(subject, "subject cannot be null");
         Validate.notNull(subject.type(), "subject type cannot be null");
+        // tenants are an application's, and so are grants to their users
+        Validate.isTrue(subject.type() != SubjectType.TENANT, "a grant in an organization is made to a member, a machine or a group");
         Validate.notBlank(subject.id(), "subject id cannot be blank");
     }
 

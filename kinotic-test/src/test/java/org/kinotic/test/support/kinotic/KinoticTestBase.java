@@ -94,9 +94,8 @@ public abstract class KinoticTestBase {
                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
                                                List.of("ADMIN"));
 
-    // The binding that makes the test participant the test organization's administrator, as the member who
-    // signed up for it would be; the store outlives the test contexts, so it is written once per run
-    private static final String TEST_PARTICIPANT_ADMIN_BINDING = "test-user-administers-" + TEST_ORG_ID;
+    // Whether the test participant administers the test organization, as the member who signed up for it
+    // would; the store outlives the test contexts, so the grant is written once per run
     private static boolean testParticipantAdministers;
 
     @Autowired
@@ -167,11 +166,8 @@ public abstract class KinoticTestBase {
         try {
             await(relationshipService.ensure(AuthzStoreService.SYSTEM,
                                              List.of(new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, organization)))
-                                     .compose(v -> relationshipService.ensureBound(AuthzStoreService.SYSTEM,
-                                                                                   TEST_PARTICIPANT_ADMIN_BINDING,
-                                                                                   AuthzConstants.ORGANIZATION_ADMIN_ROLE,
-                                                                                   member,
-                                                                                   organization)));
+                                     .compose(v -> relationshipService.bind(AuthzStoreService.SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE,
+                                                                            member, organization)));
             ret = true;
         } catch (Exception e) {
             ret = false;

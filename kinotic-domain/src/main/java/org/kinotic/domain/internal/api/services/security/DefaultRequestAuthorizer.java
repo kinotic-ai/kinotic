@@ -11,6 +11,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
@@ -71,6 +72,9 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  *   <li>A definition's rows are checked on the definition within the caller's tenant for an application's user, and
  *       on the definition itself for every other caller and for a function its contract declares acting across
  *       tenants.</li>
+ *   <li>A resource of a type an application's own services declare is checked on the caller's tenant, or on the
+ *       application for a caller in no tenant: the caller must hold the permission there, and the service
+ *       decides which of the type's resources belong to that tenant.</li>
  * </ul>
  * A refusal is answered "Not authorized", followed by its reason when {@code kinotic.debug} is on.
  */
@@ -332,11 +336,27 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                String store,
                                Function<ParameterReference, String> arguments) {
         AuthzCheckC3Decorator check = spec.check();
+        Future<Void> ret;
+        try {
+            requireWithinTenant(participant, check, permission.getPermission());
+            requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
+            ret = checkOn(checkedOn(check, participant.getScope(), store), spec, permission, participant, store, arguments);
+        } catch (AuthorizationException e) {
+            ret = Future.failedFuture(e);
+        }
+        return ret;
+    }
+
+    private Future<Void> checkOn(Resource checked,
+                                 FunctionSpec spec,
+                                 AuthzPermissionChoice permission,
+                                 ScopedParticipant participant,
+                                 String store,
+                                 Function<ParameterReference, String> arguments) {
+        AuthzCheckC3Decorator check = spec.check();
         ParticipantScope scope = participant.getScope();
         Future<Void> ret;
         try {
-            requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
-            Resource checked = scopeLevelOf(check, scope);
             String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, arguments), scope);
             if (!AuthzUtil.isObjectId(resourceId)) {
                 throw securityExceptions.notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
@@ -344,10 +364,9 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             // An application's user is checked on the definition within its tenant, an object no store holds tuples
             // for: its two edges come with the check, the tenant's from the caller's scope and the definition's from
             // the request, and the model reaches it through a grant on the tenant only for a definition placed in the
-            // application. A function acting on every tenant's rows is checked on the definition itself, which a
-            // grant within one tenant does not reach, and so is an application's machine, which belongs to no tenant
-            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null
-                    && !check.isAcrossTenants();
+            // application. A caller in no tenant is checked on the definition itself: an application's machine, and
+            // an organization's member or runtime, which a function acting on every tenant's rows admits alone
+            boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
             String object = withinTenant
                     ? AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
                     : AuthzUtil.object(checked.type(), resourceId);
@@ -356,14 +375,29 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                    AuthzUtil.permissionName(check.getPermissionResource(), permission.getPermission()),
                                                                    object);
             Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
-            ret = relationships.check(store, relationship, consistency, edges)
-                               .compose(allowed -> allowed
+            // an application's store has no relation for a permission of the application's own services: a role
+            // holds one by its name, which the check asks for
+            boolean ofService = !SYSTEM.equals(store) && !AuthzModelGenerator.APPLICATION_TYPES.contains(check.getPermissionResource());
+            Future<Boolean> held = ofService
+                    ? relationships.checkServicePermission(store, relationship.user(), relationship.relation(), object, consistency)
+                    : relationships.check(store, relationship, consistency, edges);
+            ret = held.compose(allowed -> allowed
                                        ? Future.succeededFuture()
                                        : Future.failedFuture(refusal(relationship, permission.getReason())));
         } catch (AuthorizationException e) {
             ret = Future.failedFuture(e);
         }
         return ret;
+    }
+
+    // A function acting on the rows of the tenants a call names serves an organization's members and the runtimes
+    // of its applications; a participant of an application is refused it whatever it is granted, so no grant lets
+    // an application's user out of its tenant
+    private void requireWithinTenant(Participant participant, AuthzCheckC3Decorator check, String permission) {
+        if (check.isAcrossTenants() && participant instanceof ApplicationParticipant) {
+            throw securityExceptions.notAuthorized("{} of {} is asked across tenants, which no participant of an application may",
+                                                   permission, check.getPermissionResource());
+        }
     }
 
     // A delegate exercises its owner's permissions within its type's ceiling, so a client the owner authorized reaches
@@ -382,6 +416,15 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                 : securityExceptions.notAuthorized("{} on {} for {}: {}", relationship.relation(), relationship.object(), relationship.user(), reason);
     }
 
+    // The resource the check is made on: the one it declares, or, for a resource of an application's own type, the
+    // caller's tenant, which carries every type of its application and where the caller holds the type's permissions
+    // through its grants; either way a scope level is then the caller's own, as scopeLevelOf decides
+    private Resource checkedOn(AuthzCheckC3Decorator check, ParticipantScope scope, String store) {
+        Resource declared = new Resource(check.getResource(), check.getResourceId());
+        boolean placed = SYSTEM.equals(store) || AuthzModelGenerator.APPLICATION_TYPES.contains(declared.type());
+        return scopeLevelOf(placed ? declared : SCOPE_LEVELS.getFirst(), scope);
+    }
+
     /**
      * The object a check on the caller's scope is made on: the level the check names, or, for a caller whose
      * scope stops above it, the caller's own level, as an organization member asked for an application's
@@ -389,8 +432,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
      * Every ancestor carries the permissions of the levels below it, so the check keeps its meaning there. A
      * check on anything but a scope level is kept as declared.
      */
-    private Resource scopeLevelOf(AuthzCheckC3Decorator check, ParticipantScope scope) {
-        Resource ret = new Resource(check.getResource(), check.getResourceId());
+    private Resource scopeLevelOf(Resource declared, ParticipantScope scope) {
+        Resource ret = declared;
         int level = SCOPE_LEVELS.indexOf(ret);
         if (level >= 0) {
             while (level < SCOPE_LEVELS.size()

@@ -17,6 +17,7 @@ import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
+import org.kinotic.domain.api.repositories.RoleRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -56,6 +57,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final ApplicationStoreProvisioner storeProvisioner;
     private final AuthzStoreService storeService;
     private final AuthzStoreRepository stores;
+    private final RoleRepository roles;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectRepository projectRepository,
@@ -68,7 +70,8 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                      RelationshipService relationships,
                                      ApplicationStoreProvisioner storeProvisioner,
                                      AuthzStoreService storeService,
-                                     AuthzStoreRepository stores) {
+                                     AuthzStoreRepository stores,
+                                     RoleRepository roles) {
         super(repository, securityContext);
         this.projectRepository = projectRepository;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -80,6 +83,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         this.storeProvisioner = storeProvisioner;
         this.storeService = storeService;
         this.stores = stores;
+        this.roles = roles;
     }
 
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
@@ -193,13 +197,15 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                                              .transform(deleted -> Future.<Application>failedFuture(e)));
     }
 
-    // The application leaves the graph with every grant made on it, and its store goes with everything in it, so an
-    // application created under the same id afterwards starts with no grant and an empty store
+    // The application leaves the graph with every grant made on it, and its store goes with everything in it and
+    // with the rows of the roles it held, so an application created under the same id afterwards starts with no
+    // grant, no role of its own and an empty store
     private Future<Void> released(String applicationId) {
         String organizationId = requireOrganizationId();
         String store = AuthzGraphUtil.authzApplicationId(organizationId, applicationId);
         return relationships.removeObject(AuthzStoreService.SYSTEM, AuthzGraphUtil.authzApplication(organizationId, applicationId))
                             .compose(v -> storeService.deleteStore(store))
+                            .compose(v -> roles.deleteAllForApplication(applicationId, organizationId))
                             .compose(v -> stores.deleteByIdSync(store));
     }
 
