@@ -87,32 +87,32 @@
         </details>
       </section>
 
-      <section class="flex flex-col gap-3.5">
+      <section v-if="started" class="flex flex-col gap-3.5">
         <h2 :class="STEP_HEADING_CLASS"><span :class="STEP_NUMBER_CLASS">3</span>Then follow along</h2>
         <ol class="overflow-hidden rounded-xl border border-surface-200 bg-surface-0 dark:border-surface-700 dark:bg-surface-800/30">
           <li v-for="(step, index) in steps" :key="step.id"
               class="flex items-start gap-4 border-b border-surface-100 px-5 py-4 last:border-b-0 dark:border-surface-800">
-            <span :class="['mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', markerClass(step)]">
+            <span :class="['mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', markerClass(step, index)]">
               <Check v-if="step.done" :size="13" :stroke-width="3.5" aria-hidden="true" />
               <X v-else-if="step.failed" :size="13" :stroke-width="3.5" aria-hidden="true" />
+              <LoaderCircle v-else-if="index === currentIndex" :size="20" :stroke-width="2" class="animate-spin" aria-hidden="true" />
             </span>
             <div class="min-w-0 flex-1">
               <h3 class="text-[15px] font-semibold text-surface-950 dark:text-surface-0">{{ step.title }}</h3>
               <p class="mt-0.5 text-sm leading-6 text-muted-color">{{ step.description }}</p>
-              <RouterLink v-if="!loading && step.link" :to="step.link.to"
+              <RouterLink v-if="step.link" :to="step.link.to"
                           class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-surface-600 hover:text-surface-950 dark:text-surface-300 dark:hover:text-surface-0">
                 {{ step.link.label }}
                 <ArrowRight :size="12" :stroke-width="2" aria-hidden="true" />
               </RouterLink>
             </div>
-            <Skeleton v-if="loading" width="4rem" height="0.75rem" class="mt-1.5" />
-            <span v-else-if="step.done" class="mt-0.5 whitespace-nowrap text-xs font-semibold text-green-700 dark:text-green-400">{{ step.doneDetail }}</span>
+            <span v-if="step.done" class="mt-0.5 whitespace-nowrap text-xs font-semibold text-green-700 dark:text-green-400">{{ step.doneDetail }}</span>
             <span v-else-if="step.failed" class="mt-0.5 whitespace-nowrap text-xs font-semibold text-red-600 dark:text-red-400">Failed</span>
             <span v-else-if="index === currentIndex" class="mt-0.5 whitespace-nowrap text-xs font-semibold text-teal-700 dark:text-teal-300">Waiting</span>
           </li>
         </ol>
-        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       </section>
+      <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
     </div>
   </div>
   </div>
@@ -121,8 +121,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Button from 'primevue/button'
-import Skeleton from 'primevue/skeleton'
-import { ArrowRight, Check, Copy, GitBranch, X } from '@lucide/vue'
+import { ArrowRight, Check, Copy, GitBranch, LoaderCircle, X } from '@lucide/vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DelegateType, type DelegatingParticipantIdentity, DeploymentStatusType, type GitHubAppInstallation, type Project,
          RepoHostType, type RepositoryHost } from '@kinotic-ai/management-api'
@@ -305,15 +304,20 @@ const steps = computed<Step[]>(() => [
   }
 ])
 
+// The progress list appears once the user's AI has completed or failed a step
+const started = computed(() => !loading.value && steps.value.some(step => step.done || step.failed))
+
 // The first step not done is the one the page is waiting on
 const currentIndex = computed(() => steps.value.findIndex(step => !step.done))
 
-function markerClass(step: Step): string {
+function markerClass(step: Step, index: number): string {
   let ret: string
   if (step.done) {
     ret = 'bg-green-500 text-white'
   } else if (step.failed) {
     ret = 'bg-red-500 text-white'
+  } else if (index === currentIndex.value) {
+    ret = 'text-teal-600 dark:text-teal-300'
   } else {
     ret = 'ring-1 ring-inset ring-surface-300 dark:ring-surface-600'
   }
