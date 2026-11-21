@@ -259,7 +259,7 @@ An organization's own provider signs in only the members its administrators adde
 The portal's emails link to the portal. A server that embeds Kinotic's modules to serve its own UI passes an `EmailTemplate` in process instead — to `MemberInvitationService.addOrganizationUser`, `addApplicationUser` and `sendInvitation`, and to `SignUpService.initiateLocalSignUp`. No published service accepts one.
 
 - `uiBaseUrl` is the UI whose `/invite/accept?token=` or `/signup/verify?token=` page the link opens: an absolute http(s) URL with no path suffix, query, fragment or trailing slash.
-- `subject`, `htmlBody` and `textBody` are Handlebars sources. Write URLs with triple braces, `{{{acceptUrl}}}`, so they are not escaped.
+- `subject`, `htmlBody` and `textBody` are Handlebars sources. Write URLs with triple braces, `{{{acceptUrl}}}`, so they are not escaped. Variables and the `{{#if}}` and `{{#unless}}` sections are available; partials, inline partials and the `{{#each}}` helper are refused when the template is saved.
 - An invalid template fails the call with `IllegalArgumentException` before anything is saved.
 
 <table>
@@ -1331,7 +1331,7 @@ The app server answers at each application's own API host, `<organizationId>--<a
     </td>
     
     <td>
-      End the calling page's login; the session, and the realtime connections established on it, end once no page's login remains
+      End the calling page's login and the realtime connections established on it; the session ends once it holds no page's login and no sign-in in progress
     </td>
   </tr>
   
