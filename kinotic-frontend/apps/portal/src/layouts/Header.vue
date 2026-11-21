@@ -111,6 +111,9 @@
     <div class="flex shrink-0 items-center gap-2">
       <HeaderSearchButton @open="searchOpen = true" />
 
+      <HeaderIconButton label="Send feedback about Kinotic" tooltip="Send feedback" @click="feedbackOpen = true">
+        <MessageSquarePlus :size="18" :stroke-width="1.75" aria-hidden="true" />
+      </HeaderIconButton>
       <HeaderIconButton class="max-sm:hidden" :href="DOCUMENTATION_URL" label="Help (opens the documentation in a new tab)" tooltip="Help">
         <CircleHelp :size="18" :stroke-width="1.75" aria-hidden="true" />
       </HeaderIconButton>
@@ -119,6 +122,7 @@
 
     <CommandPalette v-model:visible="searchOpen" :groups="searchGroups" label="Search applications, pages and actions"
                     @show="onSearchShow" />
+    <FeedbackDrawer :visible="feedbackOpen" @close="feedbackOpen = false" />
   </div>
 </template>
 
@@ -131,7 +135,8 @@ import { Kinotic, Pageable } from '@kinotic-ai/core';
 import type { Project } from '@kinotic-ai/management-api';
 import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, createDebug, HeaderIconButton, HeaderSearchButton, ScopePill,
          sidebarPageEntries, ThemeToggleButton } from '@kinotic-ai/frontend-common'
-import { BookOpenText, CircleHelp, Plus } from '@lucide/vue';
+import { BookOpenText, CircleHelp, MessageSquarePlus, Plus } from '@lucide/vue';
+import FeedbackDrawer from '@/components/FeedbackDrawer.vue';
 import { DOCUMENTATION_URL } from '@/util/externalLinks';
 
 const debug = createDebug('header');
@@ -149,6 +154,7 @@ const route = useRoute();
 const router = useRouter();
 
 const searchOpen = ref(false);
+const feedbackOpen = ref(false);
 
 const projectsForCurrentApp = ref<Project[]>([]);
 
@@ -171,6 +177,7 @@ const searchGroups = computed<CommandPaletteGroup[]>(() => [
     label: 'Actions',
     entries: [
       { key: 'action:new-application', label: 'New application', icon: markRaw(Plus), run: () => router.push('/applications?add=true') },
+      { key: 'action:feedback', label: 'Send feedback', icon: markRaw(MessageSquarePlus), run: () => { feedbackOpen.value = true } },
       { key: 'action:docs', label: 'Open documentation', icon: markRaw(BookOpenText), external: true,
         run: () => window.open(DOCUMENTATION_URL, '_blank', 'noopener') }
     ]

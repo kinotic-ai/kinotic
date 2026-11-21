@@ -27,6 +27,7 @@ declare module 'vue' {
     EnumNode: typeof import('./src/components/nodes/EnumNode.vue')['default']
     ERTable: typeof import('./src/components/modals/ERTable.vue')['default']
     FeatureEmptyState: typeof import('./src/components/FeatureEmptyState.vue')['default']
+    FeedbackDrawer: typeof import('./src/components/FeedbackDrawer.vue')['default']
     GitHubLinkStatus: typeof import('./src/components/GitHubLinkStatus.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']

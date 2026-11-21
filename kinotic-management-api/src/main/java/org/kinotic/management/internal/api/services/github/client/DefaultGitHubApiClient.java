@@ -152,6 +152,27 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     @Override
+    public Future<CreatedIssue> createIssue(String installationToken,
+                                            String repoFullName,
+                                            String title,
+                                            String body,
+                                            List<String> labels) {
+        JsonObject request = new JsonObject()
+                .put("title", title)
+                .put("body", body)
+                .put("labels", new JsonArray(labels));
+        return tokenAuthedPost("/repos/" + repoFullName + "/issues", installationToken, request)
+                .compose(resp -> {
+                    if (resp.statusCode() == 201) {
+                        JsonObject json = resp.bodyAsJsonObject();
+                        return Future.succeededFuture(new CreatedIssue(json.getInteger("number"),
+                                                                       json.getString("html_url")));
+                    }
+                    return Future.failedFuture(httpError("createIssue", resp));
+                });
+    }
+
+    @Override
     public Future<Void> createRef(String installationToken,
                                   String repoFullName,
                                   String refName,
@@ -330,6 +351,15 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                             }
                             return ret;
                         });
+    }
+
+    @Override
+    public Future<Long> findRepositoryInstallationId(String repoFullName) {
+        return request(HttpMethod.GET, "/repos/" + repoFullName + "/installation", jwtFactory.getAppJwt())
+                .send()
+                .compose(resp -> resp.statusCode() == 200
+                        ? Future.succeededFuture(resp.bodyAsJsonObject().getLong("id"))
+                        : Future.failedFuture(httpError("findRepositoryInstallationId", resp)));
     }
 
     @Override

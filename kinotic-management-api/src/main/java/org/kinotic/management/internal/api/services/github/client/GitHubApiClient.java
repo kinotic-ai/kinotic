@@ -18,6 +18,7 @@ public interface GitHubApiClient {
     /** Standard token scopes used in the platform. */
     Map<String, String> READ_CONTENTS = Map.of("contents", "read");
     Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
+    Map<String, String> WRITE_ISSUES = Map.of("issues", "write");
     /**
      * Scope for {@link #createRepoFromTemplate}: repo creation is an administration
      * operation, and the generate endpoint additionally requires contents read.
@@ -45,6 +46,18 @@ public interface GitHubApiClient {
                                 String repoFullName,
                                 String message,
                                 String treeSha);
+
+    /**
+     * Opens an issue on {@code repoFullName}.
+     *
+     * @param installationToken token with {@code issues:write} on the target repo
+     * @param labels            labels the issue carries
+     */
+    Future<CreatedIssue> createIssue(String installationToken,
+                                     String repoFullName,
+                                     String title,
+                                     String body,
+                                     List<String> labels);
 
     /**
      * Creates a ref on {@code repoFullName}. Idempotent: a 422 with body
@@ -122,6 +135,11 @@ public interface GitHubApiClient {
      * permission to access, paging until GitHub's collection is exhausted.
      */
     Future<List<InstallationDetails>> listUserInstallations(String userAccessToken);
+
+    /**
+     * The id of the system's GitHub App installation that covers the repo {@code repoFullName}.
+     */
+    Future<Long> findRepositoryInstallationId(String repoFullName);
 
     /**
      * The login of the user behind {@code userAccessToken}.
