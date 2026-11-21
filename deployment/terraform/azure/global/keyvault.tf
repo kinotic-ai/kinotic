@@ -155,13 +155,13 @@ resource "azurerm_key_vault_secret" "github_webhook_secret" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
-# The kinotic-feedback GitHub App's private key, which the servers that load management-api import as
+# The kinotic-internal GitHub App's private key, which the servers that load management-api import as
 # kinotic.managementApi.github.feedbackApp.appPrivateKey. Supplied via
 # TF_VAR_github_feedback_app_private_key on first apply and rotated like github_app_private_key.
 resource "azurerm_key_vault_secret" "github_feedback_app_private_key" {
   name         = "kinotic-github-feedback-app-private-key"
   key_vault_id = azurerm_key_vault.platform.id
-  content_type = "Private key of the kinotic-feedback GitHub App"
+  content_type = "Private key of the kinotic-internal GitHub App"
   value        = var.github_feedback_app_private_key
 
   tags = local.common_tags

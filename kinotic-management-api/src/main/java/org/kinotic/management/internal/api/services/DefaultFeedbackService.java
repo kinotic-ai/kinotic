@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
-@ConditionalOnProperty("kinotic.managementApi.github.feedbackApp.appId")
+@ConditionalOnProperty("kinotic.managementApi.github.feedbackApp.appPrivateKey")
 public class DefaultFeedbackService implements FeedbackService {
 
     private static final String FEEDBACK_REPO = "kinotic-ai/kinotic";
