@@ -35,6 +35,7 @@ import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
@@ -60,6 +61,7 @@ import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.TenantService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.management.internal.api.services.security.CallerPermissions;
@@ -121,6 +123,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private static final List<Integer> ENTITY_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_ENTITY_ROLES", "1,100,1000,10000");
     private static final List<Integer> TENANT_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_ROLES", "2,10,25,50");
     private static final List<Integer> SERVICE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_SERVICES", "10,1000,5000");
+    private static final List<Integer> DELETION_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_DELETION_TENANTS", "100,1000,5000");
     private static final String READING_ROWS = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
     private static final String REPORT_NAMESPACE = "org.kinotic.benchmark";
     private static final String REPORT_SERVICE_NAME = REPORT_NAMESPACE + ".ReportService";
@@ -157,6 +160,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private ProjectService projectService;
     @Autowired
     private EntityDefinitionService entityDefinitionService;
+    @Autowired
+    private TenantService tenantService;
     @Autowired
     private NamedQueriesDefinitionService namedQueriesDefinitionService;
     @Autowired
@@ -371,6 +376,66 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             entityRoleRows(holder, refused);
         }
         metrics("entity-roles");
+    }
+
+    /**
+     * Measures deleting an entity definition and deleting a tenant as the tenants placed in the application's store
+     * grow in number, with the definition's rows granted on in three of them, beside one read of the store for each
+     * placed tenant.
+     */
+    @Test
+    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    public void measureDeletions() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Deletion benchmark " + Instant.now());
+        line("");
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+        String application = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
+        String viewer = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
+        // creating the sample definition provisions the sample application's store
+        person = personDefinition();
+        line("| tenants placed | delete a definition, ms | delete a tenant, ms | one read for each placed tenant, ms |");
+        line("|---:|---:|---:|---:|");
+        String run = suffix();
+        int placed = 0;
+        for (int target : DELETION_STAGES) {
+            List<RelationshipTuple> containments = new ArrayList<>();
+            for (; placed < target; placed++) {
+                containments.add(AuthzGraphUtil.tenantContainment(TEST_ORG_ID, TEST_APP_ID, "del-" + run + "-" + placed));
+            }
+            write(appStore, containments);
+            List<String> tenants = await(relationships.findContained(appStore, application, AuthzConstants.TENANT_TYPE));
+            EntityDefinition car = await(runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("Del" + run + target))).getLeft();
+            for (int i = 0; i < 3; i++) {
+                grantOnRows(car.getId(), "del-" + run + "-" + i, viewer);
+            }
+            await(runAsOrganization(() -> entityDefinitionService.unPublish(car.getId())));
+
+            long start = System.nanoTime();
+            awaitLong(runAsOrganization(() -> entityDefinitionService.deleteById(car.getId())));
+            long definition = System.nanoTime() - start;
+
+            Tenant tenant = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(TEST_APP_ID, "Deleted " + run + " " + target, "benchmark")));
+            grantOnRows(person.getId(), tenant.getId(), viewer);
+            start = System.nanoTime();
+            awaitLong(runAsOrganization(() -> tenantService.deleteById(TEST_APP_ID, tenant.getId())));
+            long deletedTenant = System.nanoTime() - start;
+
+            start = System.nanoTime();
+            for (String placedTenant : tenants) {
+                await(relationships.read(appStore, AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
+                                                                    AuthzUtil.tenantDefinitionId(car.getId(), AuthzUtil.idOf(placedTenant)))));
+            }
+            line("| " + tenants.size() + " | " + ms(definition) + " | " + ms(deletedTenant) + " | " + ms(System.nanoTime() - start) + " |");
+        }
+    }
+
+    // A grant on a definition's rows within a tenant, with the edges the store holds for rows granted on
+    private void grantOnRows(String definitionId, String tenantId, String role) throws Exception {
+        await(relationships.ensure(appStore, AuthzGraphUtil.tenantDefinitionEdges(definitionId, tenantId)));
+        await(relationships.bind(appStore, role, AuthzGraphUtil.authzUser("del-" + suffix()),
+                                 AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(definitionId, tenantId))));
     }
 
     /**

@@ -439,6 +439,17 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
+    public Future<Void> removeObjectsOf(String store, String user, String type) {
+        return readByUser(store, user, type).compose(held -> {
+            Future<Void> ret = Future.succeededFuture();
+            for (String object : held.stream().map(RelationshipTuple::object).distinct().toList()) {
+                ret = ret.compose(v -> removeObject(store, object));
+            }
+            return ret;
+        });
+    }
+
+    @Override
     public Future<Void> removeSubject(String store, String user) {
         // the engine reads by user within one object type, so every type a version of the store's model has had is
         // read: a relationship written under a type the newest version dropped is still held, and holds again

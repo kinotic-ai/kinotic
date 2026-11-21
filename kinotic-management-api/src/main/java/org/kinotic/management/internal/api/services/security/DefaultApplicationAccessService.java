@@ -256,8 +256,11 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         } else if (AuthzConstants.ENTITY_DEFINITION_TYPE.equals(resource.type())) {
             ret = requireDefinition(application, resource.id());
         } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(resource.type())) {
+            // the store holds the edges of a definition within a tenant once it holds a grant on it, which is how
+            // the deletion of either finds the grants made on the two together
             ret = requireDefinition(application, AuthzUtil.definitionOf(resource.id()))
-                    .compose(v -> placed(application, AuthzUtil.tenantOf(resource.id())));
+                    .compose(v -> placed(application, AuthzUtil.tenantOf(resource.id())))
+                    .compose(v -> relationships.ensure(storeOf(application), edgesOf(resource)));
         } else {
             ret = Future.succeededFuture();
         }

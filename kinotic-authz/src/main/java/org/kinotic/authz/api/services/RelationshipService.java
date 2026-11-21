@@ -192,6 +192,17 @@ public interface RelationshipService {
     Future<Void> removeObject(String store, String object);
 
     /**
+     * Takes out of a store every resource of a type that the given user is related to, each as
+     * {@link #removeObject(String, String)} does.
+     *
+     * @param store the store, named as its record is
+     * @param user  the user the resources are related to, in {@code type:id} form
+     * @param type  the type of the resources
+     * @return completes when the store holds nothing of the resources
+     */
+    Future<Void> removeObjectsOf(String store, String user, String type);
+
+    /**
      * Takes a user, or the members of a group or a tenant as a whole, out of a store: every grant made to it, and
      * every relationship it holds, such as its memberships. A user created again under the same id starts with no
      * grant.

@@ -224,8 +224,8 @@ public final class AuthzGraphUtil {
 
     /**
      * The two edges of a definition within a tenant, the object a tenant's user is checked on for the definition's
-     * rows: the definition's, and the tenant's. No store holds tuples for the object, so a check on it is given
-     * the edges.
+     * rows: the definition's, and the tenant's. A store holds them only for an object granted on, so a check on
+     * it is given the edges.
      *
      * @param definitionId the definition's id
      * @param tenantId     the tenant's id within its application

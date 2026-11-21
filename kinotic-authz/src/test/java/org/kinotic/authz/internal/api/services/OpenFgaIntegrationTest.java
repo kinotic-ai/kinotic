@@ -852,6 +852,35 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
+    void theRowsGrantedOnAreRemovedWithTheirDefinitionOrTheirTenant() throws Exception {
+        String store = "acme.crm-pairs";
+        await(storeService.ensureStore(store));
+        await(relationshipService.ensureModelWithRoles(store, generator.applicationModel(List.of(entitiesRepository()), List.of())));
+        // the store holds the edges of the rows granted on, which a check is given as well
+        for (List<String> rows : List.of(List.of("crm.invoice", "north"), List.of("crm.invoice", "south"), List.of("crm.order", "north"))) {
+            await(relationshipService.ensure(store, edgesOf(rows.get(0), rows.get(1))));
+            await(relationshipService.bind(store, "entity_definition.viewer", "user:bob-pairs",
+                                           "tenant_definition:" + rows.get(0) + "@" + rows.get(1)));
+        }
+        assertTrue(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.invoice", "north"));
+        assertTrue(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.invoice", "south"));
+
+        await(relationshipService.removeObjectsOf(store, "entity_definition:crm.invoice", "tenant_definition"));
+
+        assertFalse(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.invoice", "north"));
+        assertFalse(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.invoice", "south"));
+        assertEquals(List.of(), await(relationshipService.read(store, "tenant_definition:crm.invoice@north")));
+        assertEquals(List.of(), await(relationshipService.read(store, "tenant_definition:crm.invoice@south")));
+        assertTrue(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.order", "north"));
+
+        await(relationshipService.removeObjectsOf(store, "tenant:north", "tenant_definition"));
+
+        assertFalse(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.order", "north"));
+        assertEquals(List.of(), await(relationshipService.read(store, "tenant_definition:crm.order@north")));
+        await(storeService.deleteStore(store));
+    }
+
+    @Test
     void theGrantsOfAResourceAreAllFoundHoweverManyItHas() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(relationshipService.ensureModelWithRoles(SYSTEM, model));
