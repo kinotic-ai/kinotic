@@ -77,6 +77,12 @@ output "snapshots_container" {
   value       = azurerm_storage_container.snapshots.name
 }
 
+output "licenses_db_backup_env" {
+  description = "The license database backup's destination, for the keychain's licenses-db-backup.env (dev-server-secret-file.sh)"
+  value       = "LICENSES_DB_BACKUP_CONTAINER_URL=${azurerm_storage_account.snapshots.primary_blob_endpoint}${azurerm_storage_container.licenses_db_backups.name}\nLICENSES_DB_BACKUP_SAS=${trimprefix(data.azurerm_storage_account_blob_container_sas.licenses_db_backups.sas, "?")}"
+  sensitive   = true
+}
+
 output "email_endpoint" {
   description = "The shared Communication Services endpoint the servers send mail through"
   value       = local.global.email_service_endpoint
