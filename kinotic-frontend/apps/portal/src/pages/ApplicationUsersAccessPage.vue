@@ -64,8 +64,8 @@ import { GrantsTable, type SubjectOption } from '@kinotic-ai/frontend-common/man
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDrawer from '@/components/access/EndUserGrantDrawer.vue'
 import RolesTab from '@/components/access/RolesTab.vue'
-import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, endUsersOption, resourceLabel, resourceOf, reaches, tenantOf,
-         tenantOption, whereChoices } from '@/components/access/applicationResources'
+import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, endUsersOption, grantsDescription, isWholeApplication,
+         resourceLabel, resourceOf, reaches, tenantOf, tenantOption, whereChoices } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
 
 /**
@@ -129,22 +129,10 @@ const shown = computed(() => subjectFilter.value
     ? grants.value.filter(grant => grant.subject.type === subjectFilter.value?.type && grant.subject.id === subjectFilter.value?.id)
     : grants.value)
 
-const whereTitle = computed(() => resource.value.type === 'application'
+const whereTitle = computed(() => isWholeApplication(resource.value)
     ? 'Grants on the whole application'
     : `Grants reaching ${resourceLabel(resource.value, definitions.value)}`)
-const whereDescription = computed(() => {
-  let ret: string
-  if (resource.value.type === 'tenant') {
-    ret = 'Who holds a role on this tenant, and who holds one on the whole application, which reaches it too.'
-  } else if (resource.value.type === 'entity_definition') {
-    ret = 'Who holds a role on these rows in every tenant, and who holds one on the whole application, which reaches them too.'
-  } else if (resource.value.type === 'tenant_definition') {
-    ret = 'Who holds a role on these rows alone, and who holds one on the tenant, on the definition or on the whole application, which reach them too.'
-  } else {
-    ret = 'Who holds a role on the application, and so on the rows of every definition in every tenant.'
-  }
-  return ret
-})
+const whereDescription = computed(() => grantsDescription(resource.value))
 
 /** The tenants known so far: those the application's administrators created and those a grant was made on. */
 const tenants = computed(() => {

@@ -91,7 +91,7 @@ import { useToast } from 'primevue/usetoast'
 import type { RoleDefinition } from '@kinotic-ai/management-api'
 import { FormDrawer, permissionLabel, showErrorToast, splitPermission, typeLabel } from '@kinotic-ai/frontend-common'
 import { homeTypes, typesWithin } from '@/util/access'
-import { type DefinitionOption, definitionName } from './applicationResources'
+import { type DefinitionOption, ENTITY_DEFINITION, TENANT, definitionName } from './applicationResources'
 import { roleSourceOf } from './roleSource'
 
 /**
@@ -114,8 +114,8 @@ const props = defineProps<{
 }>()
 
 // a role of an application is homed at the tenant, and the rows' permissions are those of the definition's type
-const APPLICATION_ROLE_HOME = 'tenant'
-const ROWS_TYPE = 'entity_definition'
+const APPLICATION_ROLE_HOME = TENANT
+const ROWS_TYPE = ENTITY_DEFINITION
 
 const emit = defineEmits<{
   (e: 'update:visible', visible: boolean): void

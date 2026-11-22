@@ -221,14 +221,37 @@ public final class AuthzNameUtil {
         return definitionId + "@" + tenantId;
     }
 
-    /** The definition a {@link AuthzConstants#TENANT_DEFINITION_TYPE} id names; a definition's id holds no {@code @}. */
-    public static String definitionOf(String tenantDefinitionId) {
-        return tenantDefinitionId.substring(0, tenantDefinitionId.indexOf('@'));
+    /** Whether an id names a definition's rows within a tenant: a definition's id, {@code @} and a tenant's id. */
+    public static boolean isTenantDefinitionId(String id) {
+        return id != null && id.indexOf('@') > 0;
     }
 
-    /** The tenant a {@link AuthzConstants#TENANT_DEFINITION_TYPE} id names. */
-    public static String tenantOf(String tenantDefinitionId) {
-        return tenantDefinitionId.substring(tenantDefinitionId.indexOf('@') + 1);
+    /**
+     * The definition a resource names: the resource when it is an entity definition, the definition of a definition's
+     * rows within a tenant, and null for any other resource. A definition's id holds no {@code @}.
+     */
+    public static String definitionOf(Resource resource) {
+        String ret = null;
+        if (AuthzConstants.ENTITY_DEFINITION_TYPE.equals(resource.type())) {
+            ret = resource.id();
+        } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(resource.type())) {
+            ret = resource.id().substring(0, resource.id().indexOf('@'));
+        }
+        return ret;
+    }
+
+    /**
+     * The tenant a resource names: the resource when it is a tenant, the tenant of a definition's rows within a
+     * tenant, and null for any other resource.
+     */
+    public static String tenantOf(Resource resource) {
+        String ret = null;
+        if (AuthzConstants.TENANT_TYPE.equals(resource.type())) {
+            ret = resource.id();
+        } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(resource.type())) {
+            ret = resource.id().substring(resource.id().indexOf('@') + 1);
+        }
+        return ret;
     }
 
 }

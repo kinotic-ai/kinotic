@@ -19,6 +19,7 @@ import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AccessCheckService;
@@ -149,14 +150,8 @@ public class DefaultAccessCheckService implements AccessCheckService {
     // The definition a question about an object is asked for: the object when it is one, the one of a definition
     // within a tenant, and the empty one, which no role names, for any other object
     private static String definitionOf(String about) {
-        String type = AuthzNameUtil.typeOf(about);
-        String ret = "";
-        if (AuthzConstants.ENTITY_DEFINITION_TYPE.equals(type)) {
-            ret = AuthzNameUtil.idOf(about);
-        } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(type)) {
-            ret = AuthzNameUtil.definitionOf(AuthzNameUtil.idOf(about));
-        }
-        return ret;
+        String ret = AuthzNameUtil.definitionOf(new Resource(AuthzNameUtil.typeOf(about), AuthzNameUtil.idOf(about)));
+        return ret == null ? "" : ret;
     }
 
     /**

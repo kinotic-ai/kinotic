@@ -47,14 +47,59 @@ export function endUsersOption(applicationId: string): SubjectOption {
 
 /** The types of the resources a grant in an application's store is made on. */
 const APPLICATION = 'application'
-const TENANT = 'tenant'
-const ENTITY_DEFINITION = 'entity_definition'
+export const TENANT = 'tenant'
+export const ENTITY_DEFINITION = 'entity_definition'
 const TENANT_DEFINITION = 'tenant_definition'
+
+/** What the page says of one type of resource a grant is made on. */
+interface ResourceTypeText {
+  /** The tenant a resource of the type is in, or null. */
+  tenant: (resource: Resource) => string | null
+  /** The definition a resource of the type names, or null. */
+  definition: (resource: Resource) => string | null
+  /** How a resource of the type is named on a grant row and in a sentence, the definition by its name. */
+  label: (resource: Resource, definitions: DefinitionOption[]) => string
+  /** Whose grants the list of the grants reaching a resource of the type shows. */
+  grantsDescription: string
+}
+
+const WHOLE_APPLICATION_TEXT: ResourceTypeText = {
+  tenant: () => null,
+  definition: () => null,
+  label: () => 'the whole application',
+  grantsDescription: 'Who holds a role on the application, and so on the rows of every definition in every tenant.'
+}
+
+// a definition's rows within a tenant are named `<definition id>@<tenant id>`, and a definition's id holds no @
+const RESOURCE_TYPES: Record<string, ResourceTypeText> = {
+  [APPLICATION]: WHOLE_APPLICATION_TEXT,
+  [TENANT]: {
+    tenant: resource => resource.id,
+    definition: () => null,
+    label: resource => `tenant ${resource.id}`,
+    grantsDescription: 'Who holds a role on this tenant, and who holds one on the whole application, which reaches it too.'
+  },
+  [ENTITY_DEFINITION]: {
+    tenant: () => null,
+    definition: resource => resource.id,
+    label: (resource, definitions) => `${definitionName(resource.id, definitions)} rows in every tenant`,
+    grantsDescription: 'Who holds a role on these rows in every tenant, and who holds one on the whole application, which reaches them too.'
+  },
+  [TENANT_DEFINITION]: {
+    tenant: resource => resource.id.substring(resource.id.indexOf('@') + 1),
+    definition: resource => resource.id.substring(0, resource.id.indexOf('@')),
+    label: (resource, definitions) => `${definitionName(definitionOf(resource) ?? '', definitions)} rows in tenant ${tenantOf(resource)}`,
+    grantsDescription: 'Who holds a role on these rows alone, and who holds one on the tenant, on the definition or on the whole application, which reach them too.'
+  }
+}
+
+function textOf(resource: Resource): ResourceTypeText {
+  return RESOURCE_TYPES[resource.type] ?? WHOLE_APPLICATION_TEXT
+}
 
 /**
  * The resource a tenant and a definition name, either or both left empty: the whole application, the tenant, the
- * definition's rows in every tenant, or the definition's rows within the tenant, which the store names
- * `<definition id>@<tenant id>`.
+ * definition's rows in every tenant, or the definition's rows within the tenant.
  */
 export function resourceOf(applicationId: string, tenantId: string, definitionId: string): Resource {
   let ret: Resource
@@ -72,24 +117,12 @@ export function resourceOf(applicationId: string, tenantId: string, definitionId
 
 /** The tenant a resource is in, or null for the whole application and for a definition's rows in every tenant. */
 export function tenantOf(resource: Resource): string | null {
-  let ret: string | null = null
-  if (resource.type === TENANT) {
-    ret = resource.id
-  } else if (resource.type === TENANT_DEFINITION) {
-    ret = resource.id.substring(resource.id.indexOf('@') + 1)
-  }
-  return ret
+  return textOf(resource).tenant(resource)
 }
 
 /** The definition a resource names, or null for the whole application and for a tenant. */
 export function definitionOf(resource: Resource): string | null {
-  let ret: string | null = null
-  if (resource.type === ENTITY_DEFINITION) {
-    ret = resource.id
-  } else if (resource.type === TENANT_DEFINITION) {
-    ret = resource.id.substring(0, resource.id.indexOf('@'))
-  }
-  return ret
+  return textOf(resource).definition(resource)
 }
 
 /**
@@ -108,17 +141,17 @@ export function reaches(made: Resource, resource: Resource): boolean {
  * rows in every tenant, or a definition's rows in one tenant, the definition by its name.
  */
 export function resourceLabel(resource: Resource, definitions: DefinitionOption[]): string {
-  let ret: string
-  if (resource.type === TENANT) {
-    ret = `tenant ${resource.id}`
-  } else if (resource.type === ENTITY_DEFINITION) {
-    ret = `${definitionName(resource.id, definitions)} rows in every tenant`
-  } else if (resource.type === TENANT_DEFINITION) {
-    ret = `${definitionName(definitionOf(resource) ?? '', definitions)} rows in tenant ${tenantOf(resource)}`
-  } else {
-    ret = 'the whole application'
-  }
-  return ret
+  return textOf(resource).label(resource, definitions)
+}
+
+/** Whose grants the list of the grants reaching a resource shows. */
+export function grantsDescription(resource: Resource): string {
+  return textOf(resource).grantsDescription
+}
+
+/** Whether a resource is the whole application. */
+export function isWholeApplication(resource: Resource): boolean {
+  return resource.type === APPLICATION
 }
 
 /** A definition's name, or the last segment of its id for one the pickers do not list. */
