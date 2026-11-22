@@ -2,17 +2,22 @@ package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.security.AuthzModelService;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.internal.api.model.ServiceDirectoryRecord;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -21,13 +26,17 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultAuthzModelService implements AuthzModelService {
@@ -106,13 +115,96 @@ public class DefaultAuthzModelService implements AuthzModelService {
     }
 
     @Override
-    public Future<AuthzModel> findApplicationModelWith(String organizationId,
-                                                       String applicationId,
-                                                       Collection<ServiceDefinition> candidates,
-                                                       Collection<String> types) {
-        return partialModel(organizationId, applicationId, types, List.of(), candidates);
+    public Future<Set<String>> writeContracts(Collection<ServiceDirectoryEntry> written, Supplier<Future<Set<String>>> write) {
+        List<String> ids = written.stream().map(ServiceDirectoryEntry::getId).toList();
+        // what each entry's stored contract names, which the contract about to be written may have left
+        return entries.findAuthzNames(ids).compose(replaced -> generable(written, replaced).compose(
+                decided -> write.get()
+                                .onSuccess(changed -> announce(written, changed, replaced, decided))
+                                // a write failing for one entry has stored the others and names none of them,
+                                // so every entry is taken as written
+                                .onFailure(e -> announce(written, Set.copyOf(ids), replaced, decided))));
     }
 
+    // A declaration the derivation accepts can still give the generator nothing to build: a role bundling a
+    // permission no function requires, a parent forking the type tree. Stored, it would leave the types it names
+    // without a model, so the generator is asked first and its refusal fails the registration. A model is
+    // generated from every service deciding a type, so a batch's entries of one application are tried together,
+    // as a role one declares may bundle a permission another requires, with the types their stored contracts
+    // name. The system's own contracts are generated from at startup, so only an application's are tried here.
+    // Answers the types of each application's trial that have permissions, by its store
+    private Future<Map<String, Set<String>>> generable(Collection<ServiceDirectoryEntry> written, Map<String, ServiceModelNames> replaced) {
+        Map<String, List<ServiceDirectoryEntry>> byApplication = new HashMap<>();
+        for (ServiceDirectoryEntry entry : written) {
+            if (entry.getApplicationId() != null) {
+                byApplication.computeIfAbsent(AuthzGraphUtil.authzApplicationId(entry.getOrganizationId(), entry.getApplicationId()),
+                                              k -> new ArrayList<>()).add(entry);
+            }
+        }
+        Map<String, Set<String>> ret = new HashMap<>();
+        List<Future<?>> trials = new ArrayList<>();
+        byApplication.forEach((store, candidates) -> {
+            ServiceDirectoryEntry application = candidates.getFirst();
+            Set<String> left = new TreeSet<>();
+            for (ServiceDirectoryEntry candidate : candidates) {
+                ServiceModelNames stored = replaced.get(candidate.getId());
+                if (stored != null) {
+                    left.addAll(stored.named());
+                }
+            }
+            trials.add(partialModel(application.getOrganizationId(), application.getApplicationId(), left, List.of(),
+                                    candidates.stream().map(ServiceDirectoryEntry::getServiceDefinition).toList())
+                               .onSuccess(model -> ret.put(store, model.permissions().keySet())));
+        });
+        return Future.all(trials).map(ret);
+    }
+
+    // The entries are stored whether or not a store's renewal lands; a store left behind is regenerated when the
+    // reconcile master next starts, which reconciles every store. An application's store runs the same model
+    // whatever services of its own types the application has, so it is renewed only for a contract that decides a
+    // type the store places or decided one before; every application's model includes system services, so a
+    // changed system contract renews every store. The types a written contract decides, with those decided with
+    // them, are announced for the nodes keeping what was read of them
+    private void announce(Collection<ServiceDirectoryEntry> written,
+                          Set<String> changed,
+                          Map<String, ServiceModelNames> replaced,
+                          Map<String, Set<String>> decided) {
+        Map<String, Set<String>> writtenByStore = new HashMap<>();
+        boolean systemChanged = false;
+        for (ServiceDirectoryEntry entry : written) {
+            if (changed.contains(entry.getId())) {
+                if (entry.getApplicationId() == null) {
+                    systemChanged = true;
+                } else {
+                    Set<String> types = writtenByStore.computeIfAbsent(AuthzGraphUtil.authzApplicationId(entry.getOrganizationId(), entry.getApplicationId()),
+                                                                       k -> new TreeSet<>());
+                    types.addAll(generator.namesOf(entry.getServiceDefinition()).types());
+                    ServiceModelNames stored = replaced.get(entry.getId());
+                    if (stored != null) {
+                        types.addAll(stored.types());
+                    }
+                }
+            }
+        }
+        boolean renewAll = systemChanged;
+        writtenByStore.forEach((store, named) -> {
+            Set<String> types = new TreeSet<>(named);
+            types.addAll(decided.getOrDefault(store, Set.of()));
+            vertx.eventBus().publish(TYPES_CHANGED_ADDRESS,
+                                     new JsonObject().put("store", store).put("types", new JsonArray(List.copyOf(types))));
+            if (!renewAll && !Collections.disjoint(named, AuthzModelGenerator.APPLICATION_TYPES)) {
+                stores.renewDesired(store, "service directory")
+                      .onFailure(e -> log.error("Could not renew the authorization store {} after its contracts changed", store, e));
+            }
+        });
+        if (renewAll) {
+            stores.renewAllDesired("service directory")
+                  .onFailure(e -> log.error("Could not renew the authorization stores after the system's contracts changed", e));
+        }
+    }
+
+    // The model an application's store would run as far as the given types and permissions go, with each candidate
+    // standing in for the service of the same qualified name the directory holds
     private Future<AuthzModel> partialModel(String organizationId,
                                             String applicationId,
                                             Collection<String> types,

@@ -2,9 +2,11 @@ package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
 import org.kinotic.authz.api.model.AuthzModel;
-import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 
 import java.util.Collection;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * The authorization models the service directory implies, as it holds the services now.
@@ -89,22 +91,18 @@ public interface AuthzModelService {
     Future<AuthzModel> findApplicationModelOfRole(String organizationId, String applicationId, String roleId);
 
     /**
-     * The model an application's store would run once {@code candidates} are registered, each standing in for
-     * the service of the same qualified name the directory holds now, as far as the candidates go: it covers the
-     * types and permissions the candidates name and the given types, as {@link #findApplicationModelOf} does. The
-     * future fails with an {@link IllegalArgumentException} when no model can be generated from the candidates'
-     * declarations and those of the services deciding the same types.
+     * Writes contracts to the directory with what follows from them for authorization. An application's contracts
+     * are written only once a model can be generated from them and the services deciding the same types, so a
+     * registration fails with the reason instead of leaving the application with declarations no model can be made
+     * of. Once written, a contract that decides a type its application's store places renews the intent of that
+     * store, and a system contract the intent of every store, so the store's model is generated again from the
+     * directory; and the types an application's contracts decide are announced on {@link #TYPES_CHANGED_ADDRESS}.
      *
-     * @param organizationId the application's organization
-     * @param applicationId  the application
-     * @param candidates     the converted contracts of the application's services about to be registered
-     * @param types          the resource types the services being replaced name, which a candidate may have
-     *                       stopped naming
-     * @return the model
+     * @param entries the entries about to be written
+     * @param write   writes the entries, answering the ids of those whose contract changed
+     * @return a future emitting what the write answers, or failing with an {@link IllegalArgumentException},
+     *         nothing written, when no model can be generated from an application's contracts
      */
-    Future<AuthzModel> findApplicationModelWith(String organizationId,
-                                                String applicationId,
-                                                Collection<ServiceDefinition> candidates,
-                                                Collection<String> types);
+    Future<Set<String>> writeContracts(Collection<ServiceDirectoryEntry> entries, Supplier<Future<Set<String>>> write);
 
 }
