@@ -21,22 +21,17 @@ import java.util.List;
  * {@link VmNode#getState() state} until its next heartbeat, and takes no workloads meanwhile.
  * <p>
  * A machine registers itself as a node, and sends that node's heartbeats and reports, with the
- * {@link #REGISTRAR_ROLE registrar} role granted on the system. The registration grants it the
- * {@link #AGENT_ROLE agent} role on its node, with which it reads the node and asks for its removal.
+ * {@link #REGISTRAR_ROLE registrar} role granted on the system.
  * <p>
  * For querying nodes (findById, findAll, search) use {@link VmNodeService} directly.
  */
 @Publish
 @AuthzResource(value = VmNodeService.RESOURCE_TYPE, parent = AuthzConstants.SYSTEM_TYPE,
-               roles = {@AuthzRole(id = VmNodeOrchestrationService.REGISTRAR_ROLE, permissions = AuthzConstants.CAN_REGISTER_NODE),
-                        @AuthzRole(id = VmNodeOrchestrationService.AGENT_ROLE, permissions = {AuthzConstants.CAN_REPORT, AuthzConstants.CAN_READ})})
+               roles = @AuthzRole(id = VmNodeOrchestrationService.REGISTRAR_ROLE, permissions = AuthzConstants.CAN_REGISTER_NODE))
 public interface VmNodeOrchestrationService {
 
     /** The role a system machine registers itself as a node and reports with, granted on the system. */
     String REGISTRAR_ROLE = VmNodeService.RESOURCE_TYPE + ".registrar";
-
-    /** The role a node's machine holds on its own node, granted by its registration. */
-    String AGENT_ROLE = VmNodeService.RESOURCE_TYPE + ".agent";
 
     /**
      * Registers the calling machine as a VmNode with the orchestrator so it can receive workload deployments.
@@ -89,14 +84,13 @@ public interface VmNodeOrchestrationService {
      * Asks for a node's removal. A node marked {@code NODE_UNREACHABLE} is taken as not coming back:
      * every run still open on it is recorded {@code FAILED} and the node is removed with its capacity
      * ledger. Any other node must have no running workloads. The removal is intent: the node's worker
-     * carries it out once the request is recorded. A node's machine may ask for its own node's removal and no
-     * other's.
+     * carries it out once the request is recorded.
      *
      * @param nodeId the id of the node to deregister
      * @return a future that will complete when the removal has been asked for, or fail if the node is
      *         not registered or still runs workloads
      */
-    @AuthzCheck(permission = AuthzConstants.CAN_REPORT, resourceId = "{nodeId}")
+    @AuthzCheck(permission = AuthzConstants.CAN_DELETE, resourceId = "{nodeId}")
     Future<Void> deregisterNode(String nodeId);
 
     /**

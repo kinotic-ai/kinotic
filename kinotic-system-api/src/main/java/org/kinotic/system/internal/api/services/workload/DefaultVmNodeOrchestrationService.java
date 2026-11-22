@@ -96,20 +96,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 // the registration is the node's own word that it is up, ahead of its first heartbeat
                 .compose(node -> vmNodeRepository.reportObserved(nodeId, ONLINE, node.getState().getGeneration(), "registration"))
                 .compose(v -> vmNodeRepository.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "registration"))
-                .compose(v -> contained(nodeId, machine))
+                // the node is on the system in the graph, so a grant made there reaches it
+                .compose(v -> relationships.ensure(AuthzStoreService.SYSTEM, List.of(containment(nodeId))))
                 .compose(v -> vmNodeRepository.findById(nodeId));
-    }
-
-    /**
-     * The node's place in the graph, written once its record is: the node is on the system, so a grant made
-     * there reaches it, and its machine is its agent, which is what a request to remove the node is checked for.
-     */
-    private Future<Void> contained(String nodeId, Participant machine) {
-        RelationshipTuple onSystem = containment(nodeId);
-        // a node registering again, or on another server, binds nothing twice
-        return relationships.ensure(AuthzStoreService.SYSTEM, List.of(onSystem))
-                            .compose(v -> relationships.bind(AuthzStoreService.SYSTEM, AGENT_ROLE, AuthzGraphUtil.authzUser(machine), onSystem.object()))
-                            .mapEmpty();
     }
 
     /**
