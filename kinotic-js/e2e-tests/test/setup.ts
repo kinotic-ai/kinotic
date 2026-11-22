@@ -4,7 +4,7 @@ import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 // @ts-ignore
 import path from 'node:path'
-import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait} from 'testcontainers'
+import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait, type WaitStrategy, getContainerRuntimeClient} from 'testcontainers'
 // @ts-ignore
 import {TestProject} from 'vitest/node.js'
 
@@ -30,6 +30,9 @@ const OPENFGA_PORT = 8080
 /** How long a server may take to answer /health, matching the start_period of its compose healthcheck. */
 const SERVER_STARTUP_TIMEOUT_MS = 120_000
 
+/** How much of the end of a server's output is printed when the server does not start. */
+const STARTUP_FAILURE_OUTPUT_CHARS = 16_000
+
 /** The host port compose.kinotic-e2e-test.yml publishes each server on, for a stack started by hand. */
 const PUBLISHED_PORTS: Record<KinoticServerName, number> = {
     'kinotic-server-management': 58503,
@@ -42,6 +45,54 @@ const PUBLISHED_PORTS: Record<KinoticServerName, number> = {
 export interface GlobalSetup {
     setup(project: TestProject): Promise<void>
     teardown(): Promise<void>
+}
+
+/**
+ * Waits for a server to answer /health while reading its output, for as long as the server runs: output
+ * holding ERROR is printed as it arrives, and the end of the output is printed when the server does not
+ * answer in time.
+ */
+class ServerStartupWaitStrategy implements WaitStrategy {
+
+    private readonly health: WaitStrategy
+
+    constructor(private readonly serverName: KinoticServerName) {
+        this.health = Wait.forHttp('/health', SERVER_PORTS[serverName]).withStartupTimeout(SERVER_STARTUP_TIMEOUT_MS)
+    }
+
+    async waitUntilReady(...args: Parameters<WaitStrategy['waitUntilReady']>): Promise<void> {
+        let recentOutput = ''
+        const client = await getContainerRuntimeClient()
+        const output = await client.container.logs(args[0])
+        output.on('data', (chunk: Buffer | string) => {
+            const text = String(chunk)
+            recentOutput = (recentOutput + text).slice(-STARTUP_FAILURE_OUTPUT_CHARS)
+            if (text.includes('ERROR')) {
+                console.error(`[${this.serverName}]`, text.trimEnd())
+            }
+        })
+        try {
+            await this.health.waitUntilReady(...args)
+        } catch (e) {
+            // testcontainers removes the whole stack as soon as one wait fails, so the output is gone by the
+            // time compose.up rejects
+            console.error(`[${this.serverName}] did not answer /health. The end of its output:\n${recentOutput}`)
+            throw e
+        }
+    }
+
+    withStartupTimeout(startupTimeoutMs: number): WaitStrategy {
+        this.health.withStartupTimeout(startupTimeoutMs)
+        return this
+    }
+
+    isStartupTimeoutSet(): boolean {
+        return this.health.isStartupTimeoutSet()
+    }
+
+    getStartupTimeout(): number {
+        return this.health.getStartupTimeout()
+    }
 }
 
 /**
@@ -77,29 +128,13 @@ export function createGlobalSetup(serverNames: KinoticServerName[]): GlobalSetup
                         OPENFGA_CACHE_CONTROLLER_ENABLED: 'false'
                     })
                 for(const serverName of serverNames){
-                    compose = compose.withWaitStrategy(serverName, Wait.forHttp('/health', SERVER_PORTS[serverName])
-                                                                       .withStartupTimeout(SERVER_STARTUP_TIMEOUT_MS))
+                    compose = compose.withWaitStrategy(serverName, new ServerStartupWaitStrategy(serverName))
                 }
                 environment = await compose.up(['kinotic-elasticsearch', ...serverNames])
 
                 const ports: Partial<Record<KinoticServerName, number>> = {}
                 for(const serverName of serverNames){
-                    const container = environment.getContainer(serverName)
-                    ports[serverName] = container.getMappedPort(SERVER_PORTS[serverName])
-
-                    // Surface server-side failures in the test output: without this, a broken server startup
-                    // only ever shows up as opaque timeouts in the suites
-                    try {
-                        const logStream = await container.logs()
-                        logStream.on('data', (chunk: Buffer | string) => {
-                            const text = String(chunk)
-                            if (text.includes('ERROR')) {
-                                console.error(`[${serverName}]`, text.trimEnd())
-                            }
-                        })
-                    } catch (e) {
-                        console.error(`Could not attach to ${serverName} logs`, e)
-                    }
+                    ports[serverName] = environment.getContainer(serverName).getMappedPort(SERVER_PORTS[serverName])
                 }
 
                 provideServers(project, environment.getContainer(serverNames[0]).getHost(), ports)
