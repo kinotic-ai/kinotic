@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -43,7 +44,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
 
     @Override
     public Future<List<Grant>> findGrants() {
-        return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT).map(grants -> grants.stream().map(AuthzGraphUtil::localGrant).toList());
+        return relationships.findGrants(SYSTEM, AuthzNameUtil.SYSTEM_OBJECT).map(grants -> grants.stream().map(AuthzGraphUtil::localGrant).toList());
     }
 
     @Override
@@ -56,7 +57,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
             }
             model.requireGrantable(roleId, AuthzConstants.SYSTEM_TYPE);
             return requireStaff(subject);
-        }).compose(stored -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored), AuthzConstants.SYSTEM_OBJECT))
+        }).compose(stored -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored), AuthzNameUtil.SYSTEM_OBJECT))
           .map(bindingId -> new Grant(bindingId, roleId, subject, SYSTEM_RESOURCE));
     }
 
@@ -64,8 +65,8 @@ public class DefaultSystemAccessService implements SystemAccessService {
     public Future<Void> revoke(String grantId) {
         Validate.notBlank(grantId, "grantId cannot be blank");
         // a disabled administrator cannot sign in, so its grant keeps no one able to run the system
-        return identities.removeAdministrators(AuthzConstants.SYSTEM_OBJECT, grant -> grant.id().equals(grantId), SystemParticipantIdentity.class,
-                                               () -> relationships.revoke(SYSTEM, grantId, AuthzConstants.SYSTEM_OBJECT));
+        return identities.removeAdministrators(AuthzNameUtil.SYSTEM_OBJECT, grant -> grant.id().equals(grantId), SystemParticipantIdentity.class,
+                                               () -> relationships.revoke(SYSTEM, grantId, AuthzNameUtil.SYSTEM_OBJECT));
     }
 
     @Override
@@ -73,9 +74,9 @@ public class DefaultSystemAccessService implements SystemAccessService {
         validate(subject);
         Validate.notBlank(permission, "permission cannot be blank");
         String name = AuthzUtil.permissionName(AuthzConstants.SYSTEM_TYPE, permission);
-        return requireStaff(subject).compose(stored -> Future.all(model(), relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT))
+        return requireStaff(subject).compose(stored -> Future.all(model(), relationships.findGrants(SYSTEM, AuthzNameUtil.SYSTEM_OBJECT))
                 .compose(both -> relationships.explain(SYSTEM, both.resultAt(0),
-                                                       new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzConstants.SYSTEM_OBJECT),
+                                                       new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzNameUtil.SYSTEM_OBJECT),
                                                        List.of(), both.resultAt(1)))
                 .map(AuthzGraphUtil::localExplanation));
     }

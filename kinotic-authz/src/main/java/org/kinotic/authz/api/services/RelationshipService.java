@@ -2,6 +2,7 @@ package org.kinotic.authz.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.model.AccessExplanation;
@@ -127,7 +128,7 @@ public interface RelationshipService {
      * @param roleId the role granted, {@code <home type>.<name>}, such as a built-in role's id
      * @param member who holds it, in {@code type:id} form, or a userset such as {@code group:id#member}
      * @param object the resource the grant is made on, in {@code type:id} form
-     * @return the grant's id, {@link org.kinotic.idl.api.utils.AuthzUtil#grantId}, which {@link #revoke} revokes it by; fails with the
+     * @return the grant's id, {@link AuthzNameUtil#grantId}, which {@link #revoke} revokes it by; fails with the
      *         engine's validation error when the resource's type may not grant the role
      */
     Future<String> bind(String store, String roleId, String member, String object);

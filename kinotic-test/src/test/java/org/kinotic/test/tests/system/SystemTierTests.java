@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
@@ -30,7 +31,6 @@ import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import org.kinotic.management.api.services.telemetry.LogService;
 import org.kinotic.system.api.model.workload.VmNodeRegistration;
@@ -241,7 +241,7 @@ public class SystemTierTests extends KinoticTestBase {
         String nodeId = registrar.getId();
         VmNodeRegistration node = NodeFixtures.registration(nodeId, 4, 4096, 10240);
         nodes.add(nodeId);
-        String nodeObject = AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId);
+        String nodeObject = AuthzNameUtil.object(VmNodeService.RESOURCE_TYPE, nodeId);
 
         // the registrar role admits a machine to register itself and to report as itself
         assertTrue(awaitUntil(() -> admitted(NODE_SERVICE, "registerNode", registrarCaller, List.of(node))), "the registrar never registered");

@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -16,7 +17,6 @@ import org.kinotic.domain.internal.api.model.ServiceDirectoryRecord;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -101,7 +101,7 @@ public class DefaultAuthzModelService implements AuthzModelService {
     public Future<AuthzModel> findApplicationModelOfRole(String organizationId, String applicationId, String roleId) {
         // derived inside the future, so an id that names no home type fails it
         return Future.succeededFuture(roleId)
-                     .map(AuthzUtil::roleHome)
+                     .map(AuthzNameUtil::roleHome)
                      .compose(home -> partialModel(organizationId, applicationId, List.of(home), List.of(), List.of()));
     }
 

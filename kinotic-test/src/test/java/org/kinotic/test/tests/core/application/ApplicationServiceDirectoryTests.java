@@ -3,6 +3,7 @@ package org.kinotic.test.tests.core.application;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.app.api.services.ApplicationServiceDirectory;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
@@ -18,7 +19,6 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -189,7 +189,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
     private void grantRuntime(String applicationId) throws Exception {
         await(relationships.bind(AuthzStoreService.SYSTEM,
                                  AuthzConstants.APPLICATION_RUNTIME_ROLE,
-                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzNameUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
                                  AuthzGraphUtil.authzApplication(TEST_ORG_ID, applicationId)));
     }
 

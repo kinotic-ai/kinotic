@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -367,7 +368,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
             Resource checked = checkedOn(check, scope, call.store());
             String resourceId = authzIdOf(checked.type(), resolve(checked.id(), call), scope);
-            if (!AuthzUtil.isObjectId(resourceId)) {
+            if (!AuthzNameUtil.isObjectId(resourceId)) {
                 throw securityExceptions.notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
             }
             // An application's user is checked on the definition within its tenant, an object no store holds tuples
@@ -377,8 +378,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             // an organization's member or runtime, which a function acting on every tenant's rows admits alone
             boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
             String object = withinTenant
-                    ? AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
-                    : AuthzUtil.object(checked.type(), resourceId);
+                    ? AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(resourceId, scope.tenantId()))
+                    : AuthzNameUtil.object(checked.type(), resourceId);
             List<RelationshipTuple> edges = withinTenant ? AuthzGraphUtil.tenantDefinitionEdges(resourceId, scope.tenantId()) : List.of();
             RelationshipTuple relationship = new RelationshipTuple(AuthzGraphUtil.authzUser(participant),
                                                                    AuthzUtil.permissionName(check.getPermissionResource(), permission.getPermission()),

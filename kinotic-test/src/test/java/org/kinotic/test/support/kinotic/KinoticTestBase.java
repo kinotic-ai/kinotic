@@ -1,6 +1,7 @@
 package org.kinotic.test.support.kinotic;
 
 import dev.openfga.sdk.api.model.ReadRequestTupleKey;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.test.support.system.NodeFixtures;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -37,7 +38,6 @@ import org.kinotic.core.api.security.RequestAuthorizer;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.TenantService;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -162,13 +162,13 @@ public abstract class KinoticTestBase {
     }
 
     private boolean placed() throws Exception {
-        String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
-        return await(relationshipService.holds(AuthzStoreService.SYSTEM, AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, organization)));
+        String organization = AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
+        return await(relationshipService.holds(AuthzStoreService.SYSTEM, AuthzGraphUtil.containment(AuthzNameUtil.SYSTEM_OBJECT, organization)));
     }
 
     private boolean bound() {
         String member = AuthzGraphUtil.authzUser(TEST_ORGANIZATION_PARTICIPANT.getId());
-        String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
+        String organization = AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
         boolean ret;
         try {
             await(relationshipService.bind(AuthzStoreService.SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE, member, organization));

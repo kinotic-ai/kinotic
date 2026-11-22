@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.security;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -62,7 +63,7 @@ public class CallerPermissions {
                                             AuthzGraphUtil.authzUser(participant),
                                             AuthzUtil.permissionName(type, permission), type,
                                             Consistency.MINIMIZE_LATENCY)
-                               .map(objects -> objects.stream().map(object -> AuthzGraphUtil.localId(type, AuthzUtil.idOf(object))).toList());
+                               .map(objects -> objects.stream().map(object -> AuthzGraphUtil.localId(type, AuthzNameUtil.idOf(object))).toList());
         } else {
             ret = Future.succeededFuture(List.of());
         }
@@ -82,7 +83,7 @@ public class CallerPermissions {
         Validate.notBlank(permission, "permission cannot be blank");
         OrganizationParticipant participant = requireOrgParticipant();
         // a caller holding the permission throughout the organization is answered with one check, without a listing
-        return holds(participant, type, permission, AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, participant.getOrganizationId()))
+        return holds(participant, type, permission, AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, participant.getOrganizationId()))
                 .compose(held -> held ? Future.succeededFuture(null) : listAccessible(type, permission));
     }
 

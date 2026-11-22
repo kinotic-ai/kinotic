@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -31,7 +32,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.springframework.stereotype.Component;
 
@@ -86,18 +86,18 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                         "a role of an application is homed at %s, not %s", CUSTOM_ROLE_HOME, role.resourceType());
         // the model as far as the role goes: the permissions it names, and the type its id is homed at
         return requireApplication(applicationId).compose(application -> modelOf(application,
-                                                                                role.id() == null ? List.of() : List.of(AuthzUtil.roleHome(role.id())),
+                                                                                role.id() == null ? List.of() : List.of(AuthzNameUtil.roleHome(role.id())),
                                                                                 role.permissions()).compose(model -> {
             if (role.id() != null && model.roles().containsKey(role.id())) {
                 throw new IllegalArgumentException("Role " + role.id() + " is built in and defined by the model");
             }
             RolePermissions permissions = bundled(role, model);
-            String roleId = role.id() == null ? AuthzUtil.roleId(CUSTOM_ROLE_HOME, UUID.randomUUID().toString()) : role.id();
+            String roleId = role.id() == null ? AuthzNameUtil.roleId(CUSTOM_ROLE_HOME, UUID.randomUUID().toString()) : role.id();
             String organizationId = application.getOrganizationId();
             // under the lock a grant and a deletion of the role take, with the role read under it, so an edit that
             // waited for a deletion finds no role and writes none
             return requireDefinitions(application, permissions.definitionPermissions().keySet())
-                    .compose(v -> relationships.exclusively(AuthzUtil.roleObject(roleId), () -> {
+                    .compose(v -> relationships.exclusively(AuthzNameUtil.roleObject(roleId), () -> {
                         Future<Role> row = role.id() == null
                                 ? Future.succeededFuture(new Role().setId(roleId)
                                                                    .setOrganizationId(organizationId)
@@ -152,7 +152,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     @Override
     public Future<Void> deleteRole(String applicationId, String roleId) {
         Validate.notBlank(roleId, "roleId cannot be blank");
-        String role = AuthzUtil.roleObject(roleId);
+        String role = AuthzNameUtil.roleObject(roleId);
         // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
         // finds the role gone
         return requireApplication(applicationId).compose(application -> relationships.exclusively(role, () -> applicationRoles.requireRole(application, roleId)
@@ -243,8 +243,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         List<Resource> ret = new ArrayList<>();
         ret.add(resource);
         if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(resource.type())) {
-            ret.add(new Resource(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzUtil.definitionOf(resource.id())));
-            ret.add(new Resource(AuthzConstants.TENANT_TYPE, AuthzUtil.tenantOf(resource.id())));
+            ret.add(new Resource(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzNameUtil.definitionOf(resource.id())));
+            ret.add(new Resource(AuthzConstants.TENANT_TYPE, AuthzNameUtil.tenantOf(resource.id())));
         }
         if (!AuthzConstants.APPLICATION_TYPE.equals(resource.type())) {
             ret.add(new Resource(AuthzConstants.APPLICATION_TYPE, application.getId()));
@@ -263,8 +263,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         } else if (AuthzConstants.TENANT_DEFINITION_TYPE.equals(resource.type())) {
             // the store holds the edges of a definition within a tenant once it holds a grant on it, which is how
             // the deletion of either finds the grants made on the two together
-            ret = requireDefinition(application, AuthzUtil.definitionOf(resource.id()))
-                    .compose(v -> placed(application, AuthzUtil.tenantOf(resource.id())))
+            ret = requireDefinition(application, AuthzNameUtil.definitionOf(resource.id()))
+                    .compose(v -> placed(application, AuthzNameUtil.tenantOf(resource.id())))
                     .compose(v -> relationships.ensure(storeOf(application), edgesOf(resource)));
         } else {
             ret = Future.succeededFuture();
@@ -309,7 +309,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
 
     private static List<RelationshipTuple> edgesOf(Resource resource) {
         return AuthzConstants.TENANT_DEFINITION_TYPE.equals(resource.type())
-                ? AuthzGraphUtil.tenantDefinitionEdges(AuthzUtil.definitionOf(resource.id()), AuthzUtil.tenantOf(resource.id()))
+                ? AuthzGraphUtil.tenantDefinitionEdges(AuthzNameUtil.definitionOf(resource.id()), AuthzNameUtil.tenantOf(resource.id()))
                 : List.of();
     }
 

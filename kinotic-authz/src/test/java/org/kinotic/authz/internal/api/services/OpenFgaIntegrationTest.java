@@ -15,6 +15,7 @@ import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.InMemoryEngineStoreRepository;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
@@ -31,7 +32,6 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.decorators.AuthzResourceC3Decorator;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -250,7 +250,7 @@ class OpenFgaIntegrationTest {
         assertTrue(relationsOf(bridge, "tenant_role").contains("tenant_can_read"));
         assertFalse(relationsOf(bridge, "tenant").contains("tenant_can_read"));
         assertTrue(relationsOf(bridge, "tenant").contains("entity_definition_can_read"));
-        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "tenant_can_read", AuthzUtil.roleObject("application.admin")))));
+        assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "tenant_can_read", AuthzNameUtil.roleObject("application.admin")))));
         // a model in step writes nothing more
         assertEquals(grownModelId, await(relationshipService.ensureModelWithRoles(store, grown)).modelId());
         assertEquals(versions.size(), await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().size());
@@ -519,7 +519,7 @@ class OpenFgaIntegrationTest {
         await(relationshipService.revoke(SYSTEM, viewing, project));
         // a binding leaves its role's holders with its last member
         for (String roleId : List.of("project.editor", "project.viewer")) {
-            assertFalse(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject(project, roleId), "binding",
+            assertFalse(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzNameUtil.bindingObject(project, roleId), "binding",
                                                                                       "role_holders:" + roleId))));
         }
     }
@@ -937,7 +937,7 @@ class OpenFgaIntegrationTest {
     void builtInRolesAreSeededByDifferenceAndBindingsGrantThem() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(relationshipService.ensureModelWithRoles(SYSTEM, model));
-        List<RelationshipTuple> editor = storedOn(SYSTEM, AuthzUtil.roleObject("project.editor"));
+        List<RelationshipTuple> editor = storedOn(SYSTEM, AuthzNameUtil.roleObject("project.editor"));
         assertEquals(Set.of("project_can_edit", "project_can_read"),
                      editor.stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
         // in step already: nothing is written, and nothing fails on a tuple held already
@@ -945,12 +945,12 @@ class OpenFgaIntegrationTest {
         // a permission the role no longer bundles is removed, one it lacks is added
         await(relationshipService.ensureRole(SYSTEM, "project.editor", new RolePermissions(Set.of("project_can_read", "project_can_delete"))));
         assertEquals(Set.of("project_can_delete", "project_can_read"),
-                     storedOn(SYSTEM, AuthzUtil.roleObject("project.editor")).stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
+                     storedOn(SYSTEM, AuthzNameUtil.roleObject("project.editor")).stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
         await(relationshipService.ensureModelWithRoles(SYSTEM, model));
 
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-roles", "application", "project:billing-roles"))));
         await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-roles", "project:billing-roles"));
-        assertTrue(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzUtil.bindingObject("project:billing-roles", "project.editor"), "role_binding", "project:billing-roles"))));
+        assertTrue(await(relationshipService.holds(SYSTEM, new RelationshipTuple(AuthzNameUtil.bindingObject("project:billing-roles", "project.editor"), "role_binding", "project:billing-roles"))));
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-roles", "project_can_edit", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-roles", "project_can_delete", "project:billing-roles"), Consistency.HIGHER_CONSISTENCY)));
         // a binding of the organization admin on the organization reaches the project inside it
@@ -1036,9 +1036,9 @@ class OpenFgaIntegrationTest {
         // a grant made again is the same grant, held once
         assertEquals(sallys, await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind")));
         assertEquals(2, await(relationshipService.findGrants(SYSTEM, "project:billing-unbind")).size());
-        String binding = AuthzUtil.bindingObject("project:billing-unbind", "project.editor");
+        String binding = AuthzNameUtil.bindingObject("project:billing-unbind", "project.editor");
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
-        assertTrue(storedBy(SYSTEM, AuthzUtil.roleObject("project.editor"), "project_role_binding").stream()
+        assertTrue(storedBy(SYSTEM, AuthzNameUtil.roleObject("project.editor"), "project_role_binding").stream()
                         .anyMatch(tuple -> tuple.object().equals(binding)));
         // a grant is revoked where it was made: the same role granted to the same member elsewhere is another grant
         assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, sallys, "project:payroll-unbind")));
@@ -1141,7 +1141,7 @@ class OpenFgaIntegrationTest {
         // the object loses its place and every grant made on it
         await(relationshipService.removeObject(SYSTEM, "project:billing-gone"));
         assertTrue(storedOn(SYSTEM, "project:billing-gone").isEmpty());
-        assertTrue(storedOn(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", "project.editor")).isEmpty());
+        assertTrue(storedOn(SYSTEM, AuthzNameUtil.bindingObject("project:billing-gone", "project.editor")).isEmpty());
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-gone", "project_can_edit", "project:billing-gone"), Consistency.HIGHER_CONSISTENCY)));
 
         // a store that does not exist holds nothing of anyone

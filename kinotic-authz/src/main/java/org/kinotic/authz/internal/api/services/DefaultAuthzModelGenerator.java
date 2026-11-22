@@ -1,6 +1,7 @@
 package org.kinotic.authz.internal.api.services;
 
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -212,11 +213,11 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         Map<String, Set<String>> roles = typeRoles(types);
         // a tenant's administrator decides who is in the tenant and what they hold there; the rows are held through
         // the roles it grants, so a definition the application keeps from its users is kept from the administrator
-        String tenantAdmin = AuthzUtil.roleId(TENANT, AuthzConstants.ADMIN);
+        String tenantAdmin = AuthzNameUtil.roleId(TENANT, AuthzConstants.ADMIN);
         roles.remove(tenantAdmin);
         role(roles, tenantAdmin, types.get(TENANT).permissionNames());
         typeRoles(declared).forEach((id, permissions) -> {
-            if (!placed.containsKey(AuthzUtil.roleHome(id))) {
+            if (!placed.containsKey(AuthzNameUtil.roleHome(id))) {
                 roles.put(id, permissions);
             }
         });
@@ -410,9 +411,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             Set<String> editing = type.modelNames(type.permissions.keySet().stream()
                                                       .filter(permission -> !type.holdsAny(permission, administering))
                                                       .toList());
-            role(ret, AuthzUtil.roleId(type.name, AuthzConstants.VIEWER), type.readingNames());
-            role(ret, AuthzUtil.roleId(type.name, AuthzConstants.EDITOR), editing);
-            role(ret, AuthzUtil.roleId(type.name, AuthzConstants.ADMIN), permissionNames(types.carriedBy(type.name)));
+            role(ret, AuthzNameUtil.roleId(type.name, AuthzConstants.VIEWER), type.readingNames());
+            role(ret, AuthzNameUtil.roleId(type.name, AuthzConstants.EDITOR), editing);
+            role(ret, AuthzNameUtil.roleId(type.name, AuthzConstants.ADMIN), permissionNames(types.carriedBy(type.name)));
         }
         return ret;
     }
@@ -579,7 +580,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                     }
                     // the viewer and the reading roles bundle every reading permission, so one implying more than
                     // reading would let them do it
-                    if (AuthzUtil.isReading(permission.getKey()) && !AuthzUtil.isReading(implied)) {
+                    if (AuthzNameUtil.isReading(permission.getKey()) && !AuthzNameUtil.isReading(implied)) {
                         throw new IllegalArgumentException("Permission '" + name + "' is a reading permission, but implies '"
                                                                    + implied + "', which is not one");
                     }
@@ -625,7 +626,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
                 relate(relations, AuthzUtil.permissionName(about.name, permission.getKey()), relation);
             }
         }
-        return typeDefinition(AuthzUtil.roleType(home), relations);
+        return typeDefinition(AuthzNameUtil.roleType(home), relations);
     }
 
     /**
@@ -663,12 +664,12 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
      */
     private static ObjectNode roleBindingType(String boundOn, Set<String> homes, Set<String> permissions, List<String> memberTypes) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
-        relate(relations, ROLE, direct(homes.stream().map(AuthzUtil::roleType).toList()));
+        relate(relations, ROLE, direct(homes.stream().map(AuthzNameUtil::roleType).toList()));
         relate(relations, MEMBER, direct(memberTypes));
         for (String permission : permissions) {
             relate(relations, permission, intersection(List.of(computed(MEMBER), tupleToUserset(ROLE, permission))));
         }
-        return typeDefinition(AuthzUtil.roleBindingType(boundOn), relations);
+        return typeDefinition(AuthzNameUtil.roleBindingType(boundOn), relations);
     }
 
     private static ObjectNode resourceType(ResourceType type, List<ResourceType> carried) {
@@ -682,7 +683,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         for (Map.Entry<String, String> inherited : type.inherited.entrySet()) {
             relate(relations, inherited.getKey(), tupleToUserset(inherited.getValue(), inherited.getKey()));
         }
-        relate(relations, ROLE_BINDING, directUnder(AuthzUtil.roleBindingType(type.name), ROLE_HELD));
+        relate(relations, ROLE_BINDING, directUnder(AuthzNameUtil.roleBindingType(type.name), ROLE_HELD));
         for (ResourceType about : carried) {
             for (Map.Entry<String, Set<String>> permission : new TreeMap<>(about.permissions).entrySet()) {
                 String name = AuthzUtil.permissionName(about.name, permission.getKey());
@@ -710,7 +711,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
         relate(relations, DEFINITION, direct(List.of(ENTITY_DEFINITION)));
         relate(relations, TENANT, direct(List.of(TENANT)));
-        relate(relations, ROLE_BINDING, directUnder(AuthzUtil.roleBindingType(TENANT_DEFINITION), ROLE_HELD));
+        relate(relations, ROLE_BINDING, directUnder(AuthzNameUtil.roleBindingType(TENANT_DEFINITION), ROLE_HELD));
         relate(relations, PLACED, tupleToUserset(DEFINITION, PLACED));
         for (Map.Entry<String, Set<String>> permission : new TreeMap<>(definition.permissions).entrySet()) {
             String name = AuthzUtil.permissionName(definition.name, permission.getKey());

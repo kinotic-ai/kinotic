@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services.security;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -43,7 +44,6 @@ import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -476,7 +476,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     private Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType) {
-        String administrator = AuthzUtil.roleId(AuthzUtil.typeOf(object), AuthzConstants.ADMIN);
+        String administrator = AuthzNameUtil.roleId(AuthzNameUtil.typeOf(object), AuthzConstants.ADMIN);
         return relationships.findGrants(AuthzStoreService.SYSTEM, object).compose(grants -> {
             Map<Boolean, List<Grant>> split = grants.stream()
                                                     .filter(grant -> administrator.equals(grant.roleId()))
@@ -830,7 +830,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private Future<Void> withdrawn(ParticipantIdentity identity) {
         Future<Void> ret = Future.succeededFuture();
         if (identity != null && !(identity instanceof DelegatingParticipantIdentity)) {
-            String user = AuthzUtil.object(AuthzConstants.USER_TYPE, identity.getId());
+            String user = AuthzNameUtil.object(AuthzConstants.USER_TYPE, identity.getId());
             ParticipantScope scope = DomainUtil.scopeOf(identity);
             if (scope.applicationId() != null) {
                 ret = relationships.removeSubject(AuthzGraphUtil.authzApplicationId(scope.organizationId(), scope.applicationId()), user);

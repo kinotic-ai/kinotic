@@ -3,6 +3,7 @@ package org.kinotic.test.tests.core.authz;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -213,7 +214,7 @@ public class RequestAuthorizationTests extends KinoticTestBase {
 
     @Test
     public void theSeededOrganizationIsAdministeredByItsCreator() throws Exception {
-        String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, SEEDED_ORGANIZATION_ID);
+        String organization = AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, SEEDED_ORGANIZATION_ID);
         RelationshipTuple manages = new RelationshipTuple(AuthzGraphUtil.authzUser(SEEDED_CREATOR_ID),
                                                           AuthzUtil.permissionName(AuthzConstants.ORGANIZATION_TYPE, "can_manage_access"),
                                                           organization);
@@ -221,7 +222,7 @@ public class RequestAuthorizationTests extends KinoticTestBase {
                    "the creator was never bound as the administrator");
 
         // every server that started swept the organization and bound its creator under the same binding
-        Subject creator = new Subject(SubjectType.USER, AuthzUtil.idOf(AuthzGraphUtil.authzUser(SEEDED_CREATOR_ID)));
+        Subject creator = new Subject(SubjectType.USER, AuthzNameUtil.idOf(AuthzGraphUtil.authzUser(SEEDED_CREATOR_ID)));
         long creatorBindings = await(relationships.findGrants(AuthzStoreService.SYSTEM, organization))
                 .stream()
                 .filter(grant -> AuthzConstants.ORGANIZATION_ADMIN_ROLE.equals(grant.roleId()) && creator.equals(grant.subject()))

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
@@ -124,7 +125,7 @@ public class PermissionServiceTests extends KinoticTestBase {
                 new RoleDefinition(null, "Release Manager " + suffix(), "ships projects", false, ProjectService.RESOURCE_TYPE, null,
                                    Set.of("project_can_edit", "project_can_read"), Map.of(), false))));
         assertNotNull(saved.id());
-        assertEquals(ProjectService.RESOURCE_TYPE, AuthzUtil.roleHome(saved.id()));
+        assertEquals(ProjectService.RESOURCE_TYPE, AuthzNameUtil.roleHome(saved.id()));
         assertFalse(saved.builtIn());
         List<RoleDefinition> roles = await(runAsOrganization(permissions::findRoles));
         RoleDefinition editor = roles.stream().filter(role -> role.id().equals("project.editor")).findFirst().orElseThrow();
@@ -173,7 +174,7 @@ public class PermissionServiceTests extends KinoticTestBase {
         }
         List<String> ids = roles.stream().map(RoleDefinition::id).toList();
         assertFalse(ids.contains(AuthzConstants.SYSTEM_SUPPORT_ROLE), ids.toString());
-        assertFalse(ids.contains(AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN)), ids.toString());
+        assertFalse(ids.contains(AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN)), ids.toString());
         assertFalse(ids.stream().anyMatch(id -> id.startsWith("vm_node.")), ids.toString());
         RoleDefinition projectEditor = roles.stream().filter(role -> role.id().equals("project.editor")).findFirst().orElseThrow();
         assertEquals(Set.of(AuthzConstants.ORGANIZATION_TYPE, AuthzConstants.APPLICATION_TYPE, ProjectService.RESOURCE_TYPE), projectEditor.grantableOn());

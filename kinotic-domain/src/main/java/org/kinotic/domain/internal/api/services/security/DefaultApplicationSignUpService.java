@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
@@ -39,7 +40,6 @@ import org.kinotic.domain.internal.api.repositories.PendingApplicationSignUpRepo
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -185,7 +185,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                                             .recover(err -> tenantRepository.deleteById(application.getId(), tenantId, application.getOrganizationId())
                                                                                             .transform(deleted -> Future.failedFuture(err))))
                                   .compose(created -> applicationRoles.grant(application, new Subject(SubjectType.USER, created.getId()),
-                                                                             AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN),
+                                                                             AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN),
                                                                              new Resource(AuthzConstants.TENANT_TYPE, tenantId))
                                                                       .map(created));
         } else {

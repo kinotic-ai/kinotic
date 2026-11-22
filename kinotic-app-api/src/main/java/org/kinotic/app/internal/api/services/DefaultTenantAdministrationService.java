@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.app.api.services.TenantAdministrationService;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
@@ -32,7 +33,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -178,7 +178,7 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
     private Future<Void> requireAssignable(Application application, String roleId) {
         return models.findApplicationModelOfRole(application.getOrganizationId(), application.getId(), roleId)
                      .compose(model -> model.roles().containsKey(roleId)
-                             ? Future.succeededFuture(AuthzConstants.TENANT_TYPE.equals(AuthzUtil.roleHome(roleId)))
+                             ? Future.succeededFuture(AuthzConstants.TENANT_TYPE.equals(AuthzNameUtil.roleHome(roleId)))
                              : applicationRoles.requireRole(application, roleId).map(role -> role.isTenantAssignable()))
                      .map(assignable -> {
                          Validate.isTrue(assignable, "Role %s is not one a tenant's administrators grant", roleId);

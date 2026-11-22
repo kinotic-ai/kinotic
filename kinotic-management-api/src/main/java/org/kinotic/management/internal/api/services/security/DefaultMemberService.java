@@ -3,6 +3,7 @@ package org.kinotic.management.internal.api.services.security;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -16,7 +17,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.AddApplicationUserRequest;
 import org.kinotic.management.api.model.PendingInviteSummary;
 import org.kinotic.management.api.services.security.MemberInvitationService;
@@ -108,7 +108,7 @@ public class DefaultMemberService implements MemberService {
     private Future<Void> leavingOrganization(UserParticipantIdentity member, Supplier<Future<Void>> leave) {
         Future<Void> ret;
         if (member instanceof OrganizationParticipantIdentity organizationUser) {
-            ret = identityService.removeAdministrators(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
+            ret = identityService.removeAdministrators(AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
                                                        grant -> grant.subject().id().equals(organizationUser.getId()),
                                                        OrganizationParticipantIdentity.class,
                                                        leave);

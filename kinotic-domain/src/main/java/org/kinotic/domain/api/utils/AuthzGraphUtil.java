@@ -4,6 +4,7 @@ import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AccessExplanation;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
@@ -13,7 +14,6 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -69,7 +69,7 @@ public final class AuthzGraphUtil {
      */
     public static String authzUser(String identityId) {
         Validate.notBlank(identityId, "identityId cannot be blank");
-        return AuthzUtil.object(AuthzConstants.USER_TYPE, identityId);
+        return AuthzNameUtil.object(AuthzConstants.USER_TYPE, identityId);
     }
 
     /**
@@ -83,7 +83,7 @@ public final class AuthzGraphUtil {
     public static RelationshipTuple groupMember(String organizationUserId, String groupId) {
         return new RelationshipTuple(authzUser(organizationUserId),
                                      AuthzConstants.MEMBER_RELATION,
-                                     AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId));
+                                     AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId));
     }
 
     /**
@@ -96,10 +96,10 @@ public final class AuthzGraphUtil {
      */
     public static String authzSubject(Subject subject) {
         return switch (subject.type()) {
-            case USER -> AuthzUtil.object(AuthzConstants.USER_TYPE, subject.id());
-            case GROUP -> AuthzUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-            case TENANT -> AuthzUtil.object(AuthzConstants.TENANT_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-            case APPLICATION -> AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, subject.id()) + "#" + AuthzConstants.END_USER_RELATION;
+            case USER -> AuthzNameUtil.object(AuthzConstants.USER_TYPE, subject.id());
+            case GROUP -> AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
+            case TENANT -> AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
+            case APPLICATION -> AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, subject.id()) + "#" + AuthzConstants.END_USER_RELATION;
         };
     }
 
@@ -156,7 +156,7 @@ public final class AuthzGraphUtil {
      * @return the object
      */
     public static String authzApplication(String organizationId, String applicationId) {
-        return AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, authzApplicationId(organizationId, applicationId));
+        return AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, authzApplicationId(organizationId, applicationId));
     }
 
     /**
@@ -168,7 +168,7 @@ public final class AuthzGraphUtil {
      * @return the containment tuple
      */
     public static RelationshipTuple containment(String parent, String child) {
-        return new RelationshipTuple(parent, AuthzUtil.typeOf(parent), child);
+        return new RelationshipTuple(parent, AuthzNameUtil.typeOf(parent), child);
     }
 
     /**
@@ -178,7 +178,7 @@ public final class AuthzGraphUtil {
      * @return the containment tuple
      */
     public static RelationshipTuple organizationContainment(String organizationId) {
-        return containment(AuthzConstants.SYSTEM_OBJECT, AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
+        return containment(AuthzNameUtil.SYSTEM_OBJECT, AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
     }
 
     /**
@@ -190,7 +190,7 @@ public final class AuthzGraphUtil {
      * @return the containment tuple
      */
     public static RelationshipTuple tenantContainment(String organizationId, String applicationId, String tenantId) {
-        return containment(authzApplication(organizationId, applicationId), AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId));
+        return containment(authzApplication(organizationId, applicationId), AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenantId));
     }
 
     /**
@@ -204,7 +204,7 @@ public final class AuthzGraphUtil {
     public static List<RelationshipTuple> applicationUserTuples(ApplicationParticipantIdentity user) {
         String me = authzUser(user.getId());
         String application = authzApplication(user.getOrganizationId(), user.getApplicationId());
-        String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
+        String tenant = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
         return List.of(new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, application),
                        tenantContainment(user.getOrganizationId(), user.getApplicationId(), user.getTenantId()),
                        new RelationshipTuple(me, AuthzConstants.MEMBER_RELATION, tenant));
@@ -220,9 +220,9 @@ public final class AuthzGraphUtil {
      * @return the edges to give the check
      */
     public static List<RelationshipTuple> tenantDefinitionEdges(String definitionId, String tenantId) {
-        String object = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(definitionId, tenantId));
-        return List.of(new RelationshipTuple(AuthzUtil.object(AuthzConstants.ENTITY_DEFINITION_TYPE, definitionId), AuthzConstants.DEFINITION_RELATION, object),
-                       new RelationshipTuple(AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId), AuthzConstants.TENANT_TYPE, object));
+        String object = AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(definitionId, tenantId));
+        return List.of(new RelationshipTuple(AuthzNameUtil.object(AuthzConstants.ENTITY_DEFINITION_TYPE, definitionId), AuthzConstants.DEFINITION_RELATION, object),
+                       new RelationshipTuple(AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenantId), AuthzConstants.TENANT_TYPE, object));
     }
 
     /**
@@ -234,7 +234,7 @@ public final class AuthzGraphUtil {
      * @return the object
      */
     public static String authzObject(String organizationId, Resource resource) {
-        return AuthzUtil.object(resource.type(), authzId(resource.type(), organizationId, resource.id()));
+        return AuthzNameUtil.object(resource.type(), authzId(resource.type(), organizationId, resource.id()));
     }
 
     /**

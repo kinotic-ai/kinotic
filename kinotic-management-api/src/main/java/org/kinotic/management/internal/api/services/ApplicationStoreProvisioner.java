@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -22,7 +23,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.springframework.stereotype.Component;
 
@@ -80,7 +80,7 @@ public class ApplicationStoreProvisioner {
      */
     public Future<Void> removeTenant(Tenant tenant) {
         String store = AuthzGraphUtil.authzApplicationId(tenant.getOrganizationId(), tenant.getApplicationId());
-        String tenantObject = AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant.getId());
+        String tenantObject = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenant.getId());
         // a definition within the tenant holds the tenant's edge once it is granted on, so the ones granted on are
         // read from the store
         return relationships.removeObjectsOf(store, tenantObject, AuthzConstants.TENANT_DEFINITION_TYPE)
@@ -96,7 +96,7 @@ public class ApplicationStoreProvisioner {
      * @return the containment tuple
      */
     public static RelationshipTuple containment(String organizationId, String applicationId) {
-        return AuthzGraphUtil.containment(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId),
+        return AuthzGraphUtil.containment(AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId),
                                           AuthzGraphUtil.authzApplication(organizationId, applicationId));
     }
 
@@ -163,6 +163,6 @@ public class ApplicationStoreProvisioner {
     // The one tuple the application holds in its own store: everyone is placed on it, which the placement of each
     // definition under it is read through
     private static RelationshipTuple placement(String store) {
-        return new RelationshipTuple(AuthzConstants.EVERYONE, AuthzConstants.PLACED_RELATION, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store));
+        return new RelationshipTuple(AuthzConstants.EVERYONE, AuthzConstants.PLACED_RELATION, AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, store));
     }
 }

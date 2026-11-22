@@ -7,6 +7,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -19,7 +20,6 @@ import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.config.EntityDefinitionProperties;
 import org.kinotic.management.api.config.ManagementApiProperties;
 import org.kinotic.management.api.repositories.ProjectRepository;
@@ -199,7 +199,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
     static RelationshipTuple containment(EntityDefinition entityDefinition) {
         return AuthzGraphUtil.containment(AuthzGraphUtil.authzApplication(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId()),
-                                          AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
+                                          AuthzNameUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
     }
 
     @WithSpan
@@ -217,7 +217,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // The definition is read once the lock is held, so the one deleted is the one stored then: a definition
     // created under the id after another caller's delete is deleted only if it too is unpublished
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return relationships.exclusively(AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
+        return relationships.exclusively(AuthzNameUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
                                          () -> super.findById(entityDefinitionId).compose(entityDefinition -> {
 
                     if (entityDefinition == null) {

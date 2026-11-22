@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
@@ -16,7 +17,6 @@ import org.kinotic.domain.api.services.security.ApplicationRoleService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.CursorPaging;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -69,7 +69,7 @@ public class DefaultApplicationRoleService implements ApplicationRoleService {
             // deletion of it takes is held
             return model.roles().containsKey(roleId)
                     ? relationships.bind(store, roleId, member, object)
-                    : relationships.exclusively(AuthzUtil.roleObject(roleId),
+                    : relationships.exclusively(AuthzNameUtil.roleObject(roleId),
                                                 () -> requireRole(application, roleId).compose(row -> relationships.bind(store, roleId, member, object)));
         }).map(grantId -> new Grant(grantId, roleId, subject, resource));
     }

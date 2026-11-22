@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services.security;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
@@ -72,7 +73,7 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
     // Read past the engine's caches: a machine whose grant is revoked has its connections ended and reconnects at
     // once, and an answer kept from before the revocation gives it the zone back
     private Future<Boolean> registers(String user, String organizationId, String applicationId) {
-        String application = AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(organizationId, applicationId));
+        String application = AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(organizationId, applicationId));
         return relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, CAN_REGISTER_SERVICES, application), Consistency.HIGHER_CONSISTENCY);
     }
 }

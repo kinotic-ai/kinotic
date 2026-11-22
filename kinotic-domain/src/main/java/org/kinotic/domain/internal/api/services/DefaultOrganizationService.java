@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
@@ -18,7 +19,6 @@ import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -108,7 +108,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     }
 
     private static String objectOf(String id) {
-        return AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, id);
+        return AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, id);
     }
 
     // The organization leaves the graph with every grant made on it and every member it held

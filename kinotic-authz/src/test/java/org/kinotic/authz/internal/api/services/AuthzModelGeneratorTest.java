@@ -2,6 +2,7 @@ package org.kinotic.authz.internal.api.services;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -289,7 +290,7 @@ public class AuthzModelGeneratorTest {
     private static Set<String> withRoleTypes(String... resourceTypes) {
         Set<String> ret = new TreeSet<>(Set.of("user", "group", "role_holders"));
         for (String type : resourceTypes) {
-            ret.addAll(Set.of(type, AuthzUtil.roleType(type), AuthzUtil.roleBindingType(type)));
+            ret.addAll(Set.of(type, AuthzNameUtil.roleType(type), AuthzNameUtil.roleBindingType(type)));
         }
         return ret;
     }
@@ -794,7 +795,7 @@ public class AuthzModelGeneratorTest {
         // the engine has a role type for the types the store places alone, and the tenant has no permission of
         // its own here, so no role
         assertEquals(Set.of("application", "entity_definition"),
-                     model.storedRoles().keySet().stream().map(AuthzUtil::roleHome).collect(Collectors.toSet()));
+                     model.storedRoles().keySet().stream().map(AuthzNameUtil::roleHome).collect(Collectors.toSet()));
         assertFalse(model.storedRoles().containsKey("price.viewer"));
         // a role holds a permission it bundles and every one a bundled permission implies, an ancestor's
         // administrator among them
@@ -830,7 +831,7 @@ public class AuthzModelGeneratorTest {
         }
         for (String role : List.of("catalog.viewer", "catalog.editor", "catalog.admin", "price.viewer", "price.editor", "price.admin", "price.quoter")) {
             assertEquals(whole.roles().get(role), partial.roles().get(role), role);
-            assertEquals(whole.grantableOn(AuthzUtil.roleHome(role), "application"), partial.grantableOn(AuthzUtil.roleHome(role), "application"), role);
+            assertEquals(whole.grantableOn(AuthzNameUtil.roleHome(role), "application"), partial.grantableOn(AuthzNameUtil.roleHome(role), "application"), role);
         }
         assertEquals(whole.catalog("tenant").get("price"), partial.catalog("tenant").get("price"));
         assertFalse(partial.roles().containsKey("invoice.sender"));

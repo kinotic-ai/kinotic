@@ -63,7 +63,7 @@ public record AuthzModel(ObjectNode definition,
      * @return true when the engine admits the grant
      */
     public boolean grantable(String roleId, String resourceType) {
-        return tier(resourceType).contains(AuthzUtil.roleHome(roleId));
+        return tier(resourceType).contains(AuthzNameUtil.roleHome(roleId));
     }
 
     /**
@@ -75,7 +75,7 @@ public record AuthzModel(ObjectNode definition,
      */
     public void requireGrantable(String roleId, String resourceType) {
         if (!grantable(roleId, resourceType)) {
-            throw new IllegalArgumentException("Role " + roleId + " is homed at " + AuthzUtil.roleHome(roleId)
+            throw new IllegalArgumentException("Role " + roleId + " is homed at " + AuthzNameUtil.roleHome(roleId)
                                                        + " and cannot be granted on a " + resourceType);
         }
     }
@@ -145,7 +145,7 @@ public record AuthzModel(ObjectNode definition,
     public Map<String, Set<String>> storedRoles() {
         Map<String, Set<String>> ret = new TreeMap<>();
         roles.forEach((roleId, permissions) -> {
-            if (bindable.containsKey(AuthzUtil.roleHome(roleId))) {
+            if (bindable.containsKey(AuthzNameUtil.roleHome(roleId))) {
                 ret.put(roleId, permissions);
             }
         });
@@ -197,9 +197,9 @@ public record AuthzModel(ObjectNode definition,
     public List<RoleDefinition> builtInRoles(String root) {
         List<RoleDefinition> ret = new ArrayList<>();
         for (Map.Entry<String, Set<String>> role : new TreeMap<>(roles).entrySet()) {
-            String home = AuthzUtil.roleHome(role.getKey());
+            String home = AuthzNameUtil.roleHome(role.getKey());
             if (tier(root).contains(home)) {
-                ret.add(new RoleDefinition(role.getKey(), AuthzUtil.builtInRoleName(role.getKey()), null, true, home,
+                ret.add(new RoleDefinition(role.getKey(), AuthzNameUtil.builtInRoleName(role.getKey()), null, true, home,
                                            grantableOn(home, root), role.getValue(), Map.of(),
                                            AuthzConstants.TENANT_TYPE.equals(home)));
             }

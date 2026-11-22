@@ -5,6 +5,7 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -27,8 +28,6 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.WorkloadRepository;
@@ -108,7 +107,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      * @return the containment tuple
      */
     public static RelationshipTuple containment(String nodeId) {
-        return AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId));
+        return AuthzGraphUtil.containment(AuthzNameUtil.SYSTEM_OBJECT, AuthzNameUtil.object(VmNodeService.RESOURCE_TYPE, nodeId));
     }
 
     /**
@@ -409,7 +408,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         log.info("Deregistering VmNode {}: its open runs are recorded FAILED", nodeId);
         // under the lock registerNode holds, so a registration of the id never has its graph placement removed
         // or its record deleted beneath it
-        return relationships.exclusively(AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> forEachOpenRun(nodeId, workload -> {
+        return relationships.exclusively(AuthzNameUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> forEachOpenRun(nodeId, workload -> {
                     log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                              workload.getId(), nodeId, workload.getStatus());
                     return workloadRepository.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();
@@ -423,7 +422,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     // Every grant made on the node is revoked and the node leaves the system, so a node registered again under the
     // same id starts with no agent
     private Future<Void> released(String nodeId) {
-        return relationships.removeObject(AuthzStoreService.SYSTEM, AuthzUtil.object(VmNodeService.RESOURCE_TYPE, nodeId));
+        return relationships.removeObject(AuthzStoreService.SYSTEM, AuthzNameUtil.object(VmNodeService.RESOURCE_TYPE, nodeId));
     }
 
     // Applies the change to every open run on the node, one at a time
