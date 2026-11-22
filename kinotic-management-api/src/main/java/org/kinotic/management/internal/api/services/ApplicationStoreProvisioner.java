@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -84,7 +86,7 @@ public class ApplicationStoreProvisioner {
         // a definition within the tenant holds the tenant's edge once it is granted on, so the ones granted on are
         // read from the store
         return relationships.removeObjectsOf(store, tenantObject, AuthzConstants.TENANT_DEFINITION_TYPE)
-                .compose(v -> relationships.removeSubject(store, tenantObject + "#" + AuthzConstants.MEMBER_RELATION))
+                .compose(v -> relationships.removeSubject(store, AuthzNameUtil.userset(new Subject(SubjectType.TENANT, tenant.getId()))))
                 .compose(v -> relationships.removeObject(store, tenantObject));
     }
 

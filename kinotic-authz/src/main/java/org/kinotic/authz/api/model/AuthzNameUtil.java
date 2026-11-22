@@ -4,6 +4,7 @@ import org.kinotic.idl.api.utils.AuthzConstants;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -46,6 +47,40 @@ public final class AuthzNameUtil {
     public static String idOf(String object) {
         int relation = object.indexOf('#');
         return object.substring(object.indexOf(':') + 1, relation < 0 ? object.length() : relation);
+    }
+
+    /**
+     * Who a grant to a subject is made to in a store: a user as {@code user:<id>}, a group as its members,
+     * {@code group:<id>#member}, a tenant as its users, {@code tenant:<id>#member}, an application as its end users,
+     * {@code application:<id>#end_user}.
+     *
+     * @param subject the subject, named as the store holds it
+     * @return the user or the userset
+     */
+    public static String userset(Subject subject) {
+        String ret = object(subject.type().getObjectType(), subject.id());
+        if (subject.type().getRelation() != null) {
+            ret = ret + "#" + subject.type().getRelation();
+        }
+        return ret;
+    }
+
+    /**
+     * The subject a user or a userset of a store stands for, the inverse of {@link #userset}.
+     *
+     * @param userset the user or the userset, in {@code type:id} or {@code type:id#relation} form
+     * @return the subject, or null when a grant is made to no such userset
+     */
+    public static Subject subjectOf(String userset) {
+        Subject ret = null;
+        int relationStart = userset.indexOf('#');
+        String relation = relationStart < 0 ? null : userset.substring(relationStart + 1);
+        for (SubjectType type : SubjectType.values()) {
+            if (type.getObjectType().equals(typeOf(userset)) && Objects.equals(type.getRelation(), relation)) {
+                ret = new Subject(type, idOf(userset));
+            }
+        }
+        return ret;
     }
 
     /**

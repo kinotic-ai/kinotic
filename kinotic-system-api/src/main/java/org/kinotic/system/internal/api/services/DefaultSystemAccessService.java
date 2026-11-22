@@ -57,7 +57,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
             }
             model.requireGrantable(roleId, AuthzConstants.SYSTEM_TYPE);
             return requireStaff(subject);
-        }).compose(stored -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored), AuthzNameUtil.SYSTEM_OBJECT))
+        }).compose(stored -> relationships.bind(SYSTEM, roleId, AuthzNameUtil.userset(stored), AuthzNameUtil.SYSTEM_OBJECT))
           .map(bindingId -> new Grant(bindingId, roleId, subject, SYSTEM_RESOURCE));
     }
 
@@ -76,7 +76,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
         String name = AuthzUtil.permissionName(AuthzConstants.SYSTEM_TYPE, permission);
         return requireStaff(subject).compose(stored -> Future.all(model(), relationships.findGrants(SYSTEM, AuthzNameUtil.SYSTEM_OBJECT))
                 .compose(both -> relationships.explain(SYSTEM, both.resultAt(0),
-                                                       new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzNameUtil.SYSTEM_OBJECT),
+                                                       new RelationshipTuple(AuthzNameUtil.userset(stored), name, AuthzNameUtil.SYSTEM_OBJECT),
                                                        List.of(), both.resultAt(1)))
                 .map(AuthzGraphUtil::localExplanation));
     }

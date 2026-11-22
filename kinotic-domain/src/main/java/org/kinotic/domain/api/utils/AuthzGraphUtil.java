@@ -9,7 +9,6 @@ import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
-import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
@@ -84,23 +83,6 @@ public final class AuthzGraphUtil {
         return new RelationshipTuple(authzUser(organizationUserId),
                                      AuthzConstants.MEMBER_RELATION,
                                      AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId));
-    }
-
-    /**
-     * Who a grant to a subject is made to in the authorization stores: a user as {@code user:<id>}, a group as its
-     * members, {@code group:<id>#member}, a tenant as its users, {@code tenant:<id>#member}, an application as its
-     * end users, {@code application:<id>#end_user}.
-     *
-     * @param subject the subject, named as the stores hold it: an application by {@link #authzApplicationId}
-     * @return the user or userset
-     */
-    public static String authzSubject(Subject subject) {
-        return switch (subject.type()) {
-            case USER -> AuthzNameUtil.object(AuthzConstants.USER_TYPE, subject.id());
-            case GROUP -> AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-            case TENANT -> AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-            case APPLICATION -> AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, subject.id()) + "#" + AuthzConstants.END_USER_RELATION;
-        };
     }
 
     /**
@@ -238,8 +220,21 @@ public final class AuthzGraphUtil {
     }
 
     /**
-     * A grant read from the authorization stores, named as the resource's organization knows it: its resource by
-     * the resource's local id, and a subject that is an application by the application's.
+     * Who a grant to a subject named as its organization knows it is made to in the authorization stores, as
+     * {@link AuthzNameUtil#userset} names it: an application's end users by the application's id in the stores.
+     *
+     * @param organizationId the organization the subject belongs to
+     * @param subject        the subject
+     * @return the user or the userset
+     */
+    public static String authzSubject(String organizationId, Subject subject) {
+        String type = subject.type().getObjectType();
+        return AuthzNameUtil.userset(new Subject(subject.type(), authzId(type, organizationId, subject.id())));
+    }
+
+    /**
+     * A grant read from the authorization stores, named as the resource's organization knows it: its resource and
+     * its subject each by the local id.
      *
      * @param grant the grant as the stores hold it
      * @return the grant with local ids
@@ -247,10 +242,9 @@ public final class AuthzGraphUtil {
     public static Grant localGrant(Grant grant) {
         Resource resource = grant.resource();
         Subject subject = grant.subject();
-        Subject local = subject.type() == SubjectType.APPLICATION
-                ? new Subject(SubjectType.APPLICATION, localId(AuthzConstants.APPLICATION_TYPE, subject.id()))
-                : subject;
-        return new Grant(grant.id(), grant.roleId(), local, new Resource(resource.type(), localId(resource.type(), resource.id())));
+        return new Grant(grant.id(), grant.roleId(),
+                         new Subject(subject.type(), localId(subject.type().getObjectType(), subject.id())),
+                         new Resource(resource.type(), localId(resource.type(), resource.id())));
     }
 
     /**

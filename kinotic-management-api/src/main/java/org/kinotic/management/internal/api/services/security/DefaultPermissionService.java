@@ -179,7 +179,7 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(groupId, "groupId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return whileGroupKept(groupId, organizationId, () -> model()
-                .compose(model -> requireUnused(AuthzGraphUtil.authzSubject(new Subject(SubjectType.GROUP, groupId)),
+                .compose(model -> requireUnused(AuthzNameUtil.userset(new Subject(SubjectType.GROUP, groupId)),
                                                 model.tier(AuthzConstants.ORGANIZATION_TYPE), "Group " + groupId))
                 // its membership first, then the row: a group whose row outlives its members reaches nobody
                 .compose(v -> relationships.removeObject(SYSTEM, AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
@@ -244,7 +244,7 @@ public class DefaultPermissionService implements PermissionService {
                 .compose(v -> requireSubject(subject, organizationId))
                 .compose(stored -> requireInOrganization(model, resource, organizationId)
                         .compose(lineage -> whileRoleKept(model, roleId, organizationId, () -> {
-                            Supplier<Future<String>> bind = () -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored),
+                            Supplier<Future<String>> bind = () -> relationships.bind(SYSTEM, roleId, AuthzNameUtil.userset(stored),
                                                                                     AuthzGraphUtil.authzObject(organizationId, resource));
                             return stored.type() == SubjectType.GROUP ? whileGroupKept(stored.id(), organizationId, bind) : bind.get();
                         }))))
@@ -342,7 +342,7 @@ public class DefaultPermissionService implements PermissionService {
                 .compose(model -> requireInOrganization(model, resource, organizationId)
                         .compose(this::grantsOn)
                         .compose(grants -> relationships.explain(SYSTEM, model,
-                                                                 new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
+                                                                 new RelationshipTuple(AuthzNameUtil.userset(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
                                                                  List.of(), grants)))
                 .map(AuthzGraphUtil::localExplanation));
     }

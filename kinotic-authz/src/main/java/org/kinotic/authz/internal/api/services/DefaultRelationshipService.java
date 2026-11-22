@@ -495,46 +495,23 @@ public class DefaultRelationshipService implements RelationshipService {
             for (RelationshipTuple tuple : held) {
                 if (AuthzConstants.ROLE_RELATION.equals(tuple.relation())) {
                     roleId = AuthzNameUtil.idOf(tuple.user());
-                } else if (AuthzConstants.MEMBER_RELATION.equals(tuple.relation()) && subjectOf(tuple.user()) != null) {
+                } else if (AuthzConstants.MEMBER_RELATION.equals(tuple.relation()) && AuthzNameUtil.subjectOf(tuple.user()) != null) {
                     members.add(tuple.user());
                 }
             }
             List<Grant> ret = new ArrayList<>();
             if (roleId != null) {
                 for (String member : members) {
-                    ret.add(new Grant(AuthzNameUtil.grantId(roleId, member), roleId, subjectOf(member), resource));
+                    ret.add(new Grant(AuthzNameUtil.grantId(roleId, member), roleId, AuthzNameUtil.subjectOf(member), resource));
                 }
             }
             return ret;
         });
     }
 
-    private static Subject subjectOf(String user) {
-        Subject ret = null;
-        String type = AuthzNameUtil.typeOf(user);
-        boolean members = user.endsWith("#" + AuthzConstants.MEMBER_RELATION);
-        if (AuthzConstants.USER_TYPE.equals(type)) {
-            ret = new Subject(SubjectType.USER, AuthzNameUtil.idOf(user));
-        } else if (members && AuthzConstants.GROUP_TYPE.equals(type)) {
-            ret = new Subject(SubjectType.GROUP, AuthzNameUtil.idOf(user));
-        } else if (members && AuthzConstants.TENANT_TYPE.equals(type)) {
-            ret = new Subject(SubjectType.TENANT, AuthzNameUtil.idOf(user));
-        } else if (AuthzConstants.APPLICATION_TYPE.equals(type) && user.endsWith("#" + AuthzConstants.END_USER_RELATION)) {
-            ret = new Subject(SubjectType.APPLICATION, AuthzNameUtil.idOf(user));
-        }
-        return ret;
-    }
-
     // What a user holds when it is one of those a grant to a group, a tenant or an application stands for
     private static RelationshipTuple oneOf(String user, Subject subject) {
-        RelationshipTuple ret;
-        if (subject.type() == SubjectType.APPLICATION) {
-            ret = new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, subject.id()));
-        } else {
-            String membersOf = subject.type() == SubjectType.GROUP ? AuthzConstants.GROUP_TYPE : AuthzConstants.TENANT_TYPE;
-            ret = new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, AuthzNameUtil.object(membersOf, subject.id()));
-        }
-        return ret;
+        return new RelationshipTuple(user, subject.type().getRelation(), AuthzNameUtil.object(subject.type().getObjectType(), subject.id()));
     }
 
     @Override
@@ -586,7 +563,7 @@ public class DefaultRelationshipService implements RelationshipService {
         RelationshipTuple bundles = new RelationshipTuple(AuthzConstants.EVERYONE, holds.relation(), roleObject(store, grant.roleId()));
         Future<Boolean> bundled = check(store, modelId, bundles, Consistency.HIGHER_CONSISTENCY, context, named);
         Future<Boolean> member;
-        if (grant.subject().equals(subjectOf(holds.user()))) {
+        if (grant.subject().equals(AuthzNameUtil.subjectOf(holds.user()))) {
             member = Future.succeededFuture(true);
         } else if (grant.subject().type() != SubjectType.USER && AuthzConstants.USER_TYPE.equals(AuthzNameUtil.typeOf(holds.user()))) {
             // an admin asks after changing a group or moving a user, so the answer must not predate the change

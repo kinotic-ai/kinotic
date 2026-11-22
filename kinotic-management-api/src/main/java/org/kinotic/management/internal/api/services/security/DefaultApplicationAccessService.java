@@ -216,7 +216,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         Validate.notBlank(permission, "permission cannot be blank");
         return requireApplication(applicationId).compose(application -> {
             String store = storeOf(application);
-            RelationshipTuple holds = new RelationshipTuple(AuthzGraphUtil.authzSubject(subject), permission, objectOf(application, resource));
+            RelationshipTuple holds = new RelationshipTuple(AuthzGraphUtil.authzSubject(application.getOrganizationId(), subject), permission, objectOf(application, resource));
             return requireSubject(application, subject)
                     .compose(v -> Future.all(modelOf(application, List.of(), List.of(permission)), grantsOn(application, resource)))
                     .compose(both -> relationships.explain(store, both.resultAt(0), holds, edgesOf(resource), both.resultAt(1)))

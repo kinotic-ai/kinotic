@@ -3,6 +3,7 @@ package org.kinotic.authz.internal.api.services;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.ServiceModelNames;
+import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -104,8 +105,8 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final Set<String> APPLICATION_TYPES = AuthzModelGenerator.APPLICATION_TYPES;
     // who a binding may be made to: in an application's store a user, every end user of the application or every
     // user of a tenant, and in the system's a user or the members of a group
-    private static final List<String> APPLICATION_MEMBER_TYPES = List.of(USER, APPLICATION + "#" + END_USER, TENANT + "#" + MEMBER);
-    private static final List<String> SYSTEM_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER);
+    private static final List<SubjectType> APPLICATION_SUBJECTS = List.of(SubjectType.USER, SubjectType.APPLICATION, SubjectType.TENANT);
+    private static final List<SubjectType> SYSTEM_SUBJECTS = List.of(SubjectType.USER, SubjectType.GROUP);
 
     @Override
     public AuthzModel systemModel(Collection<ServiceDefinition> services) {
@@ -122,7 +123,7 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         Map<String, Set<String>> roles = typeRoles(types);
         staffRoles(roles, types);
         declaredRoles(roles, types);
-        return model(types, typeDefinitions(types, bindable, SYSTEM_MEMBER_TYPES), bindable, roles, Map.of());
+        return model(types, typeDefinitions(types, bindable, SYSTEM_SUBJECTS), bindable, roles, Map.of());
     }
 
     @Override
@@ -206,9 +207,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
             typed.retainAll(placed.keySet());
             roleTypes.put(type, typed);
         });
-        ArrayNode typeDefinitions = typeDefinitions(types, roleTypes, APPLICATION_MEMBER_TYPES);
+        ArrayNode typeDefinitions = typeDefinitions(types, roleTypes, APPLICATION_SUBJECTS);
         typeDefinitions.add(rolePartType(List.of(definition, ofServices)));
-        typeDefinitions.add(roleBindingType(TENANT_DEFINITION, roleTypes.get(TENANT_DEFINITION), definition.permissionNames(), APPLICATION_MEMBER_TYPES));
+        typeDefinitions.add(roleBindingType(TENANT_DEFINITION, roleTypes.get(TENANT_DEFINITION), definition.permissionNames(), APPLICATION_SUBJECTS));
         typeDefinitions.add(tenantDefinitionType(definition));
         Map<String, Set<String>> roles = typeRoles(types);
         // a tenant's administrator decides who is in the tenant and what they hold there; the rows are held through
@@ -268,17 +269,16 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
 
     // The user, the group when a binding may be made to one, then each resource type with the type of its roles and
     // of its bindings
-    private static ArrayNode typeDefinitions(ResourceTypes types, Map<String, Set<String>> bindable, List<String> memberTypes) {
+    private static ArrayNode typeDefinitions(ResourceTypes types, Map<String, Set<String>> bindable, List<SubjectType> subjects) {
         ArrayNode ret = JsonNodeFactory.instance.arrayNode();
         ret.add(typeDefinition(USER, Map.of()));
-        String groupMembers = GROUP + "#" + MEMBER;
-        if (memberTypes.contains(groupMembers)) {
-            ret.add(typeDefinition(GROUP, Map.of(MEMBER, direct(List.of(USER, groupMembers)))));
+        if (subjects.contains(SubjectType.GROUP)) {
+            ret.add(typeDefinition(GROUP, Map.of(MEMBER, direct(memberTypes(List.of(SubjectType.USER, SubjectType.GROUP))))));
         }
         for (ResourceType type : types.sorted()) {
             List<ResourceType> carried = types.carriedBy(type.name);
             ret.add(roleType(type.name, carried));
-            ret.add(roleBindingType(type.name, bindable.get(type.name), permissionNames(carried), memberTypes));
+            ret.add(roleBindingType(type.name, bindable.get(type.name), permissionNames(carried), subjects));
             ret.add(resourceType(type, carried));
         }
         return ret;
@@ -662,14 +662,22 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
      * permission through it when the role bundles that permission. The engine refuses a binding of a role whose
      * home is not one the type may grant.
      */
-    private static ObjectNode roleBindingType(String boundOn, Set<String> homes, Set<String> permissions, List<String> memberTypes) {
+    private static ObjectNode roleBindingType(String boundOn, Set<String> homes, Set<String> permissions, List<SubjectType> subjects) {
         Map<String, ObjectNode> relations = new LinkedHashMap<>();
         relate(relations, ROLE, direct(homes.stream().map(AuthzNameUtil::roleType).toList()));
-        relate(relations, MEMBER, direct(memberTypes));
+        relate(relations, MEMBER, direct(memberTypes(subjects)));
         for (String permission : permissions) {
             relate(relations, permission, intersection(List.of(computed(MEMBER), tupleToUserset(ROLE, permission))));
         }
         return typeDefinition(AuthzNameUtil.roleBindingType(boundOn), relations);
+    }
+
+    // The type restrictions letting a member be a subject of the given types: user, or the holders of the type's
+    // relation, such as group#member
+    private static List<String> memberTypes(List<SubjectType> subjects) {
+        return subjects.stream()
+                       .map(subject -> subject.getRelation() == null ? subject.getObjectType() : subject.getObjectType() + "#" + subject.getRelation())
+                       .toList();
     }
 
     private static ObjectNode resourceType(ResourceType type, List<ResourceType> carried) {
