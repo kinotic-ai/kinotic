@@ -120,7 +120,6 @@ public final class AuthzConstants {
     public static final String CAN_MANAGE_WORKLOADS = "can_manage_workloads";
     public static final String CAN_REGISTER_NODE = "can_register_node";
     public static final String CAN_REGISTER_SERVICES = "can_register_services";
-    public static final String CAN_REPORT = "can_report";
     public static final String CAN_READ_ACCESS = "can_read_access";
     public static final String CAN_READ_CLUSTER = "can_read_cluster";
     public static final String CAN_READ_DEPLOYMENTS = "can_read_deployments";
