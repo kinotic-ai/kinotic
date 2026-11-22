@@ -2,6 +2,7 @@ package org.kinotic.authz.internal.api.services;
 
 import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CreateStoreRequest;
+import dev.openfga.sdk.api.model.ReadRequestTupleKey;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -330,8 +331,7 @@ class OpenFgaIntegrationTest {
 
         String recreated = await(storeService.ensureStore(store));
         AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
-        String grownModelId = await(storeService.ensureModel(store, grown));
-        await(relationshipService.ensureRoles(store, grown.roles()));
+        String grownModelId = await(relationshipService.ensureModelWithRoles(store, grown)).modelId();
         await(relationshipService.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
 
         assertNotEquals(storeId, recreated);
@@ -359,8 +359,7 @@ class OpenFgaIntegrationTest {
         assertEquals(modelId, await(elsewhere.modelId(store)));
 
         AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
-        await(storeService.ensureModel(store, grown));
-        await(relationshipService.ensureRoles(store, grown.roles()));
+        await(relationshipService.ensureModelWithRoles(store, grown));
         await(relationshipService.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
 
         assertEquals(modelId, await(elsewhere.modelId(store)));
@@ -659,7 +658,7 @@ class OpenFgaIntegrationTest {
         // a built-in role of a service's type holds what the model says and the store holds nothing for it; it is
         // granted as a role of the tenant, and granted on the application it reaches every tenant
         assertEquals(Set.of("report.admin", "report.editor", "report.viewer"), model.rolesHolding("report_can_read"));
-        assertTrue(await(relationshipService.read(store, "tenant_role:report.viewer")).isEmpty());
+        assertTrue(storedOn(store, "tenant_role:report.viewer").isEmpty());
         String viewing = await(relationshipService.bind(store, "report.viewer", "user:sally-services", "tenant:north"));
         await(relationshipService.bind(store, "chart.viewer", "user:machine-services", application));
         assertTrue(holdsOfServices(store, model, "user:sally-services", "report_can_read", "tenant:north"));
@@ -720,7 +719,7 @@ class OpenFgaIntegrationTest {
         await(relationshipService.bind(store, "tenant.few", "user:fay-many", "tenant:north"));
 
         assertEquals(many, await(relationshipService.findRolePermissions(store, "tenant.many")));
-        assertTrue(await(relationshipService.read(store, "tenant_role:tenant.many", "part")).size() > 1);
+        assertTrue(storedOn(store, "tenant_role:tenant.many", "part").size() > 1);
         for (int service : List.of(0, services / 2, services - 1)) {
             assertTrue(holdsOfServices(store, model, "user:mia-many", "service" + service + "_can_edit", "tenant:north"));
             assertFalse(holdsOfServices(store, model, "user:mia-many", "service" + service + "_can_delete", "tenant:north"));
@@ -859,13 +858,13 @@ class OpenFgaIntegrationTest {
         assertTrue(holdsOnRows(store, "user:mia-many", "can_read", definitionOf(definitions - 1), "north"));
 
         // the role's parts leave the store with it
-        List<String> parts = await(relationshipService.read(store, "tenant_role:tenant.many", "part")).stream().map(RelationshipTuple::user).toList();
+        List<String> parts = storedOn(store, "tenant_role:tenant.many", "part").stream().map(RelationshipTuple::user).toList();
         assertTrue(parts.size() > 1, "the role named its definitions in " + parts.size() + " part");
         await(relationshipService.revoke(store, granted, "tenant:north"));
         await(relationshipService.removeObject(store, "tenant_role:tenant.many"));
         assertEquals(new RolePermissions(Set.of()), await(relationshipService.findRolePermissions(store, "tenant.many")));
         for (String part : parts) {
-            assertEquals(List.of(), await(relationshipService.read(store, part)), part);
+            assertEquals(List.of(), storedOn(store, part), part);
         }
         await(storeService.deleteStore(store));
     }
@@ -904,14 +903,14 @@ class OpenFgaIntegrationTest {
 
         assertFalse(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.invoice", "north"));
         assertFalse(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.invoice", "south"));
-        assertEquals(List.of(), await(relationshipService.read(store, "tenant_definition:crm.invoice@north")));
-        assertEquals(List.of(), await(relationshipService.read(store, "tenant_definition:crm.invoice@south")));
+        assertEquals(List.of(), storedOn(store, "tenant_definition:crm.invoice@north"));
+        assertEquals(List.of(), storedOn(store, "tenant_definition:crm.invoice@south"));
         assertTrue(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.order", "north"));
 
         await(relationshipService.removeObjectsOf(store, "tenant:north", "tenant_definition"));
 
         assertFalse(holdsOnRows(store, "user:bob-pairs", "can_read", "crm.order", "north"));
-        assertEquals(List.of(), await(relationshipService.read(store, "tenant_definition:crm.order@north")));
+        assertEquals(List.of(), storedOn(store, "tenant_definition:crm.order@north"));
         await(storeService.deleteStore(store));
     }
 
@@ -930,7 +929,7 @@ class OpenFgaIntegrationTest {
 
         assertEquals(made, grants.stream().map(Grant::id).collect(Collectors.toSet()));
         assertEquals(150, grants.stream().map(Grant::subject).distinct().count());
-        assertEquals(1, await(relationshipService.read(SYSTEM, project, "role_binding")).size());
+        assertEquals(1, storedOn(SYSTEM, project, "role_binding").size());
         await(relationshipService.removeObject(SYSTEM, project));
         assertEquals(List.of(), await(relationshipService.findGrants(SYSTEM, project)));
     }
@@ -938,19 +937,17 @@ class OpenFgaIntegrationTest {
     @Test
     void builtInRolesAreSeededByDifferenceAndBindingsGrantThem() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
-        await(storeService.ensureModel(SYSTEM, model));
-
-        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
-        List<RelationshipTuple> editor = await(relationshipService.read(SYSTEM, AuthzUtil.roleObject("project.editor")));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, model));
+        List<RelationshipTuple> editor = storedOn(SYSTEM, AuthzUtil.roleObject("project.editor"));
         assertEquals(Set.of("project_can_edit", "project_can_read"),
                      editor.stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
         // in step already: nothing is written, and nothing fails on a tuple held already
-        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, model));
         // a permission the role no longer bundles is removed, one it lacks is added
-        await(relationshipService.ensureRoles(SYSTEM, Map.of("project.editor", Set.of("project_can_read", "project_can_delete"))));
+        await(relationshipService.ensureRole(SYSTEM, "project.editor", new RolePermissions(Set.of("project_can_read", "project_can_delete"))));
         assertEquals(Set.of("project_can_delete", "project_can_read"),
-                     await(relationshipService.read(SYSTEM, AuthzUtil.roleObject("project.editor"))).stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
-        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
+                     storedOn(SYSTEM, AuthzUtil.roleObject("project.editor")).stream().map(RelationshipTuple::relation).collect(Collectors.toSet()));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, model));
 
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-roles", "application", "project:billing-roles"))));
         await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-roles", "project:billing-roles"));
@@ -1032,8 +1029,7 @@ class OpenFgaIntegrationTest {
     @Test
     void revokeTakesOneMemberOutAndTheBindingGoesWithItsLast() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
-        await(storeService.ensureModel(SYSTEM, model));
-        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, model));
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:billing-unbind"))));
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-unbind", "application", "project:payroll-unbind"))));
         String sallys = await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
@@ -1043,7 +1039,7 @@ class OpenFgaIntegrationTest {
         assertEquals(2, await(relationshipService.findGrants(SYSTEM, "project:billing-unbind")).size());
         String binding = AuthzUtil.bindingObject("project:billing-unbind", "project.editor");
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-unbind", "project_can_edit", "project:billing-unbind"), Consistency.HIGHER_CONSISTENCY)));
-        assertTrue(await(relationshipService.readByUser(SYSTEM, AuthzUtil.roleObject("project.editor"), "project_role_binding")).stream()
+        assertTrue(storedBy(SYSTEM, AuthzUtil.roleObject("project.editor"), "project_role_binding").stream()
                         .anyMatch(tuple -> tuple.object().equals(binding)));
         // a grant is revoked where it was made: the same role granted to the same member elsewhere is another grant
         assertThrows(ExecutionException.class, () -> await(relationshipService.revoke(SYSTEM, sallys, "project:payroll-unbind")));
@@ -1060,7 +1056,7 @@ class OpenFgaIntegrationTest {
         await(relationshipService.revoke(SYSTEM, marcuss, "project:billing-unbind"));
 
         // the binding leaves the store with its last member
-        assertTrue(await(relationshipService.read(SYSTEM, binding)).isEmpty());
+        assertTrue(storedOn(SYSTEM, binding).isEmpty());
         assertFalse(await(relationshipService.holds(SYSTEM, new RelationshipTuple(binding, "role_binding", "project:billing-unbind"))));
         // a member joining afterwards attaches the binding again
         await(relationshipService.bind(SYSTEM, "project.editor", "user:sally-unbind", "project:billing-unbind"));
@@ -1084,8 +1080,8 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensure(store, endUsers));
         String grantId = await(relationshipService.bind(store, "entity_definition.viewer", "user:sally-relation", "application:crm-relation"));
 
-        assertEquals(List.of(placed), await(relationshipService.read(store, "application:crm-relation", "placed")));
-        assertEquals(150, await(relationshipService.read(store, "application:crm-relation", "end_user")).size());
+        assertEquals(List.of(placed), storedOn(store, "application:crm-relation", "placed"));
+        assertEquals(150, storedOn(store, "application:crm-relation", "end_user").size());
         assertEquals(List.of(new Grant(grantId, "entity_definition.viewer", new Subject(SubjectType.USER, "sally-relation"), new Resource("application", "crm-relation"))),
                      await(relationshipService.findGrants(store, "application:crm-relation")));
 
@@ -1127,8 +1123,7 @@ class OpenFgaIntegrationTest {
     @Test
     void aRemovedObjectAndARemovedSubjectLeaveNothingOfThemselves() throws Exception {
         AuthzModel model = generator.systemModel(List.of(projectService()));
-        await(storeService.ensureModel(SYSTEM, model));
-        await(relationshipService.ensureRoles(SYSTEM, model.roles()));
+        await(relationshipService.ensureModelWithRoles(SYSTEM, model));
         await(relationshipService.ensure(SYSTEM, List.of(new RelationshipTuple("application:crm-gone", "application", "project:billing-gone"),
                                                          new RelationshipTuple("application:crm-gone", "application", "project:payroll-gone"),
                                                          new RelationshipTuple("user:sally-gone", "member", "group:devs-gone"))));
@@ -1140,14 +1135,14 @@ class OpenFgaIntegrationTest {
         await(relationshipService.removeSubject(SYSTEM, "user:sally-gone"));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-gone", "project_can_edit", "project:billing-gone"), Consistency.HIGHER_CONSISTENCY)));
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:sally-gone", "project_can_edit", "project:payroll-gone"), Consistency.HIGHER_CONSISTENCY)));
-        assertTrue(await(relationshipService.readByUser(SYSTEM, "user:sally-gone", "project_role_binding")).isEmpty());
+        assertTrue(storedBy(SYSTEM, "user:sally-gone", "project_role_binding").isEmpty());
         assertTrue(await(relationshipService.findGrants(SYSTEM, "project:billing-gone")).stream().allMatch(grant -> grant.id().equals(kept)));
         assertTrue(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-gone", "project_can_edit", "project:billing-gone"), Consistency.HIGHER_CONSISTENCY)));
 
         // the object loses its place and every grant made on it
         await(relationshipService.removeObject(SYSTEM, "project:billing-gone"));
-        assertTrue(await(relationshipService.read(SYSTEM, "project:billing-gone")).isEmpty());
-        assertTrue(await(relationshipService.read(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", "project.editor"))).isEmpty());
+        assertTrue(storedOn(SYSTEM, "project:billing-gone").isEmpty());
+        assertTrue(storedOn(SYSTEM, AuthzUtil.bindingObject("project:billing-gone", "project.editor")).isEmpty());
         assertFalse(await(relationshipService.check(SYSTEM, new RelationshipTuple("user:marcus-gone", "project_can_edit", "project:billing-gone"), Consistency.HIGHER_CONSISTENCY)));
 
         // a store that does not exist holds nothing of anyone
@@ -1173,7 +1168,7 @@ class OpenFgaIntegrationTest {
         await(relationshipService.ensureModelWithRoles(store, withDefinitions));
 
         assertFalse(await(relationshipService.check(store, new RelationshipTuple("user:sally", "entity_definition_can_read", definition), Consistency.HIGHER_CONSISTENCY)));
-        assertTrue(await(relationshipService.readByUser(store, "user:sally", "entity_definition_role_binding")).isEmpty());
+        assertTrue(storedBy(store, "user:sally", "entity_definition_role_binding").isEmpty());
         assertTrue(await(relationshipService.check(store, new RelationshipTuple("user:marcus", "entity_definition_can_read", definition), Consistency.HIGHER_CONSISTENCY)));
         await(storeService.deleteStore(store));
     }
@@ -1236,6 +1231,26 @@ class OpenFgaIntegrationTest {
                        function("findById", "entity_definition", "entity_definition", "can_read"),
                        function("save", "entity_definition", "entity_definition", "can_edit"),
                        function("deleteById", "entity_definition", "entity_definition", "can_delete"));
+    }
+
+    // What the engine itself holds, so a test sees every tuple written on an object or for a user
+    private List<RelationshipTuple> storedOn(String store, String object) throws Exception {
+        return stored(store, new ReadRequestTupleKey()._object(object));
+    }
+
+    private List<RelationshipTuple> storedOn(String store, String object, String relation) throws Exception {
+        return stored(store, new ReadRequestTupleKey()._object(object).relation(relation));
+    }
+
+    private List<RelationshipTuple> storedBy(String store, String user, String objectType) throws Exception {
+        return stored(store, new ReadRequestTupleKey().user(user)._object(objectType + ":"));
+    }
+
+    private List<RelationshipTuple> stored(String store, ReadRequestTupleKey key) throws Exception {
+        return await(fga.read(await(storeService.ensureStore(store)), key))
+                .stream()
+                .map(tuple -> new RelationshipTuple(tuple.getKey().getUser(), tuple.getKey().getRelation(), tuple.getKey().getObject()))
+                .toList();
     }
 
     private static ServiceDefinition vmNodeService() {

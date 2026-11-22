@@ -156,7 +156,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
         // finds the role gone
         return requireApplication(applicationId).compose(application -> relationships.exclusively(role, () -> applicationRoles.requireRole(application, roleId)
-                .compose(row -> modelOf(application, List.of(), List.of()))
+                .compose(row -> models.findApplicationStoreModel(application.getOrganizationId(), application.getId()))
                 .compose(model -> relationships.findBindings(storeOf(application), role,
                                                              model.grantableOn(CUSTOM_ROLE_HOME, AuthzConstants.APPLICATION_TYPE)))
                 .compose(bindings -> {

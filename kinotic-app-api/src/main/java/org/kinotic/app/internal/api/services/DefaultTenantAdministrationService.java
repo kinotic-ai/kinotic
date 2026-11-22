@@ -121,8 +121,7 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
     public Future<List<RoleDefinition>> findRoles() {
         ApplicationParticipant caller = requireTenantUser();
         // a role a tenant's administrators grant is homed at the tenant, which the store places
-        return application(caller).compose(application -> Future.all(models.findApplicationModelOf(application.getOrganizationId(), application.getId(),
-                                                                                                    List.of(), List.of()),
+        return application(caller).compose(application -> Future.all(models.findApplicationStoreModel(application.getOrganizationId(), application.getId()),
                                                                      applicationRoles.findRoles(application)))
                                   .map(both -> {
                                       List<RoleDefinition> ret = new ArrayList<>();
@@ -177,9 +176,7 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
     // A tenant's administrators grant and revoke the built-in roles of the tenant, and the roles of the application
     // its developers marked for them; any other role of the application is its developers' to grant
     private Future<Void> requireAssignable(Application application, String roleId) {
-        return Future.succeededFuture(roleId)
-                     .map(AuthzUtil::roleHome)
-                     .compose(home -> models.findApplicationModelOf(application.getOrganizationId(), application.getId(), List.of(home), List.of()))
+        return models.findApplicationModelOfRole(application.getOrganizationId(), application.getId(), roleId)
                      .compose(model -> model.roles().containsKey(roleId)
                              ? Future.succeededFuture(AuthzConstants.TENANT_TYPE.equals(AuthzUtil.roleHome(roleId)))
                              : applicationRoles.requireRole(application, roleId).map(role -> role.isTenantAssignable()))

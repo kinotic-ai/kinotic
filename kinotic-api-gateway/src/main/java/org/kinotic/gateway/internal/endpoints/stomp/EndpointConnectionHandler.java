@@ -28,6 +28,7 @@ import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.JacksonException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -159,28 +160,19 @@ public class EndpointConnectionHandler {
                 if (connectedInfo.getReplyToId() == null) {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
-                ret = services.stompAuthorizerFactory
-                        .create(connectedInfo)
-                        .recover(throwable -> Future.failedFuture(throwable instanceof IllegalArgumentException
-                                                                          ? new AuthenticationException("Invalid CONNECT frame", throwable)
-                                                                          : throwable))
-                        .compose(authorizer -> {
-                            // the zone rules resolve asynchronously, so the connection may have closed meanwhile
-                            if (connectedInfo == null) {
-                                return Future.failedFuture(new AuthenticationException("The connection closed before CONNECT completed"));
-                            }
-                            stompAuthorizer = authorizer;
+                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
-                            signalActivity();
-                            if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
-                                // the upgrade response never reaches the store, so the connection's first write is this one
-                                touchSession();
-                                startSessionTouchTimer();
-                            }
-                            return Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                                 services.jsonMapper.writeValueAsString(connectedInfo)));
-                        });
+                signalActivity();
+                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                    // the upgrade response never reaches the store, so the connection's first write is this one
+                    touchSession();
+                    startSessionTouchTimer();
+                }
+                ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                    services.jsonMapper.writeValueAsString(connectedInfo)));
             }
+        } catch (JacksonException e) {
+            ret = Future.failedFuture(e);
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
         }

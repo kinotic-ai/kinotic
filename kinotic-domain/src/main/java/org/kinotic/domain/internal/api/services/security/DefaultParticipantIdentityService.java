@@ -839,7 +839,10 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
             if (scope.applicationId() != null) {
                 ret = relationships.removeSubject(AuthzGraphUtil.authzApplicationId(scope.organizationId(), scope.applicationId()), user);
             }
-            ret = ret.compose(v -> relationships.removeSubject(AuthzStoreService.SYSTEM, user));
+            // an application's end user is held in its application's store alone
+            if (!(identity instanceof ApplicationParticipantIdentity)) {
+                ret = ret.compose(v -> relationships.removeSubject(AuthzStoreService.SYSTEM, user));
+            }
         }
         return ret;
     }

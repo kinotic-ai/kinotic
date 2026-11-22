@@ -16,6 +16,7 @@ import org.kinotic.domain.internal.api.model.ServiceDirectoryRecord;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzConstants;
+import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -92,10 +93,23 @@ public class DefaultAuthzModelService implements AuthzModelService {
     }
 
     @Override
-    public Future<AuthzModel> findApplicationModel(String organizationId,
-                                                   String applicationId,
-                                                   Collection<ServiceDefinition> candidates,
-                                                   Collection<String> types) {
+    public Future<AuthzModel> findApplicationStoreModel(String organizationId, String applicationId) {
+        return partialModel(organizationId, applicationId, List.of(), List.of(), List.of());
+    }
+
+    @Override
+    public Future<AuthzModel> findApplicationModelOfRole(String organizationId, String applicationId, String roleId) {
+        // derived inside the future, so an id that names no home type fails it
+        return Future.succeededFuture(roleId)
+                     .map(AuthzUtil::roleHome)
+                     .compose(home -> partialModel(organizationId, applicationId, List.of(home), List.of(), List.of()));
+    }
+
+    @Override
+    public Future<AuthzModel> findApplicationModelWith(String organizationId,
+                                                       String applicationId,
+                                                       Collection<ServiceDefinition> candidates,
+                                                       Collection<String> types) {
         return partialModel(organizationId, applicationId, types, List.of(), candidates);
     }
 

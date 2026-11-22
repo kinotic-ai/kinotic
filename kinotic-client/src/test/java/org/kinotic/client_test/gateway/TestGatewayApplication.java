@@ -1,6 +1,5 @@
 package org.kinotic.client_test.gateway;
 
-import io.vertx.core.Future;
 import org.kinotic.client_autoconfig.KinoticClientAutoConfiguration;
 import org.kinotic.core.api.annotations.EnableKinotic;
 import org.kinotic.core.api.event.ZoneRules;
@@ -51,7 +50,7 @@ public class TestGatewayApplication {
 
     @Bean
     public ZoneRulesResolver zoneRulesResolver() {
-        return participant -> Future.succeededFuture(ZoneRules.of(Set.of(ZONE), Set.of()));
+        return participant -> ZoneRules.of(Set.of(ZONE), Set.of());
     }
 
     /**

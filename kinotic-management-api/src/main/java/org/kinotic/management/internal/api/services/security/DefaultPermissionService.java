@@ -9,6 +9,7 @@ import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -129,7 +130,7 @@ public class DefaultPermissionService implements PermissionService {
                                   .compose(before -> role.permissions().containsAll(before.permissions())
                                           ? Future.succeededFuture(List.<String>of())
                                           : holders(saved.getId(), model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE)).compose(this::machines))
-                                  .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
+                                  .compose(machines -> relationships.ensureRole(SYSTEM, saved.getId(), new RolePermissions(role.permissions()))
                                                                     .compose(v -> reconnected(machines)))
                                   .map(saved));
             }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,

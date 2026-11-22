@@ -1,6 +1,5 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
-import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.ZonePartitioningService;
@@ -23,9 +22,9 @@ public class StompAuthorizerTest {
 
     private StompAuthorizer authorizer(ZonePartitioningService partitioning) {
         StompAuthorizerFactory factory = new StompAuthorizerFactory(partitioning,
-                                                                    participant -> Future.succeededFuture(ZoneRules.of(Set.of("app.acme-org", "shared-api"),
-                                                                                                                       Set.of("app.acme-org"))));
-        return factory.create(new ConnectedInfo(new TestParticipant("user"), REPLY_TO_ID, null)).result();
+                                                                    participant -> ZoneRules.of(Set.of("app.acme-org", "shared-api"),
+                                                                                                 Set.of("app.acme-org")));
+        return factory.create(new ConnectedInfo(new TestParticipant("user"), REPLY_TO_ID, null));
     }
 
     @Test

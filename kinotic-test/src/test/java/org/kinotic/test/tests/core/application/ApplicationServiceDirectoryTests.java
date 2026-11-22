@@ -156,7 +156,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
         String appId = grantedApplication();
         String otherAppId = application();
 
-        ZoneRules rules = await(zoneRulesResolver.resolve(runtime));
+        ZoneRules rules = zoneRulesResolver.resolve(runtime);
 
         assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0"))));
         assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + ".probes~Probe#1.0.0"))));
@@ -169,7 +169,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
         // it calls the services of the organization's other applications
         assertTrue(rules.sendAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService/generate#1.0.0")));
         // a person hosts no application's services
-        assertFalse(await(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT))
+        assertFalse(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT)
                                   .subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0"))));
     }
 

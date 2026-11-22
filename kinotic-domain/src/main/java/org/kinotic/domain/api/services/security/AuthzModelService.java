@@ -67,6 +67,28 @@ public interface AuthzModelService {
                                               Collection<String> permissions);
 
     /**
+     * The model of an application's store as far as the types the store places go: what the store's engine runs
+     * and the roles homed at those types, without the types of the application's own services.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @return the model
+     */
+    Future<AuthzModel> findApplicationStoreModel(String organizationId, String applicationId);
+
+    /**
+     * The model of an application's store as far as the home type of a role goes, as
+     * {@link #findApplicationModelOf} has it for that type. The future fails with an
+     * {@link IllegalArgumentException} for an id that names no home type.
+     *
+     * @param organizationId the application's organization
+     * @param applicationId  the application
+     * @param roleId         the role, {@code <home type>.<name>}
+     * @return the model
+     */
+    Future<AuthzModel> findApplicationModelOfRole(String organizationId, String applicationId, String roleId);
+
+    /**
      * The model an application's store would run once {@code candidates} are registered, each standing in for
      * the service of the same qualified name the directory holds now, as far as the candidates go: it covers the
      * types and permissions the candidates name and the given types, as {@link #findApplicationModelOf} does. The
@@ -80,9 +102,9 @@ public interface AuthzModelService {
      *                       stopped naming
      * @return the model
      */
-    Future<AuthzModel> findApplicationModel(String organizationId,
-                                            String applicationId,
-                                            Collection<ServiceDefinition> candidates,
-                                            Collection<String> types);
+    Future<AuthzModel> findApplicationModelWith(String organizationId,
+                                                String applicationId,
+                                                Collection<ServiceDefinition> candidates,
+                                                Collection<String> types);
 
 }

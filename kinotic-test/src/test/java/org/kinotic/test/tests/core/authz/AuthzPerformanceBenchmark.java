@@ -4,6 +4,7 @@ import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckRequestTupleKey;
 import dev.openfga.sdk.api.model.ConsistencyPreference;
+import dev.openfga.sdk.api.model.ReadRequestTupleKey;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -395,6 +396,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String viewer = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
         // creating the sample definition provisions the sample application's store
         person = personDefinition();
+        String appStoreId = await(authzStores.ensureStore(appStore));
         line("| tenants placed | delete a definition, ms | delete a tenant, ms | one read for each placed tenant, ms |");
         line("|---:|---:|---:|---:|");
         String run = suffix();
@@ -405,7 +407,11 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                 containments.add(AuthzGraphUtil.tenantContainment(TEST_ORG_ID, TEST_APP_ID, "del-" + run + "-" + placed));
             }
             write(appStore, containments);
-            List<String> tenants = await(relationships.findContained(appStore, application, AuthzConstants.TENANT_TYPE));
+            List<String> tenants = await(fga.read(appStoreId, new ReadRequestTupleKey().user(application)._object(AuthzConstants.TENANT_TYPE + ":")))
+                    .stream()
+                    .filter(tuple -> AuthzConstants.APPLICATION_TYPE.equals(tuple.getKey().getRelation()))
+                    .map(tuple -> tuple.getKey().getObject())
+                    .toList();
             EntityDefinition car = await(runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("Del" + run + target))).getLeft();
             for (int i = 0; i < 3; i++) {
                 grantOnRows(car.getId(), "del-" + run + "-" + i, viewer);
@@ -424,8 +430,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
             start = System.nanoTime();
             for (String placedTenant : tenants) {
-                await(relationships.read(appStore, AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                    AuthzUtil.tenantDefinitionId(car.getId(), AuthzUtil.idOf(placedTenant)))));
+                await(fga.read(appStoreId, new ReadRequestTupleKey()._object(AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
+                                                                                               AuthzUtil.tenantDefinitionId(car.getId(), AuthzUtil.idOf(placedTenant))))));
             }
             line("| " + tenants.size() + " | " + ms(definition) + " | " + ms(deletedTenant) + " | " + ms(System.nanoTime() - start) + " |");
         }

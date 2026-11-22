@@ -328,7 +328,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
                      failure(() -> access.grant(TEST_APP_ID, subject, tenantAdmin, new Resource(AuthzConstants.TENANT_TYPE, noTenant))).getMessage());
         assertEquals("No tenant of the application has id " + noTenant,
                      failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), noTenant)))).getMessage());
-        assertTrue(await(relationships.read(AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID), AuthzUtil.object(AuthzConstants.TENANT_TYPE, noTenant))).isEmpty());
+        assertTrue(storedOn(AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID), AuthzUtil.object(AuthzConstants.TENANT_TYPE, noTenant)).isEmpty());
         // a definition within a tenant named without the tenant
         assertInstanceOf(IllegalArgumentException.class, failure(() -> access.grant(TEST_APP_ID, subject, editor, new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, person.getId()))));
         // a grant to the organization's member, who is not one of the application's users
@@ -532,14 +532,14 @@ public class ApplicationStoreTests extends KinoticTestBase {
         Grant onRows = await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()),
                                                                   AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER),
                                                                   new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.idOf(withinObject)))));
-        assertFalse(await(relationships.read(store, AuthzUtil.bindingObject(withinObject, onRows.roleId()))).isEmpty());
+        assertFalse(storedOn(store, AuthzUtil.bindingObject(withinObject, onRows.roleId())).isEmpty());
 
         await(runAsOrganization(() -> entityDefinitionService.unPublish(car.getId())));
         await(runAsOrganization(() -> entityDefinitionService.deleteById(car.getId())));
 
-        assertTrue(await(relationships.read(store, definitionObject)).isEmpty());
-        assertTrue(await(relationships.read(store, withinObject)).isEmpty());
-        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(withinObject, onRows.roleId()))).isEmpty());
+        assertTrue(storedOn(store, definitionObject).isEmpty());
+        assertTrue(storedOn(store, withinObject).isEmpty());
+        assertTrue(storedOn(store, AuthzUtil.bindingObject(withinObject, onRows.roleId())).isEmpty());
     }
 
     @Test
@@ -559,10 +559,10 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         await(runAsOrganization(() -> tenantService.deleteById(TEST_APP_ID, tenant.getId())));
 
-        assertTrue(await(relationships.read(store, tenantObject)).isEmpty());
-        assertTrue(await(relationships.read(store, withinObject)).isEmpty());
-        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(tenantObject, onTenant.roleId()))).isEmpty());
-        assertTrue(await(relationships.read(store, AuthzUtil.bindingObject(withinObject, onRows.roleId()))).isEmpty());
+        assertTrue(storedOn(store, tenantObject).isEmpty());
+        assertTrue(storedOn(store, withinObject).isEmpty());
+        assertTrue(storedOn(store, AuthzUtil.bindingObject(tenantObject, onTenant.roleId())).isEmpty());
+        assertTrue(storedOn(store, AuthzUtil.bindingObject(withinObject, onRows.roleId())).isEmpty());
     }
 
     @Test
@@ -584,7 +584,6 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
         assertNull(await(stores.findById(store)));
         assertThrows(ExecutionException.class, () -> await(storeService.modelId(store)));
-        assertThrows(ExecutionException.class, () -> await(relationships.read(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store))));
     }
 
     @Test

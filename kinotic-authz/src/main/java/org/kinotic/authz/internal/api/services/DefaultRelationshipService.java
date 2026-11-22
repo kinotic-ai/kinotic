@@ -29,7 +29,6 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
-import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
@@ -109,22 +108,6 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<List<RelationshipTuple>> read(String store, String object) {
-        return read(store, new ReadRequestTupleKey()._object(object));
-    }
-
-    @Override
-    public Future<List<RelationshipTuple>> read(String store, String object, String relation) {
-        return read(store, new ReadRequestTupleKey()._object(object).relation(relation));
-    }
-
-    @Override
-    public Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType) {
-        // the engine reads by user within one object type, named by the type alone
-        return read(store, new ReadRequestTupleKey().user(user)._object(objectType + ":"));
-    }
-
-    @Override
     public Future<RolePermissions> findRolePermissions(String store, String roleId) {
         return stores.storeIdOf(store).compose(id -> readRole(id, roleObject(store, roleId))).map(HeldRole::permissions);
     }
@@ -133,8 +116,9 @@ public class DefaultRelationshipService implements RelationshipService {
     // homed at a type of the application's own services is held there as a role of the tenant, the level a
     // permission of such a service is checked on
     private static String roleObject(String store, String roleId) {
-        boolean typed = AuthzStoreService.SYSTEM.equals(store) || AuthzModelGenerator.APPLICATION_TYPES.contains(AuthzUtil.roleHome(roleId));
-        return typed ? AuthzUtil.roleObject(roleId) : AuthzUtil.object(AuthzUtil.roleType(AuthzConstants.TENANT_TYPE), roleId);
+        return AuthzStoreService.places(store, AuthzUtil.roleHome(roleId))
+                ? AuthzUtil.roleObject(roleId)
+                : AuthzUtil.object(AuthzUtil.roleType(AuthzConstants.TENANT_TYPE), roleId);
     }
 
     // Every relation of a role is a permission it bundles for everything, but the one it holds its parts by; every
@@ -209,15 +193,6 @@ public class DefaultRelationshipService implements RelationshipService {
     }
 
     @Override
-    public Future<List<String>> findContained(String store, String parent, String type) {
-        String containment = AuthzUtil.typeOf(parent);
-        return readByUser(store, parent, type).map(held -> held.stream()
-                                                               .filter(tuple -> containment.equals(tuple.relation()))
-                                                               .map(RelationshipTuple::object)
-                                                               .toList());
-    }
-
-    @Override
     public Future<Boolean> holds(String store, RelationshipTuple relationship) {
         return read(store, new ReadRequestTupleKey().user(relationship.user())
                                                     .relation(relationship.relation())
@@ -244,13 +219,6 @@ public class DefaultRelationshipService implements RelationshipService {
 
     private static boolean isConflict(Throwable e) {
         return e instanceof ApiException api && api.getStatusCode() == HTTP_CONFLICT;
-    }
-
-    @Override
-    public Future<Void> ensureRoles(String store, Map<String, Set<String>> roles) {
-        Map<String, RolePermissions> bundled = new HashMap<>();
-        roles.forEach((roleId, permissions) -> bundled.put(roleId, new RolePermissions(permissions)));
-        return converging(() -> reconcileRoles(store, bundled));
     }
 
     @Override
@@ -409,11 +377,11 @@ public class DefaultRelationshipService implements RelationshipService {
         return vertx.sharedData().withLock(lockOf(object), OBJECT_LOCK_TIMEOUT_MILLIS, changes);
     }
 
-    // The cluster keeps every lock it was ever asked for by name, about 300 bytes each in a region of 100 MB that
-    // all nodes share, and a lock named after its object fills it after some 340,000 objects. An object takes one
-    // of a fixed number of locks of its type instead, by the hash of its id, which every node computes alike.
-    // Objects sharing a lock wait on each other as callers changing one object do. The locks of a type are apart
-    // from those of every other, so changes holding one take the lock of an object of another type as before
+    // An object takes one of a fixed number of locks of its type, chosen by the hash of its id, which every node
+    // computes alike. The cluster keeps every lock name it is asked for, about 300 bytes each in a region of 100 MB
+    // that all nodes share, so the names are bounded. Objects sharing a lock wait on each other as callers changing
+    // one object do. A type's locks are its own, so a change holding one can take the lock of an object of another
+    // type
     private static String lockOf(String object) {
         return OBJECT_LOCK_PREFIX + AuthzUtil.typeOf(object) + "." + Math.floorMod(AuthzUtil.idOf(object).hashCode(), OBJECT_LOCK_STRIPES);
     }
@@ -862,6 +830,19 @@ public class DefaultRelationshipService implements RelationshipService {
             }));
         }
         return ret;
+    }
+
+    private Future<List<RelationshipTuple>> read(String store, String object) {
+        return read(store, new ReadRequestTupleKey()._object(object));
+    }
+
+    private Future<List<RelationshipTuple>> read(String store, String object, String relation) {
+        return read(store, new ReadRequestTupleKey()._object(object).relation(relation));
+    }
+
+    private Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType) {
+        // the engine reads by user within one object type, named by the type alone
+        return read(store, new ReadRequestTupleKey().user(user)._object(objectType + ":"));
     }
 
     private Future<List<RelationshipTuple>> read(String store, ReadRequestTupleKey key) {

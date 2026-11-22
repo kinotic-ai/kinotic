@@ -23,35 +23,6 @@ import java.util.function.Supplier;
 public interface RelationshipService {
 
     /**
-     * Every relationship held on an object.
-     *
-     * @param store  the store, named as its record is
-     * @param object the object, in {@code type:id} form
-     * @return the relationships, empty for an object nothing is held on
-     */
-    Future<List<RelationshipTuple>> read(String store, String object);
-
-    /**
-     * The relationships of one relation held on an object.
-     *
-     * @param store    the store, named as its record is
-     * @param object   the object, in {@code type:id} form
-     * @param relation the relation, as the store's model names it
-     * @return the relationships, empty for an object holding none of the relation
-     */
-    Future<List<RelationshipTuple>> read(String store, String object, String relation);
-
-    /**
-     * Every relationship a user holds on objects of a type, as written.
-     *
-     * @param store      the store, named as its record is
-     * @param user       the user, in {@code type:id} form, or a userset such as {@code group:id#member}
-     * @param objectType the type of object
-     * @return the relationships, empty for a user holding none on the type
-     */
-    Future<List<RelationshipTuple>> readByUser(String store, String user, String objectType);
-
-    /**
      * The permissions a store holds for a role, which a grant of the role gives.
      *
      * @param store  the store, named as its record is
@@ -94,16 +65,6 @@ public interface RelationshipService {
     Future<List<String>> findLineage(String store, String object, String upTo, Map<String, String> parents);
 
     /**
-     * The objects of a type placed directly under a parent.
-     *
-     * @param store  the store, named as its record is
-     * @param parent the parent object, in {@code type:id} form
-     * @param type   the type of the objects placed under it
-     * @return the objects, each in {@code type:id} form
-     */
-    Future<List<String>> findContained(String store, String parent, String type);
-
-    /**
      * Whether the store holds exactly this relationship, as written, without the model's rules.
      *
      * @param store        the store, named as its record is
@@ -132,19 +93,9 @@ public interface RelationshipService {
     Future<Void> remove(String store, List<RelationshipTuple> relationships);
 
     /**
-     * Makes the store's roles bundle exactly the given permissions: a permission a role lacks is added, one it
-     * holds beyond the given set is removed, and a role already in step is left as it is.
-     *
-     * @param store the store, named as its record is
-     * @param roles each role's id to the model names of the permissions it bundles
-     * @return completes when every role is in step
-     */
-    Future<Void> ensureRoles(String store, Map<String, Set<String>> roles);
-
-    /**
-     * Makes one role of the store bundle exactly the given permissions, as {@link #ensureRoles} does for those held
-     * on everything, and for the definitions the role names. A permission whose definitions change is held for
-     * none of them from the moment the change starts until it completes.
+     * Makes one role of the store bundle exactly the given permissions: a permission the role lacks is added, one it
+     * holds beyond the given ones is removed, and a role already in step is left as it is. A permission whose
+     * definitions change is held for none of them from the moment the change starts until it completes.
      *
      * @param store       the store, named as its record is
      * @param roleId      the role, {@code <home type>.<name>}
@@ -255,8 +206,9 @@ public interface RelationshipService {
     Future<Void> revoke(String store, String grantId, String object);
 
     /**
-     * The grants made on a resource: one per user or group of each role bound on it. A member that is any other
-     * userset is not a grant and is left out.
+     * The grants made on a resource: one for each member of each role bound on it that is a subject of a grant, a
+     * user, a group's members, a tenant's users or an application's end users. A member that is any other userset
+     * is not a grant and is left out.
      *
      * @param store  the store, named as its record is
      * @param object the resource, in {@code type:id} form
@@ -266,8 +218,9 @@ public interface RelationshipService {
 
     /**
      * Whether a subject holds a permission on an object, and which of the given grants give it: a grant gives it
-     * when its role bundles the permission or one implying it, and it was made to the subject, or to a group the
-     * subject is a member of. The answer reflects every write that completed before the call.
+     * when its role bundles the permission or one implying it, and it was made to the subject, or to a group, a
+     * tenant or an application whose members, users or end users the subject is one of. The answer reflects every
+     * write that completed before the call.
      *
      * @param store   the store, named as its record is
      * @param model   the model the store runs

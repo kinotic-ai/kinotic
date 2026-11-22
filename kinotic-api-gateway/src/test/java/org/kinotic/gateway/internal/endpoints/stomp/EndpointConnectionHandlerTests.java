@@ -145,7 +145,7 @@ public class EndpointConnectionHandlerTests {
         services.jsonMapper = jsonMapper;
         services.exceptionConverter = new JacksonExceptionConverter(new KinoticProperties(), jsonMapper);
         services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
-                                                                    participant -> Future.succeededFuture(ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))));
+                                                                    participant -> ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE)));
         services.securityService = mock(SecurityService.class);
         when(services.securityService.authenticate(any(), any())).thenReturn(Future.succeededFuture(participant()));
         services.requestAuthorizer = mock(RequestAuthorizer.class);
@@ -825,8 +825,8 @@ public class EndpointConnectionHandlerTests {
     // a connection whose participant subscribes in the application zone once the promise admits it
     private EndpointConnectionHandler connectAdmittedBy(Promise<Boolean> admitted) throws Exception {
         services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
-                                                                    participant -> Future.succeededFuture(ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))
-                                                                                                                   .subscribingWhere(zone -> admitted.future())));
+                                                                    participant -> ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))
+                                                                                             .subscribingWhere(zone -> admitted.future()));
         return connect(Map.of());
     }
 

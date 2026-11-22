@@ -1,6 +1,5 @@
 package org.kinotic.core.api.event;
 
-import io.vertx.core.Future;
 import org.kinotic.core.api.security.Participant;
 
 /**
@@ -15,9 +14,9 @@ public interface ZoneRulesResolver {
      * Derives the zone rules for the given participant.
      *
      * @param participant the authenticated participant
-     * @return a future completing with the participant's zone rules, or failing with an
-     *         {@link IllegalArgumentException} when the participant is of a type this resolver has no rules for, or
-     *         one of its ids cannot form a valid zone label
+     * @return the participant's zone rules
+     * @throws IllegalArgumentException when the participant is of a type this resolver has no rules for, or one of
+     *                                  its ids cannot form a valid zone label
      */
-    Future<ZoneRules> resolve(Participant participant);
+    ZoneRules resolve(Participant participant);
 }

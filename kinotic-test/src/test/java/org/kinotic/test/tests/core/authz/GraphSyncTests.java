@@ -55,7 +55,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -289,11 +288,7 @@ public class GraphSyncTests extends KinoticTestBase {
         assertTrue(model.roles().get(AuthzConstants.ORGANIZATION_ADMIN_ROLE).containsAll(
                 Set.of("project_can_delete", "entity_definition_can_delete", "application_can_edit")));
         for (Map.Entry<String, Set<String>> role : model.roles().entrySet()) {
-            Set<String> bundled = await(relationships.read(AuthzStoreService.SYSTEM, AuthzUtil.roleObject(role.getKey())))
-                    .stream()
-                    .filter(tuple -> AuthzConstants.EVERYONE.equals(tuple.user()))
-                    .map(RelationshipTuple::relation)
-                    .collect(Collectors.toSet());
+            Set<String> bundled = await(relationships.findRolePermissions(AuthzStoreService.SYSTEM, role.getKey())).permissions();
             assertEquals(role.getValue(), bundled, "role " + role.getKey() + " bundles what the model has");
         }
     }

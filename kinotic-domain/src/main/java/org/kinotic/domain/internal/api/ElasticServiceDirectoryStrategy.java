@@ -97,8 +97,8 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
                 }
             }
             trials.add(models.getObject()
-                             .findApplicationModel(application.getOrganizationId(), application.getApplicationId(),
-                                                   candidates.stream().map(ServiceDirectoryEntry::getServiceDefinition).toList(), left)
+                             .findApplicationModelWith(application.getOrganizationId(), application.getApplicationId(),
+                                                       candidates.stream().map(ServiceDirectoryEntry::getServiceDefinition).toList(), left)
                              .onSuccess(model -> ret.put(store, model.permissions().keySet())));
         });
         return Future.all(trials).map(ret);

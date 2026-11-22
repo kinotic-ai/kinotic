@@ -1,5 +1,6 @@
 package org.kinotic.test.support.kinotic;
 
+import dev.openfga.sdk.api.model.ReadRequestTupleKey;
 import org.kinotic.test.support.system.NodeFixtures;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -11,6 +12,7 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.internal.api.services.OpenFgaService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.CRI;
@@ -108,6 +110,12 @@ public abstract class KinoticTestBase {
     private RelationshipService relationshipService;
 
     @Autowired
+    private AuthzStoreService authzStoreService;
+
+    @Autowired
+    private OpenFgaService fga;
+
+    @Autowired
     private RequestAuthorizer requestAuthorizer;
 
     @Autowired
@@ -155,8 +163,7 @@ public abstract class KinoticTestBase {
 
     private boolean placed() throws Exception {
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
-        return await(relationshipService.read(AuthzStoreService.SYSTEM, organization))
-                .contains(AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, organization));
+        return await(relationshipService.holds(AuthzStoreService.SYSTEM, AuthzGraphUtil.containment(AuthzConstants.SYSTEM_OBJECT, organization)));
     }
 
     private boolean bound() {
@@ -236,6 +243,19 @@ public abstract class KinoticTestBase {
     }
 
     /** The result of {@code future}, waited for as long as a test's call to a service may take. */
+    /**
+     * The tuples the authorization engine holds on an object, read from the engine itself.
+     *
+     * @param store  the store, named as its record is
+     * @param object the object, in {@code type:id} form
+     */
+    protected List<RelationshipTuple> storedOn(String store, String object) throws Exception {
+        return await(fga.read(await(authzStoreService.ensureStore(store)), new ReadRequestTupleKey()._object(object)))
+                .stream()
+                .map(tuple -> new RelationshipTuple(tuple.getKey().getUser(), tuple.getKey().getRelation(), tuple.getKey().getObject()))
+                .toList();
+    }
+
     protected static <T> T await(Future<T> future) throws Exception {
         return future.toCompletionStage().toCompletableFuture().get(30, TimeUnit.SECONDS);
     }

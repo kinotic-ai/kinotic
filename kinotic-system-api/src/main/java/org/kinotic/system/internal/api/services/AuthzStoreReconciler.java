@@ -14,7 +14,6 @@ import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.services.Reconciler;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 
 
 /**
@@ -53,7 +52,7 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
         if (store.getApplicationId() == null) {
             ret = models.findSystemModel();
         } else {
-            ret = models.findApplicationModelOf(store.getOrganizationId(), store.getApplicationId(), List.of(), List.of());
+            ret = models.findApplicationStoreModel(store.getOrganizationId(), store.getApplicationId());
         }
         return ret;
     }

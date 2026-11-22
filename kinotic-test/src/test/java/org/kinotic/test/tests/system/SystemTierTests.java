@@ -266,7 +266,7 @@ public class SystemTierTests extends KinoticTestBase {
         // the deregistration's finalizer takes the node out of the graph
         await(nodeOrchestration.deregisterNode(nodeId));
         assertTrue(awaitUntil(() -> await(vmNodeService.findById(nodeId)) == null), "the node was never finalized");
-        assertTrue(awaitUntil(() -> await(relationships.read(SYSTEM, nodeObject)).isEmpty()), "the node is still in the graph");
+        assertTrue(awaitUntil(() -> storedOn(SYSTEM, nodeObject).isEmpty()), "the node is still in the graph");
     }
 
     @Test

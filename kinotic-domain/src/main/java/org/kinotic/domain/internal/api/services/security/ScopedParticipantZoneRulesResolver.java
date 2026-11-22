@@ -39,13 +39,8 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
     private final RelationshipService relationships;
 
     @Override
-    public Future<ZoneRules> resolve(Participant participant) {
+    public ZoneRules resolve(Participant participant) {
         Validate.notNull(participant, "participant must not be null");
-        // derived inside the future, so a participant with no rules fails it
-        return Future.succeededFuture(participant).map(this::rulesOf);
-    }
-
-    private ZoneRules rulesOf(Participant participant) {
         Map<String, String> metadata = participant.getMetadata() != null ? participant.getMetadata() : Map.of();
         boolean machine = ParticipantConstants.PARTICIPANT_TYPE_MACHINE.equals(metadata.get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY));
         ZoneRules ret;
