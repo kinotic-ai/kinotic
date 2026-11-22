@@ -1,0 +1,14 @@
+// The test workload of the worker-overhead benchmark. Deploy it with
+//   bunx wrangler@4 deploy --config test/worker-overhead/worker/wrangler.jsonc --var KINOTIC_API_URL:https://<test server>
+// or run it locally with
+//   bunx wrangler@4 dev --config test/worker-overhead/worker/wrangler.jsonc
+{
+  "name": "kinotic-worker-overhead",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-01",
+  "vars": {
+    // the test server on this machine, for wrangler dev
+    "KINOTIC_API_URL": "http://127.0.0.1:58503"
+  },
+  "observability": { "enabled": false }
+}

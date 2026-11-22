@@ -17,3 +17,7 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .turbo
+
+# worker-overhead benchmark
+worker-overhead-results.json
+.wrangler

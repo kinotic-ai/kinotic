@@ -10,6 +10,7 @@ dependencies {
 	implementation project(':kinotic-sql')
 
 	implementation 'io.vertx:vertx-core'
+	implementation 'io.vertx:vertx-web-client'
 
 	implementation 'io.projectreactor:reactor-core'
 }
