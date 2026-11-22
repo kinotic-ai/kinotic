@@ -30,7 +30,7 @@ import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.common.api.oidc.OAuth2Util;
 import org.kinotic.domain.api.repositories.TenantRepository;
-import org.kinotic.domain.api.services.security.ApplicationRoleService;
+import org.kinotic.domain.api.services.security.RoleService;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -62,7 +62,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private final InviteService inviteService;
     private final PendingApplicationSignUpRepository pendingRepository;
     private final TenantRepository tenantRepository;
-    private final ApplicationRoleService applicationRoles;
+    private final RoleService roleService;
     private final EmailService emailService;
     private final KinoticDomainProperties domainProperties;
 
@@ -184,7 +184,7 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                   .compose(created -> create.apply(user)
                                                             .recover(err -> tenantRepository.deleteById(application.getId(), tenantId, application.getOrganizationId())
                                                                                             .transform(deleted -> Future.failedFuture(err))))
-                                  .compose(created -> applicationRoles.grant(application, new Subject(SubjectType.USER, created.getId()),
+                                  .compose(created -> roleService.grant(application, new Subject(SubjectType.USER, created.getId()),
                                                                              AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN),
                                                                              new Resource(AuthzConstants.TENANT_TYPE, tenantId))
                                                                       .map(created));

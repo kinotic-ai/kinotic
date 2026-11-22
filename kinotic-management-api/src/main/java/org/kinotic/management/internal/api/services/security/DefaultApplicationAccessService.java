@@ -16,17 +16,16 @@ import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.security.RoleOwner;
 import org.kinotic.domain.api.model.TenantManagement;
-import org.kinotic.domain.api.model.security.Role;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ScopedParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
-import org.kinotic.domain.api.repositories.RoleRepository;
 import org.kinotic.domain.api.repositories.TenantRepository;
-import org.kinotic.domain.api.services.security.ApplicationRoleService;
+import org.kinotic.domain.api.services.security.RoleService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -37,20 +36,18 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 public class DefaultApplicationAccessService implements ApplicationAccessService {
 
-    private static final String CUSTOM_ROLE_HOME = ApplicationRoleService.ROLE_HOME;
+    private static final String CUSTOM_ROLE_HOME = RoleService.APPLICATION_ROLE_HOME;
 
     private final SecurityContext securityContext;
     private final ApplicationRepository applications;
@@ -59,8 +56,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     private final EntityDefinitionRepository entityDefinitions;
     private final TenantRepository tenants;
     private final AuthzModelService models;
-    private final RoleRepository roles;
-    private final ApplicationRoleService applicationRoles;
+    private final RoleService roleService;
 
     @Override
     public Future<Map<String, Set<String>>> findPermissions(String applicationId) {
@@ -69,12 +65,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
 
     @Override
     public Future<List<RoleDefinition>> findRoles(String applicationId) {
-        return requireApplication(applicationId).compose(application -> Future.all(model(application), applicationRoles.findRoles(application)).map(both -> {
-            AuthzModel model = both.resultAt(0);
-            List<RoleDefinition> ret = new ArrayList<>(model.builtInRoles(AuthzConstants.APPLICATION_TYPE));
-            ret.addAll(both.<List<RoleDefinition>>resultAt(1));
-            return ret;
-        }));
+        return requireApplication(applicationId).compose(application -> model(application)
+                .compose(model -> roleService.findRoles(RoleOwner.application(application), model)));
     }
 
     @Override
@@ -92,28 +84,11 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
                 throw new IllegalArgumentException("Role " + role.id() + " is built in and defined by the model");
             }
             RolePermissions permissions = bundled(role, model);
-            String roleId = role.id() == null ? AuthzNameUtil.roleId(CUSTOM_ROLE_HOME, UUID.randomUUID().toString()) : role.id();
-            String organizationId = application.getOrganizationId();
-            // under the lock a grant and a deletion of the role take, with the role read under it, so an edit that
-            // waited for a deletion finds no role and writes none
+            RoleOwner owner = RoleOwner.application(application);
             return requireDefinitions(application, permissions.definitionPermissions().keySet())
-                    .compose(v -> relationships.exclusively(AuthzNameUtil.roleObject(roleId), () -> {
-                        Future<Role> row = role.id() == null
-                                ? Future.succeededFuture(new Role().setId(roleId)
-                                                                   .setOrganizationId(organizationId)
-                                                                   .setApplicationId(application.getId())
-                                                                   .setCreated(new Date()))
-                                : applicationRoles.requireRole(application, roleId);
-                        // the row first, then its permissions: a role whose permissions failed to write exists and
-                        // grants nothing
-                        return row.compose(existing -> roles.saveSync(existing.setName(role.name())
-                                                                              .setDescription(role.description())
-                                                                              .setTenantAssignable(role.tenantAssignable())
-                                                                              .setUpdated(new Date()),
-                                                                      organizationId))
-                                  .compose(saved -> relationships.ensureRole(storeOf(application), roleId, permissions).map(saved));
-                    }))
-                    .map(saved -> ApplicationRoleService.definitionOf(saved, model, permissions));
+                    .compose(v -> roleService.saveRole(owner, role, CUSTOM_ROLE_HOME,
+                                                       saved -> relationships.ensureRole(owner.store(), saved.getId(), permissions)))
+                    .map(saved -> RoleService.definitionOf(saved, owner, model, permissions));
         }));
     }
 
@@ -152,22 +127,9 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     @Override
     public Future<Void> deleteRole(String applicationId, String roleId) {
         Validate.notBlank(roleId, "roleId cannot be blank");
-        String role = AuthzNameUtil.roleObject(roleId);
-        // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
-        // finds the role gone
-        return requireApplication(applicationId).compose(application -> relationships.exclusively(role, () -> applicationRoles.requireRole(application, roleId)
-                .compose(row -> models.findApplicationStoreModel(application.getOrganizationId(), application.getId()))
-                .compose(model -> relationships.findBindings(storeOf(application), role,
-                                                             model.grantableOn(CUSTOM_ROLE_HOME, AuthzConstants.APPLICATION_TYPE)))
-                .compose(bindings -> {
-                    // a grant is revoked where it was made, so a role a grant still holds stays
-                    if (!bindings.isEmpty()) {
-                        throw new IllegalStateException("Role " + roleId + " is still held by grants; revoke them first");
-                    }
-                    // its permissions first, then the row: a role whose row outlives its permissions grants nothing
-                    return relationships.removeObject(storeOf(application), role);
-                })
-                .compose(v -> roles.deleteByIdSync(roleId, application.getOrganizationId()))));
+        return requireApplication(applicationId)
+                .compose(application -> models.findApplicationStoreModel(application.getOrganizationId(), application.getId())
+                                              .compose(model -> roleService.deleteRole(RoleOwner.application(application), roleId, model)));
     }
 
     private Future<Void> requireDefinitions(Application application, Set<String> definitionIds) {
@@ -198,7 +160,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
         return requireApplication(applicationId)
                 .compose(application -> requireSubject(application, subject)
                         .compose(v -> contained(application, resource))
-                        .compose(v -> applicationRoles.grant(application, subject, roleId, resource)));
+                        .compose(v -> roleService.grant(application, subject, roleId, resource)));
     }
 
     @Override
