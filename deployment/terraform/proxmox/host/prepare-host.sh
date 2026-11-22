@@ -12,7 +12,7 @@
 #   - kinotic-dyndns.timer, which keeps the certificate's hostnames on the router's current
 #     public address (host/kinotic-dyndns.py, beside this script)
 #   - kinotic-licenses-backup.timer, which uploads a dump of the license key server's database
-#     every night (host/kinotic-licenses-backup.sh, beside this script)
+#     every night (host/kinotic-licenses-backup.sh, which terraform installs)
 #   - the host's own exposure: SSH by key only, rpcbind off, and the Proxmox firewall admitting
 #     SSH and the web UI from the LAN alone
 #
@@ -128,7 +128,6 @@ OnUnitActiveSec=5min
 WantedBy=timers.target
 UNIT
 # The license database is the only copy of the issued keys
-install -m 0755 "$(dirname "$0")/kinotic-licenses-backup.sh" /usr/local/sbin/kinotic-licenses-backup
 cat > /etc/systemd/system/kinotic-licenses-backup.service <<'UNIT'
 [Unit]
 Description=Upload a dump of the license key server's database
