@@ -15,6 +15,7 @@ import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.app.api.services.ApplicationServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
@@ -106,6 +107,9 @@ public class ApplicationStoreTests extends KinoticTestBase {
 
     @Autowired
     private RelationshipService relationships;
+
+    @Autowired
+    private RolePermissionsService rolePermissions;
 
     @Autowired
     private AuthzStoreService storeService;
@@ -620,7 +624,7 @@ public class ApplicationStoreTests extends KinoticTestBase {
         // a create of the id whose provisioning failed and whose rollback could not delete the store left it,
         // running a model and holding nothing
         AuthzModel model = await(directory.findSystemDefinitions().map(system -> generator.applicationModel(system, List.of())));
-        await(storeService.ensureStore(store).compose(id -> relationships.ensureModelWithRoles(store, model)));
+        await(storeService.ensureStore(store).compose(id -> rolePermissions.ensureModelWithRoles(store, model)));
         assertFalse(await(relationships.holds(store, placed)));
 
         Application again = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(name, "lifecycle", null)));

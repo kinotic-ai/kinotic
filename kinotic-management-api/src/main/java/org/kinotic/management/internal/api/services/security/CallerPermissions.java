@@ -7,7 +7,7 @@ import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -28,7 +28,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 public class CallerPermissions {
 
     private final SecurityContext securityContext;
-    private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
 
     /**
      * Whether the caller holds a permission on one resource of its organization.
@@ -59,7 +59,7 @@ public class CallerPermissions {
         OrganizationParticipant participant = requireOrgParticipant();
         Future<List<String>> ret;
         if (AuthzGraphUtil.withinDelegateCeiling(participant, type, permission)) {
-            ret = relationships.listObjects(SYSTEM,
+            ret = accessChecks.listObjects(SYSTEM,
                                             AuthzGraphUtil.authzUser(participant),
                                             AuthzUtil.permissionName(type, permission), type,
                                             Consistency.MINIMIZE_LATENCY)
@@ -108,7 +108,7 @@ public class CallerPermissions {
         Future<Boolean> ret;
         if (AuthzGraphUtil.withinDelegateCeiling(participant, type, permission)) {
             RelationshipTuple held = new RelationshipTuple(AuthzGraphUtil.authzUser(participant), AuthzUtil.permissionName(type, permission), object);
-            ret = relationships.check(SYSTEM, held, Consistency.MINIMIZE_LATENCY);
+            ret = accessChecks.check(SYSTEM, held, Consistency.MINIMIZE_LATENCY);
         } else {
             ret = Future.succeededFuture(false);
         }

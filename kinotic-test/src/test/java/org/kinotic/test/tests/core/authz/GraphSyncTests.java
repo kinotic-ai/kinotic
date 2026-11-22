@@ -6,9 +6,11 @@ import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -101,6 +103,12 @@ public class GraphSyncTests extends KinoticTestBase {
 
     @Autowired
     private RelationshipService relationships;
+
+    @Autowired
+    private AccessCheckService accessChecks;
+
+    @Autowired
+    private RolePermissionsService rolePermissions;
 
     @Autowired
     private AuthzStoreService storeService;
@@ -282,7 +290,7 @@ public class GraphSyncTests extends KinoticTestBase {
         assertTrue(model.roles().get(AuthzConstants.ORGANIZATION_ADMIN_ROLE).containsAll(
                 Set.of("project_can_delete", "entity_definition_can_delete", "application_can_edit")));
         for (Map.Entry<String, Set<String>> role : model.roles().entrySet()) {
-            Set<String> bundled = await(relationships.findRolePermissions(AuthzStoreService.SYSTEM, role.getKey())).permissions();
+            Set<String> bundled = await(rolePermissions.findRolePermissions(AuthzStoreService.SYSTEM, role.getKey())).permissions();
             assertEquals(role.getValue(), bundled, "role " + role.getKey() + " bundles what the model has");
         }
     }
@@ -303,13 +311,13 @@ public class GraphSyncTests extends KinoticTestBase {
                    "the organization is under the system");
 
         // the binding of the organization admin role reaches the organization and everything created inside it
-        assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit", organization), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit", organization), Consistency.HIGHER_CONSISTENCY)));
         Application application = await(runAs(admin, () -> applicationService.createApplicationIfNotExist("Graph Admin App", "graph sync", null)));
         String applicationObject = AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId()));
-        assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit", applicationObject), Consistency.HIGHER_CONSISTENCY)));
-        assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "project_can_delete", applicationObject), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit", applicationObject), Consistency.HIGHER_CONSISTENCY)));
+        assertTrue(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "project_can_delete", applicationObject), Consistency.HIGHER_CONSISTENCY)));
         // and nothing outside the organization
-        assertFalse(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit",
+        assertFalse(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit",
                                                                     AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID)), Consistency.HIGHER_CONSISTENCY)));
     }
 

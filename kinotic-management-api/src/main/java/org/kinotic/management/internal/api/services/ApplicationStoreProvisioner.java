@@ -11,6 +11,7 @@ import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Sort;
@@ -51,6 +52,7 @@ public class ApplicationStoreProvisioner {
     private final AuthzStoreService stores;
     private final AuthzModelGenerator generator;
     private final RelationshipService relationships;
+    private final RolePermissionsService rolePermissions;
     private final AuthzStoreRepository records;
     private final ServiceDirectory directory;
     private final ProjectRepository projects;
@@ -127,7 +129,7 @@ public class ApplicationStoreProvisioner {
                              // the record to the model the services imply on its next look. It is created once the
                              // holdings are placed: OrganizationGraphSeedJob provisions an application that has
                              // no record, so a placement that failed is made again by its next run
-                             ret = relationships.ensureModelWithRoles(store, kernel)
+                             ret = rolePermissions.ensureModelWithRoles(store, kernel)
                                                 .compose(version -> relationships.ensure(store, List.of(placement(store))))
                                                 .compose(v -> placeHoldings(application))
                                                 .compose(v -> records.updateDesired(store, new AuthzModelRevision(kernel.hash()), created, "application created"))

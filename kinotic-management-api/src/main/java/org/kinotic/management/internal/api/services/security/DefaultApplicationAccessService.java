@@ -13,7 +13,9 @@ import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.RoleOwner;
@@ -53,6 +55,8 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
     private final ApplicationRepository applications;
     private final ParticipantIdentityService identities;
     private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
+    private final RolePermissionsService rolePermissions;
     private final EntityDefinitionRepository entityDefinitions;
     private final TenantRepository tenants;
     private final AuthzModelService models;
@@ -87,7 +91,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
             RoleOwner owner = RoleOwner.application(application);
             return requireDefinitions(application, permissions.definitionPermissions().keySet())
                     .compose(v -> roleService.saveRole(owner, role, CUSTOM_ROLE_HOME,
-                                                       saved -> relationships.ensureRole(owner.store(), saved.getId(), permissions)))
+                                                       saved -> rolePermissions.ensureRole(owner.store(), saved.getId(), permissions)))
                     .map(saved -> RoleService.definitionOf(saved, owner, model, permissions));
         }));
     }
@@ -181,7 +185,7 @@ public class DefaultApplicationAccessService implements ApplicationAccessService
             RelationshipTuple holds = new RelationshipTuple(AuthzGraphUtil.authzSubject(application.getOrganizationId(), subject), permission, objectOf(application, resource));
             return requireSubject(application, subject)
                     .compose(v -> Future.all(modelOf(application, List.of(), List.of(permission)), grantsOn(application, resource)))
-                    .compose(both -> relationships.explain(store, both.resultAt(0), holds, edgesOf(resource), both.resultAt(1)))
+                    .compose(both -> accessChecks.explain(store, both.resultAt(0), holds, edgesOf(resource), both.resultAt(1)))
                     .map(AuthzGraphUtil::localExplanation);
         });
     }

@@ -8,7 +8,9 @@ import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.Role;
@@ -37,6 +39,8 @@ public class DefaultRoleService implements RoleService {
 
     private final RoleRepository roles;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
+    private final RolePermissionsService rolePermissions;
     private final AuthzModelService models;
 
     @Override
@@ -47,7 +51,7 @@ public class DefaultRoleService implements RoleService {
                                             : roles.findAllForApplication(owner.applicationId(), owner.organizationId(), pageable),
                                     ROLE_PAGE_SIZE, Sort.by("name", "id"))
                            .compose(rows -> Future.all(rows.stream()
-                                                           .map(row -> relationships.findRolePermissions(owner.store(), row.getId())
+                                                           .map(row -> rolePermissions.findRolePermissions(owner.store(), row.getId())
                                                                                     .map(permissions -> RoleService.definitionOf(row, owner, model, permissions)))
                                                            .toList()))
                            .map(own -> {
@@ -72,7 +76,7 @@ public class DefaultRoleService implements RoleService {
         String roleId = role.id() == null ? AuthzNameUtil.roleId(home, UUID.randomUUID().toString()) : role.id();
         // under the lock a grant and a deletion of the role take, with the role read under it, so an edit that
         // waited for a deletion finds no role and writes none
-        return relationships.exclusively(AuthzNameUtil.roleObject(roleId), () -> {
+        return locks.exclusively(AuthzNameUtil.roleObject(roleId), () -> {
             Future<Role> row = role.id() == null
                     ? Future.succeededFuture(new Role().setId(roleId)
                                                        .setOrganizationId(owner.organizationId())
@@ -94,7 +98,7 @@ public class DefaultRoleService implements RoleService {
         String role = AuthzNameUtil.roleObject(roleId);
         // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
         // finds the role gone
-        return relationships.exclusively(role, () -> requireRole(owner, roleId)
+        return locks.exclusively(role, () -> requireRole(owner, roleId)
                 .compose(row -> relationships.findBindings(owner.store(), role, model.grantableOn(AuthzNameUtil.roleHome(roleId), owner.type())))
                 .compose(bindings -> {
                     // a grant is revoked where it was made, so a role a grant still holds stays
@@ -110,7 +114,7 @@ public class DefaultRoleService implements RoleService {
     public <T> Future<T> whileRoleKept(RoleOwner owner, AuthzModel model, String roleId, Supplier<Future<T>> grant) {
         return model.roles().containsKey(roleId)
                 ? grant.get()
-                : relationships.exclusively(AuthzNameUtil.roleObject(roleId), () -> requireRole(owner, roleId).compose(row -> grant.get()));
+                : locks.exclusively(AuthzNameUtil.roleObject(roleId), () -> requireRole(owner, roleId).compose(row -> grant.get()));
     }
 
     @Override

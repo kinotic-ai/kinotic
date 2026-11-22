@@ -13,7 +13,10 @@ import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.ConnectionRevocationService;
@@ -52,6 +55,9 @@ public class DefaultPermissionService implements PermissionService {
     private final SecurityContext securityContext;
     private final AuthzModelService models;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
+    private final AccessCheckService accessChecks;
+    private final RolePermissionsService rolePermissions;
     private final RoleService roleService;
     private final GroupRepository groups;
     private final ParticipantIdentityService identities;
@@ -99,13 +105,13 @@ public class DefaultPermissionService implements PermissionService {
             RolePermissions permissions = new RolePermissions(role.permissions());
             // every machine the role is granted to is among the holders read here, under the lock a grant of the role
             // takes, or is granted the role as this edit leaves it
-            return roleService.saveRole(owner, role, home, saved -> relationships.findRolePermissions(SYSTEM, saved.getId())
+            return roleService.saveRole(owner, role, home, saved -> rolePermissions.findRolePermissions(SYSTEM, saved.getId())
                                       // read before the permissions are written, so an edit whose read failed is
                                       // made again as the same edit
                                       .compose(before -> role.permissions().containsAll(before.permissions())
                                               ? Future.succeededFuture(List.<String>of())
                                               : holders(saved.getId(), model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE)).compose(this::machines))
-                                      .compose(machines -> relationships.ensureRole(SYSTEM, saved.getId(), permissions)
+                                      .compose(machines -> rolePermissions.ensureRole(SYSTEM, saved.getId(), permissions)
                                                                         .compose(v -> reconnected(machines))))
                               .map(saved -> RoleService.definitionOf(saved, owner, model, permissions));
         });
@@ -161,7 +167,7 @@ public class DefaultPermissionService implements PermissionService {
     // made to the group, and a grant or a member is never written for a group whose row is gone. The group is read
     // once the lock is held
     private <T> Future<T> whileGroupKept(String groupId, String organizationId, Supplier<Future<T>> change) {
-        return relationships.exclusively(AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId),
+        return locks.exclusively(AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId),
                                          () -> requireGroup(groupId, organizationId).compose(row -> change.get()));
     }
 
@@ -303,7 +309,7 @@ public class DefaultPermissionService implements PermissionService {
         return requireSubject(subject, organizationId).compose(stored -> model()
                 .compose(model -> requireInOrganization(model, resource, organizationId)
                         .compose(this::grantsOn)
-                        .compose(grants -> relationships.explain(SYSTEM, model,
+                        .compose(grants -> accessChecks.explain(SYSTEM, model,
                                                                  new RelationshipTuple(AuthzNameUtil.userset(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
                                                                  List.of(), grants)))
                 .map(AuthzGraphUtil::localExplanation));

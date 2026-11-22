@@ -6,8 +6,8 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzStoreService;
-import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.event.ZoneRulesResolver;
@@ -37,7 +37,7 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
     private static final String CAN_REGISTER_SERVICES = AuthzUtil.permissionName(AuthzConstants.APPLICATION_TYPE, AuthzConstants.CAN_REGISTER_SERVICES);
 
     private final ZonePartitioningService zonePartitioningService;
-    private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
 
     @Override
     public ZoneRules resolve(Participant participant) {
@@ -74,6 +74,6 @@ public class ScopedParticipantZoneRulesResolver implements ZoneRulesResolver {
     // once, and an answer kept from before the revocation gives it the zone back
     private Future<Boolean> registers(String user, String organizationId, String applicationId) {
         String application = AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, AuthzGraphUtil.authzApplicationId(organizationId, applicationId));
-        return relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, CAN_REGISTER_SERVICES, application), Consistency.HIGHER_CONSISTENCY);
+        return accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, CAN_REGISTER_SERVICES, application), Consistency.HIGHER_CONSISTENCY);
     }
 }

@@ -11,6 +11,7 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -49,6 +50,7 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
     private final RoleService roleService;
     private final AuthzModelService models;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
     private final OidcConfigurationService oidcConfigurations;
     private final KinoticDomainProperties domainProperties;
 
@@ -113,7 +115,7 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
         ApplicationParticipant caller = requireTenantUser();
         Validate.notBlank(userId, "userId is required");
         Validate.isTrue(!userId.equals(caller.getId()), "You cannot perform this action on yourself.");
-        return relationships.exclusively(AuthzGraphUtil.authzUser(userId), () -> requireUser(caller, userId).compose(change));
+        return locks.exclusively(AuthzGraphUtil.authzUser(userId), () -> requireUser(caller, userId).compose(change));
     }
 
     @Override

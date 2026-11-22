@@ -12,6 +12,7 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.SystemParticipantIdentity;
@@ -35,6 +36,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
 
     private final AuthzModelService models;
     private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
     private final ParticipantIdentityService identities;
 
     @Override
@@ -75,7 +77,7 @@ public class DefaultSystemAccessService implements SystemAccessService {
         Validate.notBlank(permission, "permission cannot be blank");
         String name = AuthzUtil.permissionName(AuthzConstants.SYSTEM_TYPE, permission);
         return requireStaff(subject).compose(stored -> Future.all(model(), relationships.findGrants(SYSTEM, AuthzNameUtil.SYSTEM_OBJECT))
-                .compose(both -> relationships.explain(SYSTEM, both.resultAt(0),
+                .compose(both -> accessChecks.explain(SYSTEM, both.resultAt(0),
                                                        new RelationshipTuple(AuthzNameUtil.userset(stored), name, AuthzNameUtil.SYSTEM_OBJECT),
                                                        List.of(), both.resultAt(1)))
                 .map(AuthzGraphUtil::localExplanation));

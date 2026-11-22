@@ -13,9 +13,11 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
@@ -92,6 +94,12 @@ public class PermissionServiceTests extends KinoticTestBase {
 
     @Autowired
     private RelationshipService relationships;
+
+    @Autowired
+    private AccessCheckService accessChecks;
+
+    @Autowired
+    private RolePermissionsService rolePermissions;
 
     @Autowired
     private AuthzStoreRepository stores;
@@ -439,13 +447,13 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     private boolean held(UserParticipantIdentity member, String permission, Resource resource) throws Exception {
-        return await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()), permission,
+        return await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()), permission,
                                                                AuthzGraphUtil.authzObject(TEST_ORG_ID, resource)),
                                          Consistency.HIGHER_CONSISTENCY));
     }
 
     private Set<String> bundled(String roleId) throws Exception {
-        return await(relationships.findRolePermissions(AuthzStoreService.SYSTEM, roleId)).permissions();
+        return await(rolePermissions.findRolePermissions(AuthzStoreService.SYSTEM, roleId)).permissions();
     }
 
     private Application application() throws Exception {

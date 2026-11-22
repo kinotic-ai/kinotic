@@ -8,6 +8,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.CRI;
@@ -75,6 +76,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private final WorkloadRepository workloadRepository;
     private final EventBusService eventBusService;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
     private final SecurityContext securityContext;
     private final Vertx vertx;
 
@@ -408,7 +410,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         log.info("Deregistering VmNode {}: its open runs are recorded FAILED", nodeId);
         // under the lock registerNode holds, so a registration of the id never has its graph placement removed
         // or its record deleted beneath it
-        return relationships.exclusively(AuthzNameUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> forEachOpenRun(nodeId, workload -> {
+        return locks.exclusively(AuthzNameUtil.object(VmNodeService.RESOURCE_TYPE, nodeId), () -> forEachOpenRun(nodeId, workload -> {
                     log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                              workload.getId(), nodeId, workload.getStatus());
                     return workloadRepository.endRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId).mapEmpty();

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
@@ -92,7 +92,7 @@ class DefaultRequestAuthorizerTest {
 
     private final SecurityExceptionFactory securityExceptions = new SecurityExceptionFactory(new KinoticProperties().setDebug(true));
     private ServiceDirectory directory;
-    private RelationshipService relationships;
+    private AccessCheckService accessChecks;
     private AuthzModelService models;
     private DefaultRequestAuthorizer authorizer;
     private ServiceDirectoryEntry entry;
@@ -105,9 +105,9 @@ class DefaultRequestAuthorizerTest {
         directory = mock(ServiceDirectory.class);
         ObjectProvider<ServiceDirectory> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(directory);
-        relationships = mock(RelationshipService.class);
-        when(relationships.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.succeededFuture(true));
-        when(relationships.check(eq("acme.crm"), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+        accessChecks = mock(AccessCheckService.class);
+        when(accessChecks.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+        when(accessChecks.check(eq("acme.crm"), any(), any(), any())).thenReturn(Future.succeededFuture(true));
         vertx = Vertx.vertx();
         ObjectProvider<RequestPermissionResolver> resolvers = mock(ObjectProvider.class);
         when(resolvers.orderedStream()).thenAnswer(invocation -> Stream.of(new StatementResolver()));
@@ -115,7 +115,7 @@ class DefaultRequestAuthorizerTest {
         // the report type of acme.crm, whose editor holds generating
         when(models.findApplicationModelOf("acme", "crm", List.of("report"), List.of()))
                 .thenReturn(Future.succeededFuture(reportsModel("report.editor")));
-        authorizer = new DefaultRequestAuthorizer(provider, resolvers, relationships, models, jsonMapper, vertx, securityExceptions);
+        authorizer = new DefaultRequestAuthorizer(provider, resolvers, accessChecks, models, jsonMapper, vertx, securityExceptions);
         authorizer.listenForContractChanges();
 
         ServiceDefinition service = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -156,7 +156,7 @@ class DefaultRequestAuthorizerTest {
     void aContractAnnouncedWrittenIsReadAgain() throws Exception {
         authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]");
         verify(directory, times(1)).findEntry(SERVICE);
-        verify(relationships, times(1)).check(any(), any(), any(), any());
+        verify(accessChecks, times(1)).check(any(), any(), any(), any());
 
         // the contract written again serves save unchecked
         ServiceDefinition changed = new ServiceDefinition().setNamespace("org.kinotic.management.api.services").setName("ProjectService");
@@ -166,9 +166,9 @@ class DefaultRequestAuthorizerTest {
 
         // the announcement lands on the event loop; from then on a request reads the contract again and asks nothing
         assertTrue(awaitUntil(() -> {
-            int checks = mockingDetails(relationships).getInvocations().size();
+            int checks = mockingDetails(accessChecks).getInvocations().size();
             authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]");
-            return mockingDetails(relationships).getInvocations().size() == checks
+            return mockingDetails(accessChecks).getInvocations().size() == checks
                     && mockingDetails(directory).getInvocations().size() == 2;
         }), "the contract announced written was never read again");
     }
@@ -231,19 +231,19 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refused("deploy", delegate(DelegateType.CLI.name()), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
 
         assertTrue(refused.getMessage().contains("can_deploy"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
     void aDelegateOfNoKnownTypeIsRefused() {
         refused("save", delegate("SCRIPT"), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]");
 
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
     void aDeniedCheckRefusesTheRequest() {
-        when(relationships.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.succeededFuture(false));
+        when(accessChecks.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
         AuthorizationException refused = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-b\"}]");
 
@@ -256,7 +256,7 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"name\":\"A\"}]");
 
         assertTrue(refused.getMessage().contains("entity.id"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -270,7 +270,7 @@ class DefaultRequestAuthorizerTest {
         String deep = "[".repeat(5_000) + "]".repeat(5_000);
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"tags\":" + deep + ",\"id\":\"proj-a\"}]")
                            .getMessage().contains("cannot be read"));
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -278,14 +278,14 @@ class DefaultRequestAuthorizerTest {
         // a service binds the last of a repeated name, so the first is never the object checked
         assertTrue(refused("save", sally(), EventConstants.CONTENT_TYPE_JSON,
                            "[{\"id\":\"proj-a\",\"name\":\"A\",\"id\":\"proj-b\"}]").getMessage().contains("id"));
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
     void anUncheckedFunctionPassesWithoutTheEngine() throws Exception {
         authorize("listAccessible", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"project\",\"can_read\"]");
 
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -299,7 +299,7 @@ class DefaultRequestAuthorizerTest {
 
         AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
         assertTrue(refused.getMessage().contains("No contract covers create"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -307,7 +307,7 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refused("render", sally(), EventConstants.CONTENT_TYPE_JSON, "[]");
 
         assertTrue(refused.getMessage().contains("No contract covers render"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -315,7 +315,7 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refused("describe", sally(), EventConstants.CONTENT_TYPE_JSON, "[\"proj-a\"]");
 
         assertTrue(refused.getMessage().contains("No contract covers describe"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -323,7 +323,7 @@ class DefaultRequestAuthorizerTest {
     void aNodeWithoutADirectoryRefusesEveryRequest() {
         ObjectProvider<ServiceDirectory> none = mock(ObjectProvider.class);
         when(none.getIfAvailable()).thenReturn(null);
-        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(ObjectProvider.class), relationships, models,
+        DefaultRequestAuthorizer alone = new DefaultRequestAuthorizer(none, mock(ObjectProvider.class), accessChecks, models,
                                                                       JsonMapper.builder().build(), vertx, securityExceptions);
 
         ExecutionException failure = assertThrows(ExecutionException.class,
@@ -342,13 +342,13 @@ class DefaultRequestAuthorizerTest {
 
         ArgumentCaptor<RelationshipTuple> tuple = ArgumentCaptor.captor();
         ArgumentCaptor<List<RelationshipTuple>> edges = ArgumentCaptor.captor();
-        verify(relationships).check(eq("acme.crm"), tuple.capture(), eq(Consistency.MINIMIZE_LATENCY), edges.capture());
+        verify(accessChecks).check(eq("acme.crm"), tuple.capture(), eq(Consistency.MINIMIZE_LATENCY), edges.capture());
         assertEquals(new RelationshipTuple("user:bob", "entity_definition_can_read", "tenant_definition:acme.crm.person@t1"), tuple.getValue());
         // the object no store holds tuples for comes with its two edges, the definition's and the tenant's
         assertEquals(List.of(new RelationshipTuple("entity_definition:acme.crm.person", "definition", "tenant_definition:acme.crm.person@t1"),
                              new RelationshipTuple("tenant:t1", "tenant", "tenant_definition:acme.crm.person@t1")),
                      edges.getValue());
-        verify(relationships, never()).check(eq(SYSTEM), any(), any(), any());
+        verify(accessChecks, never()).check(eq(SYSTEM), any(), any(), any());
     }
 
     @Test
@@ -361,7 +361,7 @@ class DefaultRequestAuthorizerTest {
 
             assertTrue(assertInstanceOf(AuthorizationException.class, failure.getCause()).getMessage().contains("across tenants"));
         }
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -372,7 +372,7 @@ class DefaultRequestAuthorizerTest {
                                                                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
 
         assertTrue(assertInstanceOf(AuthorizationException.class, failure.getCause()).getMessage().contains("names no function"));
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -387,7 +387,7 @@ class DefaultRequestAuthorizerTest {
 
     @Test
     void aPermissionOfAnApplicationsOwnServiceIsAskedByItsNameOnTheCallersTenant() throws Exception {
-        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+        when(accessChecks.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
 
         authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -396,17 +396,17 @@ class DefaultRequestAuthorizerTest {
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         // each check names the built-in roles the type's contracts give the permission, read once for both
-        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "tenant:t1", Set.of("report.editor"),
+        verify(accessChecks).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "tenant:t1", Set.of("report.editor"),
                                                      Consistency.MINIMIZE_LATENCY);
-        verify(relationships).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "application:acme.crm", Set.of("report.editor"),
+        verify(accessChecks).checkServicePermission("acme.crm", "user:bob", "report_can_generate", "application:acme.crm", Set.of("report.editor"),
                                                      Consistency.MINIMIZE_LATENCY);
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
         verify(models, times(1)).findApplicationModelOf("acme", "crm", List.of("report"), List.of());
     }
 
     @Test
     void theRolesHoldingAPermissionAreReadAgainOnceItsTypeIsAnnouncedDecidedAgain() throws Exception {
-        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
+        when(accessChecks.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(true));
         authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
                   .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
@@ -420,14 +420,14 @@ class DefaultRequestAuthorizerTest {
         assertTrue(awaitUntil(() -> {
             authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"), EventConstants.CONTENT_TYPE_JSON, bytes("[\"q3\"]"))
                       .toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-            return mockingDetails(relationships).getInvocations().stream()
+            return mockingDetails(accessChecks).getInvocations().stream()
                                                 .anyMatch(check -> Set.of("report.editor", "report.publisher").equals(check.getArgument(4)));
         }), "the type announced decided again was never read again");
     }
 
     @Test
     void aPermissionOfAnApplicationsOwnServiceTheCallerLacksRefusesTheRequest() {
-        when(relationships.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(false));
+        when(accessChecks.checkServicePermission(eq("acme.crm"), any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
         ExecutionException failure = assertThrows(ExecutionException.class,
                                                   () -> authorizer.authorize(CRI.create("srv://" + REPORTS + "/generate#1.0.0"), bob("t1"),
@@ -446,7 +446,7 @@ class DefaultRequestAuthorizerTest {
 
         assertEquals(new RelationshipTuple("user:sally", "entity_definition_can_edit", "entity_definition:acme.crm.person"),
                      checked(Consistency.MINIMIZE_LATENCY));
-        verify(relationships, never()).check(eq("acme.crm"), any(), any(), any());
+        verify(accessChecks, never()).check(eq("acme.crm"), any(), any(), any());
     }
 
     @Test
@@ -468,12 +468,12 @@ class DefaultRequestAuthorizerTest {
 
         AuthorizationException refused = assertInstanceOf(AuthorizationException.class, failure.getCause());
         assertTrue(refused.getMessage().contains("names no resource"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
     void anApplicationParticipantIsRefusedWhatItsStoreDenies() {
-        when(relationships.check(eq("acme.crm"), any(), any(), any())).thenReturn(Future.succeededFuture(false));
+        when(accessChecks.check(eq("acme.crm"), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
         ExecutionException failure = assertThrows(ExecutionException.class,
                                                   () -> authorizer.authorize(CRI.create("srv://crm@" + ENTITIES + "/findById#1.0.0"), bob("t1"),
@@ -508,7 +508,7 @@ class DefaultRequestAuthorizerTest {
     @Test
     void anEngineFailureFailsTheRequestAsItself() {
         IllegalStateException down = new IllegalStateException("engine unreachable");
-        when(relationships.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.failedFuture(down));
+        when(accessChecks.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.failedFuture(down));
 
         ExecutionException failure = assertThrows(ExecutionException.class,
                                                   () -> authorize("save", sally(), EventConstants.CONTENT_TYPE_JSON, "[{\"id\":\"proj-a\"}]"));
@@ -526,7 +526,7 @@ class DefaultRequestAuthorizerTest {
 
     @Test
     void aRefusalOfAResolvedPermissionSaysWhyTheRequestNeedsIt() {
-        when(relationships.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.succeededFuture(false));
+        when(accessChecks.check(eq(SYSTEM), any(), any(), any())).thenReturn(Future.succeededFuture(false));
 
         AuthorizationException refused = refusedNamedQuery("deletePeople");
 
@@ -539,7 +539,7 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refusedNamedQuery("editPeople");
 
         assertTrue(refused.getMessage().contains("not one it may require"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -547,7 +547,7 @@ class DefaultRequestAuthorizerTest {
         AuthorizationException refused = refusedNamedQuery("missing");
 
         assertTrue(refused.getMessage().contains("decided nothing"), refused.getMessage());
-        verify(relationships, never()).check(any(), any(), any(), any());
+        verify(accessChecks, never()).check(any(), any(), any(), any());
     }
 
     @Test
@@ -607,7 +607,7 @@ class DefaultRequestAuthorizerTest {
 
     private RelationshipTuple checked(String store, Consistency consistency) {
         ArgumentCaptor<RelationshipTuple> tuple = ArgumentCaptor.forClass(RelationshipTuple.class);
-        verify(relationships).check(eq(store), tuple.capture(), eq(consistency), eq(List.of()));
+        verify(accessChecks).check(eq(store), tuple.capture(), eq(consistency), eq(List.of()));
         return tuple.getValue();
     }
 

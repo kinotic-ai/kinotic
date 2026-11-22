@@ -9,6 +9,7 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.Participant;
@@ -82,6 +83,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
     private RelationshipService relationships;
 
     @Autowired
+    private AccessCheckService accessChecks;
+
+    @Autowired
     private AuthzStoreService storeService;
 
     @Autowired
@@ -107,9 +111,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
 
         // the other organization's admin holds its own application and not ours
         String theirAdmin = AuthzGraphUtil.authzUser(other.getId());
-        assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, theirStore)),
+        assertTrue(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, theirStore)),
                                              Consistency.HIGHER_CONSISTENCY)));
-        assertFalse(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, ourStore)),
+        assertFalse(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, ourStore)),
                                               Consistency.HIGHER_CONSISTENCY)));
 
         // a tenant of the same id in each application, administered in ours

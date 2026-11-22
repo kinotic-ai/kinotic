@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AuthzNameUtil;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
@@ -35,7 +35,7 @@ public class DefaultMemberService implements MemberService {
     private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
     private final MemberInvitationService memberInvitationService;
-    private final RelationshipService relationships;
+    private final ObjectLockService locks;
 
     @Override
     public Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable) {
@@ -83,7 +83,7 @@ public class DefaultMemberService implements MemberService {
     // interleaved with a removal it would store the removed member again. The member is read once the lock is held
     private <T> Future<T> changingMember(String identityId, OrganizationParticipant participant, Function<UserParticipantIdentity, Future<T>> change) {
         Validate.notBlank(identityId, "identityId is required");
-        return relationships.exclusively(AuthzGraphUtil.authzUser(identityId), () -> loadOwnedMember(identityId, participant).compose(change));
+        return locks.exclusively(AuthzGraphUtil.authzUser(identityId), () -> loadOwnedMember(identityId, participant).compose(change));
     }
 
     // saveSync so the console's immediate re-query sees the change

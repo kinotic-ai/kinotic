@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzModel;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
 public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
 
     private final AuthzModelService models;
-    private final RelationshipService relationships;
+    private final RolePermissionsService rolePermissions;
     private final AuthzStoreRepository stores;
 
     @Override
@@ -74,7 +74,7 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
                          } else {
                              // the ids are recorded before the report, so a reconciled record names the version
                              // its servers check against
-                             ret = relationships.ensureModelWithRoles(store, model)
+                             ret = rolePermissions.ensureModelWithRoles(store, model)
                                                 .compose(engine -> stores.saveEngineStore(store, engine, "engine")
                                                                          .compose(v -> stores.reportObserved(store, revision,
                                                                                                              intended.getState().getGeneration(),

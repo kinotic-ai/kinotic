@@ -9,6 +9,7 @@ import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -89,6 +90,9 @@ public class RequestAuthorizationTests extends KinoticTestBase {
 
     @Autowired
     private RelationshipService relationships;
+
+    @Autowired
+    private AccessCheckService accessChecks;
 
     @Autowired
     private AuthzStoreRepository stores;
@@ -218,7 +222,7 @@ public class RequestAuthorizationTests extends KinoticTestBase {
         RelationshipTuple manages = new RelationshipTuple(AuthzGraphUtil.authzUser(SEEDED_CREATOR_ID),
                                                           AuthzUtil.permissionName(AuthzConstants.ORGANIZATION_TYPE, "can_manage_access"),
                                                           organization);
-        assertTrue(awaitUntil(() -> await(relationships.check(AuthzStoreService.SYSTEM, manages, Consistency.HIGHER_CONSISTENCY))),
+        assertTrue(awaitUntil(() -> await(accessChecks.check(AuthzStoreService.SYSTEM, manages, Consistency.HIGHER_CONSISTENCY))),
                    "the creator was never bound as the administrator");
 
         // every server that started swept the organization and bound its creator under the same binding

@@ -13,8 +13,8 @@ import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzStoreService;
-import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
@@ -110,7 +110,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final ObjectProvider<RequestPermissionResolver> permissionResolvers;
-    private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
     private final AuthzModelService models;
     private final JsonMapper jsonMapper;
     private final Vertx vertx;
@@ -400,12 +400,12 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
         Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
         Future<Boolean> ret;
         if (AuthzStoreService.places(store, check.getPermissionResource())) {
-            ret = relationships.check(store, relationship, consistency, edges);
+            ret = accessChecks.check(store, relationship, consistency, edges);
         } else {
             // an application's store has no relation for a permission of the application's own services: a role
             // holds one by its name, which the check asks for
             ret = rolesHolding(call.participant().getScope(), store, check.getPermissionResource(), relationship.relation())
-                    .compose(roles -> relationships.checkServicePermission(store, relationship.user(), relationship.relation(), relationship.object(),
+                    .compose(roles -> accessChecks.checkServicePermission(store, relationship.user(), relationship.relation(), relationship.object(),
                                                                            roles, consistency));
         }
         return ret;

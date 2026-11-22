@@ -22,11 +22,16 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
+import org.kinotic.authz.internal.api.services.DefaultAccessCheckService;
 import org.kinotic.authz.internal.api.services.DefaultAuthzStoreService;
+import org.kinotic.authz.internal.api.services.DefaultObjectLockService;
 import org.kinotic.authz.internal.api.services.DefaultRelationshipService;
+import org.kinotic.authz.internal.api.services.DefaultRolePermissionsService;
 import org.kinotic.authz.internal.api.services.OpenFgaService;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.CRI;
@@ -142,6 +147,10 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private MigrationParser migrationParser;
     @Autowired
     private RelationshipService relationships;
+    @Autowired
+    private AccessCheckService accessChecks;
+    @Autowired
+    private RolePermissionsService rolePermissions;
     @Autowired
     private OpenFgaService fga;
     @Autowired
@@ -348,11 +357,11 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
             section("A role naming " + entities + " entities");
             long start = System.nanoTime();
-            await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
+            await(rolePermissions.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
             line("role written in " + ms(System.nanoTime() - start) + " ms");
-            await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others, Set.of())));
+            await(rolePermissions.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others, Set.of())));
             start = System.nanoTime();
-            require(await(relationships.findRolePermissions(appStore, namingRole)).definitionPermissions().size() == entities,
+            require(await(rolePermissions.findRolePermissions(appStore, namingRole)).definitionPermissions().size() == entities,
                     "the role was not read back naming " + entities + " entities");
             line("role read back in " + ms(System.nanoTime() - start) + " ms");
             line("");
@@ -364,8 +373,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String otherRole = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
         Map<String, Set<String>> naming = new HashMap<>(namedEntities(100));
         naming.put(person.getId(), Set.of(READING_ROWS));
-        await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
-        await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
+        await(rolePermissions.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
+        await(rolePermissions.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
         ScopedParticipant holder = holderOf(namingRole);
         ScopedParticipant refused = holderOf(otherRole);
         int roles = 2;
@@ -525,7 +534,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             line("the model of the newest service's type, which a request and a grant read, generated in " + ms(System.nanoTime() - start) + " ms");
             start = System.nanoTime();
             AuthzModel model = awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(), List.of()));
-            awaitLong(relationships.ensureModelWithRoles(appStore, model));
+            awaitLong(rolePermissions.ensureModelWithRoles(appStore, model));
             line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms, for " + model.storedRoles().size()
                          + " roles the store holds");
             AuthorizationModel engineModel = await(fga.readAuthorizationModels(appStoreId, 1, null)).getAuthorizationModels().getFirst();
@@ -609,7 +618,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
     private String roleNamingOthers() throws Exception {
         String ret = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
-        await(relationships.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
+        await(rolePermissions.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
         return ret;
     }
 
@@ -836,7 +845,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         row(measure("engine floor: GET store (HTTP round trip)", 1, () -> fga.getStore(systemStoreId)));
         row(measure("engine: raw Check, project grant (allow)", 1, () -> rawCheck(alice, "project_can_edit", hotObject(), ConsistencyPreference.MINIMIZE_LATENCY)));
         row(measure("RelationshipService.check, project grant (allow)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         row(measure("request: save, editor of the project (allow)", 1, () -> request(PROJECT_SERVICE, "save", alice, saveHot)));
         row(measure("request: save, member without grant (deny)", 1, () -> refusal(request(PROJECT_SERVICE, "save", carol, saveHot))));
         row(measure("request: findDependencies, viewer on the organization (allow)", 1,
@@ -856,13 +865,13 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         row(measure("CallerPermissions.findAccessibleIds, one grant (check + listing)", 1,
                     () -> runAs(alice, () -> callerPermissions.findAccessibleIds(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
         row(measure("request: save, editor, HIGHER_CONSISTENCY check", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
         // a different caller and project each time, so the engine's cache holds no answer for the check itself
         if (organizationsSeeded > 0) {
             AtomicInteger next = new AtomicInteger();
             row(measure("RelationshipService.check, a different editor and project each time (allow)", 1, () -> {
                 int i = next.getAndIncrement() % organizationsSeeded;
-                return relationships.check(AuthzStoreService.SYSTEM,
+                return accessChecks.check(AuthzStoreService.SYSTEM,
                                            new RelationshipTuple(AuthzGraphUtil.authzUser("bo" + i + "u1"), "project_can_edit",
                                                                  AuthzNameUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, "bo" + i, "p0x0"))),
                                            Consistency.MINIMIZE_LATENCY);
@@ -870,7 +879,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         }
         AtomicInteger stranger = new AtomicInteger();
         row(measure("RelationshipService.check, a different unknown user each time (deny)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         metrics(name);
     }
@@ -905,17 +914,17 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                     () -> request(MEMBER_SERVICE, "findMembers", TEST_ORGANIZATION_PARTICIPANT, body(Arrays.asList(null, Map.of("pageNumber", 0, "pageSize", 10))))));
         row(measure("request: save, no grant (deny) c=32", 32, () -> refusal(request(PROJECT_SERVICE, "save", carol, saveHot))));
         row(measure("RelationshipService.check deny, HIGHER_CONSISTENCY", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, tuple(carol, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, tuple(carol, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
         AtomicInteger next = new AtomicInteger();
         row(measure("RelationshipService.check, a different editor of the project each time (allow)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("bf" + (next.getAndIncrement() % bindings)),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("bf" + (next.getAndIncrement() % bindings)),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         AtomicInteger stranger = new AtomicInteger();
         row(measure("RelationshipService.check, a different unknown user each time (deny)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         row(measure("RelationshipService.check, a different unknown user each time (deny) c=32", 32,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         metrics("fan-in " + bindings);
     }
@@ -935,7 +944,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         row(measure("listAccessible, no grant (0 objects)", 1, iterations,
                     () -> runAs(carol, () -> callerPermissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
         row(measure("listObjects org-wide viewer, HIGHER_CONSISTENCY", 1, iterations,
-                    () -> relationships.listObjects(AuthzStoreService.SYSTEM, AuthzGraphUtil.authzUser(dave), "project_can_read", "project",
+                    () -> accessChecks.listObjects(AuthzStoreService.SYSTEM, AuthzGraphUtil.authzUser(dave), "project_can_read", "project",
                                                     Consistency.HIGHER_CONSISTENCY)));
         row(measure("listAccessible, org-wide viewer c=16", 16, iterations,
                     () -> runAs(dave, () -> callerPermissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
@@ -964,16 +973,17 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         RelationshipTuple editing = tuple(alice, "project_can_edit", hotObject());
         row(measure("first check of a node (list stores + read model + check)", 1, 30, () -> {
             DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
-            return new DefaultRelationshipService(fga, node, vertx).check(AuthzStoreService.SYSTEM, editing, Consistency.MINIMIZE_LATENCY);
+            return new DefaultAccessCheckService(fga, node).check(AuthzStoreService.SYSTEM, editing, Consistency.MINIMIZE_LATENCY);
         }));
 
         String store = "bench-grown-" + suffix();
         AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
         await(stores.ensureStore(store));
-        RelationshipService writer = new DefaultRelationshipService(fga, (DefaultAuthzStoreService) stores, vertx);
+        DefaultAuthzStoreService writing = (DefaultAuthzStoreService) stores;
+        RelationshipService writer = new DefaultRelationshipService(fga, writing, new DefaultObjectLockService(vertx));
         AuthzModel kernel = generator.applicationModel(List.of(), List.of());
         AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
-        await(writer.ensureModelWithRoles(store, grown));
+        await(new DefaultRolePermissionsService(fga, writing).ensureModelWithRoles(store, grown));
         await(writer.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
         RelationshipTuple reading = new RelationshipTuple("user:bob", "tenant_can_read", "tenant:t1");
         List<Long> retried = new ArrayList<>();
@@ -981,14 +991,14 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         for (int i = 0; i < 30; i++) {
             await(stores.ensureModel(store, kernel));
             DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
-            DefaultRelationshipService nodeRelationships = new DefaultRelationshipService(fga, node, vertx);
+            DefaultAccessCheckService nodeChecks = new DefaultAccessCheckService(fga, node);
             await(node.modelId(store));
             await(stores.ensureModel(store, grown));
             long start = System.nanoTime();
-            require(await(nodeRelationships.check(store, reading, Consistency.MINIMIZE_LATENCY)), "the retried check was refused");
+            require(await(nodeChecks.check(store, reading, Consistency.MINIMIZE_LATENCY)), "the retried check was refused");
             retried.add(System.nanoTime() - start);
             start = System.nanoTime();
-            await(nodeRelationships.check(store, reading, Consistency.MINIMIZE_LATENCY));
+            await(nodeChecks.check(store, reading, Consistency.MINIMIZE_LATENCY));
             steady.add(System.nanoTime() - start);
         }
         row(Stats.of("check on a stale kept model (400, re-read model, retry)", 1, retried, 0, 0));

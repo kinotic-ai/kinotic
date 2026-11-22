@@ -11,6 +11,7 @@ import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.security.Participant;
@@ -86,6 +87,9 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
     private RelationshipService relationships;
 
     @Autowired
+    private RolePermissionsService rolePermissions;
+
+    @Autowired
     private ServiceDirectory serviceDirectory;
 
     @Autowired
@@ -130,7 +134,7 @@ public class ServiceDirectoryServiceTests extends KinoticTestBase {
         // the application has the roles of the service from its registration, a viewer of its type and the role it
         // declares, which its store holds nothing of and is not reconciled for
         assertTrue(roleIds().containsAll(List.of(AuthzNameUtil.roleId(type, AuthzConstants.VIEWER), type + ".generator")));
-        assertEquals(new RolePermissions(Set.of()), await(relationships.findRolePermissions(store, type + ".generator")));
+        assertEquals(new RolePermissions(Set.of()), await(rolePermissions.findRolePermissions(store, type + ".generator")));
         assertEquals(generation, await(stores.findById(store)).getState().getGeneration());
         RoleDefinition generator = await(runAsOrganization(() -> access.findRoles(TEST_APP_ID))).stream()
                                                                                               .filter(role -> role.id().equals(type + ".generator"))

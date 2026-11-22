@@ -10,6 +10,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -54,6 +55,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
     private final CallerPermissions permissions;
     private final ProjectRepository projects;
 
@@ -65,10 +67,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
+                                          ObjectLockService locks,
                                           CallerPermissions permissions,
                                           ProjectRepository projects) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
+        this.locks = locks;
         this.permissions = permissions;
         this.projects = projects;
         this.eventService = eventService;
@@ -140,7 +144,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         }
 
         return requireProject(entityDefinition)
-                .compose(v -> relationships.createExclusively(containment(entityDefinition).object(),
+                .compose(v -> locks.createExclusively(containment(entityDefinition).object(),
                                                               () -> super.findById(entityDefinition.getId()),
                                                               () -> removed(entityDefinition),
                                                               () -> createOp.apply(entityDefinition).compose(this::contained)))
@@ -217,7 +221,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // The definition is read once the lock is held, so the one deleted is the one stored then: a definition
     // created under the id after another caller's delete is deleted only if it too is unpublished
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return relationships.exclusively(AuthzNameUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
+        return locks.exclusively(AuthzNameUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
                                          () -> super.findById(entityDefinitionId).compose(entityDefinition -> {
 
                     if (entityDefinition == null) {

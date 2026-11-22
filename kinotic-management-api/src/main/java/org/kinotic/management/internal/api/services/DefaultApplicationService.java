@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
@@ -54,6 +55,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final UiDeploymentRepository uiDeploymentRepository;
     private final PasswordConfigurationService passwordConfigurationService;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
     private final ApplicationStoreProvisioner storeProvisioner;
     private final AuthzStoreService storeService;
     private final AuthzStoreRepository stores;
@@ -68,6 +70,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                      PasswordConfigurationService passwordConfigurationService,
                                      SecurityContext securityContext,
                                      RelationshipService relationships,
+                                     ObjectLockService locks,
                                      ApplicationStoreProvisioner storeProvisioner,
                                      AuthzStoreService storeService,
                                      AuthzStoreRepository stores,
@@ -80,6 +83,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         this.uiDeploymentRepository = uiDeploymentRepository;
         this.passwordConfigurationService = passwordConfigurationService;
         this.relationships = relationships;
+        this.locks = locks;
         this.storeProvisioner = storeProvisioner;
         this.storeService = storeService;
         this.stores = stores;
@@ -181,7 +185,7 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     // provision deletes the application again, so a caller finding the record meanwhile would be answered with an
     // application about to be deleted, and a delete would leave the store a create is still writing
     private <T> Future<T> exclusively(String applicationId, Supplier<Future<T>> changes) {
-        return relationships.exclusively(AuthzGraphUtil.authzApplication(requireOrganizationId(), applicationId), changes);
+        return locks.exclusively(AuthzGraphUtil.authzApplication(requireOrganizationId(), applicationId), changes);
     }
 
     // An application whose store could not be provisioned is deleted again with whatever provisioning wrote, so the
