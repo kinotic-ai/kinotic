@@ -331,21 +331,20 @@ public class EndpointConnectionHandler {
 
     /**
      * Subscribes the connection to the destination.
-     * @return completes once the connection is found allowed the destination and listens at it, with a future
-     *         that completes once the subscription is registered across the cluster, so an event sent to the
-     *         destination from any node reaches the connection; fails with an {@link AuthorizationException} when
-     *         the connection may not subscribe to the destination
+     * @return completes once the connection is found allowed the destination and the subscription is registered
+     *         across the cluster, so an event sent to the destination from any node reaches the connection; fails
+     *         with an {@link AuthorizationException} when the connection may not subscribe to the destination
      */
-    public Future<Future<Void>> subscribe(CRI cri,
-                                          String subscriptionIdentifier,
-                                          StompSubscriptionHandler subscriptionHandler) {
+    public Future<Void> subscribe(CRI cri,
+                                  String subscriptionIdentifier,
+                                  StompSubscriptionHandler subscriptionHandler) {
         Validate.notNull(cri, "CRI must not be null");
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
         signalActivity();
 
-        return stompAuthorizer.subscribeAllowed(cri).map(allowed -> {
+        return stompAuthorizer.subscribeAllowed(cri).compose(allowed -> {
             if (!allowed) {
                 throw new AuthorizationException("Not Authorized to subscribe to " + cri);
             }

@@ -476,7 +476,7 @@ public class EndpointConnectionHandlerTests {
 
             @Override
             public void handleError(Throwable throwable) {}
-        }).result();
+        });
 
         Assertions.assertFalse(subscribed.isComplete(), "the subscription completed before the previous consumer was unregistered");
         unregistration.complete();
@@ -488,13 +488,12 @@ public class EndpointConnectionHandlerTests {
         Promise<Boolean> admitted = Promise.promise();
         EndpointConnectionHandler handler = connectAdmittedBy(admitted);
 
-        Future<Future<Void>> subscribed = subscribeService(handler);
+        Future<Void> subscribed = subscribeService(handler);
 
         Assertions.assertFalse(subscribed.isComplete(), "the subscription listened before its zone was admitted");
         verify(eventBusService, never()).listen(any());
         admitted.complete(true);
         Assertions.assertTrue(subscribed.succeeded());
-        Assertions.assertTrue(subscribed.result().succeeded());
         verify(eventBusService).listen(any());
     }
 
@@ -503,7 +502,7 @@ public class EndpointConnectionHandlerTests {
         Promise<Boolean> admitted = Promise.promise();
         EndpointConnectionHandler handler = connectAdmittedBy(admitted);
 
-        Future<Future<Void>> subscribed = subscribeService(handler);
+        Future<Void> subscribed = subscribeService(handler);
         admitted.complete(false);
 
         Assertions.assertInstanceOf(AuthorizationException.class, subscribed.cause());
@@ -515,7 +514,7 @@ public class EndpointConnectionHandlerTests {
         Promise<Boolean> admitted = Promise.promise();
         EndpointConnectionHandler handler = connectAdmittedBy(admitted);
 
-        Future<Future<Void>> subscribed = subscribeService(handler);
+        Future<Void> subscribed = subscribeService(handler);
         handler.shutdown();
         admitted.complete(true);
 
@@ -831,7 +830,7 @@ public class EndpointConnectionHandlerTests {
         return connect(Map.of());
     }
 
-    private static Future<Future<Void>> subscribeService(EndpointConnectionHandler handler) {
+    private static Future<Void> subscribeService(EndpointConnectionHandler handler) {
         return handler.subscribe(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0"), "svc-1", new StompSubscriptionHandler() {
             @Override
             public void handleEvent(Event<byte[]> event) {}
