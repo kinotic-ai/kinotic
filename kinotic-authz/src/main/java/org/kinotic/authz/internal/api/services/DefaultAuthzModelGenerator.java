@@ -101,20 +101,18 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
     private static final Set<String> FIXED_TYPES = Set.of(USER, GROUP, TENANT_DEFINITION, ROLE_PART, ROLE_HOLDERS);
     // the types an application's store places a resource of; any other type in it is one of the application's services
     private static final Set<String> APPLICATION_TYPES = AuthzModelGenerator.APPLICATION_TYPES;
-    // who a binding may be made to in an application's store, which holds the application's end users, and in the
-    // system's, which holds each organization's members
-    private static final List<String> APPLICATION_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, APPLICATION + "#" + END_USER, TENANT + "#" + MEMBER);
-    private static final List<String> SYSTEM_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER, ORGANIZATION + "#" + MEMBER, TENANT + "#" + MEMBER);
+    // who a binding may be made to: in an application's store a user, every end user of the application or every
+    // user of a tenant, and in the system's a user or the members of a group
+    private static final List<String> APPLICATION_MEMBER_TYPES = List.of(USER, APPLICATION + "#" + END_USER, TENANT + "#" + MEMBER);
+    private static final List<String> SYSTEM_MEMBER_TYPES = List.of(USER, GROUP + "#" + MEMBER);
 
     @Override
     public AuthzModel systemModel(Collection<ServiceDefinition> services) {
         Map<String, ResourceType> kernel = new LinkedHashMap<>();
         kernel.put(AuthzConstants.SYSTEM_TYPE, new ResourceType(AuthzConstants.SYSTEM_TYPE, null));
-        ResourceType organization = new ResourceType(ORGANIZATION, AuthzConstants.SYSTEM_TYPE);
-        organization.memberships.put(MEMBER, Set.of(USER));
-        kernel.put(ORGANIZATION, organization);
+        kernel.put(ORGANIZATION, new ResourceType(ORGANIZATION, AuthzConstants.SYSTEM_TYPE));
         kernel.put(APPLICATION, new ResourceType(APPLICATION, ORGANIZATION));
-        kernel.put(TENANT, tenant());
+        kernel.put(TENANT, new ResourceType(TENANT, APPLICATION));
         ResourceTypes types = declare(kernel, services);
 
         // an organization and a tenant are trust boundaries, so the system grants none of an organization's roles
@@ -154,7 +152,9 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         // have on which definitions: reading one definition's rows gives neither writing them nor another's
         definition.granular = true;
         kernel.put(ENTITY_DEFINITION, definition);
-        kernel.put(TENANT, tenant());
+        ResourceType tenant = new ResourceType(TENANT, APPLICATION);
+        tenant.memberships.put(MEMBER, Set.of(USER));
+        kernel.put(TENANT, tenant);
         ResourceTypes declared = declare(kernel, all);
 
         // The store places an application, its tenants and its definitions, and the engine has a type for each. A
@@ -256,13 +256,6 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         return ret;
     }
 
-    // The tenant every store has, with the members the identity model writes
-    private static ResourceType tenant() {
-        ResourceType ret = new ResourceType(TENANT, APPLICATION);
-        ret.memberships.put(MEMBER, Set.of(USER));
-        return ret;
-    }
-
     // The kernel's types with the types, permissions and roles the services declare
     private static ResourceTypes declare(Map<String, ResourceType> types, Collection<ServiceDefinition> services) {
         declareServiceTypes(services, types);
@@ -272,11 +265,15 @@ public class DefaultAuthzModelGenerator implements AuthzModelGenerator {
         return new ResourceTypes(types);
     }
 
-    // The user and the group, then each resource type with the type of its roles and of its bindings
+    // The user, the group when a binding may be made to one, then each resource type with the type of its roles and
+    // of its bindings
     private static ArrayNode typeDefinitions(ResourceTypes types, Map<String, Set<String>> bindable, List<String> memberTypes) {
         ArrayNode ret = JsonNodeFactory.instance.arrayNode();
         ret.add(typeDefinition(USER, Map.of()));
-        ret.add(typeDefinition(GROUP, Map.of(MEMBER, direct(List.of(USER, GROUP + "#" + MEMBER)))));
+        String groupMembers = GROUP + "#" + MEMBER;
+        if (memberTypes.contains(groupMembers)) {
+            ret.add(typeDefinition(GROUP, Map.of(MEMBER, direct(List.of(USER, groupMembers)))));
+        }
         for (ResourceType type : types.sorted()) {
             List<ResourceType> carried = types.carriedBy(type.name);
             ret.add(roleType(type.name, carried));

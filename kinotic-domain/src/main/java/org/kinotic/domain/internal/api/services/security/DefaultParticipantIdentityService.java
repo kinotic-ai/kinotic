@@ -606,15 +606,11 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                                              .transform(v -> Future.<T>failedFuture(err)));
     }
 
-    // An organization's user is a member of its organization, which a grant to the organization's members reaches.
     // An application's user is an end user of its application in the application's own store, where its tenant is
-    // also placed under the application with the user as a member
+    // also placed under the application with the user as a member. Any other user holds what it is granted
     private <T extends UserParticipantIdentity> Future<T> placed(T user) {
         Future<Void> written;
-        if (user instanceof OrganizationParticipantIdentity organizationUser) {
-            written = relationships.ensure(AuthzStoreService.SYSTEM,
-                                           List.of(AuthzGraphUtil.organizationMember(organizationUser.getId(), organizationUser.getOrganizationId())));
-        } else if (user instanceof ApplicationParticipantIdentity applicationUser) {
+        if (user instanceof ApplicationParticipantIdentity applicationUser) {
             written = relationships.ensure(AuthzGraphUtil.authzApplicationId(applicationUser.getOrganizationId(), applicationUser.getApplicationId()),
                                            AuthzGraphUtil.applicationUserTuples(applicationUser));
         } else {

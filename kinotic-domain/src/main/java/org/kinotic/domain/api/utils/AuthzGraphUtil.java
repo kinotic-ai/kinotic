@@ -73,20 +73,6 @@ public final class AuthzGraphUtil {
     }
 
     /**
-     * The tuple making an organization's user a member of the organization, which a grant to the organization's
-     * members reaches.
-     *
-     * @param organizationUserId the organization's user
-     * @param organizationId     the organization
-     * @return the membership tuple
-     */
-    public static RelationshipTuple organizationMember(String organizationUserId, String organizationId) {
-        return new RelationshipTuple(authzUser(organizationUserId),
-                                     AuthzConstants.MEMBER_RELATION,
-                                     AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
-    }
-
-    /**
      * The tuple making an organization's user a member of one of the organization's groups, which a grant to the
      * group reaches.
      *

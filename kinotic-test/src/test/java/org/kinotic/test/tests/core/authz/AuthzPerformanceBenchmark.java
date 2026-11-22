@@ -1043,17 +1043,14 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
     // ---------------------------------------------------------------- seeding
 
-    // Organizations as the services write them: the organization on the system, ten members, three applications of
-    // ten projects each, the first member administering the organization and five editing a project each
+    // Organizations as the services write them: the organization on the system, three applications of ten projects
+    // each, one member administering the organization and five editing a project each
     private void seedOrganizations(int from, int to) throws Exception {
         long start = System.nanoTime();
         List<RelationshipTuple> tuples = new ArrayList<>();
         for (int i = from; i < to; i++) {
             String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, "bo" + i);
             tuples.add(AuthzGraphUtil.organizationContainment("bo" + i));
-            for (int u = 0; u < 10; u++) {
-                tuples.add(AuthzGraphUtil.organizationMember("bo" + i + "u" + u, "bo" + i));
-            }
             tuples.addAll(binding(AuthzConstants.ORGANIZATION_ADMIN_ROLE, AuthzGraphUtil.authzUser("bo" + i + "u0"), organization));
             for (int a = 0; a < 3; a++) {
                 String app = AuthzGraphUtil.authzApplication("bo" + i, "a" + a);
@@ -1081,7 +1078,6 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
         for (int i = from; i < to; i++) {
             String user = AuthzGraphUtil.authzUser("bf" + i);
-            tuples.add(AuthzGraphUtil.organizationMember("bf" + i, TEST_ORG_ID));
             tuples.addAll(binding("project.editor", user, hotObject()));
             tuples.addAll(binding("organization.viewer", user, organization));
         }

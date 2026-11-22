@@ -188,7 +188,6 @@ public class AuthzModelGeneratorTest {
         assertEquals("1.1", model.definition().get("schema_version").asString());
         assertEquals(withRoleTypes("application", "organization", "system", "project", "tenant", "vm_node"), typeNames(model));
         assertEquals(List.of("application"), directTypes(type(model, "project"), "application"));
-        assertEquals(List.of("user"), directTypes(type(model, "organization"), "member"));
         assertFalse(type(model, "application").get("relations").has("end_user"));
         assertEquals(List.of("user", "group#member"), directTypes(type(model, "group"), "member"));
     }
@@ -239,8 +238,7 @@ public class AuthzModelGeneratorTest {
         assertFalse(type(model, "organization_role").get("relations").has("system_can_read_cluster"));
         assertEquals(List.of("user:*"), directTypes(type(model, "system_role"), "project_can_deploy"));
         assertEquals(List.of("user:*"), directTypes(type(model, "system_role"), "vm_node_can_register_node"));
-        assertEquals(List.of("user", "group#member", "organization#member", "tenant#member"),
-                     directTypes(type(model, "project_role_binding"), "member"));
+        assertEquals(List.of("user", "group#member"), directTypes(type(model, "project_role_binding"), "member"));
         assertEquals(List.of("computed:member", "ttu:role->project_can_deploy"),
                      children(type(model, "project_role_binding"), "project_can_deploy", "intersection"));
         // a resource accepts only the binding of its own type
@@ -298,6 +296,8 @@ public class AuthzModelGeneratorTest {
 
     private static Set<String> applicationTypes() {
         Set<String> ret = withRoleTypes("application", "entity_definition", "tenant");
+        // a grant in an application's store is made to a user, a tenant's users or the application's end users
+        ret.remove("group");
         ret.addAll(Set.of("tenant_definition", "tenant_definition_role_binding", "role_part"));
         return ret;
     }
@@ -479,8 +479,7 @@ public class AuthzModelGeneratorTest {
 
         assertEquals(applicationTypes(), typeNames(model));
         assertFalse(type(model, "application").get("relations").has("organization"));
-        assertEquals(List.of("user", "group#member", "application#end_user", "tenant#member"),
-                     directTypes(type(model, "tenant_role_binding"), "member"));
+        assertEquals(List.of("user", "application#end_user", "tenant#member"), directTypes(type(model, "tenant_role_binding"), "member"));
         // the application grants every role of its store, a tenant all but the application's, a definition within a
         // tenant only the definition's
         assertEquals(List.of("application_role", "entity_definition_role", "tenant_role"),

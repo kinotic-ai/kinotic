@@ -171,10 +171,7 @@ public abstract class KinoticTestBase {
         String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
         boolean ret;
         try {
-            await(relationshipService.ensure(AuthzStoreService.SYSTEM,
-                                             List.of(new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, organization)))
-                                     .compose(v -> relationshipService.bind(AuthzStoreService.SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE,
-                                                                            member, organization)));
+            await(relationshipService.bind(AuthzStoreService.SYSTEM, AuthzConstants.ORGANIZATION_ADMIN_ROLE, member, organization));
             ret = true;
         } catch (Exception e) {
             ret = false;

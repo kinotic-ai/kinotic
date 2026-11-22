@@ -236,13 +236,7 @@ public class GraphSyncTests extends KinoticTestBase {
     }
 
     @Test
-    public void aNewUserJoinsItsScope() throws Exception {
-        OrganizationParticipantIdentity member = member(TEST_ORG_ID, "graph-sync");
-        assertTrue(holds(new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()),
-                                               AuthzConstants.MEMBER_RELATION,
-                                               AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID))),
-                   "an organization user is a member of its organization");
-
+    public void aNewApplicationUserJoinsItsApplication() throws Exception {
         // an application user takes its application's tenant policy, so the application must exist; the system gives
         // each of its users a tenant of its own
         Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Users " + suffix(), "graph sync", TenantManagement.SYSTEM)));
@@ -307,7 +301,6 @@ public class GraphSyncTests extends KinoticTestBase {
 
         assertTrue(holds(new RelationshipTuple(AuthzConstants.SYSTEM_OBJECT, AuthzConstants.SYSTEM_TYPE, organization)),
                    "the organization is under the system");
-        assertTrue(holds(new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, organization)), "the creator is a member");
 
         // the binding of the organization admin role reaches the organization and everything created inside it
         assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(user, "application_can_edit", organization), Consistency.HIGHER_CONSISTENCY)));

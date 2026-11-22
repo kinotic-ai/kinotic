@@ -551,7 +551,6 @@ class OpenFgaIntegrationTest {
         AuthzModel model = generator.systemModel(List.of(projectService()));
         await(storeService.ensureModel(SYSTEM, model));
         List<RelationshipTuple> written = List.of(
-                new RelationshipTuple("user:sally-checks", "member", "organization:acme-checks"),
                 new RelationshipTuple("organization:acme-checks", "organization", "application:crm-checks"),
                 new RelationshipTuple("application:crm-checks", "application", "project:billing-checks"),
                 new RelationshipTuple("application:crm-checks", "application", "project:shipping-checks"),
@@ -969,7 +968,7 @@ class OpenFgaIntegrationTest {
     void ensureAndRemoveAreIdempotent() throws Exception {
         await(storeService.ensureModel(SYSTEM, generator.systemModel(List.of(projectService()))));
         RelationshipTuple contained = new RelationshipTuple("application:crm-ensure", "application", "project:billing-ensure");
-        RelationshipTuple member = new RelationshipTuple("user:sally-ensure", "member", "organization:acme-ensure");
+        RelationshipTuple member = new RelationshipTuple("user:sally-ensure", "member", "group:devs-ensure");
 
         await(relationshipService.ensure(SYSTEM, List.of(contained, member)));
         await(relationshipService.ensure(SYSTEM, List.of(contained, member)));
@@ -1193,7 +1192,7 @@ class OpenFgaIntegrationTest {
     @Test
     void anUnknownStoreNameFailsTheCall() {
         assertThrows(ExecutionException.class,
-                     () -> await(relationshipService.holds("nowhere", new RelationshipTuple("user:sally", "member", "organization:acme"))));
+                     () -> await(relationshipService.holds("nowhere", new RelationshipTuple("user:sally", "member", "group:devs"))));
     }
 
     private static <T> T await(Future<T> future) throws Exception {
