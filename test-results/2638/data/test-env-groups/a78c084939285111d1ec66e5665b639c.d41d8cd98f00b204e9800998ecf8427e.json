@@ -1,0 +1,1 @@
+{"id":"a78c084939285111d1ec66e5665b639c.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenBinaryAssignmentReadsAParameter_thenTheRightOperandIsTheParameter","name":"whenBinaryAssignmentReadsAParameter_thenTheRightOperandIsTheParameter()","status":"passed","testResultsByEnv":{"default":"e96148bffadb94583604491fdc3d6c3a"}}
