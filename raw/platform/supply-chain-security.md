@@ -341,6 +341,68 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
 </tbody>
 </table>
 
+### Advisory feed and lookup
+
+<table>
+<thead>
+  <tr>
+    <th>
+      
+    </th>
+    
+    <th>
+      
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <strong>
+        Control
+      </strong>
+    </td>
+    
+    <td>
+      The system console's <strong>
+        Advisories
+      </strong>
+      
+       page shows, for npm and Maven, how far the advisories have been read from OSV and how many are stored. It looks an advisory up by its OSV id, an alias such as its CVE, or a package URL, and lists what it affects: the projects of every organization whose SBOM holds an affected version, paged up to the first 10,000, and the running server builds whose libraries do.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Frequency
+      </strong>
+    </td>
+    
+    <td>
+      The import runs hourly; the page reads the current state whenever it is opened or a lookup is made.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <strong>
+        Evidence
+      </strong>
+    </td>
+    
+    <td>
+      The Advisories page, and the runs of the <code>
+        osv-import
+      </code>
+      
+       job on the Jobs page.
+    </td>
+  </tr>
+</tbody>
+</table>
+
 ### Release gate
 
 <table>
