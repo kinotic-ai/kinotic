@@ -40,7 +40,8 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
  * application's users and tenants can be placed in it and granted on at once, and the store's record, which the
  * reconciler keeps in step with the application's entity definitions and registered services from then on.
  * Whatever the application already holds, its projects, entity definitions and users, is placed with it.
- * Provisioning is idempotent: an application that has its store keeps it, and is placed in it if it is not.
+ * The store's record is written last, so an application whose store has no record is one still to be provisioned,
+ * and provisioning it again completes what an earlier attempt left.
  */
 @Slf4j
 @Component
@@ -60,7 +61,10 @@ public class ApplicationStoreProvisioner {
     private final ParticipantIdentityService identities;
 
     /**
-     * Places the application in the graph and gives it its store.
+     * Places the application in the graph and gives it its store. The caller holds the application's lock,
+     * {@link org.kinotic.authz.api.services.ObjectLockService#exclusively}, and has found no record of the store
+     * under it: the store of an application that has one runs the model of the application's services, which
+     * provisioning would write the kernel model over.
      *
      * @param application the application, as stored
      * @return the application
@@ -106,38 +110,22 @@ public class ApplicationStoreProvisioner {
 
     private Future<Void> provision(Application application, AuthzModel kernel) {
         String store = AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId());
+        AuthzStore created = new AuthzStore().setId(store)
+                                             .setOrganizationId(application.getOrganizationId())
+                                             .setApplicationId(application.getId());
+        // The kernel model and its roles admit the membership tuples written at user creation and the grants made
+        // before any service of the application registers. The record is written last, with the kernel model as
+        // its intent: a service registered before the worker's first run stamps a record that exists, the master
+        // reconciles the record to the model the services imply on its next look, and a placement that failed
+        // leaves the application without a record, for createApplicationIfNotExist or OrganizationGraphSeedJob to
+        // provision again
         return stores.ensureStore(store)
-                     .compose(id -> records.findById(store))
-                     .compose(record -> {
-                         Future<Void> ret;
-                         if (record != null) {
-                             // a store with a record runs the reconciler's model and holds the roles of the
-                             // application's services, so only the placement is ensured
-                             ret = relationships.ensure(store, List.of(placement(store)))
-                                                .compose(v -> placeHoldings(application));
-                         } else {
-                             AuthzStore created = new AuthzStore().setId(store)
-                                                                  .setOrganizationId(application.getOrganizationId())
-                                                                  .setApplicationId(application.getId());
-                             // the kernel model and its roles admit the membership tuples written at user creation
-                             // and the grants made before any service of the application registers. It is written
-                             // over whatever model the store runs: a store left by a server that stopped while
-                             // provisioning it may run the bridge version ensureModelWithRoles writes first, which
-                             // has no application type.
-                             // The record is created with the kernel model as its intent, so a service registered
-                             // before the worker's first run stamps a record that exists, and the master reconciles
-                             // the record to the model the services imply on its next look. It is created once the
-                             // holdings are placed: OrganizationGraphSeedJob provisions an application that has
-                             // no record, so a placement that failed is made again by its next run
-                             ret = rolePermissions.ensureModelWithRoles(store, kernel)
-                                                .compose(version -> relationships.ensure(store, List.of(placement(store))))
-                                                .compose(v -> placeHoldings(application))
-                                                .compose(v -> records.updateDesired(store, new AuthzModelRevision(kernel.hash()), created, "application created"))
-                                                .onSuccess(v -> log.info("Provisioned the authorization store of application {}", store))
-                                                .mapEmpty();
-                         }
-                         return ret;
-                     });
+                     .compose(id -> rolePermissions.ensureModelWithRoles(store, kernel))
+                     .compose(engine -> relationships.ensure(store, List.of(placement(store))))
+                     .compose(v -> placeHoldings(application))
+                     .compose(v -> records.updateDesired(store, new AuthzModelRevision(kernel.hash()), created, "application created"))
+                     .onSuccess(v -> log.info("Provisioned the authorization store of application {}", store))
+                     .mapEmpty();
     }
 
     // An application a migration seeds holds projects, definitions and users that were never placed, since no

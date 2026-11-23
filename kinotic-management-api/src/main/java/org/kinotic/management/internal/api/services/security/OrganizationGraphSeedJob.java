@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.Application;
@@ -53,6 +54,7 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
     private final AuthzStoreRepository records;
     private final ApplicationStoreProvisioner provisioner;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
 
     @Override
     public JobDefinition createJobDefinition() {
@@ -110,11 +112,25 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
                         });
     }
 
-    private Future<Boolean> provision(Application application) {
-        return records.findById(AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId()))
-                      .compose(record -> record != null
-                              ? Future.succeededFuture(false)
-                              : provisioner.provision(application).map(true));
+    // Under the lock a caller creating or deleting the application holds, so one of the two creates its store. The
+    // application is read again there: the one listed may be a create still provisioning, which has its record once
+    // the lock is free, or which failed and deleted the application again
+    private Future<Boolean> provision(Application listed) {
+        String organizationId = listed.getOrganizationId();
+        String applicationId = listed.getId();
+        return locks.exclusively(AuthzGraphUtil.authzApplication(organizationId, applicationId),
+                                 () -> applications.findById(applicationId, organizationId).compose(application -> {
+                                     Future<Boolean> ret;
+                                     if (application == null) {
+                                         ret = Future.succeededFuture(false);
+                                     } else {
+                                         ret = records.findById(AuthzGraphUtil.authzApplicationId(organizationId, applicationId))
+                                                      .compose(record -> record != null
+                                                              ? Future.succeededFuture(false)
+                                                              : provisioner.provision(application).map(true));
+                                     }
+                                     return ret;
+                                 }));
     }
 
     private Future<Boolean> place(Organization organization) {

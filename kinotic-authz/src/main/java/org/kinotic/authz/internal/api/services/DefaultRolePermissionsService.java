@@ -98,15 +98,15 @@ public class DefaultRolePermissionsService implements RolePermissionsService {
 
     @Override
     public Future<EngineStore> ensureModelWithRoles(String store, AuthzModel model) {
-        // A check that runs while a role's tuples are being written can cache the role's answer from before the
-        // write, valid for the engine's cache lifetime; the roles are written while no version yet grants through
-        // their new relations, so no check against the model can read them before they are in step
         Map<String, RolePermissions> bundled = new HashMap<>();
         model.storedRoles().forEach((roleId, permissions) -> bundled.put(roleId, model.bundle(permissions)));
-        return stores.ensureRoleRelations(store, model)
-                     .compose(v -> OpenFgaService.converging(() -> reconcileRoles(store, bundled)))
-                     .compose(v -> stores.ensureModel(store, model))
-                     .compose(modelId -> stores.storeIdOf(store).map(storeId -> new EngineStore(storeId, modelId)));
+        // the engine validates a tuple against the store's newest version, so the version is written before the
+        // roles' tuples that name its relations. A check names the version its store's record holds, which the
+        // caller records once the roles are in step
+        return stores.ensureModel(store, model)
+                     .compose(modelId -> OpenFgaService.converging(() -> reconcileRoles(store, bundled))
+                                                       .compose(v -> stores.storeIdOf(store))
+                                                       .map(storeId -> new EngineStore(storeId, modelId)));
     }
 
     private Future<Void> reconcileRoles(String store, Map<String, RolePermissions> roles) {
