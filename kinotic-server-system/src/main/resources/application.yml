@@ -14,9 +14,6 @@ kinotic:
       appId: 3584018
       appSlug: kinotic-ai
       repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
-      internalApp:
-        # kinotic-internal, which files feedback as issues on kinotic-ai/kinotic
-        appId: 5856957
   apiGateway:
     # Off the management server's 58503, so the servers run side by side on one machine
     stompPort: 58504

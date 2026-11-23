@@ -118,16 +118,6 @@ variable "github_app_private_key" {
   default     = ""
 }
 
-# Operator-supplied: the private key PEM of the kinotic-internal GitHub App, which files the feedback
-# organizations send as issues on kinotic-ai/kinotic. Provide via `TF_VAR_github_internal_app_private_key`
-# at apply time, managed afterwards like github_app_private_key.
-variable "github_internal_app_private_key" {
-  description = "Private key PEM of the kinotic-internal GitHub App, which the org and system servers file feedback issues with"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "cloudflare_dns_api_token" {
   description = "A Cloudflare API token holding DNS edit on the platform zone and the customer zone (kinotic.io) and nothing else, which the management and system servers create each organization's sites record with; the cluster root gives cert-manager the same token for its DNS-01 challenges"
   type        = string
