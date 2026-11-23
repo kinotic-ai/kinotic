@@ -25,7 +25,7 @@ variable "platform_zone_id" {
 }
 
 variable "ui_hostnames" {
-  description = "The platform's own UIs the sites Worker serves from the sites account, by hostname in the platform zone: dev-portal.<zone> and dev-console.<zone> on the development server"
+  description = "The platform's own UIs the sites Worker serves from the sites account, by hostname in the platform zone: portal.<zone> and console.<zone> on the development server"
   type        = set(string)
   default     = []
 }

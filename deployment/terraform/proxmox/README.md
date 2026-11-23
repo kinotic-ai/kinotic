@@ -154,8 +154,8 @@ issue() {   # <server> <vmid> <name>...
     --deploy-hook "install -m 0640 -o 101002 -g 101001 \"\$RENEWED_LINEAGE\"/fullchain.pem \"\$RENEWED_LINEAGE\"/privkey.pem /etc/kinotic/secrets/$server/certs/ && pct reboot $vmid 2>/dev/null || true" \
     "${domains[@]}"
 }
-issue kinotic-server-management 121 dev-api.kinotic.ai
-issue kinotic-server-system 122 dev-system-api.kinotic.ai
+issue kinotic-server-management 121 api.kinotic.ai
+issue kinotic-server-system 122 system-api.kinotic.ai
 issue kinotic-server-app 123 apps-api.dev.kinotic.io '*.apps-api.dev.kinotic.io'
 echo '0 3 * * * root /opt/certbot/bin/certbot renew -q' > /etc/cron.d/certbot
 ```
@@ -261,7 +261,7 @@ the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the three servers, which form one Ignite cluster over their
 private addresses, then the edge.
 
-The servers are on `https://dev-api.kinotic.ai` (org), `https://dev-system-api.kinotic.ai`
+The servers are on `https://api.kinotic.ai` (org), `https://system-api.kinotic.ai`
 (system) and `https://apps-api.dev.kinotic.io` with every application's
 `https://<organizationId>--<applicationId>.apps-api.dev.kinotic.io` (app) once the router
 forwards 443 to the edge. The edge listens on 443 itself, because a consumer router forwards a
@@ -277,7 +277,7 @@ uploaded them.
 
 ## After the first apply
 
-1. **The GitHub App's webhook** → `https://dev-api.kinotic.ai/api/github/webhook`.
+1. **The GitHub App's webhook** → `https://api.kinotic.ai/api/github/webhook`.
 
 2. **The nodes.** Each is Ubuntu 22.04 on its own machine with the kit from
    `deployment/vm-node` (its README: the two XFS `prjquota` partitions, then `setup-node.sh`,
@@ -432,7 +432,7 @@ router's forward. The management server takes that vmid and the edge takes the f
    cd .. && ./sync-secrets.sh ./dev-server-secrets <host>
    ssh root@<host> rm -r /etc/kinotic/secrets/kinotic-server /etc/kinotic/secrets/kinotic-server.env
    ```
-3. **The certificates.** On the host, `/opt/certbot/bin/certbot delete --cert-name dev-api.kinotic.ai`,
+3. **The certificates.** On the host, `/opt/certbot/bin/certbot delete --cert-name api.kinotic.ai`,
    whose deploy hook installs into the old directory, then the three `issue` lines above.
 4. **The Azure root** first, for the new names' records (its README), then `terraform apply`
    here. The apply replaces container 121 with the management server and creates the system server,

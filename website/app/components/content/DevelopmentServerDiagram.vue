@@ -35,9 +35,9 @@
 
       <!-- inbound: one forwarded port, to the edge -->
       <line class="flow" x1="120" y1="90" x2="120" y2="344" marker-end="url(#ds-ink)"></line>
-      <text class="t-tiny" x="128" y="256">webhook → dev-api</text>
+      <text class="t-tiny" x="128" y="256">webhook → api</text>
       <line class="flow" x1="310" y1="90" x2="310" y2="344" marker-end="url(#ds-ink)"></line>
-      <text class="t-tiny" x="318" y="256">dev-api · dev-system-api</text>
+      <text class="t-tiny" x="318" y="256">api · system-api</text>
       <line class="flow" x1="510" y1="90" x2="510" y2="344" marker-end="url(#ds-ink)"></line>
       <text class="t-tiny" x="518" y="256">*.apps-api.dev.kinotic.io</text>
 
@@ -51,7 +51,7 @@
 
       <rect class="chip" x="812" y="64" width="140" height="46" rx="8"></rect>
       <text class="t-chip" x="882" y="83" text-anchor="middle">Sites Worker</text>
-      <text class="t-sub"  x="882" y="99" text-anchor="middle">*.dev.kinotic.io · dev-portal · dev-console</text>
+      <text class="t-sub"  x="882" y="99" text-anchor="middle">*.dev.kinotic.io · portal · console</text>
 
       <rect class="chip" x="978" y="64" width="154" height="46" rx="8"></rect>
       <text class="t-chip" x="1055" y="83" text-anchor="middle">Sites storage account</text>
@@ -117,13 +117,13 @@
 
       <rect class="gw gw-app" x="60" y="480" width="190" height="76" rx="8"></rect>
       <text class="t-chip" x="155" y="499" text-anchor="middle">kinotic-server-management</text>
-      <text class="t-sub"  x="155" y="514" text-anchor="middle">dev-api · :58503</text>
+      <text class="t-sub"  x="155" y="514" text-anchor="middle">api · :58503</text>
       <text class="t-mono" x="155" y="531" text-anchor="middle">portal · CLI · MCP</text>
       <text class="t-mono" x="155" y="545" text-anchor="middle">GitHub webhook</text>
 
       <rect class="gw gw-app" x="260" y="480" width="165" height="76" rx="8"></rect>
       <text class="t-chip" x="342" y="499" text-anchor="middle">kinotic-server-system</text>
-      <text class="t-sub"  x="342" y="514" text-anchor="middle">dev-system-api · :58504</text>
+      <text class="t-sub"  x="342" y="514" text-anchor="middle">system-api · :58504</text>
       <text class="t-mono" x="342" y="531" text-anchor="middle">console · vm-manager</text>
       <text class="t-mono" x="342" y="545" text-anchor="middle">workload orchestration</text>
 
@@ -192,9 +192,9 @@
 
       <!-- nodes → the edge, across the LAN, by the names each node pins to the edge's address -->
       <line class="flow-vio" x1="776" y1="356" x2="600" y2="356" marker-end="url(#ds-vio)"></line>
-      <text class="t-tiny" x="688" y="350" text-anchor="middle">dev-system-api</text>
+      <text class="t-tiny" x="688" y="350" text-anchor="middle">system-api</text>
       <polyline class="flow-amb" points="776,470 660,470 660,372 600,372" marker-end="url(#ds-amb)"></polyline>
-      <text class="t-tiny" x="706" y="486" text-anchor="middle">dev-api,</text>
+      <text class="t-tiny" x="706" y="486" text-anchor="middle">api,</text>
       <text class="t-tiny" x="706" y="498" text-anchor="middle">dev-apps-api</text>
 
       <!-- servers → Azure: one service principal -->

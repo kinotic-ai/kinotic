@@ -160,8 +160,8 @@ resource "azurerm_resource_group" "global" {
 # ── The platform zone ─────────────────────────────────────────────────────────
 # kinotic.ai on Cloudflare DNS, which the registrar's nameservers point at (dns_nameservers): the
 # servers' API hosts (the cluster and dev-server roots), the platform's own UIs, which the sites
-# Worker serves from the sites accounts at portal and console (the cluster root) and dev-portal
-# and dev-console (the dev-server root), and the email records below. The customers' sites are on
+# Worker serves from the sites account at portal and console (the cluster root or the dev-server
+# root, whichever serves them), and the email records below. The customers' sites are on
 # their own zone, kinotic.io, so no site is ever same-site with the platform.
 
 resource "cloudflare_zone" "main" {

@@ -58,7 +58,7 @@ variable "platform_zone_id" {
 }
 
 variable "ui_hostnames" {
-  description = "The platform's own UIs served by the Worker from the sites account the way a published site is, by hostname in the platform zone: portal.<zone> and console.<zone> in the cluster, dev-portal.<zone> and dev-console.<zone> on the development server, none on a developer's machine. deploy-ui.sh uploads each under sites/<hostname>/"
+  description = "The platform's own UIs served by the Worker from the sites account the way a published site is, by hostname in the platform zone: portal.<zone> and console.<zone> in the cluster and on the development server, none on a developer's machine. deploy-ui.sh uploads each under sites/<hostname>/"
   type        = set(string)
   default     = []
 }

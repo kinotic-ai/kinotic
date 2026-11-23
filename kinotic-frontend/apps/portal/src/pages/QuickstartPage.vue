@@ -139,7 +139,7 @@ const debug = createDebug('quickstart')
 // This deployment's MCP server
 const MCP_URL = new URL(apiUrl('/mcp'), window.location.origin).toString()
 // The MCP server the Kinotic plugin connects to by itself
-const PLUGIN_MCP_URL = 'https://dev-api.kinotic.ai/mcp'
+const PLUGIN_MCP_URL = 'https://api.kinotic.ai/mcp'
 const MCP_HOST = new URL(MCP_URL).hostname
 const LOCAL_KINOTIC = ['localhost', '127.0.0.1'].includes(MCP_HOST)
 // A Kinotic the plugin does not connect to by itself is added to the agent as an MCP server of its own
