@@ -72,7 +72,7 @@ class McpToolInvokerTests {
                                      requestAuthorizer,
                                      mock(RequestLivenessWatcher.class),
                                      ZonePartitioningService.everyZone("test"),
-                                     participant -> Future.succeededFuture(ZoneRules.sendingToAnyZone(Set.of())));
+                                     participant -> ZoneRules.sendingToAnyZone(Set.of()));
         invoker.init();
     }
 

@@ -4,6 +4,7 @@ import dev.openfga.sdk.api.model.AuthorizationModel;
 import dev.openfga.sdk.api.model.CheckRequest;
 import dev.openfga.sdk.api.model.CheckRequestTupleKey;
 import dev.openfga.sdk.api.model.ConsistencyPreference;
+import dev.openfga.sdk.api.model.ReadRequestTupleKey;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.kinotic.app.api.services.ApplicationServiceDirectory;
 import org.kinotic.authz.api.config.KinoticAuthzProperties;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.RolePermissions;
@@ -20,11 +22,16 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
+import org.kinotic.authz.internal.api.services.DefaultAccessCheckService;
 import org.kinotic.authz.internal.api.services.DefaultAuthzStoreService;
+import org.kinotic.authz.internal.api.services.DefaultObjectLockService;
 import org.kinotic.authz.internal.api.services.DefaultRelationshipService;
+import org.kinotic.authz.internal.api.services.DefaultRolePermissionsService;
 import org.kinotic.authz.internal.api.services.OpenFgaService;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.CRI;
@@ -33,7 +40,9 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.persistence.idl.decorators.QueryDecorator;
@@ -59,6 +68,7 @@ import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
+import org.kinotic.management.api.services.TenantService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
 import org.kinotic.management.api.services.security.PermissionService;
 import org.kinotic.management.internal.api.services.security.CallerPermissions;
@@ -120,6 +130,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private static final List<Integer> ENTITY_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_ENTITY_ROLES", "1,100,1000,10000");
     private static final List<Integer> TENANT_ROLE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_TENANT_ROLES", "2,10,25,50");
     private static final List<Integer> SERVICE_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_SERVICES", "10,1000,5000");
+    private static final List<Integer> DELETION_STAGES = intsEnv("KINOTIC_AUTHZ_BENCHMARK_DELETION_TENANTS", "100,1000,5000");
     private static final String READING_ROWS = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
     private static final String REPORT_NAMESPACE = "org.kinotic.benchmark";
     private static final String REPORT_SERVICE_NAME = REPORT_NAMESPACE + ".ReportService";
@@ -137,9 +148,15 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     @Autowired
     private RelationshipService relationships;
     @Autowired
+    private AccessCheckService accessChecks;
+    @Autowired
+    private RolePermissionsService rolePermissions;
+    @Autowired
     private OpenFgaService fga;
     @Autowired
     private KinoticAuthzProperties authzProperties;
+    @Autowired
+    private AuthzStoreRepository storeRecords;
     @Autowired
     private AuthzModelGenerator generator;
     @Autowired
@@ -154,6 +171,8 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private ProjectService projectService;
     @Autowired
     private EntityDefinitionService entityDefinitionService;
+    @Autowired
+    private TenantService tenantService;
     @Autowired
     private NamedQueriesDefinitionService namedQueriesDefinitionService;
     @Autowired
@@ -290,14 +309,14 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         line("");
         line("warmup " + WARMUP + ", iterations " + ITERATIONS + ", cpus " + Runtime.getRuntime().availableProcessors());
         appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
-        String role = AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
+        String role = AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
         String run = suffix();
         // creating the sample definition provisions the sample application's store
         personDefinition();
         section("Grants of one role");
         header();
         for (int concurrency : CONCURRENCY) {
-            String onTenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency);
+            String onTenant = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency);
             AtomicInteger next = new AtomicInteger();
             row(measure("grant: on one tenant, a different user each time c=" + concurrency, concurrency,
                         () -> relationships.bind(appStore, role, AuthzGraphUtil.authzUser("bg" + next.getAndIncrement()), onTenant)));
@@ -306,7 +325,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             AtomicInteger next = new AtomicInteger();
             row(measure("grant: on a different tenant each time c=" + concurrency, concurrency,
                         () -> relationships.bind(appStore, role, AuthzGraphUtil.authzUser("bg-" + run),
-                                                 AuthzUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency + "-" + next.getAndIncrement()))));
+                                                 AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, "bulk-" + run + "-c" + concurrency + "-" + next.getAndIncrement()))));
         }
         metrics("grants");
     }
@@ -333,16 +352,16 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             Map<String, Set<String>> naming = new HashMap<>(others);
             naming.remove(TEST_APP_ID + ".benchmarkentity0");
             naming.put(person.getId(), Set.of(READING_ROWS));
-            String namingRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "naming-" + entities + "-" + suffix());
-            String otherRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + entities + "-" + suffix());
+            String namingRole = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "naming-" + entities + "-" + suffix());
+            String otherRole = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + entities + "-" + suffix());
 
             section("A role naming " + entities + " entities");
             long start = System.nanoTime();
-            await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
+            await(rolePermissions.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
             line("role written in " + ms(System.nanoTime() - start) + " ms");
-            await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others, Set.of())));
+            await(rolePermissions.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), others, Set.of())));
             start = System.nanoTime();
-            require(await(relationships.findRolePermissions(appStore, namingRole)).definitionPermissions().size() == entities,
+            require(await(rolePermissions.findRolePermissions(appStore, namingRole)).definitionPermissions().size() == entities,
                     "the role was not read back naming " + entities + " entities");
             line("role read back in " + ms(System.nanoTime() - start) + " ms");
             line("");
@@ -350,12 +369,12 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         }
 
         tenant = createTenant(TEST_APP_ID);
-        String namingRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "naming-" + suffix());
-        String otherRole = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
+        String namingRole = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "naming-" + suffix());
+        String otherRole = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
         Map<String, Set<String>> naming = new HashMap<>(namedEntities(100));
         naming.put(person.getId(), Set.of(READING_ROWS));
-        await(relationships.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
-        await(relationships.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
+        await(rolePermissions.ensureRole(appStore, namingRole, new RolePermissions(Set.of(), naming, Set.of())));
+        await(rolePermissions.ensureRole(appStore, otherRole, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
         ScopedParticipant holder = holderOf(namingRole);
         ScopedParticipant refused = holderOf(otherRole);
         int roles = 2;
@@ -371,10 +390,76 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     }
 
     /**
+     * Measures deleting an entity definition and deleting a tenant as the tenants placed in the application's store
+     * grow in number, with the definition's rows granted on in three of them, beside one read of the store for each
+     * placed tenant.
+     */
+    @Test
+    @Timeout(value = 1, unit = TimeUnit.HOURS)
+    public void measureDeletions() throws Exception {
+        out = Path.of(System.getenv().getOrDefault("KINOTIC_AUTHZ_BENCHMARK_OUT", "build/authz-benchmark"));
+        Files.createDirectories(out);
+        line("# Deletion benchmark " + Instant.now());
+        line("");
+        appStore = AuthzGraphUtil.authzApplicationId(TEST_ORG_ID, TEST_APP_ID);
+        String application = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
+        String viewer = AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER);
+        // creating the sample definition provisions the sample application's store
+        person = personDefinition();
+        String appStoreId = await(authzStores.ensureStore(appStore));
+        line("| tenants placed | delete a definition, ms | delete a tenant, ms | one read for each placed tenant, ms |");
+        line("|---:|---:|---:|---:|");
+        String run = suffix();
+        int placed = 0;
+        for (int target : DELETION_STAGES) {
+            List<RelationshipTuple> containments = new ArrayList<>();
+            for (; placed < target; placed++) {
+                containments.add(AuthzGraphUtil.tenantContainment(TEST_ORG_ID, TEST_APP_ID, "del-" + run + "-" + placed));
+            }
+            write(appStore, containments);
+            List<String> tenants = await(fga.read(appStoreId, new ReadRequestTupleKey().user(application)._object(AuthzConstants.TENANT_TYPE + ":")))
+                    .stream()
+                    .filter(tuple -> AuthzConstants.APPLICATION_TYPE.equals(tuple.getKey().getRelation()))
+                    .map(tuple -> tuple.getKey().getObject())
+                    .toList();
+            EntityDefinition car = await(runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("Del" + run + target))).getLeft();
+            for (int i = 0; i < 3; i++) {
+                grantOnRows(car.getId(), "del-" + run + "-" + i, viewer);
+            }
+            await(runAsOrganization(() -> entityDefinitionService.unPublish(car.getId())));
+
+            long start = System.nanoTime();
+            awaitLong(runAsOrganization(() -> entityDefinitionService.deleteById(car.getId())));
+            long definition = System.nanoTime() - start;
+
+            Tenant tenant = await(runAsOrganization(() -> tenantService.createTenantIfNotExist(TEST_APP_ID, "Deleted " + run + " " + target, "benchmark")));
+            grantOnRows(person.getId(), tenant.getId(), viewer);
+            start = System.nanoTime();
+            awaitLong(runAsOrganization(() -> tenantService.deleteById(TEST_APP_ID, tenant.getId())));
+            long deletedTenant = System.nanoTime() - start;
+
+            start = System.nanoTime();
+            for (String placedTenant : tenants) {
+                await(fga.read(appStoreId, new ReadRequestTupleKey()._object(AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
+                                                                                               AuthzNameUtil.tenantDefinitionId(car.getId(), AuthzNameUtil.idOf(placedTenant))))));
+            }
+            line("| " + tenants.size() + " | " + ms(definition) + " | " + ms(deletedTenant) + " | " + ms(System.nanoTime() - start) + " |");
+        }
+    }
+
+    // A grant on a definition's rows within a tenant, with the edges the store holds for rows granted on
+    private void grantOnRows(String definitionId, String tenantId, String role) throws Exception {
+        await(relationships.ensure(appStore, AuthzGraphUtil.tenantDefinitionEdges(definitionId, tenantId)));
+        await(relationships.bind(appStore, role, AuthzGraphUtil.authzUser("del-" + suffix()),
+                                 AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(definitionId, tenantId))));
+    }
+
+    /**
      * Measures an application as the services its runtime registered grow in number, each declaring a type of its
      * own with three permissions: registering one more service, the time until a grant of its role admits a
-     * request, a pass of the store's reconcile, the requests of a user to a service and to the entities, and
-     * saving and listing the application's roles.
+     * request, generating the application's whole model and the model of one type, a pass of the store's
+     * reconcile, the requests of a user to a service and to the entities, and saving and listing the application's
+     * roles.
      */
     @Test
     @Timeout(value = 4, unit = TimeUnit.HOURS)
@@ -394,7 +479,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                                                                         ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
                                                                  List.of());
         await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.APPLICATION_RUNTIME_ROLE,
-                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzNameUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
                                  AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)));
         byte[] noArguments = body(List.of());
         byte[] count = body(List.of(person.getId()));
@@ -428,9 +513,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             ScopedParticipant viewer = applicationParticipant(tenant, viewerIdentity.getId());
             Resource onTenant = new Resource(AuthzConstants.TENANT_TYPE, tenant);
             awaitLong(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, viewerIdentity.getId()),
-                                                           AuthzUtil.roleId(newest, AuthzConstants.VIEWER), onTenant)));
+                                                           AuthzNameUtil.roleId(newest, AuthzConstants.VIEWER), onTenant)));
             awaitLong(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, viewerIdentity.getId()),
-                                                           AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), onTenant)));
+                                                           AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), onTenant)));
             criOf(newestService, "findItems", viewer);
             criOf(ENTITIES_SERVICE, "count", viewer);
             long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(30);
@@ -441,12 +526,17 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
             line("the newest service's viewer was admitted " + ms(System.nanoTime() - registeredAt) + " ms after the last registration");
 
             long start = System.nanoTime();
-            AuthzModel model = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
-            line("model generated from the directory in " + ms(System.nanoTime() - start) + " ms: " + model.roles().size() + " roles, "
-                         + model.servicePermissions().size() + " permissions of services");
+            AuthzModel whole = awaitLong(authzModels.findApplicationModel(TEST_ORG_ID, TEST_APP_ID));
+            line("the whole model, which the role and permission listings read, generated from the directory in " + ms(System.nanoTime() - start)
+                         + " ms: " + whole.roles().size() + " roles, " + whole.servicePermissions().size() + " permissions of services");
             start = System.nanoTime();
-            awaitLong(relationships.ensureModelWithRoles(appStore, model));
-            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms");
+            awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(newest), List.of()));
+            line("the model of the newest service's type, which a request and a grant read, generated in " + ms(System.nanoTime() - start) + " ms");
+            start = System.nanoTime();
+            AuthzModel model = awaitLong(authzModels.findApplicationModelOf(TEST_ORG_ID, TEST_APP_ID, List.of(), List.of()));
+            awaitLong(rolePermissions.ensureModelWithRoles(appStore, model));
+            line("a reconcile pass with every role in step took " + ms(System.nanoTime() - start) + " ms, for " + model.storedRoles().size()
+                         + " roles the store holds");
             AuthorizationModel engineModel = await(fga.readAuthorizationModels(appStoreId, 1, null)).getAuthorizationModels().getFirst();
             line("the engine's model has " + engineModel.getTypeDefinitions().size() + " types and "
                          + jsonMapper.writeValueAsString(engineModel).length() + " bytes");
@@ -527,15 +617,15 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     }
 
     private String roleNamingOthers() throws Exception {
-        String ret = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
-        await(relationships.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
+        String ret = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, "others-" + suffix());
+        await(rolePermissions.ensureRole(appStore, ret, new RolePermissions(Set.of(), namedEntities(100), Set.of())));
         return ret;
     }
 
     // A user of the tenant granted the role on it
     private ScopedParticipant holderOf(String roleId) throws Exception {
         ApplicationParticipantIdentity identity = endUser(tenant);
-        await(relationships.bind(appStore, roleId, AuthzGraphUtil.authzUser(identity.getId()), AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant)));
+        await(relationships.bind(appStore, roleId, AuthzGraphUtil.authzUser(identity.getId()), AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenant)));
         return applicationParticipant(tenant, identity.getId());
     }
 
@@ -556,7 +646,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                                                                         ParticipantConstants.PARTICIPANT_TYPE_MACHINE),
                                                                  List.of());
         await(relationships.bind(AuthzStoreService.SYSTEM, AuthzConstants.APPLICATION_RUNTIME_ROLE,
-                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzNameUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
                                  AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)));
         String zone = DomainUtil.applicationZone(TEST_ORG_ID, TEST_APP_ID);
         ServiceDirectoryEntry entry = new ServiceDirectoryEntry().setApplicationId(TEST_APP_ID)
@@ -569,7 +659,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
         Resource onTenant = new Resource(AuthzConstants.TENANT_TYPE, tenant);
         await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, erinIdentity.getId()),
-                                                   AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), onTenant)));
+                                                   AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), onTenant)));
         // the application's store takes the report's roles once it reconciles to the model the registration implies
         require(once(() -> await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, erinIdentity.getId()),
                                                                        "report.viewer", onTenant)))),
@@ -638,13 +728,13 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private void seedTenantGrants(int from, int to) throws Exception {
         long start = System.nanoTime();
         String app = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
-        String onTenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant);
+        String onTenant = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenant);
         List<RelationshipTuple> tuples = new ArrayList<>();
         for (int i = from; i < to; i++) {
             String user = AuthzGraphUtil.authzUser("at" + i);
             tuples.add(new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, app));
             tuples.add(new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, onTenant));
-            tuples.addAll(binding(AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), user, onTenant));
+            tuples.addAll(binding(AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), user, onTenant));
         }
         write(appStore, tuples);
         tenantUsersSeeded = to;
@@ -660,7 +750,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         for (int i = 0; i < count; i++) {
             String user = AuthzGraphUtil.authzUser("aa" + i + "-" + suffix());
             tuples.add(new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, app));
-            tuples.addAll(binding(AuthzUtil.roleId(AuthzConstants.APPLICATION_TYPE, AuthzConstants.ADMIN), user, app));
+            tuples.addAll(binding(AuthzNameUtil.roleId(AuthzConstants.APPLICATION_TYPE, AuthzConstants.ADMIN), user, app));
         }
         write(appStore, tuples);
         line("");
@@ -717,9 +807,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bobIdentity = endUser(tenantId);
         bob = applicationParticipant(tenantId, bobIdentity.getId());
-        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));
+        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(person.getId(), tenantId));
         await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, bobIdentity.getId()),
-                                                   AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
+                                                   AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
         for (String function : List.of("findById", "save", "findDependencies")) {
             criOf(PROJECT_SERVICE, function, alice);
         }
@@ -755,7 +845,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         row(measure("engine floor: GET store (HTTP round trip)", 1, () -> fga.getStore(systemStoreId)));
         row(measure("engine: raw Check, project grant (allow)", 1, () -> rawCheck(alice, "project_can_edit", hotObject(), ConsistencyPreference.MINIMIZE_LATENCY)));
         row(measure("RelationshipService.check, project grant (allow)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         row(measure("request: save, editor of the project (allow)", 1, () -> request(PROJECT_SERVICE, "save", alice, saveHot)));
         row(measure("request: save, member without grant (deny)", 1, () -> refusal(request(PROJECT_SERVICE, "save", carol, saveHot))));
         row(measure("request: findDependencies, viewer on the organization (allow)", 1,
@@ -775,21 +865,21 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         row(measure("CallerPermissions.findAccessibleIds, one grant (check + listing)", 1,
                     () -> runAs(alice, () -> callerPermissions.findAccessibleIds(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
         row(measure("request: save, editor, HIGHER_CONSISTENCY check", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, tuple(alice, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
         // a different caller and project each time, so the engine's cache holds no answer for the check itself
         if (organizationsSeeded > 0) {
             AtomicInteger next = new AtomicInteger();
             row(measure("RelationshipService.check, a different editor and project each time (allow)", 1, () -> {
                 int i = next.getAndIncrement() % organizationsSeeded;
-                return relationships.check(AuthzStoreService.SYSTEM,
+                return accessChecks.check(AuthzStoreService.SYSTEM,
                                            new RelationshipTuple(AuthzGraphUtil.authzUser("bo" + i + "u1"), "project_can_edit",
-                                                                 AuthzUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, "bo" + i, "p0x0"))),
+                                                                 AuthzNameUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, "bo" + i, "p0x0"))),
                                            Consistency.MINIMIZE_LATENCY);
             }));
         }
         AtomicInteger stranger = new AtomicInteger();
         row(measure("RelationshipService.check, a different unknown user each time (deny)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         metrics(name);
     }
@@ -824,17 +914,17 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
                     () -> request(MEMBER_SERVICE, "findMembers", TEST_ORGANIZATION_PARTICIPANT, body(Arrays.asList(null, Map.of("pageNumber", 0, "pageSize", 10))))));
         row(measure("request: save, no grant (deny) c=32", 32, () -> refusal(request(PROJECT_SERVICE, "save", carol, saveHot))));
         row(measure("RelationshipService.check deny, HIGHER_CONSISTENCY", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, tuple(carol, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, tuple(carol, "project_can_edit", hotObject()), Consistency.HIGHER_CONSISTENCY)));
         AtomicInteger next = new AtomicInteger();
         row(measure("RelationshipService.check, a different editor of the project each time (allow)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("bf" + (next.getAndIncrement() % bindings)),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("bf" + (next.getAndIncrement() % bindings)),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         AtomicInteger stranger = new AtomicInteger();
         row(measure("RelationshipService.check, a different unknown user each time (deny)", 1,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         row(measure("RelationshipService.check, a different unknown user each time (deny) c=32", 32,
-                    () -> relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
+                    () -> accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser("nobody-" + suffix() + stranger.getAndIncrement()),
                                                                                               "project_can_edit", hotObject()), Consistency.MINIMIZE_LATENCY)));
         metrics("fan-in " + bindings);
     }
@@ -854,7 +944,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         row(measure("listAccessible, no grant (0 objects)", 1, iterations,
                     () -> runAs(carol, () -> callerPermissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
         row(measure("listObjects org-wide viewer, HIGHER_CONSISTENCY", 1, iterations,
-                    () -> relationships.listObjects(AuthzStoreService.SYSTEM, AuthzGraphUtil.authzUser(dave), "project_can_read", "project",
+                    () -> accessChecks.listObjects(AuthzStoreService.SYSTEM, AuthzGraphUtil.authzUser(dave), "project_can_read", "project",
                                                     Consistency.HIGHER_CONSISTENCY)));
         row(measure("listAccessible, org-wide viewer c=16", 16, iterations,
                     () -> runAs(dave, () -> callerPermissions.listAccessible(ProjectService.RESOURCE_TYPE, AuthzConstants.CAN_READ))));
@@ -882,32 +972,33 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         header();
         RelationshipTuple editing = tuple(alice, "project_can_edit", hotObject());
         row(measure("first check of a node (list stores + read model + check)", 1, 30, () -> {
-            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx);
-            return new DefaultRelationshipService(fga, node, vertx).check(AuthzStoreService.SYSTEM, editing, Consistency.MINIMIZE_LATENCY);
+            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
+            return new DefaultAccessCheckService(fga, node).check(AuthzStoreService.SYSTEM, editing, Consistency.MINIMIZE_LATENCY);
         }));
 
         String store = "bench-grown-" + suffix();
-        AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx);
+        AuthzStoreService stores = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
         await(stores.ensureStore(store));
-        RelationshipService writer = new DefaultRelationshipService(fga, (DefaultAuthzStoreService) stores, vertx);
+        DefaultAuthzStoreService writing = (DefaultAuthzStoreService) stores;
+        RelationshipService writer = new DefaultRelationshipService(fga, writing, new DefaultObjectLockService(vertx));
         AuthzModel kernel = generator.applicationModel(List.of(), List.of());
         AuthzModel grown = generator.applicationModel(List.of(tenantService()), List.of());
-        await(writer.ensureModelWithRoles(store, grown));
+        await(new DefaultRolePermissionsService(fga, writing).ensureModelWithRoles(store, grown));
         await(writer.bind(store, "tenant.viewer", "user:bob", "tenant:t1"));
         RelationshipTuple reading = new RelationshipTuple("user:bob", "tenant_can_read", "tenant:t1");
         List<Long> retried = new ArrayList<>();
         List<Long> steady = new ArrayList<>();
         for (int i = 0; i < 30; i++) {
             await(stores.ensureModel(store, kernel));
-            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx);
-            DefaultRelationshipService nodeRelationships = new DefaultRelationshipService(fga, node, vertx);
+            DefaultAuthzStoreService node = new DefaultAuthzStoreService(fga, authzProperties, vertx, storeRecords);
+            DefaultAccessCheckService nodeChecks = new DefaultAccessCheckService(fga, node);
             await(node.modelId(store));
             await(stores.ensureModel(store, grown));
             long start = System.nanoTime();
-            require(await(nodeRelationships.check(store, reading, Consistency.MINIMIZE_LATENCY)), "the retried check was refused");
+            require(await(nodeChecks.check(store, reading, Consistency.MINIMIZE_LATENCY)), "the retried check was refused");
             retried.add(System.nanoTime() - start);
             start = System.nanoTime();
-            await(nodeRelationships.check(store, reading, Consistency.MINIMIZE_LATENCY));
+            await(nodeChecks.check(store, reading, Consistency.MINIMIZE_LATENCY));
             steady.add(System.nanoTime() - start);
         }
         row(Stats.of("check on a stale kept model (400, re-read model, retry)", 1, retried, 0, 0));
@@ -963,23 +1054,20 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
     // ---------------------------------------------------------------- seeding
 
-    // Organizations as the services write them: the organization on the system, ten members, three applications of
-    // ten projects each, the first member administering the organization and five editing a project each
+    // Organizations as the services write them: the organization on the system, three applications of ten projects
+    // each, one member administering the organization and five editing a project each
     private void seedOrganizations(int from, int to) throws Exception {
         long start = System.nanoTime();
         List<RelationshipTuple> tuples = new ArrayList<>();
         for (int i = from; i < to; i++) {
-            String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, "bo" + i);
+            String organization = AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, "bo" + i);
             tuples.add(AuthzGraphUtil.organizationContainment("bo" + i));
-            for (int u = 0; u < 10; u++) {
-                tuples.add(AuthzGraphUtil.organizationMember("bo" + i + "u" + u, "bo" + i));
-            }
             tuples.addAll(binding(AuthzConstants.ORGANIZATION_ADMIN_ROLE, AuthzGraphUtil.authzUser("bo" + i + "u0"), organization));
             for (int a = 0; a < 3; a++) {
                 String app = AuthzGraphUtil.authzApplication("bo" + i, "a" + a);
                 tuples.add(AuthzGraphUtil.containment(organization, app));
                 for (int p = 0; p < 10; p++) {
-                    String project = AuthzUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, "bo" + i, "p" + a + "x" + p));
+                    String project = AuthzNameUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, "bo" + i, "p" + a + "x" + p));
                     tuples.add(AuthzGraphUtil.containment(app, project));
                     if (a == 0 && p < 5) {
                         tuples.addAll(binding("project.editor", AuthzGraphUtil.authzUser("bo" + i + "u" + (p + 1)), project));
@@ -998,10 +1086,9 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     private void seedFanIn(int from, int to) throws Exception {
         long start = System.nanoTime();
         List<RelationshipTuple> tuples = new ArrayList<>();
-        String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
+        String organization = AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, TEST_ORG_ID);
         for (int i = from; i < to; i++) {
             String user = AuthzGraphUtil.authzUser("bf" + i);
-            tuples.add(AuthzGraphUtil.organizationMember("bf" + i, TEST_ORG_ID));
             tuples.addAll(binding("project.editor", user, hotObject()));
             tuples.addAll(binding("organization.viewer", user, organization));
         }
@@ -1016,7 +1103,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         List<RelationshipTuple> tuples = new ArrayList<>();
         String app = AuthzGraphUtil.authzApplication(TEST_ORG_ID, application.getId());
         for (int i = from; i < to; i++) {
-            String project = AuthzUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, TEST_ORG_ID, "bp" + i));
+            String project = AuthzNameUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, TEST_ORG_ID, "bp" + i));
             tuples.add(AuthzGraphUtil.containment(app, project));
             if (i < 100 && i % 2 == 0) {
                 tuples.addAll(binding("project.editor", AuthzGraphUtil.authzUser(alice), project));
@@ -1035,15 +1122,15 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
         String app = AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID);
         List<RelationshipTuple> tuples = new ArrayList<>();
         for (int i = from; i < to; i++) {
-            String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, "bt" + i);
+            String tenant = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, "bt" + i);
             tuples.add(AuthzGraphUtil.tenantContainment(TEST_ORG_ID, TEST_APP_ID, "bt" + i));
             for (int u = 0; u < 10; u++) {
                 String user = AuthzGraphUtil.authzUser("bt" + i + "u" + u);
                 tuples.add(new RelationshipTuple(user, AuthzConstants.END_USER_RELATION, app));
                 tuples.add(new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, tenant));
             }
-            String here = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), "bt" + i));
-            tuples.addAll(binding(AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER),
+            String here = AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(person.getId(), "bt" + i));
+            tuples.addAll(binding(AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER),
                                   AuthzGraphUtil.authzUser("bt" + i + "u0"), here));
         }
         write(store, tuples);
@@ -1069,10 +1156,11 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
 
     // A grant as RelationshipService.bind writes it: the member joins the role's one binding on the object
     private static List<RelationshipTuple> binding(String roleId, String member, String object) {
-        String binding = AuthzUtil.bindingObject(object, roleId);
-        return List.of(new RelationshipTuple(AuthzUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
+        String binding = AuthzNameUtil.bindingObject(object, roleId);
+        return List.of(new RelationshipTuple(AuthzNameUtil.roleObject(roleId), AuthzConstants.ROLE_RELATION, binding),
                        new RelationshipTuple(member, AuthzConstants.MEMBER_RELATION, binding),
-                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object));
+                       new RelationshipTuple(binding, AuthzConstants.ROLE_BINDING_RELATION, object),
+                       new RelationshipTuple(binding, "binding", "role_holders:" + roleId));
     }
 
     // ---------------------------------------------------------------- measuring
@@ -1308,7 +1396,7 @@ public class AuthzPerformanceBenchmark extends KinoticTestBase {
     // ---------------------------------------------------------------- helpers
 
     private String hotObject() {
-        return AuthzUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, TEST_ORG_ID, hot.getId()));
+        return AuthzNameUtil.object(AuthzConstants.PROJECT_TYPE, AuthzGraphUtil.authzId(AuthzConstants.PROJECT_TYPE, TEST_ORG_ID, hot.getId()));
     }
 
     private static RelationshipTuple tuple(Participant participant, String relation, String object) {

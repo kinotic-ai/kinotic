@@ -3,9 +3,8 @@ package org.kinotic.management.internal.api.services.security;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.authz.api.model.RelationshipTuple;
-import org.kinotic.authz.api.services.AuthzStoreService;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.model.AuthzNameUtil;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
@@ -18,14 +17,12 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.AddApplicationUserRequest;
 import org.kinotic.management.api.model.PendingInviteSummary;
 import org.kinotic.management.api.services.security.MemberInvitationService;
 import org.kinotic.management.api.services.security.MemberService;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -38,7 +35,7 @@ public class DefaultMemberService implements MemberService {
     private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
     private final MemberInvitationService memberInvitationService;
-    private final RelationshipService relationships;
+    private final ObjectLockService locks;
 
     @Override
     public Future<Page<OrganizationParticipantIdentity>> findMembers(Pageable pageable) {
@@ -82,32 +79,16 @@ public class DefaultMemberService implements MemberService {
                               member -> enabled ? saveEnabled(member, true) : leavingOrganization(member, () -> saveEnabled(member, false)));
     }
 
-    // One caller at a time enables, disables or removes a member, each of which writes the identity and then its
-    // place among the organization's members: interleaved, an enabling could leave an enabled member out of the
-    // organization, or put a removed one back in it. The member is read once the lock is held
+    // One caller at a time enables, disables or removes a member. An enabling writes back the identity it read, so
+    // interleaved with a removal it would store the removed member again. The member is read once the lock is held
     private <T> Future<T> changingMember(String identityId, OrganizationParticipant participant, Function<UserParticipantIdentity, Future<T>> change) {
         Validate.notBlank(identityId, "identityId is required");
-        return relationships.exclusively(AuthzGraphUtil.authzUser(identityId), () -> loadOwnedMember(identityId, participant).compose(change));
+        return locks.exclusively(AuthzGraphUtil.authzUser(identityId), () -> loadOwnedMember(identityId, participant).compose(change));
     }
 
     // saveSync so the console's immediate re-query sees the change
     private Future<Void> saveEnabled(UserParticipantIdentity member, boolean enabled) {
-        return identityService.saveSync(member.setEnabled(enabled)).compose(saved -> memberOfOrganization(member));
-    }
-
-    // a disabled organization user is out of its organization's members, so nothing granted to the organization's
-    // members reaches it
-    private Future<Void> memberOfOrganization(UserParticipantIdentity member) {
-        Future<Void> ret;
-        if (member instanceof OrganizationParticipantIdentity organizationUser) {
-            List<RelationshipTuple> tuples = List.of(AuthzGraphUtil.organizationMember(organizationUser.getId(), organizationUser.getOrganizationId()));
-            ret = organizationUser.isEnabled()
-                    ? relationships.ensure(AuthzStoreService.SYSTEM, tuples)
-                    : relationships.remove(AuthzStoreService.SYSTEM, tuples);
-        } else {
-            ret = Future.succeededFuture();
-        }
-        return ret;
+        return identityService.saveSync(member.setEnabled(enabled)).mapEmpty();
     }
 
     @Override
@@ -127,7 +108,7 @@ public class DefaultMemberService implements MemberService {
     private Future<Void> leavingOrganization(UserParticipantIdentity member, Supplier<Future<Void>> leave) {
         Future<Void> ret;
         if (member instanceof OrganizationParticipantIdentity organizationUser) {
-            ret = identityService.removeAdministrators(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
+            ret = identityService.removeAdministrators(AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationUser.getOrganizationId()),
                                                        grant -> grant.subject().id().equals(organizationUser.getId()),
                                                        OrganizationParticipantIdentity.class,
                                                        leave);

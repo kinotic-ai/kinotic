@@ -3,6 +3,7 @@ package org.kinotic.system.internal.api.services.deployment;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
@@ -16,7 +17,6 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -135,17 +135,17 @@ public class ProjectDeployIdentityService {
 
     // Each role is bound under a binding id of the machine's own, so issuing credentials again binds each role once
     private Future<Void> bind(String machineId, MachineType machineType, Project project) {
-        String machine = AuthzUtil.object(AuthzConstants.USER_TYPE, machineId);
+        String machine = AuthzNameUtil.object(AuthzConstants.USER_TYPE, machineId);
         String projectObject = AuthzGraphUtil.authzObject(project.getOrganizationId(), new Resource(AuthzConstants.PROJECT_TYPE, project.getId()));
         String application = AuthzGraphUtil.authzApplication(project.getOrganizationId(), project.getApplicationId());
         // each role to the object it is granted on
         Map<String, String> grants = new LinkedHashMap<>();
-        grants.put(AuthzUtil.roleId(AuthzConstants.PROJECT_TYPE, AuthzConstants.EDITOR), projectObject);
+        grants.put(AuthzNameUtil.roleId(AuthzConstants.PROJECT_TYPE, AuthzConstants.EDITOR), projectObject);
         if (machineType == MachineType.APP_RUNTIME) {
             grants.put(AuthzConstants.APPLICATION_RUNTIME_ROLE, application);
-            grants.put(AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN), application);
+            grants.put(AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN), application);
         } else {
-            grants.put(AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.EDITOR), application);
+            grants.put(AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.EDITOR), application);
         }
         Future<Void> ret = Future.succeededFuture();
         for (Map.Entry<String, String> grant : grants.entrySet()) {

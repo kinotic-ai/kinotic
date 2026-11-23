@@ -3,10 +3,11 @@ package org.kinotic.management.internal.api.services.security;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
@@ -27,7 +28,7 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 public class CallerPermissions {
 
     private final SecurityContext securityContext;
-    private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
 
     /**
      * Whether the caller holds a permission on one resource of its organization.
@@ -58,11 +59,11 @@ public class CallerPermissions {
         OrganizationParticipant participant = requireOrgParticipant();
         Future<List<String>> ret;
         if (AuthzGraphUtil.withinDelegateCeiling(participant, type, permission)) {
-            ret = relationships.listObjects(SYSTEM,
+            ret = accessChecks.listObjects(SYSTEM,
                                             AuthzGraphUtil.authzUser(participant),
                                             AuthzUtil.permissionName(type, permission), type,
                                             Consistency.MINIMIZE_LATENCY)
-                               .map(objects -> objects.stream().map(object -> AuthzGraphUtil.localId(type, AuthzUtil.idOf(object))).toList());
+                               .map(objects -> objects.stream().map(object -> AuthzGraphUtil.localId(type, AuthzNameUtil.idOf(object))).toList());
         } else {
             ret = Future.succeededFuture(List.of());
         }
@@ -82,7 +83,7 @@ public class CallerPermissions {
         Validate.notBlank(permission, "permission cannot be blank");
         OrganizationParticipant participant = requireOrgParticipant();
         // a caller holding the permission throughout the organization is answered with one check, without a listing
-        return holds(participant, type, permission, AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, participant.getOrganizationId()))
+        return holds(participant, type, permission, AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, participant.getOrganizationId()))
                 .compose(held -> held ? Future.succeededFuture(null) : listAccessible(type, permission));
     }
 
@@ -107,7 +108,7 @@ public class CallerPermissions {
         Future<Boolean> ret;
         if (AuthzGraphUtil.withinDelegateCeiling(participant, type, permission)) {
             RelationshipTuple held = new RelationshipTuple(AuthzGraphUtil.authzUser(participant), AuthzUtil.permissionName(type, permission), object);
-            ret = relationships.check(SYSTEM, held, Consistency.MINIMIZE_LATENCY);
+            ret = accessChecks.check(SYSTEM, held, Consistency.MINIMIZE_LATENCY);
         } else {
             ret = Future.succeededFuture(false);
         }

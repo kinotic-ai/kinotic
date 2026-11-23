@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -24,7 +25,6 @@ import org.kinotic.domain.internal.api.repositories.PasswordConfigurationReposit
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -164,7 +164,7 @@ public class DefaultSignUpService implements SignUpService {
                                                                    .compose(v -> relationships.bind(AuthzStoreService.SYSTEM,
                                                                                                     AuthzConstants.ORGANIZATION_ADMIN_ROLE,
                                                                                                     AuthzGraphUtil.authzUser(founder.getId()),
-                                                                                                    AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, savedOrg.getId())))
+                                                                                                    AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, savedOrg.getId())))
                                                                    .map(DomainUtil.createParticipant(founder))
                                                                    // a founder whose organization could not be completed goes
                                                                    // too. Its deletion asks the engine first, so while the

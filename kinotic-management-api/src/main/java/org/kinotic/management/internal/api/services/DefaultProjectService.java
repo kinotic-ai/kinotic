@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -53,6 +54,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final ProjectRepoProvisioner repoProvisioner;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
 
     public DefaultProjectService(ProjectRepository repository,
                                  EntityDefinitionRepository entityDefinitionRepository,
@@ -61,7 +63,8 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                                  ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectDependenciesRepository projectDependenciesRepository,
                                  ProjectRepoProvisioner repoProvisioner,
-                                 RelationshipService relationships) {
+                                 RelationshipService relationships,
+                                 ObjectLockService locks) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.entityDefinitionRepository = entityDefinitionRepository;
@@ -70,6 +73,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
         this.projectDependenciesRepository = projectDependenciesRepository;
         this.repoProvisioner = repoProvisioner;
         this.relationships = relationships;
+        this.locks = locks;
     }
 
     // Read before the engine is asked, so a missing id never leaves a denial in the engine's caches for the
@@ -188,7 +192,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     // record is read under the lock, so a project created since the caller asked leaves the graph as well
     private Future<Void> deleted(String id, Function<String, Future<Void>> delete) {
         String object = AuthzGraphUtil.authzObject(requireOrganizationId(), new Resource(ProjectService.RESOURCE_TYPE, id));
-        return relationships.exclusively(object, () -> super.findById(id)
+        return locks.exclusively(object, () -> super.findById(id)
                 .compose(project -> delete.apply(id)
                                           .compose(v -> project == null
                                                   ? Future.succeededFuture()
@@ -201,7 +205,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     // being unreachable leaves the project as it is rather than failing the caller. The record is read while no
     // other caller creates or deletes a project of the id, so the application it is placed in is the one storing it
     private Future<Project> placed(Project requested) {
-        return relationships.exclusively(containment(requested).object(), () -> super.findById(requested.getId())
+        return locks.exclusively(containment(requested).object(), () -> super.findById(requested.getId())
                 .map(stored -> requireApplicationOf(requested, stored))
                 .compose(stored -> stored == null
                         ? Future.succeededFuture(stored)
@@ -219,7 +223,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     // than one nobody stores, since its repository exists by then
     private Future<Project> written(Project project, Function<Project, Future<Project>> write) {
         RelationshipTuple containment = containment(project);
-        return relationships.createExclusively(containment.object(),
+        return locks.createExclusively(containment.object(),
                                                () -> super.findById(project.getId()),
                                                () -> relationships.removeObject(AuthzStoreService.SYSTEM, containment.object()),
                                                () -> write.apply(project)

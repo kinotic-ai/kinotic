@@ -3,7 +3,9 @@ package org.kinotic.domain.internal.api.services;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
@@ -18,7 +20,6 @@ import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -35,17 +36,20 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     private final ParticipantIdentityService identityService;
     private final EmailService emailService;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
 
     public DefaultOrganizationService(OrganizationRepository repository,
                                       ParticipantIdentityRepository identityRepository,
                                       ParticipantIdentityService identityService,
                                       EmailService emailService,
-                                      RelationshipService relationships) {
+                                      RelationshipService relationships,
+                                      ObjectLockService locks) {
         super(repository);
         this.identityRepository = identityRepository;
         this.identityService = identityService;
         this.emailService = emailService;
         this.relationships = relationships;
+        this.locks = locks;
     }
 
     @Override
@@ -86,7 +90,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
         entity.setId(null);
         String id = DomainUtil.slugifyId(entity.getName());
         DomainUtil.validateOrganizationId(id);
-        return relationships.createExclusively(objectOf(id),
+        return locks.createExclusively(objectOf(id),
                                                () -> repository.findById(id),
                                                () -> cleared(id),
                                                () -> createOp.apply(entity).compose(this::contained))
@@ -99,16 +103,16 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
     // name; whatever a removal that fails leaves is removed before an organization is created under the same id
     @Override
     public Future<Void> deleteById(String id) {
-        return relationships.exclusively(objectOf(id), () -> super.deleteById(id).compose(v -> released(id)));
+        return locks.exclusively(objectOf(id), () -> super.deleteById(id).compose(v -> released(id)));
     }
 
     @Override
     public Future<Void> deleteByIdSync(String id) {
-        return relationships.exclusively(objectOf(id), () -> super.deleteByIdSync(id).compose(v -> released(id)));
+        return locks.exclusively(objectOf(id), () -> super.deleteByIdSync(id).compose(v -> released(id)));
     }
 
     private static String objectOf(String id) {
-        return AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, id);
+        return AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, id);
     }
 
     // The organization leaves the graph with every grant made on it and every member it held

@@ -1,5 +1,6 @@
 package org.kinotic.authz.internal.api.services;
 
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.idl.api.utils.AuthzUtil;
 
 import java.util.ArrayDeque;
@@ -62,7 +63,7 @@ final class ResourceType {
 
     /** The model names of this type's reading permissions: {@code can_read} and every {@code can_read_<something>}. */
     Set<String> readingNames() {
-        return modelNames(permissions.keySet().stream().filter(AuthzUtil::isReading).toList());
+        return modelNames(permissions.keySet().stream().filter(AuthzNameUtil::isReading).toList());
     }
 
     /**

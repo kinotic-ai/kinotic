@@ -25,6 +25,7 @@ import dev.openfga.sdk.api.model.WriteAuthorizationModelResponse;
 import dev.openfga.sdk.api.model.WriteRequest;
 import dev.openfga.sdk.api.model.WriteRequestDeletes;
 import dev.openfga.sdk.api.model.WriteRequestWrites;
+import dev.openfga.sdk.errors.ApiException;
 import dev.openfga.sdk.errors.FgaInvalidParameterException;
 import io.vertx.core.Future;
 import org.kinotic.authz.api.config.AuthzProperties;
@@ -39,6 +40,8 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * The OpenFGA client as the authorization services call it: the engine named by {@link AuthzProperties}, and
@@ -49,6 +52,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class OpenFgaService {
 
     // the most tuples one Write request may carry
+    private static final int HTTP_CONFLICT = 409;
+    // the most requests one operation has under way at the engine; the client opens a connection for each
+    private static final int MAX_CONCURRENT_REQUESTS = 16;
     private static final int WRITE_BATCH_SIZE = 100;
     // the most tuples one Read request returns
     private static final int READ_PAGE_SIZE = 100;
@@ -198,6 +204,34 @@ public class OpenFgaService {
             }
             return ret;
         });
+    }
+
+    /**
+     * What the request of each item yields, in the items' order, with at most sixteen of the requests
+     * under way at a time.
+     */
+    public static <T, R> Future<List<R>> requestEach(List<T> items, Function<T, Future<R>> request) {
+        Future<List<R>> ret = Future.succeededFuture(new ArrayList<>());
+        for (int from = 0; from < items.size(); from += MAX_CONCURRENT_REQUESTS) {
+            List<T> batch = items.subList(from, Math.min(items.size(), from + MAX_CONCURRENT_REQUESTS));
+            ret = ret.compose(collected -> Future.all(batch.stream().map(request).toList()).map(all -> {
+                collected.addAll(all.list());
+                return collected;
+            }));
+        }
+        return ret;
+    }
+
+    /**
+     * Makes a write again when the engine refuses it as a conflict, which a write racing another node that brings
+     * the same tuples to the same state is; a second conflict is reported.
+     */
+    public static Future<Void> converging(Supplier<Future<Void>> attempt) {
+        // the seed job and a caller creating an application race this way when the job reaches an application
+        // still being provisioned
+        return attempt.get().recover(e -> e instanceof ApiException api && api.getStatusCode() == HTTP_CONFLICT
+                ? attempt.get()
+                : Future.failedFuture(e));
     }
 
     private static <T> Future<T> call(Callable<CompletableFuture<ApiResponse<T>>> call) {

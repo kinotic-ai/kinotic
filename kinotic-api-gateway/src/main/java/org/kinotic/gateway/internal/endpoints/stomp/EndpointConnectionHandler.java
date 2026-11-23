@@ -28,6 +28,7 @@ import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.core.JacksonException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -159,28 +160,19 @@ public class EndpointConnectionHandler {
                 if (connectedInfo.getReplyToId() == null) {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
-                ret = services.stompAuthorizerFactory
-                        .create(connectedInfo)
-                        .recover(throwable -> Future.failedFuture(throwable instanceof IllegalArgumentException
-                                                                          ? new AuthenticationException("Invalid CONNECT frame", throwable)
-                                                                          : throwable))
-                        .compose(authorizer -> {
-                            // the zone rules resolve asynchronously, so the connection may have closed meanwhile
-                            if (connectedInfo == null) {
-                                return Future.failedFuture(new AuthenticationException("The connection closed before CONNECT completed"));
-                            }
-                            stompAuthorizer = authorizer;
+                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
 
-                            signalActivity();
-                            if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
-                                // the upgrade response never reaches the store, so the connection's first write is this one
-                                touchSession();
-                                startSessionTouchTimer();
-                            }
-                            return Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                                 services.jsonMapper.writeValueAsString(connectedInfo)));
-                        });
+                signalActivity();
+                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                    // the upgrade response never reaches the store, so the connection's first write is this one
+                    touchSession();
+                    startSessionTouchTimer();
+                }
+                ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                    services.jsonMapper.writeValueAsString(connectedInfo)));
             }
+        } catch (JacksonException e) {
+            ret = Future.failedFuture(e);
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
         }
@@ -331,8 +323,9 @@ public class EndpointConnectionHandler {
 
     /**
      * Subscribes the connection to the destination.
-     * @return completes once the subscription is registered across the cluster, so an event sent to the
-     *         destination from any node reaches the connection
+     * @return completes once the connection is found allowed the destination and the subscription is registered
+     *         across the cluster, so an event sent to the destination from any node reaches the connection; fails
+     *         with an {@link AuthorizationException} when the connection may not subscribe to the destination
      */
     public Future<Void> subscribe(CRI cri,
                                   String subscriptionIdentifier,
@@ -343,10 +336,20 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        if (!stompAuthorizer.subscribeAllowed(cri)) {
-            throw new AuthorizationException("Not Authorized to subscribe to " + cri);
-        }
+        return stompAuthorizer.subscribeAllowed(cri).compose(allowed -> {
+            if (!allowed) {
+                throw new AuthorizationException("Not Authorized to subscribe to " + cri);
+            }
+            // shutdown() may have run while the authorization was asked for, and a consumer registered after it
+            // would never be unregistered
+            if (stompAuthorizer == null) {
+                throw new IllegalStateException("The connection ended before it subscribed to " + cri);
+            }
+            return listen(cri, subscriptionIdentifier, subscriptionHandler);
+        });
+    }
 
+    private Future<Void> listen(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer;
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 

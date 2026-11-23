@@ -25,7 +25,7 @@
           <Skeleton v-for="n in 2" :key="n" height="2.5rem" />
         </div>
         <EmptyChartCharacter v-else-if="shown.length === 0" class="py-6" :title="subjectFilter ? 'No grants for them yet' : 'No grants here yet'"
-                             :hint="canManageAccess ? 'Grant a user, a machine or everyone in a tenant a role to let them read or write the application\'s data here.' : 'Access to the application\'s data comes from grants made here.'" />
+                             :hint="canManageAccess ? 'Grant a user, a machine, everyone in a tenant or every end user a role to let them read or write the application\'s data here.' : 'Access to the application\'s data comes from grants made here.'" />
         <GrantsTable v-else :grants="shown" :roles="roles" :label-of="labelOf" :detail-of="detailOf" where-header="Where"
                      :revoke="canManageAccess ? revoke : undefined" :revoke-where="grant => `on ${resourceLabel(grant.resource, definitions)}`"
                      revoke-consequence="They keep whatever other grants reach them." @revoked="onRevoked">
@@ -60,18 +60,18 @@ import { Kinotic, type Page, Pageable } from '@kinotic-ai/core'
 import { type Grant, type Resource, type RoleDefinition, type Subject, SubjectType } from '@kinotic-ai/management-api'
 import { DashboardSection, EmptyChartCharacter, NoAccessState, PageHeader, TINTS, TableChip,
          errorMessage, isAuthorizationError, latestOnly, permissionsOf } from '@kinotic-ai/frontend-common'
-import { GrantsTable } from '@kinotic-ai/frontend-common/management'
+import { GrantsTable, type SubjectOption } from '@kinotic-ai/frontend-common/management'
 import EndUserAccessCheckPanel from '@/components/access/EndUserAccessCheckPanel.vue'
 import EndUserGrantDrawer from '@/components/access/EndUserGrantDrawer.vue'
 import RolesTab from '@/components/access/RolesTab.vue'
-import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, resourceLabel, resourceOf, reaches, tenantOf,
-         tenantOption, whereChoices } from '@/components/access/applicationResources'
+import { type DefinitionOption, EVERY_DEFINITION, WHOLE_APPLICATION, definitionChoices, endUsersOption, grantsDescription, isWholeApplication,
+         resourceLabel, resourceOf, reaches, tenantOf, tenantOption, whereChoices } from '@/components/access/applicationResources'
 import { useSubjects } from '@/components/access/useSubjects'
 
 /**
  * The end-user access page of one application: the grants in the application's own store that reach the whole
  * application, one tenant, one definition's rows in every tenant or those rows in one tenant, a grant of a role
- * to one of the application's users or machines or to every user of a tenant, the application's roles, among them
+ * to one of the application's users or machines, to every user of a tenant or to every end user, the application's roles, among them
  * the ones it defines itself, and a check that explains anyone's access. Opened for one user from the Users page,
  * it shows that user's grants alone.
  */
@@ -87,10 +87,11 @@ const route = useRoute()
 const router = useRouter()
 const { members, machines, load: loadSubjects, searchMembers, labelOf: identityLabelOf } = useSubjects(() => props.applicationId)
 
-/** The name of a grant's subject: a user or a machine as the pickers name it, a tenant as everyone in it. */
-const labelOf = computed(() => (subject: Subject) => subject.type === SubjectType.TENANT
-    ? tenantOption(subject.id).label
-    : identityLabelOf.value(subject))
+/**
+ * The name of a grant's subject: a user or a machine as the pickers name it, a tenant as everyone in it, the
+ * application as every end user.
+ */
+const labelOf = computed(() => (subject: Subject) => everyoneOption(subject)?.label ?? identityLabelOf.value(subject))
 
 const grants = ref<Grant[]>([])
 const roles = ref<RoleDefinition[]>([])
@@ -128,22 +129,10 @@ const shown = computed(() => subjectFilter.value
     ? grants.value.filter(grant => grant.subject.type === subjectFilter.value?.type && grant.subject.id === subjectFilter.value?.id)
     : grants.value)
 
-const whereTitle = computed(() => resource.value.type === 'application'
+const whereTitle = computed(() => isWholeApplication(resource.value)
     ? 'Grants on the whole application'
     : `Grants reaching ${resourceLabel(resource.value, definitions.value)}`)
-const whereDescription = computed(() => {
-  let ret: string
-  if (resource.value.type === 'tenant') {
-    ret = 'Who holds a role on this tenant, and who holds one on the whole application, which reaches it too.'
-  } else if (resource.value.type === 'entity_definition') {
-    ret = 'Who holds a role on these rows in every tenant, and who holds one on the whole application, which reaches them too.'
-  } else if (resource.value.type === 'tenant_definition') {
-    ret = 'Who holds a role on these rows alone, and who holds one on the tenant, on the definition or on the whole application, which reach them too.'
-  } else {
-    ret = 'Who holds a role on the application, and so on the rows of every definition in every tenant.'
-  }
-  return ret
-})
+const whereDescription = computed(() => grantsDescription(resource.value))
 
 /** The tenants known so far: those the application's administrators created and those a grant was made on. */
 const tenants = computed(() => {
@@ -258,15 +247,21 @@ async function loadGrants(): Promise<void> {
   }
 }
 
-// a machine is a user subject to the store, so the row says which of the two it is
-function detailOf(subject: Subject): string {
-  let ret: string
+// the option of a subject standing for many users, a tenant or the application, or null for a user or a machine
+function everyoneOption(subject: Subject): SubjectOption | null {
+  let ret: SubjectOption | null = null
   if (subject.type === SubjectType.TENANT) {
-    ret = 'Every user of the tenant'
-  } else {
-    ret = machines.value.some(option => option.subject.id === subject.id) ? 'Machine' : 'User'
+    ret = tenantOption(subject.id)
+  } else if (subject.type === SubjectType.APPLICATION) {
+    ret = endUsersOption(subject.id)
   }
   return ret
+}
+
+// a machine is a user subject to the store, so the row says which of the two it is
+function detailOf(subject: Subject): string {
+  return everyoneOption(subject)?.detail
+      ?? (machines.value.some(option => option.subject.id === subject.id) ? 'Machine' : 'User')
 }
 
 function clearSubject(): void {

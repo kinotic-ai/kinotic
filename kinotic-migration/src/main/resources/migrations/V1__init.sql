@@ -234,6 +234,8 @@ CREATE TABLE IF NOT EXISTS kinotic_authz_store (
     id KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
+    engineStoreId KEYWORD,
+    engineModelId KEYWORD,
     state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, unrecorded JSON NOT INDEXED, desired OBJECT (hash KEYWORD), observed OBJECT (hash KEYWORD), generation LONG, observedGeneration LONG, desiredAt LONG, deletionRequested DATE, reconciled BOOLEAN)
 );
 
@@ -294,7 +296,10 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     online BOOLEAN,
     lastStatusChange DATE,
     livenessVerifiedAt LONG,
-    contractHash KEYWORD
+    contractHash KEYWORD,
+    authzTypes KEYWORD,
+    authzParent KEYWORD,
+    authzPermissions KEYWORD
 );
 
 -- Participant Identity: authenticated identities — a person of one scope (type=SYSTEM_USER for the

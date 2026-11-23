@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
@@ -12,9 +13,11 @@ import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
@@ -93,6 +96,12 @@ public class PermissionServiceTests extends KinoticTestBase {
     private RelationshipService relationships;
 
     @Autowired
+    private AccessCheckService accessChecks;
+
+    @Autowired
+    private RolePermissionsService rolePermissions;
+
+    @Autowired
     private AuthzStoreRepository stores;
 
     @Autowired
@@ -124,7 +133,7 @@ public class PermissionServiceTests extends KinoticTestBase {
                 new RoleDefinition(null, "Release Manager " + suffix(), "ships projects", false, ProjectService.RESOURCE_TYPE, null,
                                    Set.of("project_can_edit", "project_can_read"), Map.of(), false))));
         assertNotNull(saved.id());
-        assertEquals(ProjectService.RESOURCE_TYPE, AuthzUtil.roleHome(saved.id()));
+        assertEquals(ProjectService.RESOURCE_TYPE, AuthzNameUtil.roleHome(saved.id()));
         assertFalse(saved.builtIn());
         List<RoleDefinition> roles = await(runAsOrganization(permissions::findRoles));
         RoleDefinition editor = roles.stream().filter(role -> role.id().equals("project.editor")).findFirst().orElseThrow();
@@ -173,7 +182,7 @@ public class PermissionServiceTests extends KinoticTestBase {
         }
         List<String> ids = roles.stream().map(RoleDefinition::id).toList();
         assertFalse(ids.contains(AuthzConstants.SYSTEM_SUPPORT_ROLE), ids.toString());
-        assertFalse(ids.contains(AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN)), ids.toString());
+        assertFalse(ids.contains(AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN)), ids.toString());
         assertFalse(ids.stream().anyMatch(id -> id.startsWith("vm_node.")), ids.toString());
         RoleDefinition projectEditor = roles.stream().filter(role -> role.id().equals("project.editor")).findFirst().orElseThrow();
         assertEquals(Set.of(AuthzConstants.ORGANIZATION_TYPE, AuthzConstants.APPLICATION_TYPE, ProjectService.RESOURCE_TYPE), projectEditor.grantableOn());
@@ -226,27 +235,6 @@ public class PermissionServiceTests extends KinoticTestBase {
         await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), false)));
         await(runAs(caller, () -> memberService.setMemberEnabled(first.getId(), true)));
         await(runAs(caller, () -> permissions.revoke(onOrganization, firstGrant.id())));
-    }
-
-    @Test
-    public void aMemberEnabledAndDisabledAtOnceIsInTheOrganizationExactlyWhenEnabled() throws Exception {
-        Organization organization = await(organizationService.createSync(new Organization().setName("Permission " + suffix()).setDescription("members")));
-        Participant caller = new DefaultOrganizationParticipant("caller-" + suffix(), organization.getId(),
-                                                                Map.of(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY,
-                                                                       ParticipantConstants.PARTICIPANT_TYPE_USER),
-                                                                List.of());
-        OrganizationParticipantIdentity member = member(organization.getId(), "toggled");
-        RelationshipTuple membership = AuthzGraphUtil.organizationMember(member.getId(), organization.getId());
-        for (int i = 0; i < 5; i++) {
-            Future<Void> disabling = runAs(caller, () -> memberService.setMemberEnabled(member.getId(), false));
-            Future<Void> enabling = runAs(caller, () -> memberService.setMemberEnabled(member.getId(), true));
-            await(disabling);
-            await(enabling);
-
-            boolean enabled = await(identityService.findById(member.getId())).isEnabled();
-            assertEquals(enabled, await(relationships.holds(AuthzStoreService.SYSTEM, membership)),
-                         "an enabled member is in its organization, and a disabled one is not");
-        }
     }
 
     @Test
@@ -323,13 +311,13 @@ public class PermissionServiceTests extends KinoticTestBase {
         Grant toMachine = await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId),
                                                                           AuthzConstants.APPLICATION_RUNTIME_ROLE, onApplication)));
         Grant toMember = await(runAsOrganization(() -> permissions.grant(user(member), "project.editor", onApplication)));
-        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
+        assertTrue(await(zoneRulesResolver.resolve(runtime).subscribeAllowed(hosted)), "the granted runtime hosts the application's services");
 
         await(runAsOrganization(() -> permissions.revoke(onApplication, toMember.id())));
         await(runAsOrganization(() -> permissions.revoke(onApplication, toMachine.id())));
 
         // a machine connecting again right after the revocation hosts nothing in the application's zone
-        assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertFalse(await(zoneRulesResolver.resolve(runtime).subscribeAllowed(hosted)));
         assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
         // a person's requests are each checked, so the grant revoked before the machine's ended no connection
         assertFalse(connectionRevocations.isRevoked(member.getId()));
@@ -352,17 +340,17 @@ public class PermissionServiceTests extends KinoticTestBase {
                 new RoleDefinition(null, "Hosting " + suffix(), null, false, AuthzConstants.APPLICATION_TYPE, null,
                                    Set.of(canRegisterServices, "application_can_read"), Map.of(), false))));
         await(runAsOrganization(() -> permissions.grant(new Subject(SubjectType.USER, machineId), hosting.id(), onApplication)));
-        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted), "the granted runtime hosts the application's services");
+        assertTrue(await(zoneRulesResolver.resolve(runtime).subscribeAllowed(hosted)), "the granted runtime hosts the application's services");
 
         // an edit that takes no permission from the role leaves the machine connected
         await(runAsOrganization(() -> permissions.saveRole(
                 new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, hosting.permissions(), Map.of(), false))));
-        assertTrue(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertTrue(await(zoneRulesResolver.resolve(runtime).subscribeAllowed(hosted)));
         assertFalse(connectionRevocations.isRevoked(machineId));
 
         await(runAsOrganization(() -> permissions.saveRole(
                 new RoleDefinition(hosting.id(), hosting.name(), "hosts services", false, null, null, Set.of("application_can_read"), Map.of(), false))));
-        assertFalse(await(zoneRulesResolver.resolve(runtime)).subscribeAllowed(hosted));
+        assertFalse(await(zoneRulesResolver.resolve(runtime).subscribeAllowed(hosted)));
         assertTrue(awaitUntil(() -> connectionRevocations.isRevoked(machineId)), "the machine's connections were never ended");
     }
 
@@ -459,14 +447,13 @@ public class PermissionServiceTests extends KinoticTestBase {
     }
 
     private boolean held(UserParticipantIdentity member, String permission, Resource resource) throws Exception {
-        return await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()), permission,
+        return await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(AuthzGraphUtil.authzUser(member.getId()), permission,
                                                                AuthzGraphUtil.authzObject(TEST_ORG_ID, resource)),
                                          Consistency.HIGHER_CONSISTENCY));
     }
 
     private Set<String> bundled(String roleId) throws Exception {
-        return await(relationships.read(AuthzStoreService.SYSTEM, AuthzUtil.roleObject(roleId)))
-                .stream().map(RelationshipTuple::relation).collect(java.util.stream.Collectors.toSet());
+        return await(rolePermissions.findRolePermissions(AuthzStoreService.SYSTEM, roleId)).permissions();
     }
 
     private Application application() throws Exception {

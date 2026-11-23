@@ -2,12 +2,14 @@ package org.kinotic.test.tests.core.authz;
 
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.security.Participant;
@@ -25,7 +27,6 @@ import org.kinotic.domain.api.services.security.SignUpService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.TenantService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
@@ -82,6 +83,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
     private RelationshipService relationships;
 
     @Autowired
+    private AccessCheckService accessChecks;
+
+    @Autowired
     private AuthzStoreService storeService;
 
     @Autowired
@@ -107,9 +111,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
 
         // the other organization's admin holds its own application and not ours
         String theirAdmin = AuthzGraphUtil.authzUser(other.getId());
-        assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, theirStore)),
+        assertTrue(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, theirStore)),
                                              Consistency.HIGHER_CONSISTENCY)));
-        assertFalse(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, ourStore)),
+        assertFalse(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(theirAdmin, "application_can_edit", AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, ourStore)),
                                               Consistency.HIGHER_CONSISTENCY)));
 
         // a tenant of the same id in each application, administered in ours
@@ -117,7 +121,7 @@ public class OrganizationIsolationTests extends KinoticTestBase {
         ApplicationParticipantIdentity ourAdmin = endUser(TEST_ORG_ID, applicationId);
         ApplicationParticipantIdentity theirUser = endUser(otherOrganizationId, applicationId);
         Resource tenant = new Resource(AuthzConstants.TENANT_TYPE, TENANT_ID);
-        Grant grant = await(runAsOrganization(() -> access.grant(applicationId, user(ourAdmin), AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN), tenant)));
+        Grant grant = await(runAsOrganization(() -> access.grant(applicationId, user(ourAdmin), AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN), tenant)));
 
         // the other organization neither sees our grant nor revokes it
         assertTrue(await(runAs(other, () -> access.findGrants(applicationId, tenant))).isEmpty());
@@ -125,7 +129,7 @@ public class OrganizationIsolationTests extends KinoticTestBase {
         assertEquals(List.of(grant), await(runAsOrganization(() -> access.findGrants(applicationId, tenant))));
         // and grants nothing in its application to our user
         assertInstanceOf(IllegalArgumentException.class,
-                         failure(other, () -> access.grant(applicationId, user(ourAdmin), AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN), tenant)));
+                         failure(other, () -> access.grant(applicationId, user(ourAdmin), AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN), tenant)));
 
         assertNotNull(await(identityService.findById(theirUser.getId())));
 
@@ -134,9 +138,9 @@ public class OrganizationIsolationTests extends KinoticTestBase {
         assertNull(await(stores.findById(ourStore)));
         assertNotNull(await(stores.findById(theirStore)));
         assertNotNull(await(storeService.modelId(theirStore)));
-        assertTrue(await(relationships.holds(theirStore, new RelationshipTuple(AuthzUtil.object(AuthzConstants.USER_TYPE, theirUser.getId()),
+        assertTrue(await(relationships.holds(theirStore, new RelationshipTuple(AuthzNameUtil.object(AuthzConstants.USER_TYPE, theirUser.getId()),
                                                                                AuthzConstants.MEMBER_RELATION,
-                                                                               AuthzUtil.object(AuthzConstants.TENANT_TYPE, TENANT_ID)))));
+                                                                               AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, TENANT_ID)))));
         await(runAs(other, () -> applicationService.deleteById(applicationId)));
     }
 

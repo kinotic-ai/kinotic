@@ -5,12 +5,13 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.app.api.services.TenantAdministrationService;
-import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -19,12 +20,13 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.PendingInvite;
+import org.kinotic.domain.api.model.security.RoleOwner;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.api.rest.support.OidcCallbacks;
-import org.kinotic.domain.api.services.security.ApplicationRoleService;
+import org.kinotic.domain.api.services.security.RoleService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -32,10 +34,8 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -47,9 +47,10 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
     private final ApplicationRepository applications;
     private final ParticipantIdentityService identities;
     private final InviteService invites;
-    private final ApplicationRoleService applicationRoles;
+    private final RoleService roleService;
     private final AuthzModelService models;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
     private final OidcConfigurationService oidcConfigurations;
     private final KinoticDomainProperties domainProperties;
 
@@ -114,21 +115,16 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
         ApplicationParticipant caller = requireTenantUser();
         Validate.notBlank(userId, "userId is required");
         Validate.isTrue(!userId.equals(caller.getId()), "You cannot perform this action on yourself.");
-        return relationships.exclusively(AuthzGraphUtil.authzUser(userId), () -> requireUser(caller, userId).compose(change));
+        return locks.exclusively(AuthzGraphUtil.authzUser(userId), () -> requireUser(caller, userId).compose(change));
     }
 
     @Override
     public Future<List<RoleDefinition>> findRoles() {
         ApplicationParticipant caller = requireTenantUser();
-        return application(caller).compose(application -> Future.all(models.findApplicationModel(application.getOrganizationId(), application.getId()),
-                                                                     applicationRoles.findRoles(application)))
-                                  .map(both -> {
-                                      List<RoleDefinition> ret = new ArrayList<>();
-                                      ret.addAll(both.<AuthzModel>resultAt(0).builtInRoles(AuthzConstants.APPLICATION_TYPE));
-                                      ret.addAll(both.<List<RoleDefinition>>resultAt(1));
-                                      ret.removeIf(role -> !role.tenantAssignable());
-                                      return ret;
-                                  });
+        // a role a tenant's administrators grant is homed at the tenant, which the store places
+        return application(caller).compose(application -> models.findApplicationStoreModel(application.getOrganizationId(), application.getId())
+                                                                .compose(model -> roleService.findRoles(RoleOwner.application(application), model)))
+                                  .map(roles -> roles.stream().filter(RoleDefinition::tenantAssignable).toList());
     }
 
     @Override
@@ -154,7 +150,7 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
         }
         return inTenant.compose(v -> application(caller))
                        .compose(application -> requireAssignable(application, roleId)
-                               .compose(v -> applicationRoles.grant(application, subject, roleId, tenantOf(caller))));
+                               .compose(v -> roleService.grant(application, subject, roleId, tenantOf(caller))));
     }
 
     @Override
@@ -175,10 +171,10 @@ public class DefaultTenantAdministrationService implements TenantAdministrationS
     // A tenant's administrators grant and revoke the built-in roles of the tenant, and the roles of the application
     // its developers marked for them; any other role of the application is its developers' to grant
     private Future<Void> requireAssignable(Application application, String roleId) {
-        return models.findApplicationModel(application.getOrganizationId(), application.getId())
+        return models.findApplicationModelOfRole(application.getOrganizationId(), application.getId(), roleId)
                      .compose(model -> model.roles().containsKey(roleId)
-                             ? Future.succeededFuture(AuthzConstants.TENANT_TYPE.equals(AuthzUtil.roleHome(roleId)))
-                             : applicationRoles.requireRole(application, roleId).map(role -> role.isTenantAssignable()))
+                             ? Future.succeededFuture(AuthzConstants.TENANT_TYPE.equals(AuthzNameUtil.roleHome(roleId)))
+                             : roleService.requireRole(RoleOwner.application(application), roleId).map(role -> role.isTenantAssignable()))
                      .map(assignable -> {
                          Validate.isTrue(assignable, "Role %s is not one a tenant's administrators grant", roleId);
                          return null;

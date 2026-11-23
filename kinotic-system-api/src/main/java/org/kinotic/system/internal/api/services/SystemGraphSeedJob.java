@@ -3,6 +3,7 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
@@ -12,7 +13,6 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.AuthzGraphSeedJob;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
@@ -55,7 +55,7 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
     }
 
     private Future<Void> placeStaff() {
-        return relationships.findGrants(SYSTEM, AuthzConstants.SYSTEM_OBJECT).compose(grants -> {
+        return relationships.findGrants(SYSTEM, AuthzNameUtil.SYSTEM_OBJECT).compose(grants -> {
             Future<Void> ret;
             if (grants.stream().anyMatch(grant -> AuthzConstants.SYSTEM_ADMIN_ROLE.equals(grant.roleId()))) {
                 ret = Future.succeededFuture();
@@ -71,12 +71,12 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
                            .compose(v -> identities.findMachinesByScope(null, null, page))
                            .compose(machines -> bindEach(machines.getContent().stream()
                                                                  .filter(MachineParticipantIdentity::isEnabled)
-                                                                 .map(machine -> AuthzUtil.object(AuthzConstants.USER_TYPE, machine.getId()))
+                                                                 .map(machine -> AuthzNameUtil.object(AuthzConstants.USER_TYPE, machine.getId()))
                                                                  .toList(),
                                                          VmNodeOrchestrationService.REGISTRAR_ROLE))
                            .compose(v -> bindEach(users.getContent().stream()
                                                        .filter(SystemParticipantIdentity::isEnabled)
-                                                       .map(user -> AuthzUtil.object(AuthzConstants.USER_TYPE, user.getId()))
+                                                       .map(user -> AuthzNameUtil.object(AuthzConstants.USER_TYPE, user.getId()))
                                                        .toList(),
                                                   AuthzConstants.SYSTEM_ADMIN_ROLE)));
             }
@@ -87,7 +87,7 @@ public class SystemGraphSeedJob implements AuthzGraphSeedJob {
     private Future<Void> bindEach(List<String> users, String roleId) {
         Future<Void> ret = Future.succeededFuture();
         for (String user : users) {
-            ret = ret.compose(v -> relationships.bind(SYSTEM, roleId, user, AuthzConstants.SYSTEM_OBJECT).mapEmpty());
+            ret = ret.compose(v -> relationships.bind(SYSTEM, roleId, user, AuthzNameUtil.SYSTEM_OBJECT).mapEmpty());
         }
         return ret.onSuccess(v -> log.info("Bound {} system user(s) or machine(s) as {}", users.size(), roleId));
     }

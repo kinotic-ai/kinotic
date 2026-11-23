@@ -18,6 +18,19 @@ public interface AuthzStoreService {
     String SYSTEM = "system";
 
     /**
+     * Whether a store holds resources of a type. The system's store holds every type's; an application's holds
+     * those of {@link AuthzModelGenerator#APPLICATION_TYPES}, and any other type there is one of the application's
+     * own services.
+     *
+     * @param store the store, named as its record is
+     * @param type  the resource type
+     * @return true when the store holds resources of the type
+     */
+    static boolean places(String store, String type) {
+        return SYSTEM.equals(store) || AuthzModelGenerator.APPLICATION_TYPES.contains(type);
+    }
+
+    /**
      * Makes an application's store exist in the engine, creating it when the engine has none of its name. A
      * store found or created is kept, and a lookup that fails, because the engine is unreachable, fails the
      * caller and is made again by the next one.
@@ -37,8 +50,8 @@ public interface AuthzStoreService {
     Future<Void> deleteStore(String store);
 
     /**
-     * The id of the version the store runs, read from the engine and kept for a while: the version every check
-     * against the store names.
+     * The id of the version the store runs, the one every check against the store names: the version the
+     * store's record names, or for a store with none recorded the engine's newest, kept for a while.
      *
      * @param store the store, named as its record is
      * @return the version's id; fails when the store does not exist or runs no model yet

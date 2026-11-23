@@ -1,6 +1,7 @@
 package org.kinotic.authz.api.services;
 
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.ServiceModelNames;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.utils.AuthzConstants;
 
@@ -62,5 +63,14 @@ public interface AuthzModelGenerator {
      * @throws IllegalArgumentException as for {@link #systemModel}
      */
     AuthzModel applicationModel(Collection<ServiceDefinition> systemServices, Collection<ServiceDefinition> services);
+
+    /**
+     * What a service's contract names of a model: the types it decides, the parent of the type it declares, and
+     * the permissions its functions require.
+     *
+     * @param service the converted contract of a service
+     * @return the names, none for a service that declares no type and checks nothing
+     */
+    ServiceModelNames namesOf(ServiceDefinition service);
 
 }

@@ -4,10 +4,11 @@ import io.vertx.core.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.services.AccessCheckService;
 import org.kinotic.authz.api.services.AuthzStoreService;
-import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Requeue;
@@ -125,7 +126,7 @@ public class DeployWorkerTests extends KinoticTestBase {
     private ServiceRegistry serviceRegistry;
 
     @Autowired
-    private RelationshipService relationships;
+    private AccessCheckService accessChecks;
 
     @Autowired
     private JobRunRepository jobRuns;
@@ -262,11 +263,11 @@ public class DeployWorkerTests extends KinoticTestBase {
 
         MicroserviceDeployment deployed = awaitDeployed(deployment.getId(), null);
 
-        String machine = AuthzUtil.object(AuthzConstants.USER_TYPE, deployed.getMachineIdentityId());
+        String machine = AuthzNameUtil.object(AuthzConstants.USER_TYPE, deployed.getMachineIdentityId());
         String registers = AuthzUtil.permissionName(AuthzConstants.APPLICATION_TYPE, AuthzConstants.CAN_REGISTER_SERVICES);
-        assertTrue(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(machine, registers, AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)),
+        assertTrue(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(machine, registers, AuthzGraphUtil.authzApplication(TEST_ORG_ID, TEST_APP_ID)),
                                              Consistency.HIGHER_CONSISTENCY)));
-        assertFalse(await(relationships.check(AuthzStoreService.SYSTEM, new RelationshipTuple(machine, registers, AuthzGraphUtil.authzApplication(TEST_ORG_ID, "other-" + TEST_APP_ID)),
+        assertFalse(await(accessChecks.check(AuthzStoreService.SYSTEM, new RelationshipTuple(machine, registers, AuthzGraphUtil.authzApplication(TEST_ORG_ID, "other-" + TEST_APP_ID)),
                                               Consistency.HIGHER_CONSISTENCY)));
     }
 

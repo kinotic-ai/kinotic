@@ -7,8 +7,10 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -19,7 +21,6 @@ import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.config.DomainPersistenceProperties;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.config.EntityDefinitionProperties;
 import org.kinotic.management.api.config.ManagementApiProperties;
 import org.kinotic.management.api.repositories.ProjectRepository;
@@ -54,6 +55,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     private final EntityDefinitionProperties entityDefinitionProperties;
     private final DomainPersistenceProperties domainPersistenceProperties;
     private final RelationshipService relationships;
+    private final ObjectLockService locks;
     private final CallerPermissions permissions;
     private final ProjectRepository projects;
 
@@ -65,10 +67,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                           DomainPersistenceProperties domainPersistenceProperties,
                                           SecurityContext securityContext,
                                           RelationshipService relationships,
+                                          ObjectLockService locks,
                                           CallerPermissions permissions,
                                           ProjectRepository projects) {
         super(entityDefinitionRepository, securityContext);
         this.relationships = relationships;
+        this.locks = locks;
         this.permissions = permissions;
         this.projects = projects;
         this.eventService = eventService;
@@ -140,7 +144,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         }
 
         return requireProject(entityDefinition)
-                .compose(v -> relationships.createExclusively(containment(entityDefinition).object(),
+                .compose(v -> locks.createExclusively(containment(entityDefinition).object(),
                                                               () -> super.findById(entityDefinition.getId()),
                                                               () -> removed(entityDefinition),
                                                               () -> createOp.apply(entityDefinition).compose(this::contained)))
@@ -182,24 +186,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                      .transform(v -> Future.failedFuture(err)));
     }
 
-    // The definition leaves both stores with every grant made on it and on its rows within each tenant placed in the
-    // application's store, so one created again under its id starts with none
+    // The definition leaves both stores with every grant made on it and on its rows within a tenant, so one created
+    // again under its id starts with none. Its rows within a tenant hold the definition's edge once they are granted
+    // on, so the ones granted on are read from the store
     private Future<Void> removed(EntityDefinition entityDefinition) {
         String object = containment(entityDefinition).object();
         String store = storeOf(entityDefinition);
         return relationships.removeObject(AuthzStoreService.SYSTEM, object)
-                            .compose(v -> relationships.removeObject(store, object))
-                            // the rows within a tenant are reached by tenant, so each tenant placed in the store is read
-                            .compose(v -> relationships.findContained(store, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store), AuthzConstants.TENANT_TYPE))
-                            .compose(placed -> {
-                                Future<Void> ret = Future.succeededFuture();
-                                for (String tenant : placed) {
-                                    String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                     AuthzUtil.tenantDefinitionId(entityDefinition.getId(), AuthzUtil.idOf(tenant)));
-                                    ret = ret.compose(w -> relationships.removeObject(store, within));
-                                }
-                                return ret;
-                            });
+                            .compose(v -> relationships.removeObjectsOf(store, object, AuthzConstants.TENANT_DEFINITION_TYPE))
+                            .compose(v -> relationships.removeObject(store, object));
     }
 
     private static String storeOf(EntityDefinition entityDefinition) {
@@ -208,7 +203,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
     static RelationshipTuple containment(EntityDefinition entityDefinition) {
         return AuthzGraphUtil.containment(AuthzGraphUtil.authzApplication(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId()),
-                                          AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
+                                          AuthzNameUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinition.getId()));
     }
 
     @WithSpan
@@ -226,7 +221,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     // The definition is read once the lock is held, so the one deleted is the one stored then: a definition
     // created under the id after another caller's delete is deleted only if it too is unpublished
     private Future<Void> deleteAndEvict(String entityDefinitionId) {
-        return relationships.exclusively(AuthzUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
+        return locks.exclusively(AuthzNameUtil.object(EntityDefinitionService.RESOURCE_TYPE, entityDefinitionId),
                                          () -> super.findById(entityDefinitionId).compose(entityDefinition -> {
 
                     if (entityDefinition == null) {

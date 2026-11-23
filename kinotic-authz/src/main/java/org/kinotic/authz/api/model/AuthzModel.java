@@ -63,7 +63,7 @@ public record AuthzModel(ObjectNode definition,
      * @return true when the engine admits the grant
      */
     public boolean grantable(String roleId, String resourceType) {
-        return tier(resourceType).contains(AuthzUtil.roleHome(roleId));
+        return tier(resourceType).contains(AuthzNameUtil.roleHome(roleId));
     }
 
     /**
@@ -75,7 +75,7 @@ public record AuthzModel(ObjectNode definition,
      */
     public void requireGrantable(String roleId, String resourceType) {
         if (!grantable(roleId, resourceType)) {
-            throw new IllegalArgumentException("Role " + roleId + " is homed at " + AuthzUtil.roleHome(roleId)
+            throw new IllegalArgumentException("Role " + roleId + " is homed at " + AuthzNameUtil.roleHome(roleId)
                                                        + " and cannot be granted on a " + resourceType);
         }
     }
@@ -136,6 +136,59 @@ public record AuthzModel(ObjectNode definition,
     }
 
     /**
+     * The built-in roles a store running the model holds as relationships: those homed at a type the store has
+     * resources of. A role homed at a type of an application's own services is held as no relationship, and a check
+     * of a permission of such a service names the roles holding it, which {@link #rolesHolding} gives.
+     *
+     * @return each stored role's id to the model names of the permissions it bundles
+     */
+    public Map<String, Set<String>> storedRoles() {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        roles.forEach((roleId, permissions) -> {
+            if (bindable.containsKey(AuthzNameUtil.roleHome(roleId))) {
+                ret.put(roleId, permissions);
+            }
+        });
+        return ret;
+    }
+
+    /**
+     * The built-in roles holding a permission of an application's own services: those bundling it, or one that
+     * implies it.
+     *
+     * @param servicePermission the model name of the permission, such as {@code report_can_generate}
+     * @return the ids of the roles, empty for a permission the model lacks
+     */
+    public Set<String> rolesHolding(String servicePermission) {
+        Set<String> ret = new TreeSet<>();
+        roles.forEach((roleId, permissions) -> {
+            for (String bundled : permissions) {
+                if (servicePermissions.getOrDefault(bundled, Set.of()).contains(servicePermission)) {
+                    ret.add(roleId);
+                }
+            }
+        });
+        return ret;
+    }
+
+    /**
+     * The built-in roles holding each permission of a type of an application's own services, as
+     * {@link #rolesHolding} gives them.
+     *
+     * @param type the type
+     * @return the model name of each of the type's permissions to the ids of the roles holding it, empty for a type
+     *         the model lacks
+     */
+    public Map<String, Set<String>> rolesHoldingEach(String type) {
+        Map<String, Set<String>> ret = new TreeMap<>();
+        for (String permission : permissions.getOrDefault(type, Set.of())) {
+            String name = AuthzUtil.permissionName(type, permission);
+            ret.put(name, rolesHolding(name));
+        }
+        return ret;
+    }
+
+    /**
      * The built-in roles of a tier: those homed at one of its types.
      *
      * @param root the tier's root type
@@ -144,9 +197,9 @@ public record AuthzModel(ObjectNode definition,
     public List<RoleDefinition> builtInRoles(String root) {
         List<RoleDefinition> ret = new ArrayList<>();
         for (Map.Entry<String, Set<String>> role : new TreeMap<>(roles).entrySet()) {
-            String home = AuthzUtil.roleHome(role.getKey());
+            String home = AuthzNameUtil.roleHome(role.getKey());
             if (tier(root).contains(home)) {
-                ret.add(new RoleDefinition(role.getKey(), AuthzUtil.builtInRoleName(role.getKey()), null, true, home,
+                ret.add(new RoleDefinition(role.getKey(), AuthzNameUtil.builtInRoleName(role.getKey()), null, true, home,
                                            grantableOn(home, root), role.getValue(), Map.of(),
                                            AuthzConstants.TENANT_TYPE.equals(home)));
             }

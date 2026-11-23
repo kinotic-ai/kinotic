@@ -2,6 +2,7 @@ package org.kinotic.test.tests.core.authz;
 
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
@@ -18,7 +19,6 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.NamedQueriesDefinitionService;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
@@ -76,18 +76,18 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
         ApplicationParticipantIdentity bob = endUser(tenantId);
         ScopedParticipant caller = applicationParticipant(tenantId, bob.getId());
         Subject subject = new Subject(SubjectType.USER, bob.getId());
-        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));
+        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(person.getId(), tenantId));
         List<Object> find = List.of(person.getId(), FIND_QUERY, List.of());
         List<Object> rename = List.of(person.getId(), RENAME_QUERY, List.of());
 
-        await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
+        await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "namedQuery", caller, find)), "the viewer was never admitted to the query that reads");
         assertRefused(ENTITIES_SERVICE, "namedQuery", caller, rename, "the query is an UPDATE");
         // a request admitted for the query a name held before reaches the update without its check, and is refused where it runs
         assertInstanceOf(AuthorizationException.class,
                          assertThrows(ExecutionException.class, () -> await(rename(person, caller))).getCause());
 
-        await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.EDITOR), personHere)));
+        await(runAsOrganization(() -> access.grant(TEST_APP_ID, subject, AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.EDITOR), personHere)));
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "namedQuery", caller, rename)), "the editor was never admitted to the update");
         assertEquals(0L, ((Number) await(rename(person, caller)).getFirst().get("count")).longValue());
         assertFalse(admitted(ENTITIES_SERVICE, "namedQuery", caller, List.of(person.getId(), "noSuchQuery", List.of())));
@@ -102,9 +102,9 @@ public class NamedQueryAuthorizationTests extends KinoticTestBase {
         String tenantId = createTenant(TEST_APP_ID);
         ApplicationParticipantIdentity bob = endUser(tenantId);
         ScopedParticipant caller = applicationParticipant(tenantId, bob.getId());
-        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(person.getId(), tenantId));
+        Resource personHere = new Resource(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(person.getId(), tenantId));
         await(runAsOrganization(() -> access.grant(TEST_APP_ID, new Subject(SubjectType.USER, bob.getId()),
-                                                   AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
+                                                   AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.VIEWER), personHere)));
 
         // the viewer's grant has reached the engine once it reads the definition's rows
         assertTrue(awaitUntil(() -> admitted(ENTITIES_SERVICE, "count", caller, List.of(person.getId()))), "the viewer was never admitted to read");

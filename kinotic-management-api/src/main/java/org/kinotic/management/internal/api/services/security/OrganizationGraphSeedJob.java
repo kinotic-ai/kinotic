@@ -23,7 +23,6 @@ import org.kinotic.management.api.services.security.AuthzGraphSeedJob;
 import org.kinotic.management.internal.api.services.ApplicationStoreProvisioner;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -142,17 +141,15 @@ public class OrganizationGraphSeedJob implements AuthzGraphSeedJob {
                 .map(true);
     }
 
-    // Makes the organization's enabled users its members, collecting their ids
+    // Collects the ids of the organization's enabled users
     private Future<Void> members(String organizationId, Set<String> enabled) {
         return CursorPaging.forEachPage(pageable -> identities.findOrganizationUsers(organizationId, pageable), PAGE_SIZE, Sort.by("id"), page -> {
-            List<RelationshipTuple> tuples = new ArrayList<>();
             for (OrganizationParticipantIdentity member : page) {
                 if (member.isEnabled()) {
                     enabled.add(member.getId());
-                    tuples.add(AuthzGraphUtil.organizationMember(member.getId(), organizationId));
                 }
             }
-            return relationships.ensure(SYSTEM, tuples);
+            return Future.succeededFuture();
         });
     }
 }

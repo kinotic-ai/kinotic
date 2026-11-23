@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzModel;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
@@ -15,12 +15,13 @@ import org.kinotic.domain.api.services.Reconciler;
 import org.springframework.stereotype.Component;
 
 
+
 /**
  * The worker of the authorization stores: keeps the model a store runs equal to the one generated for it, the
  * system's from the directory entries that belong to it and an application's from the system's services
- * its users call and the services registered in its scope, and the store's built-in roles bundling what that
- * model has. The reconcile master calls it when a service of the store is registered, when the store is found
- * out of its desired state, and once when the master starts, so a model write the engine refused is made again
+ * its users call and the services registered in its scope on a type the store places, and the store's built-in
+ * roles bundling what that model has. The reconcile master calls it when such a service is registered, when the
+ * store is found out of its desired state, and once when the master starts, so a model write the engine refused is made again
  * and a master lost mid-write is caught up. The model is written as a new version only when it differs from
  * the one the engine runs.
  */
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Component;
 public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
 
     private final AuthzModelService models;
-    private final RelationshipService relationships;
+    private final RolePermissionsService rolePermissions;
     private final AuthzStoreRepository stores;
 
     @Override
@@ -44,13 +45,14 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
     }
 
     // The system's model from the system's own services; an application's from the system's services its
-    // users call and whatever services its runtimes registered
+    // users call and the services its runtimes registered on the types the store places, which alone the engine
+    // has relations and roles for
     private Future<AuthzModel> modelOf(AuthzStore store) {
         Future<AuthzModel> ret;
         if (store.getApplicationId() == null) {
             ret = models.findSystemModel();
         } else {
-            ret = models.findApplicationModel(store.getOrganizationId(), store.getApplicationId());
+            ret = models.findApplicationStoreModel(store.getOrganizationId(), store.getApplicationId());
         }
         return ret;
     }
@@ -70,10 +72,13 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
                          if (intended == null) {
                              ret = Future.succeededFuture();
                          } else {
-                             ret = relationships.ensureModelWithRoles(store, model)
-                                                .compose(version -> stores.reportObserved(store, revision,
-                                                                                          intended.getState().getGeneration(),
-                                                                                          "engine version " + version))
+                             // the ids are recorded before the report, so a reconciled record names the version
+                             // its servers check against
+                             ret = rolePermissions.ensureModelWithRoles(store, model)
+                                                .compose(engine -> stores.saveEngineStore(store, engine, "engine")
+                                                                         .compose(v -> stores.reportObserved(store, revision,
+                                                                                                             intended.getState().getGeneration(),
+                                                                                                             "engine version " + engine.modelId())))
                                                 .onSuccess(v -> log.debug("Store '{}' reconciled to model {}", store, revision.hash()));
                          }
                          return ret;

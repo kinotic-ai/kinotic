@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.app.api.services.TenantAdministrationService;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
@@ -55,7 +56,7 @@ public class TenantAdministrationTests extends KinoticTestBase {
 
     private static final String ADMINISTRATION = DomainUtil.APP_API_ZONE + "~" + TenantAdministrationService.class.getName();
     private static final String ENTITIES_SERVICE = DomainUtil.APP_API_ZONE + "~org.kinotic.persistence.api.services.JsonEntitiesRepository";
-    private static final String TENANT_ADMIN = AuthzUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN);
+    private static final String TENANT_ADMIN = AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN);
     private static final String READING = AuthzUtil.permissionName(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.CAN_READ);
 
     @Autowired
@@ -117,7 +118,7 @@ public class TenantAdministrationTests extends KinoticTestBase {
         Set<String> offered = Set.copyOf(await(runAs(admin, () -> administration.findRoles())).stream().map(RoleDefinition::id).toList());
         assertTrue(offered.containsAll(Set.of(TENANT_ADMIN, accountant.id())), offered.toString());
         assertFalse(offered.contains(staff.id()), offered.toString());
-        assertFalse(offered.contains(AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN)), offered.toString());
+        assertFalse(offered.contains(AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN)), offered.toString());
 
         Grant reads = await(runAs(admin, () -> administration.grant(user(bob), accountant.id())));
         assertEquals(tenant, reads.resource());
@@ -125,7 +126,7 @@ public class TenantAdministrationTests extends KinoticTestBase {
         assertEquals(Set.of(administers, reads), Set.copyOf(await(runAs(admin, () -> administration.findGrants()))));
         // a role its developers kept, a built-in role of the rows, a user of another tenant and another tenant
         assertTrue(failure(admin, () -> administration.grant(user(bob), staff.id())).getMessage().contains("not one a tenant's administrators grant"));
-        assertTrue(failure(admin, () -> administration.grant(user(bob), AuthzUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN)))
+        assertTrue(failure(admin, () -> administration.grant(user(bob), AuthzNameUtil.roleId(AuthzConstants.ENTITY_DEFINITION_TYPE, AuthzConstants.ADMIN)))
                            .getMessage().contains("not one a tenant's administrators grant"));
         assertEquals("No user of the tenant has id " + carol.getId(), failure(admin, () -> administration.grant(user(carol), accountant.id())).getMessage());
         assertInstanceOfIllegalArgument(failure(admin, () -> administration.grant(new Subject(SubjectType.TENANT, otherTenant), accountant.id())));

@@ -3,6 +3,7 @@ package org.kinotic.test.tests.core.application;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.app.api.services.ApplicationServiceDirectory;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Pageable;
@@ -18,7 +19,6 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.decorators.AuthzCheckC3Decorator;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -156,16 +156,21 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
         String appId = grantedApplication();
         String otherAppId = application();
 
-        ZoneRules rules = await(zoneRulesResolver.resolve(runtime));
+        ZoneRules rules = zoneRulesResolver.resolve(runtime);
 
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0")));
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + ".probes~Probe#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService#1.0.0")));
+        assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0"))));
+        assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + ".probes~Probe#1.0.0"))));
+        assertFalse(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService#1.0.0"))));
+        // the zone above its applications' is no application's
+        assertFalse(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.APP_ZONE_PREFIX + "." + TEST_ORG_ID + "~ReportService#1.0.0"))));
+        // a zone is decided when the runtime first subscribes in it, so an application granted since is hosted
+        String laterAppId = grantedApplication();
+        assertTrue(await(rules.subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, laterAppId) + "~ReportService#1.0.0"))));
         // it calls the services of the organization's other applications
         assertTrue(rules.sendAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, otherAppId) + "~ReportService/generate#1.0.0")));
         // a person hosts no application's services
-        assertFalse(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT))
-                            .subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0")));
+        assertFalse(await(zoneRulesResolver.resolve(TEST_ORGANIZATION_PARTICIPANT)
+                                  .subscribeAllowed(CRI.create("srv://" + DomainUtil.applicationZone(TEST_ORG_ID, appId) + "~ReportService#1.0.0"))));
     }
 
     private String application() throws Exception {
@@ -184,7 +189,7 @@ public class ApplicationServiceDirectoryTests extends KinoticTestBase {
     private void grantRuntime(String applicationId) throws Exception {
         await(relationships.bind(AuthzStoreService.SYSTEM,
                                  AuthzConstants.APPLICATION_RUNTIME_ROLE,
-                                 AuthzUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
+                                 AuthzNameUtil.object(AuthzConstants.USER_TYPE, runtime.getId()),
                                  AuthzGraphUtil.authzApplication(TEST_ORG_ID, applicationId)));
     }
 

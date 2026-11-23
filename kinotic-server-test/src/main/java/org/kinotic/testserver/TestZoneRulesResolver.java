@@ -1,6 +1,5 @@
 package org.kinotic.testserver;
 
-import io.vertx.core.Future;
 import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.event.ZoneRulesResolver;
 import org.kinotic.core.api.security.Participant;
@@ -19,10 +18,10 @@ import java.util.List;
 public class TestZoneRulesResolver implements ZoneRulesResolver {
 
     @Override
-    public Future<ZoneRules> resolve(Participant participant) {
+    public ZoneRules resolve(Participant participant) {
         List<String> hostedZones = participant instanceof OrganizationParticipant organization
                 ? List.of(DomainUtil.APP_ZONE_PREFIX + "." + organization.getOrganizationId())
                 : List.of();
-        return Future.succeededFuture(hostedZones).map(zones -> DomainUtil.zoneRules(participant, zones));
+        return DomainUtil.zoneRules(participant, hostedZones);
     }
 }

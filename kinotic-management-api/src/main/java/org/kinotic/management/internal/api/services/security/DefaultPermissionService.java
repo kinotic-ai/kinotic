@@ -5,30 +5,33 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AccessExplanation;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.RoleDefinition;
+import org.kinotic.authz.api.model.RolePermissions;
 import org.kinotic.authz.api.model.Subject;
 import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.authz.api.services.AccessCheckService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.security.ConnectionRevocationService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.Group;
-import org.kinotic.domain.api.model.security.Role;
+import org.kinotic.domain.api.model.security.RoleOwner;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.OrganizationParticipantIdentity;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.repositories.GroupRepository;
-import org.kinotic.domain.api.repositories.RoleRepository;
 import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.services.security.RoleService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
-import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.services.security.PermissionService;
@@ -49,13 +52,13 @@ import static org.kinotic.authz.api.services.AuthzStoreService.SYSTEM;
 @RequiredArgsConstructor
 public class DefaultPermissionService implements PermissionService {
 
-    // the console reads an organization's roles whole, a page at a time
-    private static final int ROLE_PAGE_SIZE = 1000;
-
     private final SecurityContext securityContext;
     private final AuthzModelService models;
     private final RelationshipService relationships;
-    private final RoleRepository roles;
+    private final ObjectLockService locks;
+    private final AccessCheckService accessChecks;
+    private final RolePermissionsService rolePermissions;
+    private final RoleService roleService;
     private final GroupRepository groups;
     private final ParticipantIdentityService identities;
     private final ConnectionRevocationService connectionRevocationService;
@@ -69,21 +72,8 @@ public class DefaultPermissionService implements PermissionService {
 
     @Override
     public Future<List<RoleDefinition>> findRoles() {
-        String organizationId = requireOrgParticipant().getOrganizationId();
-        return model().compose(model -> {
-            List<RoleDefinition> ret = new ArrayList<>(model.builtInRoles(AuthzConstants.ORGANIZATION_TYPE));
-            return customRoles(organizationId)
-                    .compose(rows -> Future.all(rows.stream().map(row -> defined(row, model)).toList()))
-                    .map(defined -> {
-                        ret.addAll(defined.list());
-                        return ret;
-                    });
-        });
-    }
-
-    // In name order, with the id ordering roles that share a name so the paging has a unique order
-    private Future<List<Role>> customRoles(String organizationId) {
-        return CursorPaging.readAll(pageable -> roles.findAllOfOrganization(organizationId, pageable), ROLE_PAGE_SIZE, Sort.by("name", "id"));
+        RoleOwner owner = RoleOwner.organization(requireOrgParticipant().getOrganizationId());
+        return model().compose(model -> roleService.findRoles(owner, model));
     }
 
     @Override
@@ -96,7 +86,7 @@ public class DefaultPermissionService implements PermissionService {
             if (role.id() != null && model.roles().containsKey(role.id())) {
                 throw new IllegalArgumentException("Role " + role.id() + " is built in and defined by the model");
             }
-            String home = role.id() == null ? role.resourceType() : AuthzUtil.roleHome(role.id());
+            String home = role.id() == null ? role.resourceType() : AuthzNameUtil.roleHome(role.id());
             if (home == null || !model.tier(AuthzConstants.ORGANIZATION_TYPE).contains(home)) {
                 throw new IllegalArgumentException("A role of the organization is homed at one of " + model.tier(AuthzConstants.ORGANIZATION_TYPE)
                                                            + ", not " + home);
@@ -111,45 +101,27 @@ public class DefaultPermissionService implements PermissionService {
                     throw new IllegalArgumentException("No permission a role homed at " + home + " can bundle is named '" + permission + "'");
                 }
             }
-            String roleId = role.id() == null ? AuthzUtil.roleId(home, UUID.randomUUID().toString()) : role.id();
-            // Under the lock a grant and a deletion of the role take. The role is read under it, so an edit that
-            // waited for a deletion finds no role and writes none; and every machine the role is granted to is
-            // among the holders read here or is granted the role as this edit leaves it
-            return relationships.exclusively(AuthzUtil.roleObject(roleId), () -> {
-                Future<Role> row = role.id() == null
-                        ? Future.succeededFuture(new Role().setId(roleId).setOrganizationId(organizationId).setCreated(new Date()))
-                        : requireRole(roleId, organizationId);
-                // The row first, then its permissions: a role whose permissions failed to write exists and grants
-                // nothing
-                return row.compose(existing -> roles.saveSync(existing.setName(role.name()).setDescription(role.description()).setUpdated(new Date()),
-                                                              organizationId))
-                          .compose(saved -> relationships.findRolePermissions(SYSTEM, saved.getId())
-                                  // read before the permissions are written, so an edit whose read failed is made
-                                  // again as the same edit
-                                  .compose(before -> role.permissions().containsAll(before.permissions())
-                                          ? Future.succeededFuture(List.<String>of())
-                                          : holders(saved.getId(), model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE)).compose(this::machines))
-                                  .compose(machines -> relationships.ensureRoles(SYSTEM, Map.of(saved.getId(), role.permissions()))
-                                                                    .compose(v -> reconnected(machines)))
-                                  .map(saved));
-            }).map(saved -> new RoleDefinition(saved.getId(), saved.getName(), saved.getDescription(), false, home,
-                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), Set.copyOf(role.permissions()), Map.of(), false));
+            RoleOwner owner = RoleOwner.organization(organizationId);
+            RolePermissions permissions = new RolePermissions(role.permissions());
+            // every machine the role is granted to is among the holders read here, under the lock a grant of the role
+            // takes, or is granted the role as this edit leaves it
+            return roleService.saveRole(owner, role, home, saved -> rolePermissions.findRolePermissions(SYSTEM, saved.getId())
+                                      // read before the permissions are written, so an edit whose read failed is
+                                      // made again as the same edit
+                                      .compose(before -> role.permissions().containsAll(before.permissions())
+                                              ? Future.succeededFuture(List.<String>of())
+                                              : holders(saved.getId(), model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE)).compose(this::machines))
+                                      .compose(machines -> rolePermissions.ensureRole(SYSTEM, saved.getId(), permissions)
+                                                                        .compose(v -> reconnected(machines))))
+                              .map(saved -> RoleService.definitionOf(saved, owner, model, permissions));
         });
     }
 
     @Override
     public Future<Void> deleteRole(String roleId) {
         Validate.notBlank(roleId, "roleId cannot be blank");
-        String organizationId = requireOrgParticipant().getOrganizationId();
-        String role = AuthzUtil.roleObject(roleId);
-        // under the lock a grant of the role takes, so every grant of it is made before the grants are read here or
-        // finds the role gone
-        return relationships.exclusively(role, () -> requireRole(roleId, organizationId)
-                .compose(row -> model())
-                .compose(model -> requireUnused(role, model.grantableOn(AuthzUtil.roleHome(roleId), AuthzConstants.ORGANIZATION_TYPE), "Role " + roleId))
-                // its permissions first, then the row: a role whose row outlives its permissions grants nothing
-                .compose(v -> relationships.removeObject(SYSTEM, role))
-                .compose(v -> roles.deleteByIdSync(roleId, organizationId)));
+        RoleOwner owner = RoleOwner.organization(requireOrgParticipant().getOrganizationId());
+        return model().compose(model -> roleService.deleteRole(owner, roleId, model));
     }
 
     @Override
@@ -177,10 +149,17 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(groupId, "groupId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return whileGroupKept(groupId, organizationId, () -> model()
-                .compose(model -> requireUnused(AuthzGraphUtil.authzSubject(new Subject(SubjectType.GROUP, groupId)),
-                                                model.tier(AuthzConstants.ORGANIZATION_TYPE), "Group " + groupId))
+                .compose(model -> relationships.findBindings(SYSTEM, AuthzNameUtil.userset(new Subject(SubjectType.GROUP, groupId)),
+                                                             model.tier(AuthzConstants.ORGANIZATION_TYPE)))
+                .compose(bindings -> {
+                    // a grant is revoked where it was made, so a group a grant still holds stays
+                    if (!bindings.isEmpty()) {
+                        throw new IllegalStateException("Group " + groupId + " is still held by grants; revoke them first");
+                    }
+                    return Future.<Void>succeededFuture();
+                })
                 // its membership first, then the row: a group whose row outlives its members reaches nobody
-                .compose(v -> relationships.removeObject(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
+                .compose(v -> relationships.removeObject(SYSTEM, AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
                 .compose(v -> groups.deleteByIdSync(groupId, organizationId)));
     }
 
@@ -188,7 +167,7 @@ public class DefaultPermissionService implements PermissionService {
     // made to the group, and a grant or a member is never written for a group whose row is gone. The group is read
     // once the lock is held
     private <T> Future<T> whileGroupKept(String groupId, String organizationId, Supplier<Future<T>> change) {
-        return relationships.exclusively(AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId),
+        return locks.exclusively(AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId),
                                          () -> requireGroup(groupId, organizationId).compose(row -> change.get()));
     }
 
@@ -197,12 +176,12 @@ public class DefaultPermissionService implements PermissionService {
         Validate.notBlank(groupId, "groupId cannot be blank");
         String organizationId = requireOrgParticipant().getOrganizationId();
         return requireGroup(groupId, organizationId)
-                .compose(row -> relationships.findMembers(SYSTEM, AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
+                .compose(row -> relationships.findMembers(SYSTEM, AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId)))
                 .compose(held -> {
                     List<Future<ParticipantIdentity>> members = new ArrayList<>();
                     for (String member : held) {
-                        if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member))) {
-                            members.add(identities.findById(AuthzUtil.idOf(member)));
+                        if (AuthzConstants.USER_TYPE.equals(AuthzNameUtil.typeOf(member))) {
+                            members.add(identities.findById(AuthzNameUtil.idOf(member)));
                         }
                     }
                     return Future.all(members);
@@ -241,21 +220,12 @@ public class DefaultPermissionService implements PermissionService {
         return model().compose(model -> requireGrantable(model, roleId, resource.type(), organizationId)
                 .compose(v -> requireSubject(subject, organizationId))
                 .compose(stored -> requireInOrganization(model, resource, organizationId)
-                        .compose(lineage -> whileRoleKept(model, roleId, organizationId, () -> {
-                            Supplier<Future<String>> bind = () -> relationships.bind(SYSTEM, roleId, AuthzGraphUtil.authzSubject(stored),
+                        .compose(lineage -> roleService.whileRoleKept(RoleOwner.organization(organizationId), model, roleId, () -> {
+                            Supplier<Future<String>> bind = () -> relationships.bind(SYSTEM, roleId, AuthzNameUtil.userset(stored),
                                                                                     AuthzGraphUtil.authzObject(organizationId, resource));
                             return stored.type() == SubjectType.GROUP ? whileGroupKept(stored.id(), organizationId, bind) : bind.get();
                         }))))
                 .map(grantId -> new Grant(grantId, roleId, subject, resource));
-    }
-
-    // A role of the organization's own is granted while no edit or deletion of it is under way, so saveRole finds
-    // every machine the role is granted to before it takes a permission away, and deleteRole every grant of it. The
-    // role is read once the lock is held. A built-in role never changes
-    private <T> Future<T> whileRoleKept(AuthzModel model, String roleId, String organizationId, Supplier<Future<T>> grant) {
-        return model.roles().containsKey(roleId)
-                ? grant.get()
-                : relationships.exclusively(AuthzUtil.roleObject(roleId), () -> requireRole(roleId, organizationId).compose(row -> grant.get()));
     }
 
     @Override
@@ -265,7 +235,7 @@ public class DefaultPermissionService implements PermissionService {
         String organizationId = requireOrgParticipant().getOrganizationId();
         String object = AuthzGraphUtil.authzObject(organizationId, resource);
         return model().compose(model -> requireInOrganization(model, resource, organizationId))
-                .compose(lineage -> machines(List.of(AuthzUtil.grantMember(grantId))))
+                .compose(lineage -> machines(List.of(AuthzNameUtil.grantMember(grantId))))
                 .compose(machines -> (AuthzConstants.ORGANIZATION_TYPE.equals(resource.type())
                         ? identities.removeAdministrators(object, grant -> grant.id().equals(grantId), OrganizationParticipantIdentity.class,
                                                           () -> relationships.revoke(SYSTEM, grantId, object))
@@ -275,7 +245,7 @@ public class DefaultPermissionService implements PermissionService {
 
     // The members of every grant of a role, on each type the role may be granted on
     private Future<List<String>> holders(String roleId, Set<String> boundOn) {
-        return relationships.findBindings(SYSTEM, AuthzUtil.roleObject(roleId), boundOn).compose(bindings -> {
+        return relationships.findBindings(SYSTEM, AuthzNameUtil.roleObject(roleId), boundOn).compose(bindings -> {
             Future<List<String>> ret = Future.succeededFuture(new ArrayList<>());
             for (String binding : bindings) {
                 ret = ret.compose(found -> relationships.findMembers(SYSTEM, binding).map(members -> {
@@ -291,8 +261,8 @@ public class DefaultPermissionService implements PermissionService {
     private Future<List<String>> machines(List<String> members) {
         Future<List<String>> ret = Future.succeededFuture(new ArrayList<>());
         for (String member : members) {
-            if (AuthzConstants.USER_TYPE.equals(AuthzUtil.typeOf(member))) {
-                String id = AuthzUtil.idOf(member);
+            if (AuthzConstants.USER_TYPE.equals(AuthzNameUtil.typeOf(member))) {
+                String id = AuthzNameUtil.idOf(member);
                 ret = ret.compose(found -> identities.findById(id).map(identity -> {
                     if (identity instanceof MachineParticipantIdentity) {
                         found.add(id);
@@ -339,8 +309,8 @@ public class DefaultPermissionService implements PermissionService {
         return requireSubject(subject, organizationId).compose(stored -> model()
                 .compose(model -> requireInOrganization(model, resource, organizationId)
                         .compose(this::grantsOn)
-                        .compose(grants -> relationships.explain(SYSTEM, model,
-                                                                 new RelationshipTuple(AuthzGraphUtil.authzSubject(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
+                        .compose(grants -> accessChecks.explain(SYSTEM, model,
+                                                                 new RelationshipTuple(AuthzNameUtil.userset(stored), name, AuthzGraphUtil.authzObject(organizationId, resource)),
                                                                  List.of(), grants)))
                 .map(AuthzGraphUtil::localExplanation));
     }
@@ -362,10 +332,10 @@ public class DefaultPermissionService implements PermissionService {
      * resource must be in.
      */
     private Future<List<String>> requireInOrganization(AuthzModel model, Resource resource, String organizationId) {
-        String organization = AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId);
+        String organization = AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId);
         return relationships.findLineage(SYSTEM, AuthzGraphUtil.authzObject(organizationId, resource), organization, model.parents()).map(lineage -> {
             if (!organization.equals(lineage.getLast())) {
-                throw new IllegalArgumentException(AuthzUtil.object(resource.type(), resource.id()) + " is not in organization " + organizationId);
+                throw new IllegalArgumentException(AuthzNameUtil.object(resource.type(), resource.id()) + " is not in organization " + organizationId);
             }
             return lineage;
         });
@@ -375,12 +345,12 @@ public class DefaultPermissionService implements PermissionService {
     private Future<Void> requireGrantable(AuthzModel model, String roleId, String resourceType, String organizationId) {
         Future<Void> ret;
         if (model.roles().containsKey(roleId)) {
-            if (!model.tier(AuthzConstants.ORGANIZATION_TYPE).contains(AuthzUtil.roleHome(roleId))) {
+            if (!model.tier(AuthzConstants.ORGANIZATION_TYPE).contains(AuthzNameUtil.roleHome(roleId))) {
                 throw new IllegalArgumentException("Role " + roleId + " is not a role of the organization");
             }
             ret = Future.succeededFuture();
         } else {
-            ret = requireRole(roleId, organizationId).mapEmpty();
+            ret = roleService.requireRole(RoleOwner.organization(organizationId), roleId).mapEmpty();
         }
         return ret.map(v -> {
             model.requireGrantable(roleId, resourceType);
@@ -400,15 +370,6 @@ public class DefaultPermissionService implements PermissionService {
     }
 
     // A role of one of the organization's applications is granted in that application's store, never here
-    private Future<Role> requireRole(String roleId, String organizationId) {
-        return roles.findById(roleId, organizationId).map(role -> {
-            if (role == null || role.getApplicationId() != null) {
-                throw new IllegalArgumentException("No role of the organization has id " + roleId);
-            }
-            return role;
-        });
-    }
-
     private Future<Group> requireGroup(String groupId, String organizationId) {
         return groups.findById(groupId, organizationId).map(group -> {
             if (group == null) {
@@ -445,23 +406,6 @@ public class DefaultPermissionService implements PermissionService {
         return identity instanceof OrganizationParticipantIdentity member && organizationId.equals(member.getOrganizationId());
     }
 
-    // A grant is revoked where it was made, so a role or group a grant still holds stays
-    private Future<Void> requireUnused(String user, Set<String> boundOn, String what) {
-        return relationships.findBindings(SYSTEM, user, boundOn).map(bindings -> {
-            if (!bindings.isEmpty()) {
-                throw new IllegalStateException(what + " is still held by grants; revoke them first");
-            }
-            return null;
-        });
-    }
-
-    private Future<RoleDefinition> defined(Role role, AuthzModel model) {
-        String home = AuthzUtil.roleHome(role.getId());
-        return relationships.findRolePermissions(SYSTEM, role.getId())
-                            .map(bundled -> new RoleDefinition(role.getId(), role.getName(), role.getDescription(), false, home,
-                                                               model.grantableOn(home, AuthzConstants.ORGANIZATION_TYPE), bundled.permissions(), Map.of(), false));
-    }
-
     private Future<AuthzModel> model() {
         return models.findSystemModel();
     }
@@ -473,8 +417,9 @@ public class DefaultPermissionService implements PermissionService {
     private static void validate(Subject subject) {
         Validate.notNull(subject, "subject cannot be null");
         Validate.notNull(subject.type(), "subject type cannot be null");
-        // tenants are an application's, and so are grants to their users
-        Validate.isTrue(subject.type() != SubjectType.TENANT, "a grant in an organization is made to a member, a machine or a group");
+        // tenants and end users are an application's, and so are grants to them
+        Validate.isTrue(subject.type() == SubjectType.USER || subject.type() == SubjectType.GROUP,
+                        "a grant in an organization is made to a member, a machine or a group");
         Validate.notBlank(subject.id(), "subject id cannot be blank");
     }
 

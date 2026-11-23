@@ -145,7 +145,7 @@ public class EndpointConnectionHandlerTests {
         services.jsonMapper = jsonMapper;
         services.exceptionConverter = new JacksonExceptionConverter(new KinoticProperties(), jsonMapper);
         services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
-                                                                    participant -> Future.succeededFuture(ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))));
+                                                                    participant -> ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE)));
         services.securityService = mock(SecurityService.class);
         when(services.securityService.authenticate(any(), any())).thenReturn(Future.succeededFuture(participant()));
         services.requestAuthorizer = mock(RequestAuthorizer.class);
@@ -484,6 +484,45 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
+    public void testSubscriptionListensOnceItsZoneIsAdmitted() throws Exception {
+        Promise<Boolean> admitted = Promise.promise();
+        EndpointConnectionHandler handler = connectAdmittedBy(admitted);
+
+        Future<Void> subscribed = subscribeService(handler);
+
+        Assertions.assertFalse(subscribed.isComplete(), "the subscription listened before its zone was admitted");
+        verify(eventBusService, never()).listen(any());
+        admitted.complete(true);
+        Assertions.assertTrue(subscribed.succeeded());
+        verify(eventBusService).listen(any());
+    }
+
+    @Test
+    public void testSubscriptionInAZoneNotAdmittedIsRefused() throws Exception {
+        Promise<Boolean> admitted = Promise.promise();
+        EndpointConnectionHandler handler = connectAdmittedBy(admitted);
+
+        Future<Void> subscribed = subscribeService(handler);
+        admitted.complete(false);
+
+        Assertions.assertInstanceOf(AuthorizationException.class, subscribed.cause());
+        verify(eventBusService, never()).listen(any());
+    }
+
+    @Test
+    public void testSubscriptionAdmittedAfterItsConnectionEndedDoesNotListen() throws Exception {
+        Promise<Boolean> admitted = Promise.promise();
+        EndpointConnectionHandler handler = connectAdmittedBy(admitted);
+
+        Future<Void> subscribed = subscribeService(handler);
+        handler.shutdown();
+        admitted.complete(true);
+
+        Assertions.assertTrue(subscribed.failed());
+        verify(eventBusService, never()).listen(any());
+    }
+
+    @Test
     public void testSubscriptionIdReusedAcrossSchemesEndsThePreviousConsumer() throws Exception {
         EndpointConnectionHandler handler = connect(Map.of());
         handler.subscribe(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0"), "sub-1", new StompSubscriptionHandler() {
@@ -781,6 +820,24 @@ public class EndpointConnectionHandlerTests {
                                                    EventConstants.CORRELATION_ID_HEADER, correlationId));
         replyDelivery.get().handle(Event.create(CRI.create(SERVICE_DESTINATION), metadata, new byte[0]));
         return delivered;
+    }
+
+    // a connection whose participant subscribes in the application zone once the promise admits it
+    private EndpointConnectionHandler connectAdmittedBy(Promise<Boolean> admitted) throws Exception {
+        services.stompAuthorizerFactory = new StompAuthorizerFactory(ZonePartitioningService.everyZone("test"),
+                                                                    participant -> ZoneRules.of(Set.of(APP_ZONE), Set.of(APP_ZONE))
+                                                                                             .subscribingWhere(zone -> admitted.future()));
+        return connect(Map.of());
+    }
+
+    private static Future<Void> subscribeService(EndpointConnectionHandler handler) {
+        return handler.subscribe(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0"), "svc-1", new StompSubscriptionHandler() {
+            @Override
+            public void handleEvent(Event<byte[]> event) {}
+
+            @Override
+            public void handleError(Throwable throwable) {}
+        });
     }
 
     private EndpointConnectionHandler connect(Map<String, String> connectHeaders) throws Exception {

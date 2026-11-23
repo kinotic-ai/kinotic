@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
@@ -33,7 +34,6 @@ import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
@@ -310,7 +310,7 @@ public class VisibilityTests extends KinoticTestBase {
         List<RelationshipTuple> placed = new ArrayList<>();
         for (int i = 0; i < 3000; i++) {
             placed.add(AuthzGraphUtil.containment(applicationObject,
-                                                  AuthzUtil.object(ProjectService.RESOURCE_TYPE, TEST_ORG_ID + "." + x.getId() + "-placed-" + i)));
+                                                  AuthzNameUtil.object(ProjectService.RESOURCE_TYPE, TEST_ORG_ID + "." + x.getId() + "-placed-" + i)));
         }
         await(relationships.ensure(AuthzStoreService.SYSTEM, placed));
         OrganizationParticipantIdentity sally = member(TEST_ORG_ID, "visible");

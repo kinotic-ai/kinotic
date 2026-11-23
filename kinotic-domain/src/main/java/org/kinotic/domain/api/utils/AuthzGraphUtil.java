@@ -4,16 +4,15 @@ import org.apache.commons.lang3.EnumUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.model.AccessExplanation;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
 import org.kinotic.authz.api.model.Subject;
-import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.DelegateType;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 
 import java.util.List;
 import java.util.Map;
@@ -69,21 +68,7 @@ public final class AuthzGraphUtil {
      */
     public static String authzUser(String identityId) {
         Validate.notBlank(identityId, "identityId cannot be blank");
-        return AuthzUtil.object(AuthzConstants.USER_TYPE, identityId);
-    }
-
-    /**
-     * The tuple making an organization's user a member of the organization, which a grant to the organization's
-     * members reaches.
-     *
-     * @param organizationUserId the organization's user
-     * @param organizationId     the organization
-     * @return the membership tuple
-     */
-    public static RelationshipTuple organizationMember(String organizationUserId, String organizationId) {
-        return new RelationshipTuple(authzUser(organizationUserId),
-                                     AuthzConstants.MEMBER_RELATION,
-                                     AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
+        return AuthzNameUtil.object(AuthzConstants.USER_TYPE, identityId);
     }
 
     /**
@@ -97,22 +82,7 @@ public final class AuthzGraphUtil {
     public static RelationshipTuple groupMember(String organizationUserId, String groupId) {
         return new RelationshipTuple(authzUser(organizationUserId),
                                      AuthzConstants.MEMBER_RELATION,
-                                     AuthzUtil.object(AuthzConstants.GROUP_TYPE, groupId));
-    }
-
-    /**
-     * Who a grant to a subject is made to in the authorization stores: a user as {@code user:<id>}, a group as its
-     * members, {@code group:<id>#member}, a tenant as its users, {@code tenant:<id>#member}.
-     *
-     * @param subject the subject, named as the stores hold it
-     * @return the user or userset
-     */
-    public static String authzSubject(Subject subject) {
-        return switch (subject.type()) {
-            case USER -> AuthzUtil.object(AuthzConstants.USER_TYPE, subject.id());
-            case GROUP -> AuthzUtil.object(AuthzConstants.GROUP_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-            case TENANT -> AuthzUtil.object(AuthzConstants.TENANT_TYPE, subject.id()) + "#" + AuthzConstants.MEMBER_RELATION;
-        };
+                                     AuthzNameUtil.object(AuthzConstants.GROUP_TYPE, groupId));
     }
 
     /**
@@ -168,7 +138,7 @@ public final class AuthzGraphUtil {
      * @return the object
      */
     public static String authzApplication(String organizationId, String applicationId) {
-        return AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, authzApplicationId(organizationId, applicationId));
+        return AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, authzApplicationId(organizationId, applicationId));
     }
 
     /**
@@ -180,7 +150,7 @@ public final class AuthzGraphUtil {
      * @return the containment tuple
      */
     public static RelationshipTuple containment(String parent, String child) {
-        return new RelationshipTuple(parent, AuthzUtil.typeOf(parent), child);
+        return new RelationshipTuple(parent, AuthzNameUtil.typeOf(parent), child);
     }
 
     /**
@@ -190,7 +160,7 @@ public final class AuthzGraphUtil {
      * @return the containment tuple
      */
     public static RelationshipTuple organizationContainment(String organizationId) {
-        return containment(AuthzConstants.SYSTEM_OBJECT, AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
+        return containment(AuthzNameUtil.SYSTEM_OBJECT, AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId));
     }
 
     /**
@@ -202,21 +172,21 @@ public final class AuthzGraphUtil {
      * @return the containment tuple
      */
     public static RelationshipTuple tenantContainment(String organizationId, String applicationId, String tenantId) {
-        return containment(authzApplication(organizationId, applicationId), AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId));
+        return containment(authzApplication(organizationId, applicationId), AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenantId));
     }
 
     /**
      * The tuples an application's user holds in its application's own store: the user is an end user of the
-     * application, and its tenant is placed under the application with the user as a member. The system's store
-     * holds the first of them, the end user tuple, alone.
+     * application, which a grant to every end user of it reaches, and its tenant is placed under the application
+     * with the user as a member.
      *
      * @param user an application's user
-     * @return the tuples, the end user tuple first
+     * @return the tuples
      */
     public static List<RelationshipTuple> applicationUserTuples(ApplicationParticipantIdentity user) {
         String me = authzUser(user.getId());
         String application = authzApplication(user.getOrganizationId(), user.getApplicationId());
-        String tenant = AuthzUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
+        String tenant = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, user.getTenantId());
         return List.of(new RelationshipTuple(me, AuthzConstants.END_USER_RELATION, application),
                        tenantContainment(user.getOrganizationId(), user.getApplicationId(), user.getTenantId()),
                        new RelationshipTuple(me, AuthzConstants.MEMBER_RELATION, tenant));
@@ -224,17 +194,17 @@ public final class AuthzGraphUtil {
 
     /**
      * The two edges of a definition within a tenant, the object a tenant's user is checked on for the definition's
-     * rows: the definition's, and the tenant's. No store holds tuples for the object, so a check on it is given
-     * the edges.
+     * rows: the definition's, and the tenant's. A store holds them only for an object granted on, so a check on
+     * it is given the edges.
      *
      * @param definitionId the definition's id
      * @param tenantId     the tenant's id within its application
      * @return the edges to give the check
      */
     public static List<RelationshipTuple> tenantDefinitionEdges(String definitionId, String tenantId) {
-        String object = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(definitionId, tenantId));
-        return List.of(new RelationshipTuple(AuthzUtil.object(AuthzConstants.ENTITY_DEFINITION_TYPE, definitionId), AuthzConstants.DEFINITION_RELATION, object),
-                       new RelationshipTuple(AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenantId), AuthzConstants.TENANT_TYPE, object));
+        String object = AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(definitionId, tenantId));
+        return List.of(new RelationshipTuple(AuthzNameUtil.object(AuthzConstants.ENTITY_DEFINITION_TYPE, definitionId), AuthzConstants.DEFINITION_RELATION, object),
+                       new RelationshipTuple(AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenantId), AuthzConstants.TENANT_TYPE, object));
     }
 
     /**
@@ -246,19 +216,35 @@ public final class AuthzGraphUtil {
      * @return the object
      */
     public static String authzObject(String organizationId, Resource resource) {
-        return AuthzUtil.object(resource.type(), authzId(resource.type(), organizationId, resource.id()));
+        return AuthzNameUtil.object(resource.type(), authzId(resource.type(), organizationId, resource.id()));
     }
 
     /**
-     * A grant read from the authorization stores, named as the resource's organization knows it: its resource by
-     * the resource's local id.
+     * Who a grant to a subject named as its organization knows it is made to in the authorization stores, as
+     * {@link AuthzNameUtil#userset} names it: an application's end users by the application's id in the stores.
+     *
+     * @param organizationId the organization the subject belongs to
+     * @param subject        the subject
+     * @return the user or the userset
+     */
+    public static String authzSubject(String organizationId, Subject subject) {
+        String type = subject.type().getObjectType();
+        return AuthzNameUtil.userset(new Subject(subject.type(), authzId(type, organizationId, subject.id())));
+    }
+
+    /**
+     * A grant read from the authorization stores, named as the resource's organization knows it: its resource and
+     * its subject each by the local id.
      *
      * @param grant the grant as the stores hold it
      * @return the grant with local ids
      */
     public static Grant localGrant(Grant grant) {
         Resource resource = grant.resource();
-        return new Grant(grant.id(), grant.roleId(), grant.subject(), new Resource(resource.type(), localId(resource.type(), resource.id())));
+        Subject subject = grant.subject();
+        return new Grant(grant.id(), grant.roleId(),
+                         new Subject(subject.type(), localId(subject.type().getObjectType(), subject.id())),
+                         new Resource(resource.type(), localId(resource.type(), resource.id())));
     }
 
     /**

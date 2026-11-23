@@ -4,10 +4,14 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzModel;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.RelationshipTuple;
+import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectType;
 import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.RolePermissionsService;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Sort;
@@ -16,18 +20,15 @@ import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.AuthzModelRevision;
 import org.kinotic.domain.api.model.AuthzStore;
 import org.kinotic.domain.api.model.Tenant;
-import org.kinotic.domain.api.model.persistence.EntityDefinition;
 import org.kinotic.domain.api.repositories.AuthzStoreRepository;
 import org.kinotic.domain.api.repositories.EntityDefinitionRepository;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.CursorPaging;
 import org.kinotic.idl.api.utils.AuthzConstants;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -51,6 +52,7 @@ public class ApplicationStoreProvisioner {
     private final AuthzStoreService stores;
     private final AuthzModelGenerator generator;
     private final RelationshipService relationships;
+    private final RolePermissionsService rolePermissions;
     private final AuthzStoreRepository records;
     private final ServiceDirectory directory;
     private final ProjectRepository projects;
@@ -82,18 +84,11 @@ public class ApplicationStoreProvisioner {
      */
     public Future<Void> removeTenant(Tenant tenant) {
         String store = AuthzGraphUtil.authzApplicationId(tenant.getOrganizationId(), tenant.getApplicationId());
-        String tenantObject = AuthzUtil.object(AuthzConstants.TENANT_TYPE, tenant.getId());
-        return eachPage(pageable -> entityDefinitions.findAllForApplication(tenant.getApplicationId(), tenant.getOrganizationId(), pageable),
-                        page -> {
-                            Future<Void> ret = Future.succeededFuture();
-                            for (EntityDefinition definition : page) {
-                                String within = AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE,
-                                                                 AuthzUtil.tenantDefinitionId(definition.getId(), tenant.getId()));
-                                ret = ret.compose(v -> relationships.removeObject(store, within));
-                            }
-                            return ret;
-                        })
-                .compose(v -> relationships.removeSubject(store, tenantObject + "#" + AuthzConstants.MEMBER_RELATION))
+        String tenantObject = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, tenant.getId());
+        // a definition within the tenant holds the tenant's edge once it is granted on, so the ones granted on are
+        // read from the store
+        return relationships.removeObjectsOf(store, tenantObject, AuthzConstants.TENANT_DEFINITION_TYPE)
+                .compose(v -> relationships.removeSubject(store, AuthzNameUtil.userset(new Subject(SubjectType.TENANT, tenant.getId()))))
                 .compose(v -> relationships.removeObject(store, tenantObject));
     }
 
@@ -105,7 +100,7 @@ public class ApplicationStoreProvisioner {
      * @return the containment tuple
      */
     public static RelationshipTuple containment(String organizationId, String applicationId) {
-        return AuthzGraphUtil.containment(AuthzUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId),
+        return AuthzGraphUtil.containment(AuthzNameUtil.object(AuthzConstants.ORGANIZATION_TYPE, organizationId),
                                           AuthzGraphUtil.authzApplication(organizationId, applicationId));
     }
 
@@ -134,7 +129,7 @@ public class ApplicationStoreProvisioner {
                              // the record to the model the services imply on its next look. It is created once the
                              // holdings are placed: OrganizationGraphSeedJob provisions an application that has
                              // no record, so a placement that failed is made again by its next run
-                             ret = relationships.ensureModelWithRoles(store, kernel)
+                             ret = rolePermissions.ensureModelWithRoles(store, kernel)
                                                 .compose(version -> relationships.ensure(store, List.of(placement(store))))
                                                 .compose(v -> placeHoldings(application))
                                                 .compose(v -> records.updateDesired(store, new AuthzModelRevision(kernel.hash()), created, "application created"))
@@ -159,16 +154,9 @@ public class ApplicationStoreProvisioner {
                                            return relationships.ensure(SYSTEM, placed).compose(w -> relationships.ensure(store, placed));
                                        }))
                 .compose(v -> eachPage(pageable -> identities.findApplicationUsers(organizationId, applicationId, pageable),
-                                       page -> {
-                                           List<RelationshipTuple> endUsers = new ArrayList<>();
-                                           List<RelationshipTuple> inApplication = new ArrayList<>();
-                                           page.forEach(user -> {
-                                               List<RelationshipTuple> tuples = AuthzGraphUtil.applicationUserTuples(user);
-                                               endUsers.add(tuples.getFirst());
-                                               inApplication.addAll(tuples);
-                                           });
-                                           return relationships.ensure(SYSTEM, endUsers).compose(w -> relationships.ensure(store, inApplication));
-                                       }));
+                                       page -> relationships.ensure(store, page.stream()
+                                                                                   .flatMap(user -> AuthzGraphUtil.applicationUserTuples(user).stream())
+                                                                                   .toList())));
     }
 
     // Pages in id order, which orders the documents uniquely
@@ -179,6 +167,6 @@ public class ApplicationStoreProvisioner {
     // The one tuple the application holds in its own store: everyone is placed on it, which the placement of each
     // definition under it is read through
     private static RelationshipTuple placement(String store) {
-        return new RelationshipTuple(AuthzConstants.EVERYONE, AuthzConstants.PLACED_RELATION, AuthzUtil.object(AuthzConstants.APPLICATION_TYPE, store));
+        return new RelationshipTuple(AuthzConstants.EVERYONE, AuthzConstants.PLACED_RELATION, AuthzNameUtil.object(AuthzConstants.APPLICATION_TYPE, store));
     }
 }

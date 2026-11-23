@@ -4,15 +4,17 @@ import com.github.benmanes.caffeine.cache.AsyncCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Consistency;
 import org.kinotic.authz.api.model.RelationshipTuple;
 import org.kinotic.authz.api.model.Resource;
-import org.kinotic.authz.api.services.AuthzModelGenerator;
-import org.kinotic.authz.api.services.RelationshipService;
+import org.kinotic.authz.api.services.AccessCheckService;
+import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
@@ -24,10 +26,12 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.domain.api.services.security.AuthzModelService;
 import org.kinotic.domain.api.services.security.NamedQueryAuthorizer;
 import org.kinotic.domain.api.services.security.RequestPermissionResolver;
 import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.internal.api.model.CheckedCall;
 import org.kinotic.domain.internal.api.model.FunctionSpec;
 import org.kinotic.domain.internal.api.model.ParameterReference;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -53,6 +57,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -86,7 +91,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     // a service's contract is read from the directory once and kept until the directory announces it written again;
     // the retention bounds how long a node that missed the announcement keeps an old check
     private static final Duration DEFINITION_RETENTION = Duration.ofMinutes(5);
-    private static final int DEFINITION_CAPACITY = 10_000;
+    // the functions kept, whatever the number of services they are of: what is kept of a function is a few hundred
+    // bytes, and an application runs thousands of services
+    private static final long FUNCTION_CAPACITY = 250_000;
+    private static final long SERVICE_TYPE_CAPACITY = 50_000;
 
     // the scope levels a check can be made on, each named by the template of its id, innermost first: a caller
     // missing one is checked on the next, and one missing them all on the system
@@ -102,14 +110,24 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     private final ObjectProvider<ServiceDirectory> directoryProvider;
     private final ObjectProvider<RequestPermissionResolver> permissionResolvers;
-    private final RelationshipService relationships;
+    private final AccessCheckService accessChecks;
+    private final AuthzModelService models;
     private final JsonMapper jsonMapper;
     private final Vertx vertx;
     private final SecurityExceptionFactory securityExceptions;
     private final AsyncCache<String, Map<String, FunctionSpec>> definitions = Caffeine.newBuilder()
-                                                                                    .maximumSize(DEFINITION_CAPACITY)
+                                                                                    .maximumWeight(FUNCTION_CAPACITY)
+                                                                                    // a service kept with no function, as one the directory lacks is, still holds an entry
+                                                                                    .weigher((String entryId, Map<String, FunctionSpec> functions) -> Math.max(1, functions.size()))
                                                                                     .expireAfterWrite(DEFINITION_RETENTION)
                                                                                     .buildAsync();
+    // The roles holding each permission of one type of an application's own services, by serviceTypeKey: all a check
+    // needs of the model the services deciding the type make, which is tens of kilobytes for each type. Read once
+    // and kept until the directory announces the type decided again, with the retention a contract is kept by
+    private final AsyncCache<String, Map<String, Set<String>>> serviceTypes = Caffeine.newBuilder()
+                                                                                      .maximumSize(SERVICE_TYPE_CAPACITY)
+                                                                                      .expireAfterWrite(DEFINITION_RETENTION)
+                                                                                      .buildAsync();
 
     /**
      * Listens for the directory announcing a contract written, and drops what is kept of it, so a function's
@@ -119,6 +137,10 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     void listenForContractChanges() {
         // TODO: remove this and similar cache eviction logic infavor of more advanced cache eviction done in the kinotic-persistence module
         vertx.eventBus().<String>consumer(ServiceDirectory.CONTRACT_CHANGED_ADDRESS, message -> forget(message.body()));
+        vertx.eventBus().<JsonObject>consumer(AuthzModelService.TYPES_CHANGED_ADDRESS, message -> {
+            String store = message.body().getString("store");
+            message.body().getJsonArray("types").forEach(type -> serviceTypes.synchronous().invalidate(serviceTypeKey(store, (String) type)));
+        });
     }
 
     private void forget(String entryId) {
@@ -145,16 +167,23 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                                                                  .setResourceId(STATEMENT_DEFINITION_ID)
                                                                  .setAcrossTenants(acrossTenants);
         FunctionSpec spec = new FunctionSpec(check, STATEMENT_DEFINITION_REFERENCES, null, List.of());
-        return withStore(participant, (scoped, store) -> check(spec, NamedQueryPermissionResolver.permissionOf(statement), scoped, store,
-                                                                reference -> entityDefinitionId));
+        return withStore(participant, (scoped, store) -> check(new CheckedCall(spec, scoped, store, reference -> entityDefinitionId),
+                                                                NamedQueryPermissionResolver.permissionOf(statement)));
     }
 
     // Authorizes the request, reading a parameter the check names with the given function
     private Future<Void> authorize(CRI cri, Participant participant, Function<ParameterReference, String> arguments) {
         Validate.notNull(cri, "cri cannot be null");
-        return withStore(participant, (scoped, store) -> spec(cri).compose(spec -> spec.check() == null
-                ? Future.succeededFuture()
-                : permissionOf(spec, scoped, arguments).compose(permission -> check(spec, permission, scoped, store, arguments))));
+        return withStore(participant, (scoped, store) -> spec(cri).compose(spec -> {
+            Future<Void> ret;
+            if (spec.check() == null) {
+                ret = Future.succeededFuture();
+            } else {
+                CheckedCall call = new CheckedCall(spec, scoped, store, arguments);
+                ret = permissionOf(call).compose(permission -> check(call, permission));
+            }
+            return ret;
+        }));
     }
 
     // Runs the authorization with the store answering for the caller: an application's own user's is the
@@ -286,9 +315,8 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
 
     // The permission the request needs: the one its check names, else the one its resolver decides from the
     // request, which must be one the contract records the resolver may require
-    private Future<AuthzPermissionChoice> permissionOf(FunctionSpec spec,
-                                                       ScopedParticipant participant,
-                                                       Function<ParameterReference, String> arguments) {
+    private Future<AuthzPermissionChoice> permissionOf(CheckedCall call) {
+        FunctionSpec spec = call.spec();
         AuthzCheckC3Decorator check = spec.check();
         String name = check.getPermissionResolver();
         Future<AuthzPermissionChoice> ret;
@@ -301,7 +329,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             try {
                 List<String> values = new ArrayList<>();
                 for (ParameterReference argument : spec.resolverArguments()) {
-                    String value = arguments.apply(argument);
+                    String value = call.arguments().apply(argument);
                     if (value == null || value.isEmpty()) {
                         throw securityExceptions.notAuthorized("The request names no {}, which its permission resolver needs",
                                                                argument.parameter());
@@ -311,7 +339,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
                 // a lookup that fails is refused as one the caller holds no permission for, so the refusal tells
                 // nothing about what exists
                 ret = spec.resolver()
-                          .resolve(participant, values)
+                          .resolve(call.participant(), values)
                           .recover(e -> Future.failedFuture(e instanceof AuthorizationException
                                   ? e
                                   : securityExceptions.notAuthorized("The permission resolver {} decided nothing: {}", name, e.getMessage())))
@@ -330,35 +358,17 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
         return choice != null && check.getPossiblePermissions().stream().anyMatch(possible -> possible.getPermission().equals(choice.getPermission()));
     }
 
-    private Future<Void> check(FunctionSpec spec,
-                               AuthzPermissionChoice permission,
-                               ScopedParticipant participant,
-                               String store,
-                               Function<ParameterReference, String> arguments) {
-        AuthzCheckC3Decorator check = spec.check();
+    private Future<Void> check(CheckedCall call, AuthzPermissionChoice permission) {
+        AuthzCheckC3Decorator check = call.spec().check();
+        ScopedParticipant participant = call.participant();
+        ParticipantScope scope = participant.getScope();
         Future<Void> ret;
         try {
             requireWithinTenant(participant, check, permission.getPermission());
             requireWithinCeiling(participant, check.getPermissionResource(), permission.getPermission());
-            ret = checkOn(checkedOn(check, participant.getScope(), store), spec, permission, participant, store, arguments);
-        } catch (AuthorizationException e) {
-            ret = Future.failedFuture(e);
-        }
-        return ret;
-    }
-
-    private Future<Void> checkOn(Resource checked,
-                                 FunctionSpec spec,
-                                 AuthzPermissionChoice permission,
-                                 ScopedParticipant participant,
-                                 String store,
-                                 Function<ParameterReference, String> arguments) {
-        AuthzCheckC3Decorator check = spec.check();
-        ParticipantScope scope = participant.getScope();
-        Future<Void> ret;
-        try {
-            String resourceId = authzIdOf(checked.type(), resolve(checked.id(), spec, scope, arguments), scope);
-            if (!AuthzUtil.isObjectId(resourceId)) {
+            Resource checked = checkedOn(check, scope, call.store());
+            String resourceId = authzIdOf(checked.type(), resolve(checked.id(), call), scope);
+            if (!AuthzNameUtil.isObjectId(resourceId)) {
                 throw securityExceptions.notAuthorized("The request names the {} '{}', which names no resource", checked.type(), resourceId);
             }
             // An application's user is checked on the definition within its tenant, an object no store holds tuples
@@ -368,26 +378,53 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
             // an organization's member or runtime, which a function acting on every tenant's rows admits alone
             boolean withinTenant = AuthzConstants.ENTITY_DEFINITION_TYPE.equals(checked.type()) && scope.tenantId() != null;
             String object = withinTenant
-                    ? AuthzUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzUtil.tenantDefinitionId(resourceId, scope.tenantId()))
-                    : AuthzUtil.object(checked.type(), resourceId);
+                    ? AuthzNameUtil.object(AuthzConstants.TENANT_DEFINITION_TYPE, AuthzNameUtil.tenantDefinitionId(resourceId, scope.tenantId()))
+                    : AuthzNameUtil.object(checked.type(), resourceId);
             List<RelationshipTuple> edges = withinTenant ? AuthzGraphUtil.tenantDefinitionEdges(resourceId, scope.tenantId()) : List.of();
             RelationshipTuple relationship = new RelationshipTuple(AuthzGraphUtil.authzUser(participant),
                                                                    AuthzUtil.permissionName(check.getPermissionResource(), permission.getPermission()),
                                                                    object);
-            Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
-            // an application's store has no relation for a permission of the application's own services: a role
-            // holds one by its name, which the check asks for
-            boolean ofService = !SYSTEM.equals(store) && !AuthzModelGenerator.APPLICATION_TYPES.contains(check.getPermissionResource());
-            Future<Boolean> held = ofService
-                    ? relationships.checkServicePermission(store, relationship.user(), relationship.relation(), object, consistency)
-                    : relationships.check(store, relationship, consistency, edges);
-            ret = held.compose(allowed -> allowed
-                                       ? Future.succeededFuture()
-                                       : Future.failedFuture(refusal(relationship, permission.getReason())));
+            ret = held(call, relationship, edges).compose(allowed -> allowed
+                    ? Future.succeededFuture()
+                    : Future.failedFuture(refusal(relationship, permission.getReason())));
         } catch (AuthorizationException e) {
             ret = Future.failedFuture(e);
         }
         return ret;
+    }
+
+    // Whether the caller holds the permission the relationship names, with the edges of an object no store holds
+    private Future<Boolean> held(CheckedCall call, RelationshipTuple relationship, List<RelationshipTuple> edges) {
+        AuthzCheckC3Decorator check = call.spec().check();
+        String store = call.store();
+        Consistency consistency = check.isConsistent() ? Consistency.HIGHER_CONSISTENCY : Consistency.MINIMIZE_LATENCY;
+        Future<Boolean> ret;
+        if (AuthzStoreService.places(store, check.getPermissionResource())) {
+            ret = accessChecks.check(store, relationship, consistency, edges);
+        } else {
+            // an application's store has no relation for a permission of the application's own services: a role
+            // holds one by its name, which the check asks for
+            ret = rolesHolding(call.participant().getScope(), store, check.getPermissionResource(), relationship.relation())
+                    .compose(roles -> accessChecks.checkServicePermission(store, relationship.user(), relationship.relation(), relationship.object(),
+                                                                           roles, consistency));
+        }
+        return ret;
+    }
+
+    // The roles holding a permission of a type of the application's own services by declaration, which the contracts
+    // of the services deciding the type say and no store holds
+    private Future<Set<String>> rolesHolding(ParticipantScope scope, String store, String type, String permission) {
+        return KinoticUtil.toFuture(serviceTypes.get(serviceTypeKey(store, type),
+                                                     (k, executor) -> models.findApplicationModelOf(scope.organizationId(), scope.applicationId(),
+                                                                                                    List.of(type), List.of())
+                                                                            .map(model -> model.rolesHoldingEach(type))
+                                                                            .toCompletionStage()
+                                                                            .toCompletableFuture()))
+                          .map(held -> held.getOrDefault(permission, Set.of()));
+    }
+
+    private static String serviceTypeKey(String store, String type) {
+        return store + "|" + type;
     }
 
     // A function acting on the rows of the tenants a call names serves an organization's members and the runtimes
@@ -421,8 +458,7 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
     // through its grants; either way a scope level is then the caller's own, as scopeLevelOf decides
     private Resource checkedOn(AuthzCheckC3Decorator check, ParticipantScope scope, String store) {
         Resource declared = new Resource(check.getResource(), check.getResourceId());
-        boolean placed = SYSTEM.equals(store) || AuthzModelGenerator.APPLICATION_TYPES.contains(declared.type());
-        return scopeLevelOf(placed ? declared : SCOPE_LEVELS.getFirst(), scope);
+        return scopeLevelOf(AuthzStoreService.places(store, declared.type()) ? declared : SCOPE_LEVELS.getFirst(), scope);
     }
 
     /**
@@ -456,13 +492,13 @@ public class DefaultRequestAuthorizer implements RequestAuthorizer, NamedQueryAu
         }
     }
 
-    private String resolve(String template, FunctionSpec spec, ParticipantScope scope, Function<ParameterReference, String> arguments) {
+    private String resolve(String template, CheckedCall call) {
         String ret = template;
         for (String reference : AuthzUtil.templateReferences(template)) {
-            ParameterReference parameter = spec.reference(reference);
+            ParameterReference parameter = call.spec().reference(reference);
             String value = parameter == null
-                    ? scopeValue(reference, scope)
-                    : arguments.apply(parameter);
+                    ? scopeValue(reference, call.participant().getScope())
+                    : call.arguments().apply(parameter);
             if (value == null || value.isEmpty()) {
                 throw securityExceptions.notAuthorized("The request names no {}, which its check needs", reference);
             }

@@ -3,6 +3,7 @@ package org.kinotic.test.tests.core.security;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
@@ -38,7 +39,6 @@ import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.kinotic.management.api.services.security.ApplicationAccessService;
-import org.kinotic.idl.api.utils.AuthzUtil;
 import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.domain.api.exceptions.ExistingTenantException;
 import org.kinotic.authz.api.model.SubjectType;
@@ -227,7 +227,7 @@ public class ApplicationSignUpServiceTests extends KinoticTestBase {
         assertEquals("initech-inc", founder.getTenantId());
         assertEquals("Initech Inc.", await(asAdministrator(() -> tenantService.findById(appId, "initech-inc"))).getName());
         // the founder administers the tenant
-        assertEquals(List.of(new Grant(AuthzUtil.grantId("tenant.admin", "user:" + founder.getId()), "tenant.admin",
+        assertEquals(List.of(new Grant(AuthzNameUtil.grantId("tenant.admin", "user:" + founder.getId()), "tenant.admin",
                                        new Subject(SubjectType.USER, founder.getId()), new Resource(AuthzConstants.TENANT_TYPE, "initech-inc"))),
                      await(asAdministrator(() -> access.findGrants(appId, new Resource(AuthzConstants.TENANT_TYPE, "initech-inc")))));
         // a company that has signed up, or was created by the organization, is not founded again, and its second

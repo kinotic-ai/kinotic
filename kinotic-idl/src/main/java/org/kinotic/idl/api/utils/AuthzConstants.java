@@ -26,9 +26,6 @@ public final class AuthzConstants {
     /** The id of the one system object, so a check on the system needs no id from the request. */
     public static final String SYSTEM_OBJECT_ID = "kinotic";
 
-    /** The one system object, {@code system:kinotic}. */
-    public static final String SYSTEM_OBJECT = AuthzUtil.object(SYSTEM_TYPE, SYSTEM_OBJECT_ID);
-
     /** The kernel types every store has: the identities. */
     public static final String USER_TYPE = "user";
     public static final String GROUP_TYPE = "group";
