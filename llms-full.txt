@@ -10560,13 +10560,13 @@ What differs between the three:
     
     <td>
       <code>
-        dev-api.kinotic.ai
+        api.kinotic.ai
       </code>
     </td>
     
     <td>
       <code>
-        dev-system-api.kinotic.ai
+        system-api.kinotic.ai
       </code>
     </td>
     
@@ -10648,7 +10648,7 @@ What differs between the three:
     
     <td>
       <code>
-        https://dev-api.kinotic.ai
+        https://api.kinotic.ai
       </code>
       
       , the OIDC redirect URIs' base and, with no <code>
@@ -10704,7 +10704,7 @@ What differs between the three:
     
     <td>
       <code>
-        https://dev-portal.kinotic.ai
+        https://portal.kinotic.ai
       </code>
       
       , where browser flows return and the emailed links open
@@ -10736,11 +10736,11 @@ What differs between the three:
     
     <td>
       <code>
-        https://dev-system-api.kinotic.ai
+        https://system-api.kinotic.ai
       </code>
       
       ; <code>
-        https://dev-console.kinotic.ai
+        https://console.kinotic.ai
       </code>
     </td>
     
@@ -10798,7 +10798,7 @@ What differs between the three:
       </code>
       
        Azure root creates for <code>
-        dev-portal.kinotic.ai
+        portal.kinotic.ai
       </code>
       
       : its site key from that root, its secret key from <code>
@@ -10832,7 +10832,7 @@ What differs between the three:
       </code>
       
       ; the cloud's App, whose webhook URL is <code>
-        https://dev-api.kinotic.ai/api/github/webhook
+        https://api.kinotic.ai/api/github/webhook
       </code>
     </td>
     
@@ -10912,7 +10912,7 @@ What differs between the three:
     
     <td>
       <code>
-        dev-api.kinotic.ai
+        api.kinotic.ai
       </code>
       
        and <code>
@@ -11331,8 +11331,8 @@ Mimir's 9009 are what the node's Alloy ships to. Their data lives under
 ### TLS
 
 certbot on the host with the `dns-cloudflare` plugin and the DNS token the servers hold, which
-holds DNS edit on both zones. A certificate per server, for its hostnames: `dev-api.kinotic.ai`,
-`dev-system-api.kinotic.ai`, and `apps-api.dev.kinotic.io` with `*.apps-api.dev.kinotic.io`,
+holds DNS edit on both zones. A certificate per server, for its hostnames: `api.kinotic.ai`,
+`system-api.kinotic.ai`, and `apps-api.dev.kinotic.io` with `*.apps-api.dev.kinotic.io`,
 and `dev-summit42-api.kinotic.ai` for the Summit 42 server, and one for the license key server's
 `licenses.kinotic.ai` and `licenses-console.kinotic.ai`.
 Each certificate's deploy hook
@@ -11422,7 +11422,7 @@ which the service waits for:
     
     <td>
       <code>
-        dev-system-api.kinotic.ai
+        system-api.kinotic.ai
       </code>
       
       , which the node's <code>
@@ -11627,11 +11627,11 @@ needs. Local state,
   <tr>
     <td>
       Records and Worker routes <code>
-        dev-portal.<zone>
+        portal.<zone>
       </code>
       
       , <code>
-        dev-console.<zone>
+        console.<zone>
       </code>
       
        and, when <code>
@@ -11673,11 +11673,11 @@ needs. Local state,
   <tr>
     <td>
       Records <code>
-        dev-api
+        api
       </code>
       
       , <code>
-        dev-system-api
+        system-api
       </code>
       
        and, when <code>
@@ -11722,13 +11722,13 @@ hand.
 ## Network and access
 
 The router forwards one port to the edge container, 443, on which HAProxy listens and hands
-each TLS connection to the server its SNI names: `https://dev-api.kinotic.ai` is the org
-server (REST, STOMP, MCP, the GitHub webhook), `https://dev-system-api.kinotic.ai` the system
+each TLS connection to the server its SNI names: `https://api.kinotic.ai` is the org
+server (REST, STOMP, MCP, the GitHub webhook), `https://system-api.kinotic.ai` the system
 server, and `https://apps-api.dev.kinotic.io` with every application's
 `https://<organizationId>--<applicationId>.apps-api.dev.kinotic.io` the app server, none with a
 port in the URL. The ISP's router forwards a port to the same port only and names its targets
 by device, so the edge's MAC carries a name in the router's device list. The portal at
-`https://dev-portal.kinotic.ai` and the system console at `https://dev-console.kinotic.ai` are
+`https://portal.kinotic.ai` and the system console at `https://console.kinotic.ai` are
 static files in the sites account that the sites Worker serves the way it serves every
 published site, at hostnames of the platform zone apart from the customers' sites, so the host
 runs nothing for them and the router forwards nothing to them, and no published site is
@@ -11737,9 +11737,9 @@ against API hosts, each server terminating its own TLS; the edge stands in for t
 per-server load balancers. The router's address is dynamic: a timer on the host rewrites the
 servers' A records whenever it changes, as the servers' principal.
 
-Peers use `https://dev-portal.kinotic.ai`: organization sign-up with email verification
+Peers use `https://portal.kinotic.ai`: organization sign-up with email verification
 through ACS, social login through the system OIDC providers registered with
-`https://dev-api.kinotic.ai` redirect URIs, the CLI's device grant, and MCP hosts through the
+`https://api.kinotic.ai` redirect URIs, the CLI's device grant, and MCP hosts through the
 authorization-code grant. Their applications' users sign in on the applications' own hosts.
 Nothing on the LAN besides the forwarded port is reachable from outside.
 
@@ -12036,7 +12036,7 @@ drop them a day later.
 5. Point the GitHub App's webhook URL at the cloud gateway.
 6. Re-run the deployment of every project, which places it on a cloud node and republishes its
 UIs under `kinotic.io`.
-7. Change `dev-api.kinotic.ai` to a CNAME of the cloud management server so the peers' CLI logins and
+7. Change `api.kinotic.ai` to a CNAME of the cloud management server so the peers' CLI logins and
 project configuration keep resolving, and stop the address updater; they sign in again on
 `portal.kinotic.ai`, since sessions are `__Host-` cookies and the social-login redirect
 URIs are registered per host.
@@ -12066,7 +12066,7 @@ App's key filled in, `sync-secrets.sh`; certbot on the host.
 the stores, runs the migration to completion and verifies it, and starts the servers and
 the edge.
 Register the snapshot repository and SLM policy; `deploy-ui.sh` for the two UIs; confirm
-sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
+sign-up mail arrives and the portal loads on `https://portal.kinotic.ai`.
 5. **Nodes.** Ubuntu and the kit on each NUC or worker VM, `vm-manager.env` from the terraform
 output plus the node's id; then the Proxmox root's `bootstrap-identities.sh` creates the
 first system user and each node's SYSTEM machine, installing the machine's credentials in
@@ -12094,7 +12094,7 @@ must be at or above the development server's version on restore day.
 - Tempo and Mimir are in compose and not in Helm. When the charts gain them nothing changes on
 the development server; until then the cloud has no trace or metric history to migrate into,
 which is accepted.
-- Whether `dev-api.kinotic.ai` stays as a CNAME indefinitely or is retired after the peers have
+- Whether `api.kinotic.ai` stays as a CNAME indefinitely or is retired after the peers have
 moved their configuration.
 - The one-time scrub in cutover step 3 versus building the re-home operation before cutover.
 - Whether the node's IPv4-only egress allowlist for GitHub and npm is maintained by hand from
