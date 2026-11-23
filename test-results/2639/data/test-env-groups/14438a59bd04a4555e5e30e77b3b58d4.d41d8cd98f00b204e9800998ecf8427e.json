@@ -1,0 +1,1 @@
+{"id":"14438a59bd04a4555e5e30e77b3b58d4.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenTheRightOperandIsParenthesized_thenItIsReadAsItsValue","name":"whenTheRightOperandIsParenthesized_thenItIsReadAsItsValue()","status":"passed","testResultsByEnv":{"default":"f17ece89f28aaa496deb8c8bcaf0bec7"}}
