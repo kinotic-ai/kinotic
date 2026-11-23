@@ -203,7 +203,7 @@ terraform apply -var="beta_mode=false"
 | Observability (Loki, Tempo, Mimir, Alloy) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |
 | Sites account, Cloudflare sites Worker (kinotic.io), portal.kinotic.ai and console.kinotic.ai | `cluster/` | Disposable; `deploy-ui.sh cluster azure` uploads the UIs again |
-| Development server: sites account, Cloudflare sites Worker (dev.kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
+| Development server: sites account, Cloudflare sites Worker (kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
 
 ## Additional Docs
 

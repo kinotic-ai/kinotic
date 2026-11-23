@@ -9,7 +9,7 @@ variable "zone_name" {
 }
 
 variable "sites_subdomain" {
-  description = "The label the environment's sites domain is under within the zone, or empty for the zone itself: empty for kinotic.io in production, dev for dev.kinotic.io on the development server, a developer's own name on their machine"
+  description = "The label the environment's sites domain is under within the zone, or empty for the zone itself: empty for kinotic.io in production and on the development server, a developer's own name on their machine"
   type        = string
   default     = ""
 }

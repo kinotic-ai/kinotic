@@ -10,9 +10,9 @@ the sites Worker at hostnames of the platform zone, and a hostname for each serv
 |---|---|---|
 | Resource group | `rg-kinotic-dev` | Holds everything below but the service principal |
 | Sites storage account | `stkinoticdevsites` | Every site's files under `sites/<hostname>/`, private; the Worker reads with the SAS this root mints (`modules/sites`) |
-| Cloudflare sites Worker and routes | `kinotic-dev-sites` | Serves every published UI at `<app>--<ui>.<org>.dev.kinotic.io` from the account, with the zone's settings and Total TLS (`modules/cloudflare-sites`) |
+| Cloudflare sites Worker and routes | `kinotic-dev-sites` | Serves every published UI at `<app>--<ui>.<org>.kinotic.io` from the account, with the zone's settings and Total TLS (`modules/cloudflare-sites`) |
 | Cloudflare records and Worker routes | `portal.kinotic.ai`, `console.kinotic.ai`, and `dev-summit42.kinotic.ai` when `summit42_enabled` | The portal, the system console and Summit 42's UI, served by the Worker from `sites/<hostname>/` in the sites account, on the platform zone and never the customers' (`modules/cloudflare-sites`, as the cluster's portal and console) |
-| Cloudflare records | `apps-api.dev.kinotic.io`, `*.apps-api.dev.kinotic.io` | The app server and every application's API host `<organizationId>--<applicationId>.apps-api.dev.kinotic.io`, proxied to the router's public address |
+| Cloudflare records | `apps-api.kinotic.io`, `*.apps-api.kinotic.io` | The app server and every application's API host `<organizationId>--<applicationId>.apps-api.kinotic.io`, proxied to the router's public address |
 | Cloudflare Turnstile site | `kinotic-dev portal` | The challenge the portal's find-my-organizations form presents at `portal.kinotic.ai`; the management server takes its site key from the proxmox root and its secret key from `secrets.yml` (`turnstile_secret_key`) |
 | Key vault | `kv-kinotic-dev` | The servers' secret storage (`kinotic.domain.secretStorage.backend: AZURE`) |
 | Storage account + container | `stkinoticdevsnapshots` / `elasticsearch-snapshots` | The nightly Elasticsearch snapshot repository, and the migration vehicle |

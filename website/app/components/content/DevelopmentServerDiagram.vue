@@ -39,7 +39,7 @@
       <line class="flow" x1="310" y1="90" x2="310" y2="344" marker-end="url(#ds-ink)"></line>
       <text class="t-tiny" x="318" y="256">api · system-api</text>
       <line class="flow" x1="510" y1="90" x2="510" y2="344" marker-end="url(#ds-ink)"></line>
-      <text class="t-tiny" x="518" y="256">*.apps-api.dev.kinotic.io</text>
+      <text class="t-tiny" x="518" y="256">*.apps-api.kinotic.io</text>
 
       <!-- ═════════ Azure and Cloudflare, kept ═════════ -->
       <rect class="encl-plat" x="660" y="24" width="488" height="202" rx="10"></rect>
@@ -51,7 +51,7 @@
 
       <rect class="chip" x="812" y="64" width="140" height="46" rx="8"></rect>
       <text class="t-chip" x="882" y="83" text-anchor="middle">Sites Worker</text>
-      <text class="t-sub"  x="882" y="99" text-anchor="middle">*.dev.kinotic.io · portal · console</text>
+      <text class="t-sub"  x="882" y="99" text-anchor="middle">*.kinotic.io · portal · console</text>
 
       <rect class="chip" x="978" y="64" width="154" height="46" rx="8"></rect>
       <text class="t-chip" x="1055" y="83" text-anchor="middle">Sites storage account</text>

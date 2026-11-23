@@ -137,7 +137,7 @@ roots' state files hold the principal's secret and the storage keys, so keep the
 Each server's certificate is issued on the host by certbot with the `dns-cloudflare` plugin and
 the DNS token the `dev-server` root takes, which holds DNS edit on both zones: the platform zone
 carries the management and system servers' names, the customers' zone the app server's,
-`apps-api.dev.kinotic.io` and every application's host under it. Each certificate is installed
+`apps-api.kinotic.io` and every application's host under it. Each certificate is installed
 into the directory that server's container mounts — `cnb`, uid 1002 and gid 1001 in the
 container, is 101002:101001 on the host:
 
@@ -156,7 +156,7 @@ issue() {   # <server> <vmid> <name>...
 }
 issue kinotic-server-management 121 api.kinotic.ai
 issue kinotic-server-system 122 system-api.kinotic.ai
-issue kinotic-server-app 123 apps-api.dev.kinotic.io '*.apps-api.dev.kinotic.io'
+issue kinotic-server-app 123 apps-api.kinotic.io '*.apps-api.kinotic.io'
 echo '0 3 * * * root /opt/certbot/bin/certbot renew -q' > /etc/cron.d/certbot
 ```
 
@@ -262,8 +262,8 @@ the cluster to be healthy, runs to completion, and is verified against the
 private addresses, then the edge.
 
 The servers are on `https://api.kinotic.ai` (org), `https://system-api.kinotic.ai`
-(system) and `https://apps-api.dev.kinotic.io` with every application's
-`https://<organizationId>--<applicationId>.apps-api.dev.kinotic.io` (app) once the router
+(system) and `https://apps-api.kinotic.io` with every application's
+`https://<organizationId>--<applicationId>.apps-api.kinotic.io` (app) once the router
 forwards 443 to the edge. The edge listens on 443 itself, because a consumer router forwards a
 port only to the same port: an autodev hook the applier installs lowers the container's
 unprivileged port floor, so HAProxy's own user binds it. It reads the SNI of each connection
