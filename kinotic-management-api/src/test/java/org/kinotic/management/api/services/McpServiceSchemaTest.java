@@ -8,7 +8,6 @@ import org.kinotic.management.api.services.deployment.MicroserviceDeploymentServ
 import org.kinotic.management.api.services.deployment.UiDeploymentService;
 import org.kinotic.management.api.services.vulnerability.VulnerabilityAlertService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
-import org.kinotic.management.internal.api.services.DefaultFeedbackService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
 import org.kinotic.management.internal.api.services.deployment.DefaultMicroserviceDeploymentService;
 import org.kinotic.management.internal.api.services.deployment.DefaultUiDeploymentService;
@@ -66,10 +65,9 @@ public class McpServiceSchemaTest {
                                                            new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class),
                                                            new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
                                                            new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class),
-                                                           new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class),
-                                                           new ServiceDeclaration(FeedbackService.class, DefaultFeedbackService.class)));
+                                                           new ServiceDeclaration(VulnerabilityAlertService.class, DefaultVulnerabilityAlertService.class)));
 
-        Assertions.assertEquals(6, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(5, namespaceDefinition.getServices().size());
     }
 
     @Test
