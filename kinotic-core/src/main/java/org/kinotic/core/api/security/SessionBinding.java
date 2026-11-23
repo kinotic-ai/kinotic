@@ -74,6 +74,12 @@ public final class SessionBinding {
                 ctx.fail(401, new AuthenticationException("The session is not valid"));
             } else if (login == null) {
                 ctx.next();
+            } else if (ctx.request().canUpgradeToWebSocket()) {
+                // HttpServerRequest#toWebSocket hangs on a request whose login was verified first, so an upgrade
+                // takes the login as the session holds it; the page verified it on /api/auth/me before
+                // connecting, and a revocation of the identity ends the connection
+                ctx.put(LOGIN_KEY, login);
+                ctx.next();
             } else {
                 verify(ctx, login, securityService);
             }
