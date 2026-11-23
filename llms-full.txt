@@ -10572,11 +10572,11 @@ What differs between the three:
     
     <td>
       <code>
-        apps-api.dev.kinotic.io
+        apps-api.kinotic.io
       </code>
       
       , <code>
-        *.apps-api.dev.kinotic.io
+        *.apps-api.kinotic.io
       </code>
     </td>
   </tr>
@@ -10596,7 +10596,7 @@ What differs between the three:
     
     <td>
       every application at <code>
-        <organizationId>--<applicationId>.apps-api.dev.kinotic.io
+        <organizationId>--<applicationId>.apps-api.kinotic.io
       </code>
       
       , for its UIs and its runtime workloads
@@ -10678,7 +10678,7 @@ What differs between the three:
     
     <td>
       <code>
-        https://apps-api.dev.kinotic.io
+        https://apps-api.kinotic.io
       </code>
       
       , the host of an application's OIDC callback
@@ -10916,7 +10916,7 @@ What differs between the three:
       </code>
       
        and <code>
-        apps-api.dev.kinotic.io
+        apps-api.kinotic.io
       </code>
       
       , <code>
@@ -11332,7 +11332,7 @@ Mimir's 9009 are what the node's Alloy ships to. Their data lives under
 
 certbot on the host with the `dns-cloudflare` plugin and the DNS token the servers hold, which
 holds DNS edit on both zones. A certificate per server, for its hostnames: `api.kinotic.ai`,
-`system-api.kinotic.ai`, and `apps-api.dev.kinotic.io` with `*.apps-api.dev.kinotic.io`,
+`system-api.kinotic.ai`, and `apps-api.kinotic.io` with `*.apps-api.kinotic.io`,
 and `dev-summit42-api.kinotic.ai` for the Summit 42 server, and one for the license key server's
 `licenses.kinotic.ai` and `licenses-console.kinotic.ai`.
 Each certificate's deploy hook
@@ -11579,17 +11579,17 @@ needs. Local state,
       </code>
       
        under <code>
-        dev.kinotic.io
+        kinotic.io
       </code>
     </td>
     
     <td>
       The sites Worker, the zone's settings and Total TLS, and the app server's proxied hosts <code>
-        apps-api.dev.kinotic.io
+        apps-api.kinotic.io
       </code>
       
        and <code>
-        *.apps-api.dev.kinotic.io
+        *.apps-api.kinotic.io
       </code>
       
        on the router's address
@@ -11724,8 +11724,8 @@ hand.
 The router forwards one port to the edge container, 443, on which HAProxy listens and hands
 each TLS connection to the server its SNI names: `https://api.kinotic.ai` is the org
 server (REST, STOMP, MCP, the GitHub webhook), `https://system-api.kinotic.ai` the system
-server, and `https://apps-api.dev.kinotic.io` with every application's
-`https://<organizationId>--<applicationId>.apps-api.dev.kinotic.io` the app server, none with a
+server, and `https://apps-api.kinotic.io` with every application's
+`https://<organizationId>--<applicationId>.apps-api.kinotic.io` the app server, none with a
 port in the URL. The ISP's router forwards a port to the same port only and names its targets
 by device, so the edge's MAC carries a name in the router's device list. The portal at
 `https://portal.kinotic.ai` and the system console at `https://console.kinotic.ai` are
@@ -11972,14 +11972,12 @@ Everything a peer has lives in one of these places, and moves as follows:
     
     <td>
       The development server's sites account under <code>
-        sites/<app>--<ui>.<org>.dev.kinotic.io/
+        sites/<app>--<ui>.<org>.kinotic.io/
       </code>
     </td>
     
     <td>
-      Each project is redeployed after cutover; the URL changes to <code>
-        <app>--<ui>.<org>.kinotic.io
-      </code>
+      Each project is redeployed after cutover, at the same URL
     </td>
   </tr>
   
@@ -12075,7 +12073,7 @@ The first system user signs in to the console with its password and adds the Min
 Entra registration under **Sign-in providers**, from the Azure root's `system_sign_in_*` outputs.
 6. **End to end.** Deploy the template project from a peer's organization: the sync VM fetches
 through the allowlist, the runtime VM registers its microservice, the UI appears at
-`<app>--<ui>.<org>.dev.kinotic.io`, and the run's log and the microservice's traces show in the
+`<app>--<ui>.<org>.kinotic.io`, and the run's log and the microservice's traces show in the
 portal.
 7. **Restore drill.** Restore the previous night's snapshot into a scratch cluster and open the
 portal against it. Repeat before cutover.
