@@ -6268,9 +6268,9 @@ For how organizations, users, and OIDC configurations work under the hood, see [
 
 ## Sending feedback
 
-Anyone in the organization can report a bug or request a feature with **Send feedback** in the portal's header. An AI agent connected through [MCP](https://kinotic.ai/platform/mcp-tools) can do the same with the Feedback Service Send tool, so an agent that hits a problem with Kinotic can report it while it works. Feedback is offered only where the server has an [internal GitHub App](https://kinotic.ai/platform/configuration#internal-github-app), as Kinotic Cloud does; elsewhere neither the button nor the tool appears.
+**Send feedback** in the portal header opens a menu with **Report a bug** and **Request a feature**. Each opens GitHub's new-issue form on [kinotic-ai/kinotic](https://github.com/kinotic-ai/kinotic/issues) in a new tab, signed in with your GitHub account, so GitHub notifies you of comments and status changes on the issue.
 
-Each piece of feedback is filed as a public issue on [kinotic-ai/kinotic](https://github.com/kinotic-ai/kinotic/issues), labelled `bug` or `enhancement` and `feedback`, and the portal links to it once it is sent; screenshots and logs go in a comment on the issue. The issue holds what the sender wrote, the portal page's route pattern (which names no application or project), and whether a user, an AI agent (by its client's name) or a machine identity sent it. It never names the organization or the person, so leave out secrets, personal data and the names of your applications and projects. An organization can send ten pieces of feedback an hour.
+The form starts with the route pattern of the portal page you were on, and a bug report also starts with your browser's user agent. Issues are public, so leave out secrets, personal data, and the names of your organization's applications and projects. Drag screenshots or logs into any multi-line field of the form to attach them.
 
 
 # System Architecture
@@ -7653,91 +7653,6 @@ with GitHub's `403 Resource not accessible by integration`:
 seeds is this App's own OAuth client: its client id and secret are the App's. GitHub asks the owner of
 every account the App is already installed on to approve a permission added later, and the App's tokens
 for that account carry the permission only once they do.
-
-## Internal GitHub App
-
-The feedback organizations send (see [Sending feedback](https://kinotic.ai/organizations/overview#sending-feedback)) is filed
-as issues on `kinotic-ai/kinotic` by a second GitHub App, kept apart from the one organizations install so
-that theirs never asks for access to issues. That App is `kinotic-internal`, whose id the servers'
-`application.yml` sets as `kinotic.managementApi.github.internalApp.appId`, and it signs with
-`internalApp.appPrivateKey`. While `appPrivateKey` is unset, as on a self-hosted installation (set the Helm
-value `systemSecrets.objects.githubInternalAppPrivateKey` empty to mount none), the server offers no
-feedback: the portal hides **Send feedback** and agents get no Feedback Service Send tool.
-Its settings on GitHub must hold:
-
-<table>
-<thead>
-  <tr>
-    <th>
-      Setting
-    </th>
-    
-    <th>
-      Value
-    </th>
-  </tr>
-</thead>
-
-<tbody>
-  <tr>
-    <td>
-      Repository permissions → Issues
-    </td>
-    
-    <td>
-      Read and write
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Repository permissions → Metadata
-    </td>
-    
-    <td>
-      Read-only
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Webhook
-    </td>
-    
-    <td>
-      Inactive
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Where can this GitHub App be installed?
-    </td>
-    
-    <td>
-      Only on this account
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      Installed on
-    </td>
-    
-    <td>
-      <code>
-        kinotic-ai
-      </code>
-      
-      , with access to the <code>
-        kinotic
-      </code>
-      
-       repository only
-    </td>
-  </tr>
-</tbody>
-</table>
 
 ## Application API hosts
 
@@ -9700,32 +9615,6 @@ sets:
   <tr>
     <td>
       <code>
-        kinotic.managementApi.github.internalApp.appPrivateKey
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        kinotic-github-internal-app-private-key
-      </code>
-    </td>
-    
-    <td>
-      the same, unless the Helm value <code>
-        systemSecrets.objects.githubInternalAppPrivateKey
-      </code>
-      
-       is empty; a server without it offers no feedback (see <a href="https://kinotic.ai/platform/configuration#internal-github-app">
-        Internal GitHub App
-      </a>
-      
-      )
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         kinotic.domain.publishedSites.cloudflare.apiToken
       </code>
     </td>
@@ -9779,9 +9668,7 @@ refuses new ones while the cluster's installed key does not turn the feature on,
 
 A server picks up a rotated JWT key set while it runs, and an imported secret when it restarts.
 On Azure the global terraform seeds the master key and takes the GitHub App's key and webhook
-secret from `TF_VAR_github_app_private_key` and `TF_VAR_github_webhook_secret`, and the internal GitHub
-App's key from `TF_VAR_github_internal_app_private_key`. Every secret the chart mounts must exist in the Key
-Vault before the servers roll out, or their pods wait in `ContainerCreating` for it.
+secret from `TF_VAR_github_app_private_key` and `TF_VAR_github_webhook_secret`.
 
 ### Docker Compose (Local Development)
 
