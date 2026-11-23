@@ -6,6 +6,7 @@ import { LogManager } from '@/api/services/LogManager'
 import type { ILogManager } from '@/api/services/ILogManager'
 import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/api/services/IKinoticClusterInfoService'
 import { ClusterVulnerabilityService, type IClusterVulnerabilityService } from '@/api/services/IClusterVulnerabilityService'
+import { VulnerabilityAdvisoryService, type IVulnerabilityAdvisoryService } from '@/api/services/IVulnerabilityAdvisoryService'
 import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 import { SystemMemberService, type ISystemMemberService } from '@/api/services/ISystemMemberService'
 import { WatchEventService, type IWatchEventService } from '@/api/services/IWatchEventService'
@@ -20,6 +21,7 @@ export interface ISystemApiExtension {
     logManager: ILogManager
     clusterInfo: IKinoticClusterInfoService
     clusterVulnerabilities: IClusterVulnerabilityService
+    vulnerabilityAdvisories: IVulnerabilityAdvisoryService
     systemOrganizations: ISystemOrganizationService
     systemMembers: ISystemMemberService
     watchEvents: IWatchEventService
@@ -37,6 +39,7 @@ export const SystemApiPlugin: KinoticPlugin<ISystemApiExtension> = {
             logManager: new LogManager(kinotic),
             clusterInfo: new KinoticClusterInfoService(kinotic),
             clusterVulnerabilities: new ClusterVulnerabilityService(kinotic),
+            vulnerabilityAdvisories: new VulnerabilityAdvisoryService(kinotic),
             systemOrganizations: new SystemOrganizationService(kinotic),
             systemMembers: new SystemMemberService(kinotic),
             watchEvents: new WatchEventService(kinotic),
