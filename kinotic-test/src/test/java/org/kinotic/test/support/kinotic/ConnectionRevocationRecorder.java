@@ -3,6 +3,7 @@ package org.kinotic.test.support.kinotic;
 import org.kinotic.core.api.annotations.KinoticConsumer;
 import org.kinotic.core.api.event.EventDelivery;
 import org.kinotic.core.api.security.ConnectionRevocation;
+import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -19,7 +20,9 @@ public class ConnectionRevocationRecorder {
 
     @KinoticConsumer(delivery = EventDelivery.CONFIRMED)
     public void record(ConnectionRevocation revocation) {
-        revoked.add(revocation.getIdentityId());
+        if (revocation.getType() == ConnectionRevocationType.IDENTITY) {
+            revoked.add(revocation.getId());
+        }
     }
 
     /**
