@@ -27,15 +27,15 @@
         "@kinotic-ai/management-api": "5.0.0-beta.72",
         "@kinotic-ai/persistence": "5.0.0-beta.20",
         "@kinotic-ai/spawn": "5.0.0-beta.1",
-        "@oclif/core": "^4.13.3",
+        "@oclif/core": "^5.1.12",
         "c12": "^3.3.4",
         "chalk": "^5.6.2",
         "liquidjs": "10.28.0",
         "open": "^11.0.0",
         "p-timeout": "^7.0.1",
         "radash": "^12.1.1",
-        "simple-git": "3.36.0",
-        "ts-morph": "^27.0.2"
+        "simple-git": "4.1.0",
+        "ts-morph": "^28.0.0"
     },
     "devDependencies": {
         "@types/chai": "^5.2.3",
@@ -76,7 +76,7 @@
         "release": "KINOTIC_BETA_PUBLISH=1 pnpm publish --tag beta"
     },
     "engines": {
-        "node": ">=18.0.0"
+        "node": ">=22.0.0"
     },
     "packageManager": "pnpm@12.10.0",
     "keywords": [],
