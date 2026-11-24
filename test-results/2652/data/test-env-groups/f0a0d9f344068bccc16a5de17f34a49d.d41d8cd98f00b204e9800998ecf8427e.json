@@ -1,0 +1,1 @@
+{"id":"f0a0d9f344068bccc16a5de17f34a49d.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testConnectionEndsOnceItsLoginLeavesTheStoredSession","name":"testConnectionEndsOnceItsLoginLeavesTheStoredSession()","status":"passed","testResultsByEnv":{"default":"9fd8cf1008cffe567d52f33f7aae6192"}}
