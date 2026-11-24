@@ -124,10 +124,12 @@ describe('supervise entrypoint', () => {
     it('reports a project whose OpenTelemetry API is newer than the one its SDK is registered with', async () => {
         const logDir = join(appDir, 'logs')
         mkdirSync(logDir)
-        // The copy the project's entry resolves, at a version no image release reaches
+        // The copy the project's entry resolves, at a minor version no image release reaches, with the
+        // exports map of the real package, which does not list its package.json
         mkdirSync(join(appDir, 'node_modules', '@opentelemetry', 'api'), { recursive: true })
         writeFileSync(join(appDir, 'node_modules', '@opentelemetry', 'api', 'package.json'),
-                      JSON.stringify({ name: '@opentelemetry/api', version: '1.999.0' }))
+                      JSON.stringify({ name: '@opentelemetry/api', version: '1.999.0',
+                                       exports: { '.': { default: './dist/index.mjs' } } }))
         writeFileSync(join(appDir, 'service.ts'),
                       `import { appendFileSync } from 'node:fs'
                        appendFileSync('starts.log', 'start\\n')
@@ -139,7 +141,13 @@ describe('supervise entrypoint', () => {
         })
         await waitForStarts(1, 10_000)
 
-        const content = readFileSync(join(logDir, 'workload.log'), 'utf-8')
+        // The supervisor forwards the microservice's stderr after the microservice has written its start
+        const deadline = Date.now() + 5_000
+        let content = readFileSync(join(logDir, 'workload.log'), 'utf-8')
+        while (!content.includes('no traces or metrics will be exported') && Date.now() < deadline) {
+            await Bun.sleep(50)
+            content = readFileSync(join(logDir, 'workload.log'), 'utf-8')
+        }
         expect(content).toContain('no traces or metrics will be exported')
         expect(content).toContain('@opentelemetry/api 1.999.0')
     }, 40_000)

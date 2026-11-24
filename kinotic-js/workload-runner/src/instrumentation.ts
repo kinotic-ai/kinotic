@@ -11,9 +11,10 @@ import { NodeSDK } from '@opentelemetry/sdk-node'
  * into the guest environment; a process without an endpoint runs uninstrumented.
  *
  * The SDK registers against the global OpenTelemetry API, which is how the project's own
- * copy of @opentelemetry/api finds it: a same-major copy no newer than this one resolves
- * the registered tracer, so the API here is kept at the newest release. A project whose copy
- * is newer records nothing, which is reported on stderr as the process starts.
+ * copy of @opentelemetry/api finds it: a copy of the same major version whose minor version
+ * is no newer than this one's resolves the registered tracer, so the API here is kept at the
+ * newest release. A project whose copy is of a newer minor or another major records nothing,
+ * which is reported on stderr as the process starts.
  */
 
 /** The version of the @opentelemetry/api a module in the given directory resolves, or null when it resolves none. */
@@ -33,11 +34,18 @@ if (process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
 
     const registered = apiVersionFrom(import.meta.dir)
     const projects = apiVersionFrom(dirname(Bun.main))
-    if (registered !== null && projects !== null && Bun.semver.order(projects, registered) > 0) {
-        console.error(`[workload-runner] no traces or metrics will be exported: the project resolves `
-                      + `@opentelemetry/api ${projects}, newer than the ${registered} this image registers its `
-                      + `SDK with. Pin the project's @opentelemetry/api to ${registered} or older until the `
-                      + `image is updated`)
+    if (registered !== null && projects !== null) {
+        // The API's own rule for a 1.x copy reading the global registration: the majors match and
+        // the reader's minor is no newer than the registered one; patch versions play no part
+        const [registeredMajor, registeredMinor] = registered.split('.').map(Number)
+        const [projectsMajor, projectsMinor] = projects.split('.').map(Number)
+        if (projectsMajor !== registeredMajor || projectsMinor! > registeredMinor!) {
+            console.error(`[workload-runner] no traces or metrics will be exported: the project resolves `
+                          + `@opentelemetry/api ${projects}, which does not accept the ${registered} this image `
+                          + `registers its SDK with. Pin the project's @opentelemetry/api to `
+                          + `${registeredMajor}.${registeredMinor}.x or an older ${registeredMajor}.x until the `
+                          + `image is updated`)
+        }
     }
 
     // Flush the batched spans before the process ends. Registering a SIGTERM listener
