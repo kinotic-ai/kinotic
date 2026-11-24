@@ -5,10 +5,13 @@ import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.Cookie;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.net.HostAndPort;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
+import io.vertx.ext.web.sstore.LocalSessionStore;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
@@ -33,7 +36,11 @@ import org.kinotic.core.api.event.ZonePartitioningService;
 import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.RequestAuthorizer;
+import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.ConnectionRevocation;
+import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
@@ -46,6 +53,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -79,6 +87,7 @@ import static org.mockito.Mockito.when;
 public class EndpointConnectionHandlerTests {
 
     private static final long SESSION_TIMEOUT_MS = 1000;
+    private static final String SESSION_COOKIE = "test-session";
     private static final String APP_ZONE = "app.acme-org";
     private static final String SERVICE_DESTINATION = "srv://app.acme-org.orders-app~OrderService/create#1.0.0";
     private static final int MIB = 1024 * 1024;
@@ -227,6 +236,43 @@ public class EndpointConnectionHandlerTests {
 
         verify(requestLivenessWatcher).unwatch(endsWith(":corr-3"));
         verify(replyConsumer).unregister();
+    }
+
+    @Test
+    public void testLogoutEndsOnlyTheConnectionsOfItsLogin() throws Exception {
+        RoutingContext routingContext = sessionLoginContext();
+        String loginId = SessionBinding.connectedInfo(routingContext).getLoginId();
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        verify(services.securityService, never()).authenticate(any(), any());
+
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, "another-login"));
+        Assertions.assertFalse(closed.await(200, TimeUnit.MILLISECONDS), "another login's logout ended the connection");
+
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, loginId));
+        Assertions.assertTrue(closed.await(5, TimeUnit.SECONDS), "the logout did not end the connection established on the login");
+    }
+
+    @Test
+    public void testConnectionEndsOnceItsLoginLeavesTheStoredSession() throws Exception {
+        // a local store hands back the session it was given, so the login it holds needs no serialization mapper
+        services.sessionStore = LocalSessionStore.create(vertx);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        // what another page keeps in the session, which outlives this page's login
+        session.put("another-page", "sign-in in progress");
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of(EventConstants.SESSION_KEEP_ALIVE_HEADER, "CONNECTION")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        Assertions.assertFalse(closed.await(SESSION_TIMEOUT_MS / 2, TimeUnit.MILLISECONDS), "the connection ended while the session held its login");
+
+        // a logout whose revocation never reaches the connection
+        SessionBinding.unbind(routingContext);
+
+        Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 2, TimeUnit.MILLISECONDS), "the connection outlived its login");
     }
 
     @Test
@@ -856,6 +902,34 @@ public class EndpointConnectionHandlerTests {
         handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         handler.connect(connectHeaders).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         return handler;
+    }
+
+    // An upgrade from a page whose session holds a login for it: bound the way a sign-in binds it, and resolved
+    // for the request by the handler the gateway mounts behind its session handler
+    private RoutingContext sessionLoginContext() {
+        HttpServerRequest request = mock(HttpServerRequest.class);
+        when(request.headers()).thenReturn(MultiMap.caseInsensitiveMultiMap());
+        when(request.authority()).thenReturn(HostAndPort.create("api.test", 443));
+        Cookie sessionCookie = mock(Cookie.class);
+        when(request.getCookie(SESSION_COOKIE)).thenReturn(sessionCookie);
+        RoutingContext routingContext = mock(RoutingContext.class);
+        when(routingContext.session()).thenReturn(services.sessionStore.createSession(SESSION_TIMEOUT_MS));
+        when(routingContext.request()).thenReturn(request);
+        // what a handler puts in the context, a later one gets
+        Map<String, Object> contextData = new HashMap<>();
+        when(routingContext.put(anyString(), any())).thenAnswer(invocation -> {
+            contextData.put(invocation.getArgument(0), invocation.getArgument(1));
+            return routingContext;
+        });
+        when(routingContext.get(anyString())).thenAnswer(invocation -> contextData.get(invocation.<String>getArgument(0)));
+        when(routingContext.remove(anyString())).thenAnswer(invocation -> contextData.remove(invocation.<String>getArgument(0)));
+        TestParticipant participant = participant();
+        ConnectedInfo login = new ConnectedInfo();
+        login.setParticipant(participant);
+        SessionBinding.bind(routingContext, SessionBinding.origin(routingContext), login);
+        when(services.securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(participant));
+        SessionBinding.handler(SESSION_COOKIE, services.securityService).handle(routingContext);
+        return routingContext;
     }
 
     // Subscribes the connection's reply destination and returns its CRI; requests carry it as reply-to

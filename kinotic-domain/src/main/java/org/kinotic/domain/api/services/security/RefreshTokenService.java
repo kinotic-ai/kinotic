@@ -46,8 +46,8 @@ public interface RefreshTokenService {
 
     /**
      * Revokes every token in the given family, ending that session; future rotations of it
-     * fail. Scoped by identity so a family can only be revoked through the identity it
-     * authenticates.
+     * fail, and a replacement a rotation under way issues is revoked with the family. Scoped by
+     * identity so a family can only be revoked through the identity it authenticates.
      *
      * @param identityId id of the identity the family authenticates
      * @param familyId   the family to revoke
@@ -55,7 +55,8 @@ public interface RefreshTokenService {
     Future<Void> revokeFamily(String identityId, String familyId);
 
     /**
-     * Revokes every live family of the given identity, ending all of its sessions.
+     * Revokes every live family of the given identity, ending all of its sessions, the replacements rotations
+     * under way issue among them.
      */
     Future<Void> revokeAllFor(String identityId);
 }

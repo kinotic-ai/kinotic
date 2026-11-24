@@ -2,7 +2,7 @@
 # Builds the portal and the system console for an environment and uploads them into its sites
 # account, where the sites Worker serves each from sites/<hostname>/ exactly as it serves a
 # published site: the cluster's at portal.<zone> and console.<zone>, the development server's at
-# dev-portal.<zone> and dev-console.<zone>. Run after the root's `terraform apply`, and again
+# portal.<zone> and console.<zone>. Run after the root's `terraform apply`, and again
 # whenever kinotic-frontend changes; the account's blob role comes from the root, and the edge
 # keeps a site's index for a minute and its hashed assets by name, so a new build shows within
 # the minute.

@@ -3,7 +3,6 @@ package org.kinotic.management.internal.api.services.github.client;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
-import org.kinotic.management.api.model.github.CreatedIssue;
 import org.kinotic.management.api.model.github.GitHubToken;
 
 import java.util.List;
@@ -19,7 +18,6 @@ public interface GitHubApiClient {
     /** Standard token scopes used in the platform. */
     Map<String, String> READ_CONTENTS = Map.of("contents", "read");
     Map<String, String> WRITE_CONTENTS = Map.of("contents", "write");
-    Map<String, String> WRITE_ISSUES = Map.of("issues", "write");
     /**
      * Scope for {@link #createRepoFromTemplate}: repo creation is an administration
      * operation, and the generate endpoint additionally requires contents read.
@@ -47,18 +45,6 @@ public interface GitHubApiClient {
                                 String repoFullName,
                                 String message,
                                 String treeSha);
-
-    /**
-     * Opens an issue on {@code repoFullName}, returning its number and page.
-     *
-     * @param installationToken token with {@code issues:write} on the target repo
-     * @param labels            labels the issue carries
-     */
-    Future<CreatedIssue> createIssue(String installationToken,
-                                     String repoFullName,
-                                     String title,
-                                     String body,
-                                     List<String> labels);
 
     /**
      * Creates a ref on {@code repoFullName}. Idempotent: a 422 with body
@@ -136,18 +122,6 @@ public interface GitHubApiClient {
      * permission to access, paging until GitHub's collection is exhausted.
      */
     Future<List<InstallationDetails>> listUserInstallations(String userAccessToken);
-
-    /**
-     * The id of the installation, of the App that signed {@code appJwt}, that covers the repo
-     * {@code repoFullName}.
-     */
-    Future<Long> findRepositoryInstallationId(String appJwt, String repoFullName);
-
-    /**
-     * Mints a new installation access token for an installation of the App that signed {@code appJwt},
-     * limited to {@code permissions}.
-     */
-    Future<GitHubToken> createInstallationToken(String appJwt, long installationId, Map<String, String> permissions);
 
     /**
      * The login of the user behind {@code userAccessToken}.

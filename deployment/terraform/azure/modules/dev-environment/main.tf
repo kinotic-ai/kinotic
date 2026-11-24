@@ -1,13 +1,12 @@
 # What the Kinotic servers outside AKS need to publish UIs and send email: a resource group the
 # sites storage account is created in, the Cloudflare side of the environment's sites domain,
-# <environment>.<cloudflare zone>, where the sites Worker serves every site from the account,
+# the Cloudflare zone or a label under it, where the sites Worker serves every site from the account,
 # and a service principal for the servers holding the roles they need on the account and on
 # the email service. The system server creates the rest at runtime, as it does in the cluster.
 # There is no VNet: the servers reach the accounts over their public endpoints and create no
 # private endpoints.
 #
-# The dev-server/ root uses it for the shared development server, and picks the environment
-# name, which is its label under the zone.
+# The dev-server/ root uses it for the shared development server, whose sites domain is the zone itself.
 
 terraform {
   required_providers {
@@ -64,7 +63,7 @@ module "cloudflare_sites" {
 
   zone_id                     = var.cloudflare_zone_id
   zone_name                   = var.cloudflare_zone_name
-  sites_subdomain             = var.environment
+  sites_subdomain             = var.sites_subdomain
   account_id                  = var.cloudflare_account_id
   worker_name                 = "${local.name_prefix}-sites"
   app_server_address          = var.app_server_address

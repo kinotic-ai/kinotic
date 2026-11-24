@@ -101,6 +101,18 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * True when {@code throwable} or one of its causes is an Elasticsearch 404 — i.e. an update or a get by id
+     * that named a document the index does not hold.
+     */
+    public static boolean isMissingDocument(Throwable throwable) {
+        boolean ret = false;
+        for (Throwable cause = throwable; cause != null && !ret; cause = cause.getCause()) {
+            ret = cause instanceof ElasticsearchException esException && esException.status() == 404;
+        }
+        return ret;
+    }
+
+    /**
      * Appends a document to a data stream using Elasticsearch's {@code create} op-type. Data streams
      * are append-only — the {@code index} op and updates/deletes by id are rejected — and the document
      * id is auto-generated, so documents are retrieved by search rather than by id. The document must
@@ -449,10 +461,11 @@ public class CrudServiceTemplate {
      *
      * @param indexName       name of the index to update
      * @param builderConsumer to customize the {@link UpdateByQueryRequest}: the query and the script, at least
-     * @return a {@link Future} that will complete with the number of documents the script changed
+     * @return a {@link Future} that will complete with the {@link UpdateByQueryResponse}, which counts the documents
+     *         the script changed and the ones skipped because another writer changed them
      */
-    public Future<Long> updateByQuery(String indexName,
-                                      Consumer<UpdateByQueryRequest.Builder> builderConsumer) {
+    public Future<UpdateByQueryResponse> updateByQuery(String indexName,
+                                                       Consumer<UpdateByQueryRequest.Builder> builderConsumer) {
         return KinoticUtil.toFuture(esAsyncClient.updateByQuery(builder -> {
             builder.index(indexName)
                    .refresh(true)
@@ -461,7 +474,7 @@ public class CrudServiceTemplate {
                 builderConsumer.accept(builder);
             }
             return builder;
-        })).map(UpdateByQueryResponse::updated);
+        }));
     }
 
     /**

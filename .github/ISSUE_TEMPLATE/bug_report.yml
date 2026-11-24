@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in Kinotic fails, returns the wrong result or is confusing.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Issues are public, so leave out secrets, tokens, personal data and the names of your
+        organization's applications and projects. Drag screenshots or logs into any multi-line field to attach them.
+  - type: textarea
+    id: description
+    attributes:
+      label: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include the error message, if one was shown.
+  - type: input
+    id: page
+    attributes:
+      label: Portal page
+      description: The page's route pattern, filled in when you start from the portal.
+  - type: input
+    id: browser
+    attributes:
+      label: Browser

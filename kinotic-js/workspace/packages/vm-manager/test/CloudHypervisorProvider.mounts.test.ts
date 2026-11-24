@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type Docker from 'dockerode'
@@ -42,6 +42,26 @@ describe('CloudHypervisorProvider volume mount preparation', () => {
     it('rejects a mount escaping the data directory through traversal', async () => {
         await expect(provider.start(workload(join(baseDir, 'data', '..', 'escaped'))))
             .rejects.toThrow(/inside the workload data directory/)
+    })
+
+    // a checkout a workload wrote can hold a symlink, which the provider would follow when it binds the mount
+    it('rejects a writable mount reaching outside the data directory through a symlink', async () => {
+        const outside = join(baseDir, 'outside')
+        mkdirSync(outside, { recursive: true })
+        mkdirSync(join(baseDir, 'data', 'projects'), { recursive: true })
+        symlinkSync(outside, join(baseDir, 'data', 'projects', 'p1'))
+
+        await expect(provider.start(workload(join(baseDir, 'data', 'projects', 'p1', 'nested'))))
+            .rejects.toThrow(/outside the workload data directory/)
+        expect(existsSync(join(outside, 'nested'))).toBe(false)
+    })
+
+    it('rejects a read-only mount that is a symlink out of the data directory', async () => {
+        mkdirSync(join(baseDir, 'data', 'projects'), { recursive: true })
+        symlinkSync('/etc', join(baseDir, 'data', 'projects', 'p1'))
+
+        await expect(provider.start(workload(join(baseDir, 'data', 'projects', 'p1'), true)))
+            .rejects.toThrow(/outside the workload data directory/)
     })
 
     it('rejects a relative mount path', async () => {

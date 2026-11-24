@@ -108,7 +108,7 @@ output "license_server_env" {
     KINOTIC_LICENSES_EMAIL_SENDERADDRESS          = "DoNotReply@${local.global.email_sender_domain}"
     KINOTIC_LICENSES_STAFFOIDC_ISSUER             = "https://login.microsoftonline.com/${module.environment.tenant_id}/v2.0"
     KINOTIC_LICENSES_STAFFOIDC_CLIENTID           = azuread_application.license_console.client_id
-    KINOTIC_LICENSES_STAFFOIDC_ALLOWEDEMAILDOMAIN = "mindsignited.com"
+    KINOTIC_LICENSES_STAFFOIDC_ALLOWEDEMAILDOMAIN = "kinotic.ai"
     KINOTIC_CORS_ALLOWEDORIGINPATTERN             = "https://(${replace(local.licenses_hostname, ".", "\\.")}|${replace(local.licenses_console_hostname, ".", "\\.")})"
     AZURE_CLIENT_ID                               = azuread_application.license_server.client_id
     AZURE_TENANT_ID                               = module.environment.tenant_id

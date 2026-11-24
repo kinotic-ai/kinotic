@@ -16,8 +16,11 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -44,9 +47,14 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     public Future<List<DelegateSession>> findActiveSessions(String identityId) {
         Validate.notBlank(identityId, "identityId is required");
         Date now = new Date();
+        // a family holds two live tokens while a rotation of it is under way, and is one session
         return refreshTokenRepository.findActiveByIdentityId(identityId)
                 .map(tokens -> tokens.stream()
                         .filter(t -> t.getExpiresAt().after(now))
+                        .collect(Collectors.toMap(RefreshToken::getFamilyId, Function.identity(),
+                                                  (a, b) -> a.getCreated().after(b.getCreated()) ? a : b,
+                                                  LinkedHashMap::new))
+                        .values().stream()
                         .map(t -> new DelegateSession(t.getFamilyId(), t.getLabel(),
                                                       t.getCreated(), t.getExpiresAt()))
                         .toList());
@@ -99,17 +107,26 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                                 new IllegalArgumentException("Refresh token identity is missing or disabled"));
                     }
 
-                    // The replacement is minted before the presented token is consumed, so a failure mid-rotation
-                    // never leaves the client without a usable token. Of two rotations presenting one token at once
-                    // exactly one consumes it; the other is a reuse, and the family it revokes already holds the
-                    // replacement the winner minted, and its own.
+                    // The replacement is written, searchable, before the presented token is consumed under its id,
+                    // so a revocation of the lineage either finds the presented token live, and the consume then
+                    // fails, or finds the replacement. Two rotations presenting one token at once each write a
+                    // replacement, and only the one that consumes the token keeps it: the other deletes its own and
+                    // is a reuse. A consume that fails deletes the replacement too, whose plaintext no client holds.
+                    // The deletions are visible to search on completion, so the revocation a reuse starts, and the
+                    // session list, read the lineage without the deleted replacement.
                     String replacementId = UUID.randomUUID().toString();
-                    return mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(),
-                                current.getLabel())
-                            .compose(plaintext -> refreshTokenRepository.consume(current.getId(), replacementId)
+                    return mint(replacementId, current.getIdentityId(), current.getFamilyId(), current.getAudience(), current.getLabel())
+                            .compose(plaintext -> refreshTokenRepository.consume(current, replacementId)
                                     .compose(consumed -> consumed
-                                            ? Future.succeededFuture(new RefreshTokenRotation(identity, plaintext, current.getAudience()))
-                                            : reused(current)));
+                                                     ? Future.succeededFuture(new RefreshTokenRotation(identity, plaintext, current.getAudience()))
+                                                     // the lineage is revoked whether or not the replacement could
+                                                     // be deleted, which revokes a replacement left behind as well
+                                                     : refreshTokenRepository.deleteSync(replacementId, current.getIdentityId())
+                                                                             .transform(deleted -> reused(current)),
+                                             err -> refreshTokenRepository.deleteSync(replacementId, current.getIdentityId())
+                                                                          .onFailure(deleteErr -> log.warn("Could not delete the unused replacement {} of family {}: {}",
+                                                                                                           replacementId, current.getFamilyId(), deleteErr.getMessage()))
+                                                                          .transform(v -> Future.failedFuture(err))));
                 });
     }
 
