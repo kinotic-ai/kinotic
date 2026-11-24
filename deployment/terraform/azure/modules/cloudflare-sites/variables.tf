@@ -9,7 +9,7 @@ variable "zone_name" {
 }
 
 variable "sites_subdomain" {
-  description = "The label the environment's sites domain is under within the zone, or empty for the zone itself: empty for kinotic.io in production, dev for dev.kinotic.io on the development server, a developer's own name on their machine"
+  description = "The label the environment's sites domain is under within the zone, or empty for the zone itself: empty for kinotic.io in production and on the development server, a developer's own name on their machine"
   type        = string
   default     = ""
 }
@@ -58,7 +58,7 @@ variable "platform_zone_id" {
 }
 
 variable "ui_hostnames" {
-  description = "The platform's own UIs served by the Worker from the sites account the way a published site is, by hostname in the platform zone: portal.<zone> and console.<zone> in the cluster, dev-portal.<zone> and dev-console.<zone> on the development server, none on a developer's machine. deploy-ui.sh uploads each under sites/<hostname>/"
+  description = "The platform's own UIs served by the Worker from the sites account the way a published site is, by hostname in the platform zone: portal.<zone> and console.<zone> in the cluster and on the development server, none on a developer's machine. deploy-ui.sh uploads each under sites/<hostname>/"
   type        = set(string)
   default     = []
 }

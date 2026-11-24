@@ -47,6 +47,11 @@ public class ConnectedInfo implements ClusterSerializable {
      * other host.
      */
     private String host;
+    /**
+     * Identifies a browser login, so the connections established on it end when its page logs out; {@code null}
+     * for a connection that is not a browser login's.
+     */
+    private String loginId;
 
     @Override
     public void writeToBuffer(Buffer buffer) {
@@ -64,6 +69,7 @@ public class ConnectedInfo implements ClusterSerializable {
         this.participant = decoded.participant;
         this.replyToId = decoded.replyToId;
         this.host = decoded.host;
+        this.loginId = decoded.loginId;
         return pos;
     }
 

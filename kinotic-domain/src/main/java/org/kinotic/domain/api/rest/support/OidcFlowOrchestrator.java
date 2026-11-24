@@ -15,6 +15,7 @@ import org.kinotic.common.api.oidc.OidcClient;
 import org.kinotic.common.api.oidc.OidcClientService;
 import org.kinotic.common.api.oidc.OidcFlowState;
 import org.kinotic.common.api.oidc.OidcSignInFlow;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.services.SecretReferenceResolver;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -93,7 +94,7 @@ public class OidcFlowOrchestrator {
             OidcFlowState flow = signInFlow.consume(ctx);
             JsonObject scope = flow.context();
             if (!flow.registrationId().equals(pathConfigId)) {
-                log.warn("OIDC callback state mismatch for configId={}", pathConfigId);
+                log.warn("OIDC callback state mismatch for configId={}", KinoticUtil.singleLine(pathConfigId));
                 ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
             } else {
                 ret = configResolver.resolve(scope.getString(ORG_ID), scope.getString(APPLICATION_ID), scope.getString(TENANT_ID))
@@ -112,7 +113,7 @@ public class OidcFlowOrchestrator {
                                     });
             }
         } catch (OidcCallbackException refused) {
-            log.warn("OIDC callback for config {} refused: {}", pathConfigId, refused.getErrorCode());
+            log.warn("OIDC callback for config {} refused: {}", KinoticUtil.singleLine(pathConfigId), refused.getErrorCode());
             ret = Future.failedFuture(refused);
         }
         return ret;

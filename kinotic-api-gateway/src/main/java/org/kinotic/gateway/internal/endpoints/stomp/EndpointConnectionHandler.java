@@ -20,6 +20,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.ConnectionRevocationType;
 import org.kinotic.core.api.security.AuthenticationContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
@@ -67,6 +68,8 @@ public class EndpointConnectionHandler {
     private StompAuthorizer stompAuthorizer;
     private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private boolean sessionCreatedHere;
+    // the id of the browser login the connection was established on, or null when it authenticated with credentials
+    private String sessionLoginId;
     private long sessionTimer = -1;
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
@@ -96,6 +99,7 @@ public class EndpointConnectionHandler {
         routingContext.request().headers().remove(CLIENT_SECRET_HEADER);
 
         if (connectedInfo != null && connectedInfo.getParticipant() != null) {
+            sessionLoginId = connectedInfo.getLoginId();
             registerForRevocation();
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
@@ -137,7 +141,14 @@ public class EndpointConnectionHandler {
             revocation = cause;
             close.accept(cause);
         });
-        registrations.add(services.connectionRegistry.register(connectedInfo.getParticipant().getId(), closeOnContext));
+        registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
+                                                               connectedInfo.getParticipant().getId(),
+                                                               closeOnContext));
+        if (connectedInfo.getLoginId() != null) {
+            registrations.add(services.connectionRegistry.register(ConnectionRevocationType.LOGIN,
+                                                                   connectedInfo.getLoginId(),
+                                                                   closeOnContext));
+        }
     }
 
     public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {
@@ -466,7 +477,10 @@ public class EndpointConnectionHandler {
     // The stored copy is refreshed rather than the local one: it carries the version the store expects and
     // whatever a request on the same cookie has put since. A session the store no longer has, deleted by a
     // logout or expired, is never written back, because a put with no stored entry would re-create it; a
-    // connection a browser login established ends with it, since the login is gone with the session.
+    // connection a browser login established ends with it, since the login is gone with the session. It ends too
+    // once the stored session no longer holds its login: a logout removes the login before it publishes the
+    // revocation, so this read ends a connection the revocation missed, lost on its way or delivered before the
+    // connection registered for it.
     private void flushSession(Session flushed) {
         services.sessionStore.get(flushed.id()).onComplete(ar -> {
             if (session != flushed) {
@@ -480,6 +494,8 @@ public class EndpointConnectionHandler {
                 } else {
                     close.accept(new AuthenticationException("The session the connection was established with has ended"));
                 }
+            } else if (sessionLoginId != null && !SessionBinding.holdsLogin(ar.result(), sessionLoginId)) {
+                close.accept(new AuthenticationException("The login the connection was established on has ended"));
             } else {
                 Session stored = ar.result();
                 session = stored;

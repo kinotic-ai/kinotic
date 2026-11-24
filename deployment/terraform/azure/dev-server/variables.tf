@@ -17,27 +17,27 @@ variable "location" {
 }
 
 variable "api_label" {
-  description = "The management server's label in the platform zone: dev-api for dev-api.kinotic.ai, the API of the portal, the CLI and MCP hosts, and the GitHub App's webhook"
+  description = "The management server's label in the platform zone: api for api.kinotic.ai, the API of the portal, the CLI and MCP hosts, and the GitHub App's webhook"
   type        = string
-  default     = "dev-api"
+  default     = "api"
 }
 
 variable "system_api_label" {
-  description = "The system server's label in the platform zone: dev-system-api for dev-system-api.kinotic.ai, the system console's API"
+  description = "The system server's label in the platform zone: system-api for system-api.kinotic.ai, the system console's API"
   type        = string
-  default     = "dev-system-api"
+  default     = "system-api"
 }
 
 variable "portal_label" {
-  description = "The portal's label in the platform zone, served by the sites Worker from the sites account: dev-portal for dev-portal.kinotic.ai"
+  description = "The portal's label in the platform zone, served by the sites Worker from the sites account: portal for portal.kinotic.ai"
   type        = string
-  default     = "dev-portal"
+  default     = "portal"
 }
 
 variable "console_label" {
-  description = "The system console's label in the platform zone, served the same way: dev-console for dev-console.kinotic.ai"
+  description = "The system console's label in the platform zone, served the same way: console for console.kinotic.ai"
   type        = string
-  default     = "dev-console"
+  default     = "console"
 }
 
 variable "trusted_ui_hostnames" {

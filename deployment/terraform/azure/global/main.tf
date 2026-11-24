@@ -118,16 +118,6 @@ variable "github_app_private_key" {
   default     = ""
 }
 
-# Operator-supplied: the private key PEM of the kinotic-internal GitHub App, which files the feedback
-# organizations send as issues on kinotic-ai/kinotic. Provide via `TF_VAR_github_internal_app_private_key`
-# at apply time, managed afterwards like github_app_private_key.
-variable "github_internal_app_private_key" {
-  description = "Private key PEM of the kinotic-internal GitHub App, which the org and system servers file feedback issues with"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 variable "cloudflare_dns_api_token" {
   description = "A Cloudflare API token holding DNS edit on the platform zone and the customer zone (kinotic.io) and nothing else, which the management and system servers create each organization's sites record with; the cluster root gives cert-manager the same token for its DNS-01 challenges"
   type        = string
@@ -170,8 +160,8 @@ resource "azurerm_resource_group" "global" {
 # ── The platform zone ─────────────────────────────────────────────────────────
 # kinotic.ai on Cloudflare DNS, which the registrar's nameservers point at (dns_nameservers): the
 # servers' API hosts (the cluster and dev-server roots), the platform's own UIs, which the sites
-# Worker serves from the sites accounts at portal and console (the cluster root) and dev-portal
-# and dev-console (the dev-server root), and the email records below. The customers' sites are on
+# Worker serves from the sites account at portal and console (the cluster root or the dev-server
+# root, whichever serves them), and the email records below. The customers' sites are on
 # their own zone, kinotic.io, so no site is ever same-site with the platform.
 
 resource "cloudflare_zone" "main" {

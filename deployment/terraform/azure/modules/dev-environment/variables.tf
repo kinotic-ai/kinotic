@@ -4,7 +4,12 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Names everything this module creates and the <environment>.<cloudflare zone> sites domain; unique across every environment, since each takes that label of the zone and names its Worker after it"
+  description = "Names everything this module creates; unique across every environment, since each names its Worker after it"
+  type        = string
+}
+
+variable "sites_subdomain" {
+  description = "The label the environment's sites domain is under within the Cloudflare zone, or empty for the zone itself: empty for kinotic.io on the development server, a developer's own name on their machine"
   type        = string
 }
 
@@ -25,7 +30,7 @@ variable "platform_zone_id" {
 }
 
 variable "ui_hostnames" {
-  description = "The platform's own UIs the sites Worker serves from the sites account, by hostname in the platform zone: dev-portal.<zone> and dev-console.<zone> on the development server"
+  description = "The platform's own UIs the sites Worker serves from the sites account, by hostname in the platform zone: portal.<zone> and console.<zone> on the development server"
   type        = set(string)
   default     = []
 }
@@ -36,7 +41,7 @@ variable "email_communication_service_id" {
 }
 
 variable "cloudflare_zone_name" {
-  description = "The Cloudflare zone the environment's sites domain is a label under, e.g. kinotic.io"
+  description = "The Cloudflare zone the environment's sites domain is, or is a label under, e.g. kinotic.io"
   type        = string
 }
 

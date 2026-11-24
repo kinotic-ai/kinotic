@@ -39,4 +39,16 @@ public interface CredentialAuthenticationService {
                                      AuthenticationContext context,
                                      BiPredicate<ParticipantIdentity, Participant> admitted);
 
+    /**
+     * Resolves a participant authenticated earlier, whose login a browser session holds, to the participant its
+     * identity acts as now in the participant's scope, admitting it only when {@code admitted} accepts the pair.
+     *
+     * @param participant the participant the session holds
+     * @param admitted    whether the server accepts the identity, and the participant it acts as now
+     * @return a future emitting the current {@link Participant}, failed with an {@link AuthenticationException} when
+     *         the identity is gone, disabled or no longer acts in that scope, or {@code admitted} refuses it
+     */
+    Future<Participant> reauthenticate(Participant participant,
+                                       BiPredicate<ParticipantIdentity, Participant> admitted);
+
 }

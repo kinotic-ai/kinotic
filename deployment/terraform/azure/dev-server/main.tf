@@ -1,7 +1,7 @@
 # ── The development server's Azure side ──────────────────────────────────────
 # What the shared development server (a Proxmox host, deployment/terraform/proxmox) needs from
 # Azure and Cloudflare: the dev-environment module — a resource group, the sites storage
-# account, the sites Worker and domain <environment>.<cloudflare zone> with the app server's
+# account, the sites Worker and the sites domain, the Cloudflare zone itself, with the app server's
 # hosts under it, a service principal with the roles the servers need — plus three things a
 # developer's machine does without: a key vault the servers store secrets in, a storage account
 # Elasticsearch snapshots go to, and in the platform zone the portal and the system console,
@@ -96,6 +96,7 @@ module "environment" {
   platform_zone_id               = local.global.dns_zone_id
 
   cloudflare_zone_name  = var.cloudflare_zone_name
+  sites_subdomain       = ""
   cloudflare_zone_id    = var.cloudflare_zone_id
   cloudflare_account_id = var.cloudflare_account_id
   # the app server's hosts, proxied to the router; the host's certificate must cover them

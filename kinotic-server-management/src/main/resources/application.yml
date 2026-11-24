@@ -22,9 +22,6 @@ kinotic:
       appId: 3584018
       appSlug: kinotic-ai
       repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
-      internalApp:
-        # kinotic-internal, which files feedback as issues on kinotic-ai/kinotic
-        appId: 5856957
 
 logging:
   level:

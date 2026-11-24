@@ -93,7 +93,6 @@ terraform init
 # cloudflare_account_id and cloudflare_api_token in local.auto.tfvars (gitignored)
 TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... TF_VAR_cloudflare_dns_api_token=... \
   TF_VAR_github_app_private_key="$(cat <the App's private-key .pem>)" TF_VAR_github_webhook_secret=... \
-  TF_VAR_github_internal_app_private_key="$(cat <the kinotic-internal App's private-key .pem>)" \
   terraform apply
 ```
 
@@ -206,7 +205,7 @@ terraform apply -var="beta_mode=false"
 | Observability (Loki, Tempo, Mimir, Alloy) | `cluster/` | Disposable |
 | Firecracker VMs | `cluster/` | Disposable |
 | Sites account, Cloudflare sites Worker (kinotic.io), portal.kinotic.ai and console.kinotic.ai | `cluster/` | Disposable; `deploy-ui.sh cluster azure` uploads the UIs again |
-| Development server: sites account, Cloudflare sites Worker (dev.kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
+| Development server: sites account, Cloudflare sites Worker (kinotic.io), server key vault, snapshot storage | `dev-server/` | One per zone, local state |
 
 ## Additional Docs
 

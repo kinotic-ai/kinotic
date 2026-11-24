@@ -1069,13 +1069,6 @@ moved {
   to   = proxmox_virtual_environment_container.fleet["kinotic-server-app"]
 }
 
-# Postgres holds OpenFGA's database beside the license key server's; the container keeps its vmid,
-# its address and its data directory
-moved {
-  from = proxmox_virtual_environment_container.fleet["licenses-db"]
-  to   = proxmox_virtual_environment_container.fleet["postgres"]
-}
-
 # The nightly backup's script, whose timer prepare-host.sh installs: it finds Postgres by the
 # name this root gives its container, so the host's copy follows this one
 resource "terraform_data" "licenses_backup" {

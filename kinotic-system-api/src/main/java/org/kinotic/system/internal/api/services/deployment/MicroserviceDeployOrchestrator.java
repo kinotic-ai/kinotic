@@ -279,19 +279,11 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
                 .map(Requeue.NONE);
     }
 
-    // An org member may already have removed the machine from the console
+    // A machine an org member already removed from the console deletes as nothing; any other failure fails
+    // the reconcile, which is retried, so the machine's credentials never outlive the microservice unnoticed
     private Future<Void> removeMachine(MicroserviceDeployment deployment) {
-        Future<Void> ret;
-        if (deployment.getMachineIdentityId() == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = participantIdentityService.deleteById(deployment.getMachineIdentityId())
-                    .recover(error -> {
-                        log.warn("Machine {} of microservice {} could not be removed: {}",
-                                 deployment.getMachineIdentityId(), deployment.getName(), error.getMessage());
-                        return Future.succeededFuture();
-                    });
-        }
-        return ret;
+        return deployment.getMachineIdentityId() == null
+                ? Future.succeededFuture()
+                : participantIdentityService.deleteById(deployment.getMachineIdentityId());
     }
 }

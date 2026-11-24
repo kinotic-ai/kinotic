@@ -1,0 +1,20 @@
+name: Feature request
+description: A capability your work needs that Kinotic lacks.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Issues are public, so leave out secrets, tokens, personal data and the names of your
+        organization's applications and projects.
+  - type: textarea
+    id: description
+    attributes:
+      label: What do you need, and why?
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Portal page
+      description: The page's route pattern, filled in when you start from the portal.

@@ -1,7 +1,7 @@
 import type { Component } from 'vue'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import {
-    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, KeyRound, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, LockKeyhole, LogIn, Network, ScrollText, Server, User, Users
+    Box, BrainCircuit, Building2, ChartLine, CloudUpload, Cpu, Gauge, KeyRound, LaptopMinimalCheck, LayoutDashboard, LayoutGrid, Link, LockKeyhole, LogIn, Network, ScrollText, Server, ShieldAlert, User, Users
 } from '@lucide/vue'
 import { ProjectsIcon, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 import { ConnectedAppsPage, OAuthConsentPage } from '@kinotic-ai/frontend-common/management'
@@ -129,6 +129,12 @@ const routes: RouteRecordRaw[] = [
                 path: 'cluster',
                 component: () => import('./pages/ClusterPage.vue'),
                 meta: { sidebar: consoleItem('Cluster', Network, 20, 'System') }
+            },
+            {
+                name: 'advisories',
+                path: 'advisories',
+                component: () => import('./pages/AdvisoriesPage.vue'),
+                meta: { sidebar: consoleItem('Advisories', ShieldAlert, 25, 'System') }
             },
             {
                 name: 'worker-nodes',

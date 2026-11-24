@@ -19,7 +19,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
-import org.kinotic.management.api.model.github.CreatedIssue;
 import org.kinotic.management.api.model.github.GitHubToken;
 import org.springframework.stereotype.Component;
 
@@ -106,7 +105,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                   .expireAfter(TOKEN_EXPIRY)
                                   .maximumSize(10_000)
                                   .buildAsync((TokenKey key, Executor _) ->
-                                                      mintToken(jwtFactory.getAppJwt(), key.installationId(), key.repoId(), key.permissions())
+                                                      mintToken(key.installationId(), key.repoId(), key.permissions())
                                                               .toCompletionStage()
                                                               .toCompletableFuture());
     }
@@ -149,27 +148,6 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                         return Future.succeededFuture(resp.bodyAsJsonObject().getString("sha"));
                     }
                     return Future.failedFuture(httpError("createCommit", resp));
-                });
-    }
-
-    @Override
-    public Future<CreatedIssue> createIssue(String installationToken,
-                                            String repoFullName,
-                                            String title,
-                                            String body,
-                                            List<String> labels) {
-        JsonObject request = new JsonObject()
-                .put("title", title)
-                .put("body", body)
-                .put("labels", new JsonArray(labels));
-        return tokenAuthedPost("/repos/" + repoFullName + "/issues", installationToken, request)
-                .compose(resp -> {
-                    if (resp.statusCode() == 201) {
-                        JsonObject json = resp.bodyAsJsonObject();
-                        return Future.succeededFuture(new CreatedIssue().setNumber(json.getInteger("number"))
-                                                                         .setUrl(json.getString("html_url")));
-                    }
-                    return Future.failedFuture(httpError("createIssue", resp));
                 });
     }
 
@@ -355,15 +333,6 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     @Override
-    public Future<Long> findRepositoryInstallationId(String appJwt, String repoFullName) {
-        return request(HttpMethod.GET, "/repos/" + repoFullName + "/installation", appJwt)
-                .send()
-                .compose(resp -> resp.statusCode() == 200
-                        ? Future.succeededFuture(resp.bodyAsJsonObject().getLong("id"))
-                        : Future.failedFuture(httpError("findRepositoryInstallationId", resp)));
-    }
-
-    @Override
     public Future<String> getAuthenticatedLogin(String userAccessToken) {
         return request(HttpMethod.GET, "/user", userAccessToken)
                 .send()
@@ -421,13 +390,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                         .putHeader(API_VERSION_HEADER, API_VERSION);
     }
 
-    @Override
-    public Future<GitHubToken> createInstallationToken(String appJwt, long installationId, Map<String, String> permissions) {
-        return mintToken(appJwt, installationId, null, permissions);
-    }
-
-    private Future<GitHubToken> mintToken(String appJwt,
-                                          long installationId,
+    private Future<GitHubToken> mintToken(long installationId,
                                           Long repoId,
                                           Map<String, String> permissions) {
         JsonObject body = new JsonObject();
@@ -439,7 +402,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
             permissions.forEach(perms::put);
             body.put("permissions", perms);
         }
-        return request(HttpMethod.POST, "/app/installations/" + installationId + "/access_tokens", appJwt)
+        return request(HttpMethod.POST, "/app/installations/" + installationId + "/access_tokens",
+                       jwtFactory.getAppJwt())
                 .sendJsonObject(body)
                 .compose(resp -> {
                     if (resp.statusCode() / 100 != 2) {
