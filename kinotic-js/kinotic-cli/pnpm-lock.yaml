@@ -186,8 +186,8 @@ importers:
         specifier: 5.0.0-beta.20
         version: 5.0.0-beta.20(@kinotic-ai/core@5.0.0-beta.30(supports-color@8.1.1))
       '@kinotic-ai/spawn':
-        specifier: 5.0.0-beta.1
-        version: 5.0.0-beta.1
+        specifier: 5.0.0-beta.2
+        version: 5.0.0-beta.2
       '@oclif/core':
         specifier: ^5.1.12
         version: 5.1.12
@@ -626,8 +626,8 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.30
 
-  '@kinotic-ai/spawn@5.0.0-beta.1':
-    resolution: {integrity: sha512-54l4rcIo3Z6kYxWCqfpagNm4KZXvDbOdlK6D9Kg9XdImH731nEhiws6OJ/EDHFnEU0ykUJU0vekmaw2Khs/EDw==}
+  '@kinotic-ai/spawn@5.0.0-beta.2':
+    resolution: {integrity: sha512-mqRlZJaHzERVBCnKwaep3lhiUDeOS3Tx8J5k9lFhpAd5kYLfL1LOZYhEVd8AW00b26v6Ym4qjXSv9W+9XzMLQg==}
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
@@ -1705,8 +1705,8 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -2013,10 +2013,10 @@ snapshots:
       '@kinotic-ai/idl': 5.0.0-beta.6
       rxjs: 7.8.2
 
-  '@kinotic-ai/spawn@5.0.0-beta.1':
+  '@kinotic-ai/spawn@5.0.0-beta.2':
     dependencies:
       liquidjs: 10.28.0
-      zod: 4.4.3
+      zod: 4.6.7
 
   '@kwsites/file-exists@1.1.1(supports-color@8.1.1)':
     dependencies:
@@ -3048,4 +3048,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod@4.4.3: {}
+  zod@4.6.7: {}
