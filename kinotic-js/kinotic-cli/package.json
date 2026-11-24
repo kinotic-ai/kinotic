@@ -1,6 +1,6 @@
 {
     "name": "@kinotic-ai/kinotic-cli",
-    "version": "5.2.0-beta.46",
+    "version": "5.2.0-beta.47",
     "description": "Kinotic CLI provides the ability to build, deploy, and manage Kinotic applications that run on the Kinotic OS.",
     "author": "Kinotic Developers",
     "bin": {
@@ -26,7 +26,7 @@
         "@kinotic-ai/idl": "5.0.0-beta.6",
         "@kinotic-ai/management-api": "5.0.0-beta.72",
         "@kinotic-ai/persistence": "5.0.0-beta.20",
-        "@kinotic-ai/spawn": "5.0.0-beta.1",
+        "@kinotic-ai/spawn": "5.0.0-beta.2",
         "@oclif/core": "^5.1.12",
         "c12": "^3.3.4",
         "chalk": "^5.6.2",
