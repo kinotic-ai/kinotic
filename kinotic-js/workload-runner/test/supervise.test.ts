@@ -121,6 +121,29 @@ describe('supervise entrypoint', () => {
         await waitForStarts(2, 10_000)
     }, 40_000)
 
+    it('reports a project whose OpenTelemetry API is newer than the one its SDK is registered with', async () => {
+        const logDir = join(appDir, 'logs')
+        mkdirSync(logDir)
+        // The copy the project's entry resolves, at a version no image release reaches
+        mkdirSync(join(appDir, 'node_modules', '@opentelemetry', 'api'), { recursive: true })
+        writeFileSync(join(appDir, 'node_modules', '@opentelemetry', 'api', 'package.json'),
+                      JSON.stringify({ name: '@opentelemetry/api', version: '1.999.0' }))
+        writeFileSync(join(appDir, 'service.ts'),
+                      `import { appendFileSync } from 'node:fs'
+                       appendFileSync('starts.log', 'start\\n')
+                       setInterval(() => {}, 1000)`)
+        startSupervisor({
+            KINOTIC_LOG_DIR: logDir, KINOTIC_LOG_MAX_SIZE_MB: '1', KINOTIC_LOG_MAX_FILES: '1',
+            OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:9',
+            OTEL_TRACES_EXPORTER: 'none', OTEL_METRICS_EXPORTER: 'none', OTEL_LOGS_EXPORTER: 'none',
+        })
+        await waitForStarts(1, 10_000)
+
+        const content = readFileSync(join(logDir, 'workload.log'), 'utf-8')
+        expect(content).toContain('no traces or metrics will be exported')
+        expect(content).toContain('@opentelemetry/api 1.999.0')
+    }, 40_000)
+
     describe('telemetry preload', () => {
 
         interface OtlpRequest {
