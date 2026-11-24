@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/workload-runner",
-  "version": "5.0.0-beta.1",
+  "version": "5.0.0-beta.2",
   "private": true,
   "type": "module",
   "description": "Entrypoints for the workloads that deploy and run a customer project on a node: a one-shot checkout-and-sync run and a long-lived microservice supervisor. Baked into the workload-runner OCI image, never published to npm.",
