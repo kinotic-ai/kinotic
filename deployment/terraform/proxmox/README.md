@@ -468,26 +468,3 @@ router's forward. The management server takes that vmid and the edge takes the f
    here. The apply replaces container 121 with the management server and creates the system server,
    the app server, and the edge; the nodes take the new `hosts_entry` and `vm_manager_env`,
    whose server is now the system server's name.
-
-## Moving to the one Postgres server
-
-A host built before OpenFGA and the license key server shared a server runs two: `licenses-db`, vmid 126,
-and `openfga-db`, vmid 114. One `terraform apply` moves it:
-
-- **The license key server's database stays where it is.** Container 126 keeps its vmid, its address and its
-  data directory and is renamed `postgres`. The applier restarts it once, to read `pg_hba.conf`, and the license
-  key server reconnects. The same apply installs the backup script that finds the container by its new name.
-- **OpenFGA starts on an empty database.** The apply removes container 114, creates the `openfga` role and
-  database on the shared server, migrates it, points the engine at it and creates the system store.
-  `/var/lib/kinotic/data/openfga-db` stays on the host and nothing reads it.
-
-To keep the relationships the old database holds, dump it before the apply and restore it after, with the engine
-stopped:
-
-```bash
-ssh root@<host> 'pct exec 114 -- pg_dump -U openfga -d openfga --no-owner' > openfga.sql
-../with-dev-server-secrets.sh terraform apply
-ssh root@<host> "rm /var/lib/kinotic/state/keepalive/116 && pct stop 116 && pct exec 126 -- psql -U licenses -d licenses -c 'DROP DATABASE openfga' -c 'CREATE DATABASE openfga OWNER openfga'"
-ssh root@<host> 'pct exec 126 -- psql -U openfga -d openfga' < openfga.sql
-ssh root@<host> python3 /var/lib/vz/snippets/kinotic-apply-container.py /var/lib/vz/snippets/kinotic-openfga.manifest.json
-```
