@@ -192,11 +192,11 @@ importers:
         specifier: ^5.0.0-beta.6
         version: 5.0.0-beta.6
       '@kinotic-ai/kinotic-cli':
-        specifier: ^5.2.0-beta.46
-        version: 5.2.0-beta.46(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
+        specifier: ^5.2.0-beta.47
+        version: 5.2.0-beta.47(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.0
-        version: 1.32.0(supports-color@8.1.1)(zod@4.4.3)
+        version: 1.32.0(supports-color@8.1.1)(zod@4.6.7)
       '@types/node':
         specifier: ^25.9.5
         version: 25.9.5
@@ -621,8 +621,8 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.6':
     resolution: {integrity: sha512-GemJ94ptLbrZ642NEqqd7sWVkSyH1ybTGU2WKeiVhvHYDwARt3DKLA/MOcxls6QsafFRisJUl0irGgHC9huQpA==}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.46':
-    resolution: {integrity: sha512-s+9rrKuOg51DOe6JJXbICbd5bJ0czZoG/egpLqHk9rzlJMOneqQHJlzgFmz1KevbPmZ92q/APF3zZLjeUrZ4wg==}
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.47':
+    resolution: {integrity: sha512-ORw2VKf6+3VCVbnvW4bqSTzgcJb4LyTLja91n02ASVgQ+rhasR3YyV8jx6wh/nP/oeLpvK/Z9j47KqqH+onHkg==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -636,8 +636,8 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.30
 
-  '@kinotic-ai/spawn@5.0.0-beta.1':
-    resolution: {integrity: sha512-54l4rcIo3Z6kYxWCqfpagNm4KZXvDbOdlK6D9Kg9XdImH731nEhiws6OJ/EDHFnEU0ykUJU0vekmaw2Khs/EDw==}
+  '@kinotic-ai/spawn@5.0.0-beta.2':
+    resolution: {integrity: sha512-mqRlZJaHzERVBCnKwaep3lhiUDeOS3Tx8J5k9lFhpAd5kYLfL1LOZYhEVd8AW00b26v6Ym4qjXSv9W+9XzMLQg==}
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
@@ -2418,8 +2418,8 @@ packages:
     peerDependencies:
       zod: ^3.25.28 || ^4
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -2706,14 +2706,14 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.6': {}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.46(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.47(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@25.9.5)
       '@kinotic-ai/core': 5.0.0-beta.30(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.6
       '@kinotic-ai/management-api': 5.0.0-beta.72(@kinotic-ai/core@5.0.0-beta.30(supports-color@8.1.1))
       '@kinotic-ai/persistence': 5.0.0-beta.20(@kinotic-ai/core@5.0.0-beta.30(supports-color@8.1.1))
-      '@kinotic-ai/spawn': 5.0.0-beta.1
+      '@kinotic-ai/spawn': 5.0.0-beta.2
       '@oclif/core': 5.1.12
       c12: 3.3.4(magicast@0.5.4)
       chalk: 5.6.2
@@ -2743,10 +2743,10 @@ snapshots:
       '@kinotic-ai/idl': 5.0.0-beta.6
       rxjs: 7.8.2
 
-  '@kinotic-ai/spawn@5.0.0-beta.1':
+  '@kinotic-ai/spawn@5.0.0-beta.2':
     dependencies:
       liquidjs: 10.28.0
-      zod: 4.4.3
+      zod: 4.6.7
 
   '@kwsites/file-exists@1.1.1(supports-color@8.1.1)':
     dependencies:
@@ -2756,7 +2756,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@modelcontextprotocol/sdk@1.32.0(supports-color@8.1.1)(zod@4.4.3)':
+  '@modelcontextprotocol/sdk@1.32.0(supports-color@8.1.1)(zod@4.6.7)':
     dependencies:
       '@hono/node-server': 2.1.0(hono@4.13.18)
       ajv: 8.20.0
@@ -2773,8 +2773,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
     transitivePeerDependencies:
       - supports-color
 
@@ -4546,8 +4546,8 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod-to-json-schema@3.25.2(zod@4.4.3):
+  zod-to-json-schema@3.25.2(zod@4.6.7):
     dependencies:
-      zod: 4.4.3
+      zod: 4.6.7
 
-  zod@4.4.3: {}
+  zod@4.6.7: {}
