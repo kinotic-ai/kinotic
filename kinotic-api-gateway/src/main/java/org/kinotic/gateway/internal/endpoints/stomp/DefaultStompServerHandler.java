@@ -57,6 +57,8 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
     public void send(Frame frame) {
         // FIXME: this is probably the wrong way to  do this, We are not really providing guaranteed delivery below so this kinda just creates a bottle neck for no reason.
         // We pause the client to effectively make all client requests block until the previous request is handled asynchronously
+        // The pause is also what keeps a connection's requests and cancels in the order they arrived: a request leaves
+        // once its authorization passes, so without the pause a cancel would reach the services before the request it cancels
         stompServerConnection.pause();
 
         if(log.isTraceEnabled()){
@@ -96,10 +98,15 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             CRI cri = CRI.create(frame.getDestination());
 
             StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, replyFlowControl, jsonMapper, traceLogFilter);
-            // the receipt tells the client its subscription reaches it from every node, so a request it then
-            // makes cannot have its reply sent before the reply destination is known cluster-wide
+            // the connection's frames wait until the subscription is authorized and registered, so an UNSUBSCRIBE
+            // or a second SUBSCRIBE of the id finds it, and a request made next has its reply destination known
+            // cluster-wide, which the receipt tells a client that waits for it
+            stompServerConnection.pause();
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber)
-                                     .onSuccess(v -> stompServerConnection.sendReceiptIfNeeded(frame))
+                                     .onSuccess(v -> {
+                                         stompServerConnection.sendReceiptIfNeeded(frame);
+                                         stompServerConnection.resume();
+                                     })
                                      .onFailure(cause -> failConnection("subscribe to " + frame.getDestination() + " failed", cause, frame));
 
         } catch (Exception e) {

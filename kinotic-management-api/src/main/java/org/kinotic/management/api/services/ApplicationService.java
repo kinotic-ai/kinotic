@@ -2,11 +2,16 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.services.OrganizationScopedCrudService;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.annotations.AuthzUnchecked;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.utils.AuthzConstants;
 
 import java.util.List;
 
@@ -16,7 +21,52 @@ import java.util.List;
  */
 @Publish
 @McpTool
+@AuthzResource(value = AuthzConstants.APPLICATION_TYPE, parent = AuthzConstants.ORGANIZATION_TYPE)
 public interface ApplicationService extends OrganizationScopedCrudService<Application, String> {
+
+    /**
+     * Returns the application with the given id when the caller may see it: an application the caller may read,
+     * or one containing a project or an entity definition the caller may read.
+     *
+     * @param id the application's id
+     * @return a {@link Future} emitting the application, or null when none has the id or the caller may not see it
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Application> findById(String id);
+
+    /**
+     * Returns the number of applications the caller may see: those the caller may read, and those containing a
+     * project or an entity definition the caller may read.
+     *
+     * @return a {@link Future} emitting the count
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Long> count();
+
+    /**
+     * Returns a page of the applications the caller may see: those the caller may read, and those containing a
+     * project or an entity definition the caller may read.
+     *
+     * @param pageable the page to return
+     * @return a {@link Future} emitting the page
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<Application>> findAll(Pageable pageable);
+
+    /**
+     * Searches the applications the caller may see: those the caller may read, and those containing a project
+     * or an entity definition the caller may read.
+     *
+     * @param searchText the text to search for
+     * @param pageable   the page to return
+     * @return a {@link Future} emitting the matching page
+     */
+    @Override
+    @AuthzUnchecked
+    Future<Page<Application>> search(String searchText, Pageable pageable);
 
     /**
      * Creates a new application if it does not already exist, deriving its id from the slugified name.

@@ -18,7 +18,8 @@
 #                                             a keys list, so a key can be added at migration
 #   license-key-server.env                    the license key server's Azure secrets and its
 #                                             database password
-#   licenses-db.env                           the same password, as the database's POSTGRES_PASSWORD
+#   licenses-db.env                           the same password, as Postgres's POSTGRES_PASSWORD: the
+#                                             licenses role is the server's superuser
 #   licenses-db-backup.env                    where kinotic-licenses-backup uploads the database's
 #                                             dumps, from the Azure root
 set -euo pipefail

@@ -126,14 +126,14 @@ public class ApplicationUserProvisioningTests extends KinoticTestBase {
 
         await(identities.syncIndex());
         LoginScope scope = new LoginScope(application, null);
-        ApplicationParticipantIdentity claimed = await(signUps.findOrCreateOidcUser(scope, google, googleClaims(subject)));
+        ApplicationParticipantIdentity claimed = await(signUps.findOrCreateOidcUser(scope, google, googleClaims(subject), null));
         assertEquals(added.getId(), claimed.getId());
         assertFalse(listed(appId, email).isPending());
         // the identity now signs in as the user it claimed
-        assertEquals(added.getId(), await(signUps.findOrCreateOidcUser(scope, google, googleClaims(subject))).getId());
+        assertEquals(added.getId(), await(signUps.findOrCreateOidcUser(scope, google, googleClaims(subject), null)).getId());
 
         // once claimed, another identity under the same email takes no one
-        assertNull(await(signUps.findOrCreateOidcUser(scope, google, Map.of("sub", "other-" + suffix(), "email", email, "email_verified", true))));
+        assertNull(await(signUps.findOrCreateOidcUser(scope, google, Map.of("sub", "other-" + suffix(), "email", email, "email_verified", true), null)));
     }
 
     @Test
@@ -151,7 +151,7 @@ public class ApplicationUserProvisioningTests extends KinoticTestBase {
         assertNotNull(await(invites.findPendingInvite(email, organization.getId(), appId)));
 
         await(identities.syncIndex());
-        assertNotNull(await(signUps.findOrCreateOidcUser(new LoginScope(application, null), google, googleClaims(subject))));
+        assertNotNull(await(signUps.findOrCreateOidcUser(new LoginScope(application, null), google, googleClaims(subject), null)));
         // the claim spends the invitation, and someone signed in is sent no other
         assertNull(await(invites.findPendingInvite(email, organization.getId(), appId)));
         assertInstanceOf(IllegalArgumentException.class, failure(() -> members.sendInvitation(email, appId)));
@@ -169,7 +169,7 @@ public class ApplicationUserProvisioningTests extends KinoticTestBase {
         await(asAdministrator(() -> members.setMemberEnabled(added.getId(), false)));
         await(identities.syncIndex());
 
-        assertInstanceOf(UserDisabledException.class, failure(() -> signUps.findOrCreateOidcUser(new LoginScope(application, null), google, googleClaims(subject))));
+        assertInstanceOf(UserDisabledException.class, failure(() -> signUps.findOrCreateOidcUser(new LoginScope(application, null), google, googleClaims(subject), null)));
         assertTrue(listed(appId, subject + "@example.test").isPending());
     }
 
@@ -222,8 +222,8 @@ public class ApplicationUserProvisioningTests extends KinoticTestBase {
         await(identities.syncIndex());
 
         // another tenant's login admits none of Globex's users
-        assertNull(await(signUps.findOrCreateOidcUser(new LoginScope(application, initech.getId()), okta, googleClaims(subject))));
-        ApplicationParticipantIdentity claimed = await(signUps.findOrCreateOidcUser(new LoginScope(application, globex.getId()), okta, googleClaims(subject)));
+        assertNull(await(signUps.findOrCreateOidcUser(new LoginScope(application, initech.getId()), okta, googleClaims(subject), null)));
+        ApplicationParticipantIdentity claimed = await(signUps.findOrCreateOidcUser(new LoginScope(application, globex.getId()), okta, googleClaims(subject), null));
         assertEquals(added.getId(), claimed.getId());
         assertEquals(globex.getId(), claimed.getTenantId());
     }

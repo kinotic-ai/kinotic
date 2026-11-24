@@ -1,8 +1,11 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.authz.api.model.ServiceModelNames;
+import org.kinotic.authz.api.services.AuthzModelGenerator;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
@@ -81,37 +84,50 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
 
     // a name resolution matches at most a handful of entries; more than this only under pathological collision
     private static final int RESOLUTION_PAGE_SIZE = 25;
+    // the entries naming a type or a permission are read whole, a page at a time
+    private static final int NAMING_PAGE_SIZE = 200;
 
     private final ObjectMapper objectMapper;
     private final ZonePartitioningService zonePartitioningService;
+    private final AuthzModelGenerator authzModelGenerator;
 
     public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
                                            ObjectMapper objectMapper,
-                                           ZonePartitioningService zonePartitioningService) {
+                                           ZonePartitioningService zonePartitioningService,
+                                           AuthzModelGenerator authzModelGenerator) {
         super("kinotic_service_directory", ServiceDirectoryRecord.class, crudServiceTemplate);
         this.objectMapper = objectMapper;
         this.zonePartitioningService = zonePartitioningService;
+        this.authzModelGenerator = authzModelGenerator;
     }
 
     /**
      * Publishes an entry's contract, leaving the liveness fields untouched so a re-registration never clobbers
      * the {@code online} state the liveness owner maintains; a contract equal to the one stored leaves the entry
      * as it is. Visible to search on completion.
+     *
+     * @return the ids of the entries whose contract was written, empty when the stored one was equal
      */
-    public Future<Void> upsertEntry(ServiceDirectoryEntry entry) {
+    public Future<Set<String>> upsertEntry(ServiceDirectoryEntry entry) {
         return upsertEntries(List.of(entry));
     }
 
     /**
      * Publishes the contracts of the given entries as {@link #upsertEntry(ServiceDirectoryEntry)} does each.
      * Visible to search on completion.
+     *
+     * @return the ids of the entries whose contract was written, leaving out those whose stored contract was equal
      */
-    public Future<Void> upsertEntries(Collection<ServiceDirectoryEntry> entries) {
+    public Future<Set<String>> upsertEntries(Collection<ServiceDirectoryEntry> entries) {
         Map<String, Map<String, Object>> paramsById = new HashMap<>();
         for (ServiceDirectoryEntry entry : entries) {
             @SuppressWarnings("unchecked")
             Map<String, Object> contract = objectMapper.convertValue(entry, Map.class);
             contract.keySet().removeAll(LIVENESS_FIELDS);
+            ServiceModelNames names = authzModelGenerator.namesOf(entry.getServiceDefinition());
+            contract.put("authzTypes", List.copyOf(names.types()));
+            contract.put("authzParent", names.parent());
+            contract.put("authzPermissions", List.copyOf(names.permissions()));
             paramsById.put(entry.getId(), Map.of("contract", contract, "contractHash", hash(contract)));
         }
         // the caller reconciles liveness with a search right after this completes, so the writes
@@ -154,7 +170,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         onlineByEntryId.forEach((entryId, online) -> paramsById.put(entryId, Map.of("online", online,
                                                                                     "lastStatusChange", when,
                                                                                     "verifiedAt", when.toEpochMilli())));
-        return crudServiceTemplate.bulkScriptedUpdateSync(indexName, SET_ONLINE, paramsById, null);
+        return crudServiceTemplate.bulkScriptedUpdateSync(indexName, SET_ONLINE, paramsById, null).mapEmpty();
     }
 
     /**
@@ -205,6 +221,71 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                 b.query(scopeFilter);
             }
         }).map(page -> page.<ServiceDirectoryEntry>map(record -> record));
+    }
+
+    /**
+     * The entries of one scope whose contracts decide one of the given resource types, place a type inside one of
+     * the given parents, or require one of the given permissions: the services whose declarations those types'
+     * permissions and roles are made of.
+     *
+     * @param organizationId the organization of the scope, or null for the system's own services
+     * @param applicationId  the application of the scope, or null for the system's own services
+     * @param types          the resource types a matching contract decides
+     * @param parents        the types a matching contract places its declared type inside
+     * @param permissions    the model names of the permissions a matching contract requires
+     * @return the entries, in the order of their ids; none when nothing is given
+     */
+    public Future<List<ServiceDirectoryRecord>> findEntriesNaming(String organizationId,
+                                                                  String applicationId,
+                                                                  Collection<String> types,
+                                                                  Collection<String> parents,
+                                                                  Collection<String> permissions) {
+        Future<List<ServiceDirectoryRecord>> ret;
+        if (types.isEmpty() && parents.isEmpty() && permissions.isEmpty()) {
+            ret = Future.succeededFuture(List.of());
+        } else {
+            Query scope = organizationId == null
+                    ? missingFilter("organizationId")
+                    : composeFilter(termFilter("organizationId", organizationId), termFilter("applicationId", applicationId));
+            Query naming = Query.of(q -> q.bool(b -> b.should(termsFilter("authzTypes", types))
+                                                      .should(termsFilter("authzParent", parents))
+                                                      .should(termsFilter("authzPermissions", permissions))
+                                                      .minimumShouldMatch("1")));
+            ret = CursorPaging.readAll(pageable -> findAll(pageable, b -> b.query(composeFilter(scope, naming))),
+                                       NAMING_PAGE_SIZE, Sort.by("id"));
+        }
+        return ret;
+    }
+
+    /**
+     * What the stored contract of each given entry names of the authorization model.
+     *
+     * @param ids the ids of the entries
+     * @return the names by entry id, with no key for an id the directory holds no entry for
+     */
+    public Future<Map<String, ServiceModelNames>> findAuthzNames(Collection<String> ids) {
+        return findAllById(ids, b -> b.sourceIncludes("id", "authzTypes", "authzParent", "authzPermissions")).map(records -> {
+            Map<String, ServiceModelNames> ret = new HashMap<>();
+            for (ServiceDirectoryRecord record : records) {
+                ret.put(record.getId(), new ServiceModelNames(Set.copyOf(record.getAuthzTypes()),
+                                                              record.getAuthzParent(),
+                                                              Set.copyOf(record.getAuthzPermissions())));
+            }
+            return ret;
+        });
+    }
+
+    private static Query termsFilter(String field, Collection<String> values) {
+        List<FieldValue> fieldValues = values.stream().map(FieldValue::of).toList();
+        return Query.of(q -> q.terms(t -> t.field(field).terms(v -> v.value(fieldValues))));
+    }
+
+    /**
+     * Returns the entries of the system's own services, the ones with no owning organization.
+     */
+    public Future<Page<ServiceDirectoryEntry>> findSystemEntries(Pageable pageable) {
+        return findAll(pageable, b -> b.query(q -> q.bool(bq -> bq.mustNot(n -> n.exists(e -> e.field("organizationId"))))))
+                .map(page -> page.<ServiceDirectoryEntry>map(record -> record));
     }
 
     /**

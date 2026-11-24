@@ -8,7 +8,8 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div class="flex flex-col gap-4">
+    <NoAccessState v-if="refused" description="No grant you hold reaches the cluster. An administrator of the system can grant you access from the Access page." />
+    <div v-else class="flex flex-col gap-4">
       <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard v-for="stat in stats" :key="stat.label" :icon="stat.icon" :tint="stat.tint" :label="stat.label"
                   :value="stat.tag ? undefined : stat.value" :detail="stat.detail"
@@ -217,7 +218,7 @@ import { Activity, Boxes, ChartGantt, ChartLine, Network, ScrollText, Server, Sh
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, KinoticNodeInfo, ServerVulnerabilities } from '@kinotic-ai/system-api'
 import { AdvisorySeverity, AdvisoryType, WorkloadStatus, type VulnerabilityFinding, type Workload } from '@kinotic-ai/management-api'
-import { DashboardSection, HeartbeatIcon, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL, usePagedList } from '@kinotic-ai/frontend-common'
+import { DashboardSection, HeartbeatIcon, NoAccessState, PageHeader, StatCard, TINTS, errorMessage, EmptyChartCharacter, HEARTBEAT_TINTS, HeartbeatState, TablePaginator, SEVERITY_FILL, isAuthorizationError, latestOnly, usePagedList } from '@kinotic-ai/frontend-common'
 import { countSevere, VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
@@ -260,6 +261,7 @@ const advisoryRows = computed(() => {
 })
 const loading = ref(false)
 const error = ref<string | null>(null)
+const refused = ref(false)
 
 const logLevelNodeId = ref<string | null>(null)
 const logLevelVisible = ref(false)
@@ -479,7 +481,7 @@ function openLogLevel(nodeId: string) {
 }
 
 // The check of the libraries started last; Refresh can start another while one is still running
-let latestCheck = 0
+const startCheck = latestOnly()
 
 async function load() {
   loading.value = true
@@ -488,21 +490,23 @@ async function load() {
   scanWorkloads({}, { systemOnly: true }).then(list => { systemWorkloads.value = list })
                                           .catch(() => { systemWorkloads.value = null })
   // the libraries are checked apart from the topology, which shows without waiting for them
-  const check = ++latestCheck
+  const isLatestCheck = startCheck()
   Kinotic.clusterVulnerabilities.findAll().then(found => {
-    if (check === latestCheck) {
+    if (isLatestCheck()) {
       servers.value = found
       vulnerabilityError.value = null
     }
   }).catch(err => {
-    if (check === latestCheck) {
+    if (isLatestCheck()) {
       vulnerabilityError.value = errorMessage(err, "The servers' libraries could not be checked")
     }
   })
   try {
     cluster.value = await Kinotic.clusterInfo.getClusterInfo()
+    refused.value = false
   } catch (err) {
-    error.value = errorMessage(err, 'Failed to load cluster info')
+    refused.value = isAuthorizationError(err)
+    error.value = refused.value ? null : errorMessage(err, 'Failed to load cluster info')
   } finally {
     loading.value = false
   }

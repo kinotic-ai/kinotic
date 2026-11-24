@@ -49,6 +49,9 @@ public final class OidcErrorCodes {
     /** Sign-up or invitation callback found an existing user for the IdP identity or its email — caller should log in instead. */
     public static final String USER_EXISTS = "user_exists";
 
+    /** A sign-up named a company the application already has a tenant for; the person is invited into it, or names another. */
+    public static final String TENANT_EXISTS = "tenant_exists";
+
     /** Signup failed during pending sign-up creation. */
     public static final String SIGNUP_FAILED = "signup_failed";
 

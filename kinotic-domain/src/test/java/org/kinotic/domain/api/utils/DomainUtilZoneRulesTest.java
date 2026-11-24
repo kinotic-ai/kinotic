@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.services.security;
+package org.kinotic.domain.api.utils;
 
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.junit.jupiter.api.Test;
@@ -18,13 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verifies the zone routing rules derived per participant type: the verb x participant x zone
- * matrix, dot-boundary prefix safety, and rejection of ids that cannot form a valid zone, on a server
- * that serves every zone; and how a server's zone partitioning narrows them.
+ * Verifies the zone routing rules {@link DomainUtil#zoneRules} derives per participant type: the verb x participant
+ * x zone matrix, dot-boundary prefix safety, and rejection of ids that cannot form a valid zone, on a server that
+ * serves every zone; and how a server's zone partitioning narrows them. The organization participant hosts the
+ * services of {@link #HOSTED_ZONE}.
  */
-public class ScopedParticipantZoneRulesResolverTest {
+public class DomainUtilZoneRulesTest {
 
-    private final ScopedParticipantZoneRulesResolver resolver = new ScopedParticipantZoneRulesResolver();
+    private static final String HOSTED_ZONE = "app.acme-org.orders-app";
 
     private ZonePartitioningService partitioning = ZonePartitioningService.everyZone("test");
 
@@ -36,7 +37,7 @@ public class ScopedParticipantZoneRulesResolverTest {
                                                                                  .metadata(Map.of())
                                                                                  .roles(List.of())
                                                                                  .build();
-        return resolver.resolve(participant).restrictedTo(partitioning);
+        return DomainUtil.zoneRules(participant, List.of()).restrictedTo(partitioning);
     }
 
     private ZoneRules organizationRules(String organizationId) {
@@ -46,7 +47,8 @@ public class ScopedParticipantZoneRulesResolverTest {
                                                                                    .metadata(Map.of())
                                                                                    .roles(List.of())
                                                                                    .build();
-        return resolver.resolve(participant).restrictedTo(partitioning);
+        return DomainUtil.zoneRules(participant, organizationId.equals("acme-org") ? List.of(HOSTED_ZONE) : List.of())
+                         .restrictedTo(partitioning);
     }
 
     private ZoneRules systemRules() {
@@ -55,7 +57,7 @@ public class ScopedParticipantZoneRulesResolverTest {
                                                                        .metadata(Map.of())
                                                                        .roles(List.of())
                                                                        .build();
-        return resolver.resolve(participant).restrictedTo(partitioning);
+        return DomainUtil.zoneRules(participant, List.of()).restrictedTo(partitioning);
     }
 
     @Test
@@ -82,7 +84,7 @@ public class ScopedParticipantZoneRulesResolverTest {
 
         // the app's own zone written in the pre '~' dotted form is just an un-zoned resourceName
         assertFalse(rules.sendAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService/create#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService#1.0.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.OrderService#1.0.0")).result());
         assertFalse(rules.sendAllowed(CRI.create("stream://app.acme-org.orders-app.OrderEvents")));
     }
 
@@ -91,7 +93,7 @@ public class ScopedParticipantZoneRulesResolverTest {
         assertTrue(applicationRules("acme-corp", "orders-app")
                            .sendAllowed(CRI.create("srv://app.acme-corp.orders-app~OrderService/create#1.0.0")));
         assertTrue(organizationRules("acme-corp")
-                           .subscribeAllowed(CRI.create("srv://app.acme-corp.orders-app~OrderService#1.0.0")));
+                           .sendAllowed(CRI.create("srv://app.acme-corp.orders-app~OrderService/create#1.0.0")));
         assertFalse(applicationRules("acme-corp", "orders-app")
                             .sendAllowed(CRI.create("srv://app.acme-corp.other_app~OrderService/create#1.0.0")));
     }
@@ -104,7 +106,7 @@ public class ScopedParticipantZoneRulesResolverTest {
         assertFalse(application.sendAllowed(CRI.create("srv://app.acme-org-2.orders-app~OrderService/create#1.0.0")));
 
         ZoneRules organization = organizationRules("acme-org");
-        assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org-2.orders-app~OrderService#1.0.0")));
+        assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org-2.orders-app~OrderService#1.0.0")).result());
     }
 
     @Test
@@ -115,13 +117,13 @@ public class ScopedParticipantZoneRulesResolverTest {
                                                                                     ParticipantConstants.PARTICIPANT_TYPE_MACHINE))
                                                                    .roles(List.of())
                                                                    .build();
-        ZoneRules rules = resolver.resolve(machine).restrictedTo(partitioning);
+        ZoneRules rules = DomainUtil.zoneRules(machine, List.of()).restrictedTo(partitioning);
 
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://machine-1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://machine-2@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://machine-1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://machine-2@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
         // a system user's subscriptions carry any scope
-        assertTrue(systemRules().subscribeAllowed(CRI.create("srv://machine-2@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertTrue(systemRules().subscribeAllowed(CRI.create("srv://machine-2@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
     }
 
     @Test
@@ -130,26 +132,30 @@ public class ScopedParticipantZoneRulesResolverTest {
 
         // not even its own zone: an application's services are hosted by its runtime, which
         // authenticates as an organization participant
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
     }
 
     @Test
-    public void organizationParticipantSubscribesWithinItsOwnAppZones() {
+    public void organizationParticipantSubscribesWithinTheZonesItHosts() {
         ZoneRules rules = organizationRules("acme-org");
 
-        // every application zone under the organization, sub-zones included, srv and stream
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://node1@app.acme-org.orders-app~OrderService#1.0.0")));
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.billing~InvoiceService#1.0.0")));
+        // the hosted application's zone, sub-zones included
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://node1@app.acme-org.orders-app~OrderService#1.0.0")).result());
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.billing~InvoiceService#1.0.0")).result());
 
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.other-org.orders-app~OrderService#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        // never another application of the organization, though the participant may send to it
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.other-app~OrderService#1.0.0")).result());
+        assertTrue(rules.sendAllowed(CRI.create("srv://app.acme-org.other-app~OrderService/create#1.0.0")));
+        assertFalse(organizationRules("other-org").subscribeAllowed(CRI.create("srv://app.other-org.orders-app~OrderService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.other-org.orders-app~OrderService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
     }
 
     @Test
@@ -178,15 +184,15 @@ public class ScopedParticipantZoneRulesResolverTest {
         assertTrue(rules.sendAllowed(CRI.create("srv://node1@system-api~kinotic-ai.vm-manager.VmManager/startWorkload#0.1.0")));
         assertTrue(rules.sendAllowed(CRI.create("srv://org.kinotic.testserver.SomeLegacyService/method#1.0.0")));
 
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
-        assertTrue(rules.subscribeAllowed(CRI.create("srv://node1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
+        assertTrue(rules.subscribeAllowed(CRI.create("srv://node1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
 
         // management-api and app-api are hosted in-process only, so not even system may subscribe to them
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.some.PlatformService#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.some.DataService#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.some.PlatformService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.some.DataService#1.0.0")).result());
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
         // subscribing requires a zone: an un-zoned address is never subscribable, even for system
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://org.kinotic.testserver.SomeLegacyService#1.0.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://org.kinotic.testserver.SomeLegacyService#1.0.0")).result());
     }
 
     @Test
@@ -194,12 +200,12 @@ public class ScopedParticipantZoneRulesResolverTest {
         // a node id may be an FQDN; the zone comes from the CRI's zone component so the scope
         // cannot influence the decision
         ZoneRules system = systemRules();
-        assertTrue(system.subscribeAllowed(CRI.create("srv://vm1.example.com@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertTrue(system.subscribeAllowed(CRI.create("srv://vm1.example.com@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
         assertTrue(system.sendAllowed(CRI.create("srv://vm1.example.com@system-api~kinotic-ai.vm-manager.VmManager/start#0.1.0")));
 
         ZoneRules organization = organizationRules("acme-org");
-        assertTrue(organization.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.orders-app~OrderService#1.0.0")));
-        assertFalse(organization.subscribeAllowed(CRI.create("srv://node.1.2@app.other-org.orders-app~OrderService#1.0.0")));
+        assertTrue(organization.subscribeAllowed(CRI.create("srv://node.1.2@app.acme-org.orders-app~OrderService#1.0.0")).result());
+        assertFalse(organization.subscribeAllowed(CRI.create("srv://node.1.2@app.other-org.orders-app~OrderService#1.0.0")).result());
     }
 
     @Test
@@ -214,7 +220,7 @@ public class ScopedParticipantZoneRulesResolverTest {
         // the participant may address its applications' zones, but the management server does not reach them
         assertFalse(organization.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
         // nor host them, so an application's runtime cannot publish its services here
-        assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        assertFalse(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
     }
 
     @Test
@@ -222,14 +228,14 @@ public class ScopedParticipantZoneRulesResolverTest {
         partitioning = ZonePartitioningService.of("app", Set.of("app-api", "app"), Set.of("app-api", "app"));
         ZoneRules organization = organizationRules("acme-org");
 
-        assertTrue(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
+        assertTrue(organization.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")).result());
         assertTrue(organization.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
         assertFalse(organization.sendAllowed(CRI.create("srv://management-api~org.kinotic.management.api.services.iam.MemberService/findMembers#1.0.0")));
 
         // system participants may send anywhere, but only where this server reaches
         ZoneRules system = systemRules();
         assertFalse(system.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/query#1.0.0")));
-        assertFalse(system.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
+        assertFalse(system.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")).result());
     }
 
     @Test
@@ -244,7 +250,7 @@ public class ScopedParticipantZoneRulesResolverTest {
         assertThrows(IllegalArgumentException.class,
                      () -> CRI.create("srv://app.acme-org.orders-app~x@app.acme-org.other-app~OrderService/create#1.0.0"));
         assertFalse(rules.sendAllowed(CRI.create("srv://app.acme-org.orders-app@management-api~org.kinotic.management.api.services.iam.MemberService/addOrganizationUser#1.0.0")));
-        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService#1.0.0")));
+        assertFalse(rules.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService#1.0.0")).result());
         assertFalse(rules.sendAllowed(CRI.create("stream://app.acme-org.orders-app.x@app.acme-org.other-app~OrderEvents")));
     }
 
@@ -253,8 +259,23 @@ public class ScopedParticipantZoneRulesResolverTest {
         // stream routing is not yet supported by the gateway, so every participant is denied
         assertFalse(systemRules().sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
         assertFalse(organizationRules("acme-org").sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
-        assertFalse(organizationRules("acme-org").subscribeAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
+        assertFalse(organizationRules("acme-org").subscribeAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")).result());
         assertFalse(applicationRules("acme-org", "orders-app").sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
+    }
+
+    @Test
+    public void aHostedZoneOutsideTheOrganizationIsRejected() {
+        DefaultOrganizationParticipant participant = DefaultOrganizationParticipant.builder()
+                                                                                   .id("org-user")
+                                                                                   .organizationId("acme-org")
+                                                                                   .metadata(Map.of())
+                                                                                   .roles(List.of())
+                                                                                   .build();
+
+        assertThrows(IllegalArgumentException.class, () -> DomainUtil.zoneRules(participant, List.of("app.other-org.orders-app")));
+        // a zone that merely begins with the organization's id is another organization's
+        assertThrows(IllegalArgumentException.class, () -> DomainUtil.zoneRules(participant, List.of("app.acme-org-2.orders-app")));
+        assertThrows(IllegalArgumentException.class, () -> DomainUtil.zoneRules(participant, List.of("management-api")));
     }
 
     @Test

@@ -27,19 +27,20 @@ copy left from an earlier version; `KINOTIC_PULL_POLICY=always docker compose up
 
 | File | Purpose | Brings up |
 |---|---|---|
-| `compose.yml` | Top-level — `include:`s every piece below, as the compose project `kinotic` | Full stack (ES + Kibana + OTEL + migration + Azurite and the sites edge + Gitea + the three servers + the UIs), with no organization |
+| `compose.yml` | Top-level — `include:`s every piece below, as the compose project `kinotic` | Full stack (ES + Kibana + OTEL + OpenFGA + migration + Azurite and the sites edge + Gitea + the three servers + the UIs), with no organization |
 | `compose.elasticsearch.yml` | Elasticsearch | `kinotic-elasticsearch:9200` |
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what the servers wait on |
 | `compose.kinotic-servers.yml` | The three Kinotic servers, one Ignite cluster | `kinotic-server-management:58503`, `kinotic-server-system:58504`, `kinotic-server-app:58505` (REST and STOMP) |
 | `compose.ui.yml` | The portal and the system console, the `kinotic-ui` image built from `kinotic-ui.Dockerfile`, which builds `kinotic-frontend` and serves both through `kinotic-ui.ts`. `docker compose up --build` builds it from the working tree | `kinotic-ui:9090` (portal), `kinotic-ui:9091` (system console) |
+| `compose.openfga.yml` | OpenFGA, the authorization engine, with its Postgres, its schema migration and `openfga-init`, which creates the system store | `openfga:8080`; one-shot `openfga-init`, whose `service_completed_successfully` the servers wait on |
 | `compose-otel.yml` | OpenTelemetry collector + Tempo + Loki + Mimir | `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.sample-data.yml` | Layered onto `compose.yml`: `kinotic-sample-data` runs the migration with the `fixtures` profile, and `kinotic-gen-schemas` publishes sample entity definitions | See [Sample data](#sample-data) |
 | `compose.sites.yml` | Where published UIs are stored and served: the Azurite emulator, and the local edge, the `kinotic-sites-edge` image built from `sites-edge.Dockerfile`, which runs the Cloudflare sites Worker (`../cloudflare/sites-worker/worker.js`) over it through `sites-edge.ts`. `docker compose up --build` builds it from the working tree | `kinotic-azurite:10000`, `kinotic-sites-edge:8088` |
 | `compose.gitea.yml` | The Gitea server the demonstration server hosts projects' repositories on, in place of GitHub: it creates the `kinotic_admin` administrator the servers act as on first start | `kinotic-gitea:3000` |
 | `compose.keycloak.yml` | Local Keycloak as a social sign-in OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
 | `compose.kinotic-test.yml` | Minimal: ES + migration only, no server | Backing services for the `kinotic-test` suite, which runs the server in-process |
-| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + the servers, on the `e2e` profile | Used by e2e tests in CI |
+| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + OpenFGA + the servers, on the `e2e` profile | Used by e2e tests in CI |
 
 ## Common one-liners
 
@@ -81,6 +82,7 @@ docker compose -p docker-compose down
 | System server | <http://localhost:58504> | REST, and STOMP at `ws://localhost:58504/api/v1`, for the system console |
 | App server | <http://localhost:58505> | REST, and STOMP at `ws://localhost:58505/api/v1`; each application's API host is `<organizationId>--<applicationId>.apps-api.kinotic.localhost:58505` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
+| OpenFGA | <http://localhost:8080> | The authorization engine's HTTP API, unauthenticated — local only |
 | Kibana | <http://localhost:5601> | |
 | A published UI | `http://<app>--<ui>.<org>.sites.kinotic.localhost:8088` | Served by `kinotic-sites-edge` from Azurite; the project's deployment page links it. Chrome, Edge and Firefox resolve `*.localhost` to this machine. The sites and the API hosts are both under `kinotic.localhost`, so the browser treats a site and its application's API as one site and sends the `SameSite=Lax` session cookie between them, as under `kinotic.ai` in production |
 | Azurite | <http://localhost:10000/devstoreaccount1> | Azurite's `devstoreaccount1` development account, which the publish and removal workloads upload to and delete from |

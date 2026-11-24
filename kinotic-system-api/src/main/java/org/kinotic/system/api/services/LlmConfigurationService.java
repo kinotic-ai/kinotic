@@ -4,6 +4,9 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.system.api.model.llm.LlmConfiguration;
 
 /**
@@ -14,15 +17,19 @@ import org.kinotic.system.api.model.llm.LlmConfiguration;
  * Published in the system zone, which only SYSTEM participants and the system's own cluster members may address.
  */
 @Publish
+@AuthzResource(value = AuthzConstants.SYSTEM_TYPE, resourceId = AuthzConstants.SYSTEM_OBJECT_ID, permission = AuthzConstants.CAN_MANAGE_INTEGRATIONS)
 public interface LlmConfigurationService {
 
     /** Every configuration, a page at a time. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_INTEGRATIONS)
     Future<Page<LlmConfiguration>> findAll(Pageable pageable);
 
     /** The configuration {@code id}, or {@code null} when none has that id. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_INTEGRATIONS)
     Future<LlmConfiguration> findById(String id);
 
     /** The configuration named {@code name}, or {@code null} when none has that name. */
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_INTEGRATIONS)
     Future<LlmConfiguration> findByName(String name);
 
     /**

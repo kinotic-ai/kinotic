@@ -39,22 +39,24 @@ public class SessionEndpointHandler implements SuppliesGatewayRoutes {
     private void handleMe(RoutingContext ctx) {
         ConnectedInfo connectedInfo = SessionBinding.connectedInfo(ctx);
         boolean authenticated = connectedInfo != null && connectedInfo.getParticipant() != null;
-        if (!authenticated) {
+        if (authenticated) {
+            ctx.response().setStatusCode(204).end();
+        } else {
             // a cookie with no login behind it (stale, or freshly created because the prior session was
             // gone) clears, so nothing empty is persisted; another page's login or sign-in in progress
             // keeps the session
-            SessionBinding.unbind(ctx);
+            SessionBinding.unbind(ctx).onComplete(unbound -> ctx.response().setStatusCode(401).end());
         }
-        ctx.response().setStatusCode(authenticated ? 204 : 401).end();
     }
 
     /** Ends the calling page's login, and the realtime connections established on it. */
     private void handleLogout(RoutingContext ctx) {
         ConnectedInfo login = SessionBinding.connectedInfo(ctx);
-        SessionBinding.unbind(ctx);
-        if (login != null && login.getLoginId() != null) {
-            connectionRevocationService.revokeLogin(login.getLoginId());
-        }
-        ctx.response().setStatusCode(204).end();
+        SessionBinding.unbind(ctx).onComplete(unbound -> {
+            if (login != null && login.getLoginId() != null) {
+                connectionRevocationService.revokeLogin(login.getLoginId());
+            }
+            ctx.response().setStatusCode(204).end();
+        });
     }
 }

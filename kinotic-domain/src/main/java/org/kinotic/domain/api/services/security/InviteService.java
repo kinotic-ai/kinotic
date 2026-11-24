@@ -9,6 +9,7 @@ import org.kinotic.domain.api.exceptions.UserDisabledException;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.model.EmailTemplate;
 import org.kinotic.domain.api.model.security.PendingInvite;
+import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 
 /**
  * Manages member invitations into an existing Organization or Application scope: creating and
@@ -31,6 +32,30 @@ public interface InviteService {
      * @throws IllegalArgumentException when {@code emailTemplate} is not valid, as {@link EmailTemplate} describes
      */
     Future<PendingInvite> createInvite(PendingInvite invite, EmailTemplate emailTemplate);
+
+    /**
+     * Adds a user of an application at the invitation's email, in the tenant the invitation names, pending until
+     * the invited address claims it, and emails the invitation to claim it with as {@link #createInvite} does.
+     * Fails, saving nothing, unless the invitation {@link #requireAcceptable can be accepted}.
+     *
+     * @param invite        the invitation as {@link #createInvite} takes it, naming the application
+     * @param emailTemplate the invitation email to send in place of Kinotic's, or {@code null} for Kinotic's
+     * @return a future emitting the user, pending
+     * @throws IllegalArgumentException when {@code emailTemplate} is not valid, as {@link EmailTemplate} describes
+     */
+    Future<ApplicationParticipantIdentity> inviteApplicationUser(PendingInvite invite, EmailTemplate emailTemplate);
+
+    /**
+     * Requires that an invitation into an application can be accepted: with a password, where the login of the
+     * tenant takes one, or by signing in with one of the application's own sign-in providers at its primary UI,
+     * which the accept page links to.
+     *
+     * @param organizationId the organization the application belongs to
+     * @param applicationId  the application invited into
+     * @param tenantId       the tenant the invitee joins, or {@code null} for none
+     * @return a future failing with {@link IllegalArgumentException} when no one could accept the invitation
+     */
+    Future<Void> requireAcceptable(String organizationId, String applicationId, String tenantId);
 
     /**
      * Finds the invitation for the given accept token, failing if the token is unknown or the

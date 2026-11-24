@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 /**
- * The {@link WorkloadRetentionSweeper}'s sweep as a system job. It runs hourly, and an operator can
+ * The {@link WorkloadRetentionSweeper}'s sweep as a system job. It runs hourly, and a system user can
  * run it ahead of the schedule. One sweep runs at a time across the cluster: a run started while
  * another is going is refused.
  */

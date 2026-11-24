@@ -1,8 +1,8 @@
 # The development server on Proxmox
 
 One Proxmox host runs the platform's services: a container per service — the org, system and
-app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, Loki,
-Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
+app servers, the one-shot migration, three Elasticsearch nodes on a physical disk each, OpenFGA,
+Postgres, Loki, Tempo, Mimir — created from the same images the compose stack pulls, and the edge, an
 HAProxy container that passes each TLS connection on the router's forwarded 443 to the server
 its SNI names. The portal and the system console are served by the sites Worker from the Azure
 root's sites account (`deployment/terraform/azure/deploy-ui.sh dev-server dev-server` uploads
@@ -177,7 +177,7 @@ summit-42 repository's `main` and uploads. It reads the system LLM configuration
 
 The host also runs Minds Ignited's license key server (`kinotic-ai/license-key-server`) at the names Kinotic
 connects to for keys: `licenses.kinotic.ai` for customers and renewing clusters, `licenses-console.kinotic.ai`
-for staff. It is container 127 on `10.10.0.25`, with its Postgres database, `licenses-db`, as container 126 on
+for staff. It is container 127 on `10.10.0.25`, with its database, `licenses`, in Postgres, container 126 on
 `10.10.0.26` (data in `/var/lib/kinotic/data/licenses-db`). The license server limits sign-in codes per client
 address, read from `X-Forwarded-For`, so the edge terminates TLS for its two names, sets that header to the
 address the connection came from and re-encrypts to the server; every other name still passes through unopened.
@@ -205,8 +205,17 @@ Stripe is configured by adding `KINOTIC_LICENSES_STRIPE_SECRETKEY` and `KINOTIC_
 KINOTIC_LICENSES_STRIPE_SECRETKEY KINOTIC_LICENSES_STRIPE_WEBHOOKSECRET` prompts for, and running
 `sync-secrets.sh`; until then purchases and trials fail and everything else works.
 
-The database is backed up every night: `kinotic-licenses-backup.timer` on the host runs
-`host/kinotic-licenses-backup.sh`, which dumps it with `pg_dump` and uploads `licenses-<UTC time>.sql.gz` to the
+Postgres is one server for the host, the `postgres` container, and holds OpenFGA's database, `openfga`, beside
+the license key server's. The `licenses` role is the server's superuser, created with the `licenses` database
+when Postgres first starts on an empty data directory, which is named for that database. The one-shot
+`openfga-db-init` signs in as that role and creates the `openfga` role and database unless Postgres has them.
+Who Postgres admits is this root's `pg_hba.conf` (`postgres_hba` in `main.tf`): its own socket without a
+password, which the backup and `pct exec 126 -- psql -U licenses -d licenses` use; the `openfga` role to its own
+database from the private network without one, since the private network is the engine's isolation; and every
+other connection by password, which is how the license key server signs in.
+
+The license database is backed up every night: `kinotic-licenses-backup.timer` on the host runs
+`host/kinotic-licenses-backup.sh`, which terraform installs on the host, dumps the database with `pg_dump` and uploads `licenses-<UTC time>.sql.gz` to the
 `licenses-db-backups` container of the snapshot storage account, where a dump is deleted after 90 days. Where it
 uploads comes from the `dev-server` root's `licenses_db_backup_env` output, which is the keychain's
 `licenses-db-backup.env`; the SAS in it can create a dump and can read or delete none, and
@@ -256,9 +265,11 @@ terraform init
 
 The apply creates the private network, pulls the images, creates every container stopped,
 uploads the manifests, and runs the applier over them in startup order: the three
-Elasticsearch nodes, then Loki, Tempo and Mimir, then the migration, which waits for
-the cluster to be healthy, runs to completion, and is verified against the
-`migration_history` index, then the three servers, which form one Ignite cluster over their
+Elasticsearch nodes, then Postgres, the one-shot creation of OpenFGA's role and database in it,
+`openfga-db-init`, the engine's one-shot schema migration, the engine and
+the one-shot creation of the system store, `openfga-init`, verified by listing the store, then
+Loki, Tempo and Mimir, then the migration, which waits for the cluster to be healthy,
+runs to completion, and is verified against the `migration_history` index, then the three servers, which form one Ignite cluster over their
 private addresses, then the edge.
 
 The servers are on `https://api.kinotic.ai` (org), `https://system-api.kinotic.ai`
@@ -296,7 +307,16 @@ uploaded them.
    node's name, which a rename under **Members → Machines** changes when the node's vm-manager next starts.
    Each machine's credentials go straight into its node's `vm-manager.secrets.env`, which starts
    its vm-manager; the system user's password goes to a temporary file whose path it prints.
-   It refuses a cluster that already has that system user:
+   It refuses a cluster that already has that system user. The script writes the identities
+   straight to Elasticsearch, the machines before the system user and the system user's identity
+   last, so a run that fails before then can be made again as it was: what it wrote is written
+   over. When that last write reports a failure the script reads the system user back, and
+   carries on if it is there; otherwise it stops, keeps the password file and says what the
+   next run decides. It then restarts the system
+   server, whose seed job places them in the authorization graph as it starts
+   (`kinotic.authz.seedGraph`, set in its `dev-server` profile): the system user as
+   `system.admin` and each machine as `vm_node.registrar`. The system user signs in, and each
+   node registers, once the server is back and the job has run.
 
    ```bash
    ./bootstrap-identities.sh you@example.com kinotic@<node ip>=dev-node-1 kinotic@<worker ip>=dev-node-2
@@ -306,7 +326,7 @@ uploaded them.
    registration under **Sign-in providers** (the Azure root's README lists its values), then
    connects it to their own account under **Profile**.
 
-   Further operators and machines come from the system console's **Members** pages.
+   Further system users and machines come from the system console's **Members** pages.
 
    The node appears `ONLINE` in the console with no health message. A first deployment lands
    on the first `ONLINE` node with room for it.
@@ -379,11 +399,21 @@ uploaded them.
   A container replaced this way keeps its vmid, so run the applier yourself afterwards:
   `ssh root@<host> python3 /var/lib/vz/snippets/kinotic-apply-container.py /var/lib/vz/snippets/kinotic-*.manifest.json`.
   To re-run the migration on the same image, `rm /var/lib/kinotic/state/120.ran` first.
+  `openfga-db-init` runs again on its own whenever Postgres has no `openfga` database when the applier
+  reaches it, `openfga-migrate` whenever the engine is not healthy, and `openfga-init`, which waits
+  for the engine first, whenever the engine lists no system store. A schema migration
+  that failed leaves the engine unhealthy, so the apply fails waiting for it at `openfga-init`,
+  and the next apply runs the applier and the migration again.
 - **New secrets** are another `./sync-secrets.sh`, which re-applies the servers.
 - **Starting over** with an empty cluster, for a migration that edits `V1__init.sql`: remove the
   servers' and the Elasticsearch nodes' markers (`/var/lib/kinotic/state/keepalive/<vmid>`),
   stop them, empty `/es1/data`, `/es2/data` and `/es3/data`, and remove
-  `/var/lib/kinotic/state/120.ran` and `images.deployed`. `redeploy.sh`, under the wrapper, then replaces the
+  `/var/lib/kinotic/state/120.ran` and `images.deployed`. The authorization relationships go
+  with the cluster: remove `openfga`'s marker (116), stop it, drop its database, which leaves the
+  license key server's alone, with `pct exec 126 -- psql -U licenses -d licenses -c 'DROP DATABASE openfga'`,
+  and bring the engine back in startup order, which the applier takes from the order of its arguments:
+  `ssh root@<host> 'cd /var/lib/vz/snippets && python3 kinotic-apply-container.py kinotic-openfga-db-init.manifest.json kinotic-openfga-migrate.manifest.json kinotic-openfga.manifest.json kinotic-openfga-init.manifest.json'`.
+  `redeploy.sh`, under the wrapper, then replaces the
   servers and runs the migration against the empty cluster; then `bootstrap-identities.sh`
   (to keep the system user's password, read its `kinotic_identity_credential` `secretHash`
   before emptying the cluster and pass it as `ADMIN_SECRET_HASH`),

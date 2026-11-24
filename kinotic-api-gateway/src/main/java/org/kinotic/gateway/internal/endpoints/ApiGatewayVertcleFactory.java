@@ -76,7 +76,7 @@ public class ApiGatewayVertcleFactory {
 
         // Each login in the session is bound to the page that made it, so the binding is resolved right
         // behind the SessionHandler on every path it covers
-        Handler<RoutingContext> sessionBinding = SessionBinding.handler(sessionCookieName, securityService);
+        Handler<RoutingContext> sessionBinding = SessionBinding.handler(sessionHandler, sessionCookieName, securityService);
         router.route("/api/*").handler(sessionHandler).handler(sessionBinding);
 
         // REST endpoints under /api — every bean supplying gateway routes is collected and mounted

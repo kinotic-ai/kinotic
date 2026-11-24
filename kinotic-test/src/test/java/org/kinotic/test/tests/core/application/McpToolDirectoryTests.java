@@ -71,12 +71,13 @@ public class McpToolDirectoryTests extends KinoticTestBase {
                               "timed out waiting for " + expected + " in the directory listing, got: " + names
                                       + "; entries: " + entries() + "; active addresses: " + activeAddresses());
 
-        // count is inherited from CrudService on every CRUD service, so only the leading title says whose it is
+        // the description leads with the tool's title, then the Javadoc of ApplicationService's own count
         McpToolDefinition countApplications = tools.stream()
                                                    .filter(tool -> tool.getName().equals(COUNT_APPLICATIONS))
                                                    .findFirst()
                                                    .orElseThrow();
-        Assertions.assertEquals("Application Service Count: Returns the number of entities available.",
+        Assertions.assertEquals("Application Service Count: Returns the number of applications the caller may see: those the caller may "
+                                + "read, and those containing a project or an entity definition the caller may read.",
                                 countApplications.getDescription());
     }
 

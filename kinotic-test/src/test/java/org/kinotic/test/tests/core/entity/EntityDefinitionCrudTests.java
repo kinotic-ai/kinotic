@@ -4,6 +4,7 @@ package org.kinotic.test.tests.core.entity;
 
 import io.vertx.core.Future;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.converter.C3ConversionException;
 import org.kinotic.domain.api.model.persistence.EntityDefinition;
@@ -28,6 +29,11 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 	private TestDataService testDataService;
 	@Autowired
 	private EntitiesService entitiesService;
+
+	@BeforeEach
+	public void createSampleProject() throws Exception {
+		await(runAsOrganization(testDataService::createSampleProjectIfNotExist));
+	}
 
 	@Test
 	public void createPublishAndDeleteStructure() throws Exception {

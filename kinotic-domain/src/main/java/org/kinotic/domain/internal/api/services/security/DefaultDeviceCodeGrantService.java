@@ -99,8 +99,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
         if (polledTooSoon(grant, now)) {
             return Future.succeededFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));
         }
-        grant.setLastPolledAt(now);
-        return deviceCodeGrantRepository.saveSync(grant)
+        return deviceCodeGrantRepository.recordPoll(grant.getId(), now)
                 .map(new DeviceCodePollResult(PollStatus.AUTHORIZATION_PENDING, null, null));
     }
 
@@ -123,11 +122,13 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                         return Future.failedFuture(
                                 new IllegalArgumentException("Device authorization request has already been approved"));
                     }
-                    grant.setIdentityId(approver.getId())
-                         .setOrganizationId(scope.organizationId())
-                         .setApplicationId(scope.applicationId());
-                    return deviceCodeGrantRepository.saveSync(grant)
-                                                    .mapEmpty();
+                    // bound in the shard operation, so of two approvals racing for one grant the second fails as
+                    // the already-approved case the check above catches when they are further apart
+                    return deviceCodeGrantRepository.approve(grant.getId(), approver.getId(), scope)
+                                                    .compose(bound -> bound
+                                                            ? Future.<Void>succeededFuture()
+                                                            : Future.failedFuture(new IllegalArgumentException(
+                                                                    "Device authorization request has already been approved")));
                 });
     }
 

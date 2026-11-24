@@ -41,7 +41,7 @@ describe('Kinotic JS', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.entityDefinition = await createAlertEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
-        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT, context.entityDefinition.name)
         context.entityService = new EntityRepository(
             context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,

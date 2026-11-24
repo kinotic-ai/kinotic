@@ -4,11 +4,18 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.AuthzNameUtil;
+import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.model.Subject;
+import org.kinotic.authz.api.model.SubjectType;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.exceptions.ExistingTenantException;
 import org.kinotic.domain.api.exceptions.ExistingUserException;
 import org.kinotic.domain.api.exceptions.UnverifiedEmailException;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.model.Tenant;
 import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.model.security.ApplicationOidcConfiguration;
@@ -18,9 +25,12 @@ import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.api.model.security.OwnedOidcConfiguration;
 import org.kinotic.domain.api.model.security.PasswordConfiguration;
 import org.kinotic.domain.api.model.security.PendingApplicationSignUp;
+import org.kinotic.domain.api.model.security.SignUpDetails;
 import org.kinotic.domain.api.model.security.TenantOidcConfiguration;
 import org.kinotic.domain.api.model.security.identity.ApplicationParticipantIdentity;
 import org.kinotic.common.api.oidc.OAuth2Util;
+import org.kinotic.domain.api.repositories.TenantRepository;
+import org.kinotic.domain.api.services.security.RoleService;
 import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.OidcConfigurationService;
@@ -29,6 +39,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.repositories.PendingApplicationSignUpRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -36,6 +47,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 
 @Component
 @RequiredArgsConstructor
@@ -49,6 +61,8 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
     private final PendingApplicationSignUpRepository pendingRepository;
+    private final TenantRepository tenantRepository;
+    private final RoleService roleService;
     private final EmailService emailService;
     private final KinoticDomainProperties domainProperties;
 
@@ -74,7 +88,8 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     @Override
     public Future<ApplicationParticipantIdentity> findOrCreateOidcUser(LoginScope scope,
                                                                        OwnedOidcConfiguration configuration,
-                                                                       Map<String, Object> verifiedClaims) {
+                                                                       Map<String, Object> verifiedClaims,
+                                                                       String companyName) {
         Validate.notNull(scope, "scope cannot be null");
         Validate.notNull(configuration, "configuration cannot be null");
         ApplicationKey application = scope.applicationKey();
@@ -89,9 +104,12 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                                       ret = Future.succeededFuture(scope.memberOf(found));
                                   } else {
                                       ret = claim(scope, configuration, subject, verifiedClaims)
+                                              // a person founding a tenant names its company, so a sign-in naming none
+                                              // signs no one up
                                               .compose(claimed -> claimed != null || !signsUp(scope, configuration)
+                                                                          || (foundsTenant(scope) && StringUtils.isBlank(companyName))
                                                       ? Future.succeededFuture(claimed)
-                                                      : createOidcUser(scope, configuration, subject, verifiedClaims));
+                                                      : createOidcUser(scope, configuration, subject, verifiedClaims, companyName));
                                   }
                                   return ret;
                               });
@@ -117,7 +135,8 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     private Future<ApplicationParticipantIdentity> createOidcUser(LoginScope scope,
                                                                   OwnedOidcConfiguration configuration,
                                                                   String subject,
-                                                                  Map<String, Object> verifiedClaims) {
+                                                                  Map<String, Object> verifiedClaims,
+                                                                  String companyName) {
         // where every directory at the provider is admitted, the email the provider vouches for may be one a stranger's
         // directory set, and a user created under it would hold the email against its owner; a configuration naming one
         // directory trusts that directory's administrator, as its owner chose to
@@ -128,7 +147,51 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         ApplicationParticipantIdentity user = newUser(scope.applicationKey(), email, OAuth2Util.firstPresent(verifiedClaims, "name", "preferred_username", "email"));
         // the system gives a user of the application a tenant of its own; a tenant's login creates the tenant's user
         user.setTenantId(scope.tenantId());
-        return identityService.createOidcUser(user, configuration.getId(), subject);
+        return signUp(scope, user, companyName, joining -> identityService.createOidcUser(joining, configuration.getId(), subject));
+    }
+
+    // Whether a person signing up at the login of scope founds a tenant: the application's own login, where the
+    // application's administrators manage its tenants
+    private static boolean foundsTenant(LoginScope scope) {
+        return scope.tenantId() == null && scope.application().getTenantManagement() == TenantManagement.TENANT_ADMINISTRATORS;
+    }
+
+    // Creates the user a sign-up at the login of scope is for. A person founding a tenant is created in the tenant
+    // made for the company they name, and holds the tenant's admin role
+    private Future<ApplicationParticipantIdentity> signUp(LoginScope scope,
+                                                          ApplicationParticipantIdentity user,
+                                                          String companyName,
+                                                          Function<ApplicationParticipantIdentity, Future<ApplicationParticipantIdentity>> create) {
+        Future<ApplicationParticipantIdentity> ret;
+        if (foundsTenant(scope)) {
+            Application application = scope.application();
+            String tenantId = DomainUtil.slugifyId(companyName);
+            DomainUtil.validateTenantId(tenantId);
+            Date now = new Date();
+            Tenant tenant = new Tenant().setId(tenantId)
+                                        .setOrganizationId(application.getOrganizationId())
+                                        .setApplicationId(application.getId())
+                                        .setName(companyName.trim())
+                                        .setCreated(now)
+                                        .setUpdated(now);
+            user.setTenantId(tenantId);
+            ret = tenantRepository.create(tenant, application.getOrganizationId())
+                                  .recover(err -> Future.failedFuture(err instanceof AlreadyExistsException
+                                          ? new ExistingTenantException("'" + tenant.getName() + "' has already signed up; ask its administrator for an invitation")
+                                          : err))
+                                  // the tenant is made for its first user, so one whose user was refused is deleted
+                                  // and leaves the company's name free
+                                  .compose(created -> create.apply(user)
+                                                            .recover(err -> tenantRepository.deleteById(application.getId(), tenantId, application.getOrganizationId())
+                                                                                            .transform(deleted -> Future.failedFuture(err))))
+                                  .compose(created -> roleService.grant(application, new Subject(SubjectType.USER, created.getId()),
+                                                                             AuthzNameUtil.roleId(AuthzConstants.TENANT_TYPE, AuthzConstants.ADMIN),
+                                                                             new Resource(AuthzConstants.TENANT_TYPE, tenantId))
+                                                                      .map(created));
+        } else {
+            ret = create.apply(user);
+        }
+        return ret;
     }
 
     @Override
@@ -197,13 +260,16 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
     }
 
     @Override
-    public Future<ApplicationParticipantIdentity> completePasswordSignUp(LoginScope scope, String token, String password, String displayName) {
+    public Future<ApplicationParticipantIdentity> completePasswordSignUp(LoginScope scope, String token, String password, SignUpDetails details) {
         Validate.notNull(scope, "scope cannot be null");
+        Validate.notNull(details, "details cannot be null");
+        String displayName = details.displayName();
         // isTrue rather than notBlank, which throws NullPointerException for an absent value
         Validate.isTrue(StringUtils.isNotBlank(token), "The verification token is required");
         Validate.isTrue(StringUtils.isNotBlank(password), "A password is required");
         Validate.isTrue(displayName == null || displayName.length() <= MAX_DISPLAY_NAME_LENGTH,
                         "A display name is at most %d characters", MAX_DISPLAY_NAME_LENGTH);
+        Validate.isTrue(!foundsTenant(scope) || StringUtils.isNotBlank(details.companyName()), "A company name is required to sign up");
         ApplicationKey application = scope.applicationKey();
         return requirePasswordSignUp(scope)
                 .compose(v -> pendingRepository.findValidByToken(token))
@@ -214,7 +280,8 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
                     // claimed before the user is created, so concurrent completions with one token create one user;
                     // a creation that fails releases the sign-up for another try
                     return pendingRepository.claim(pending)
-                            .compose(claimed -> identityService.createUser(newUser(application, claimed.getEmail(), StringUtils.isNotBlank(displayName) ? displayName : null), password)
+                            .compose(claimed -> signUp(scope, newUser(application, claimed.getEmail(), StringUtils.isNotBlank(displayName) ? displayName : null),
+                                                       details.companyName(), joining -> identityService.createUser(joining, password))
                                     .compose(created -> pendingRepository.deleteById(claimed.getId()).map(created),
                                              err -> pendingRepository.release(claimed)
                                                                      .transform(released -> Future.failedFuture(err))));
@@ -259,10 +326,10 @@ public class DefaultApplicationSignUpService implements ApplicationSignUpService
         return ret;
     }
 
-    // a new user of the application gets a tenant of its own only while the system manages its tenants, and a
+    // a new user of the application gets a tenant of its own, the system's or the one founded for its company; a
     // tenant's administrators decide who joins a tenant, so no method of the application's admits a person into one
     private static boolean admitsNewUsers(LoginScope scope) {
-        return scope.tenantId() == null && scope.application().getTenantManagement() == TenantManagement.SYSTEM;
+        return scope.tenantId() == null;
     }
 
     private static ApplicationParticipantIdentity newUser(ApplicationKey application, String email, String displayName) {

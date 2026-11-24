@@ -2,6 +2,9 @@ import { Kinotic } from '@/api/Kinotic'
 
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import { validateZone } from '@/api/ZoneUtil'
+import type { AuthzCheckDeclaration } from '@/api/AuthzCheckDeclaration'
+import type { AuthzResourceDeclaration } from '@/api/AuthzResourceDeclaration'
+import { AuthzCheckDecorator, AuthzResourceDecorator, AuthzRoleDeclaration } from '@kinotic-ai/idl'
 
 /**
  * Decorator for registering services with the Kinotic ServiceRegistry.
@@ -15,6 +18,11 @@ const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
 const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
+const authzResourceDeclarations = new WeakMap<Function, AuthzResourceDeclaration>()
+const authzUncheckedClasses = new WeakSet<Function>()
+// keyed by the method function itself, as Context is
+const authzCheckedFunctions = new WeakMap<Function, AuthzCheckDeclaration>()
+const authzUncheckedFunctions = new WeakSet<Function>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
 // original, so the lookup walks the constructor prototype chain to find either.
@@ -170,6 +178,141 @@ function resolveEffectiveZone(constructor: Function): string | null {
         validateZone(effectiveZone)
     }
     return effectiveZone
+}
+
+/**
+ * Marks a published service as acting on one type of resource, which `kinotic sync` reads from the class's
+ * source into the service's definition, which the runtime registers in the system's service directory when
+ * the service comes online, so every request to the service is authorized before the service sees it. The type
+ * and the permissions its functions need become part of the application's authorization model, where roles
+ * bundle permissions and grants bind roles to callers.
+ *
+ * A function's check has three parts: the permission it needs, the type of the resource it is checked on, and
+ * the id of that resource. Each part is derived from the function's name and parameters where it can be;
+ * {@link AuthzCheck} states a part derivation gets wrong or cannot know, and {@link AuthzUnchecked} marks a
+ * function served with no check. A function left with no check and no marker fails the service's registration.
+ *
+ * The permission is derived from the first word of the function's name: `find`, `get`, `count`, `search` and
+ * `list` need `can_read`; `save`, `update` and `set` need `can_edit`; `delete` and `remove` need `can_delete`;
+ * `create` needs `can_edit` of this type on the parent. The resource's id is the parameter named `id` or
+ * `<type>Id` (`reportId` for the type `report`), else the `id` of the first object parameter; a function with
+ * neither is checked on the parent, whose id is found the same way with the parent's name, else on the caller's
+ * own scope.
+ *
+ * Example: with `@AuthzResource({value: 'report', parent: 'tenant'})`, `findById(id: string)` is checked for
+ * `report_can_read` on the report `id` names, `save(report: Report)` for `report_can_edit` on the report
+ * `report.id` names, and `findReports()` for `report_can_read` on the caller's tenant, with nothing declared on
+ * them. A runtime holding no definition for a service declaring a resource refuses to serve it.
+ * @param declaration the resource type, or the type with its parent, resource id, permission and roles
+ */
+export function AuthzResource(declaration: AuthzResourceDeclaration | string) {
+    return function (value: Function, _context: ClassDecoratorContext<any>): void {
+        authzResourceDeclarations.set(value, typeof declaration === 'string' ? {value: declaration} : declaration)
+    }
+}
+
+/**
+ * States a part of one function's check that derivation gets wrong or cannot know, which `kinotic sync` reads
+ * into the service's definition: the permission, the type of the resource, or its id. Every part left out keeps
+ * the derived value, or the one the service declares with {@link AuthzResource}, so a function states only the
+ * part derivation misses. A function served with no check is marked {@link AuthzUnchecked} instead.
+ *
+ * Example: `@AuthzCheck({permission: 'can_report', resourceId: '{registration.id}'})` on
+ * `heartbeat(registration: Registration)`, whose name derives no permission and whose id is inside the body.
+ * @param declaration the parts of the check derivation cannot read from the function's name and parameters
+ */
+export function AuthzCheck(declaration: AuthzCheckDeclaration) {
+    return function (value: Function, _context: ClassMethodDecoratorContext): void {
+        authzCheckedFunctions.set(value, declaration)
+    }
+}
+
+/**
+ * Marks a function of an {@link AuthzResource} service, or a whole class declaring no resource, as served with
+ * no authorization check, which `kinotic sync` reads into the service's definition: any caller the service's
+ * zone admits may call it, and the service itself is responsible for answering only what the caller may see or
+ * do. It is for a function that has no resource to check, such as a listing of the caller's own grants, and for a
+ * service whose every function answers for the caller alone. The mark is the only way a function is served
+ * unchecked: a function the definition neither checks nor marks is refused. A function carrying this and
+ * {@link AuthzCheck} fails the service's registration, as does a class carrying this and {@link AuthzResource}.
+ */
+export function AuthzUnchecked(value: Function, context: ClassDecoratorContext<any> | ClassMethodDecoratorContext): void {
+    if (context.kind === 'class') {
+        authzUncheckedClasses.add(value)
+    } else {
+        authzUncheckedFunctions.add(value)
+    }
+}
+
+/**
+ * Returns whether the given service instance's class, or a class it extends, declares an {@link AuthzResource} or
+ * is marked {@link AuthzUnchecked}: either way the service's definition carries what the system serves it by.
+ * @param serviceInstance the service instance to inspect
+ */
+export function declaresAuthz(serviceInstance: object): boolean {
+    let ret = false
+    let current: Function | null = serviceInstance.constructor
+    while (current && !ret) {
+        ret = authzResourceDeclarations.has(current) || authzUncheckedClasses.has(current)
+        current = Object.getPrototypeOf(current)
+    }
+    return ret
+}
+
+/**
+ * The authorization decorators `kinotic sync` writes into a service's definition, as the service instance declares
+ * them: the {@link AuthzResource} of its class or of the nearest class it extends, and for each named function the
+ * {@link AuthzCheck} or {@link AuthzUnchecked} of the function the instance serves under that name, a class or
+ * class it extends marked unchecked marking every function. A function declaring neither maps to null.
+ * @param serviceInstance the service instance to inspect
+ * @param functionNames the functions the instance serves
+ * @throws when a function carries both an {@link AuthzCheck} and {@link AuthzUnchecked}
+ */
+export function authzDecoratorsOf(serviceInstance: object, functionNames: string[]): {
+    resource: AuthzResourceDecorator | null
+    checks: Map<string, AuthzCheckDecorator | null>
+} {
+    const declared = findInConstructorChain(authzResourceDeclarations, serviceInstance.constructor)
+    let resource: AuthzResourceDecorator | null = null
+    if (declared) {
+        resource = new AuthzResourceDecorator(declared.value)
+        resource.parent = declared.parent ?? null
+        resource.resourceId = declared.resourceId ?? null
+        resource.permission = declared.permission ?? null
+        resource.roles = (declared.roles ?? []).map(role => new AuthzRoleDeclaration(role.id, role.permissions ?? []))
+    }
+    let uncheckedClass = false
+    let current: Function | null = serviceInstance.constructor
+    while (current && !uncheckedClass) {
+        uncheckedClass = authzUncheckedClasses.has(current)
+        current = Object.getPrototypeOf(current)
+    }
+    const checks = new Map<string, AuthzCheckDecorator | null>()
+    for (const name of functionNames) {
+        const method = (serviceInstance as any)[name]
+        const check = typeof method === 'function' ? authzCheckedFunctions.get(method) : undefined
+        const unchecked = typeof method === 'function' && authzUncheckedFunctions.has(method)
+        // kinotic sync refuses a function carrying both marks; one added since the definition was generated is
+        // refused here, since the function would otherwise keep the check with the mark having no effect
+        if (check && unchecked) {
+            throw new Error(`${name} of ${serviceInstance.constructor.name} is marked @AuthzUnchecked beside the @AuthzCheck it declares;`
+                            + ' an unchecked function has no check')
+        }
+        let decorator: AuthzCheckDecorator | null = null
+        if (check) {
+            decorator = new AuthzCheckDecorator()
+            decorator.permission = check.permission ?? null
+            decorator.resource = check.resource ?? null
+            decorator.resourceId = check.resourceId ?? null
+            decorator.implies = check.implies ?? []
+            decorator.consistent = check.consistent === true
+        } else if (uncheckedClass || unchecked) {
+            decorator = new AuthzCheckDecorator()
+            decorator.unchecked = true
+        }
+        checks.set(name, decorator)
+    }
+    return { resource, checks }
 }
 
 /**

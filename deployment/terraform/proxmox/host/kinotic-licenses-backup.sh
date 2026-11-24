@@ -4,7 +4,7 @@
 # against the dump's size, and a failure at any step fails the unit.
 #
 # Restore, into an empty licenses database with the license key server stopped:
-#   gunzip -c licenses-<time>.sql.gz | pct exec <licenses-db vmid> -- psql -U licenses -d licenses
+#   gunzip -c licenses-<time>.sql.gz | pct exec <postgres vmid> -- psql -U licenses -d licenses
 set -euo pipefail
 
 SECRETS_DIR="${SECRETS_DIR:-/etc/kinotic/secrets}"
@@ -14,8 +14,8 @@ container_url=$(setting LICENSES_DB_BACKUP_CONTAINER_URL)
 sas=$(setting LICENSES_DB_BACKUP_SAS)
 [ -n "$container_url" ] && [ -n "$sas" ] || { echo "licenses-db-backup.env names no destination" >&2; exit 1; }
 
-vmid=$(pct list | awk '$NF == "licenses-db" { print $1 }')
-[ -n "$vmid" ] || { echo "no licenses-db container" >&2; exit 1; }
+vmid=$(pct list | awk '$NF == "postgres" { print $1 }')
+[ -n "$vmid" ] || { echo "no postgres container" >&2; exit 1; }
 
 dump=$(mktemp)
 trap 'rm -f "$dump"' EXIT

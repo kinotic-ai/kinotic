@@ -1,6 +1,9 @@
 /**
  * Export all the things
  */
+export * from './api/AuthzCheckDeclaration'
+export * from './api/AuthzResourceDeclaration'
+export * from './api/AuthzRoleDeclaration'
 export * from './api/ConnectOptions'
 export * from './api/ContextInterceptor'
 export * from './api/Kinotic'

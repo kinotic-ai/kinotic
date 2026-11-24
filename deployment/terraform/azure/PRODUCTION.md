@@ -18,6 +18,7 @@ Status and next steps for the Azure deployment. Items are ordered by priority wi
 - [x] CORS restricted per server: portal.kinotic.ai and summit42.kinotic.ai for the management server, console.kinotic.ai for the system server, the sites domain for the app server
 - [x] ES credential sync across namespaces — `es-secret-sync` Helm chart with RBAC and retry
 - [x] NetworkPolicy on ES — allows traffic from kinotic + elastic-system only
+- [x] OpenFGA (the authorization engine) — the upstream chart, 2 replicas, on an Azure Database for PostgreSQL flexible server reached by private endpoint; NetworkPolicy admits the kinotic namespace only
 - [x] `beta_mode` toggle — single command to scale from beta to production topology
 - [x] Load generator for sample data
 - [x] Observability — Loki (log storage), Tempo (trace storage), Mimir (metrics storage), Alloy (DaemonSet log collector)

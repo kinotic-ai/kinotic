@@ -2,6 +2,9 @@ package org.kinotic.management.api.services.deployment;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.AuthzCheck;
+import org.kinotic.idl.api.annotations.AuthzResource;
+import org.kinotic.idl.api.utils.AuthzConstants;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
@@ -15,8 +18,14 @@ import java.util.List;
  * on them: the sites serving each project's UIs. Removal is the one path that takes a site
  * down and deletes its files; a deployment whose UI a commit dropped stays orphaned, still
  * serving, until it is removed here.
+ *
+ * <p>A deployment is named by its id alone, which is in no authorization graph, so a function naming one is
+ * checked on the caller's organization: reading a deployment's history needs {@code can_read_deployments} of
+ * the organization, and removing or restarting one {@code can_manage_deployments}. A listing names the project
+ * or the application it is of, and is checked on that.
  */
 @Publish
+@AuthzResource(value = AuthzConstants.ORGANIZATION_TYPE, resourceId = "{@organizationId}")
 public interface UiDeploymentService {
 
     /**
@@ -27,6 +36,7 @@ public interface UiDeploymentService {
      * @return a future emitting the deployments, empty when the project has none
      */
     @McpTool
+    @AuthzCheck(resource = AuthzConstants.PROJECT_TYPE, resourceId = "{projectId}")
     Future<List<UiDeployment>> findAllForProject(String projectId);
 
     /**
@@ -37,6 +47,7 @@ public interface UiDeploymentService {
      * @return a future emitting the deployments, empty when the application has none
      */
     @McpTool
+    @AuthzCheck(resource = AuthzConstants.APPLICATION_TYPE, resourceId = "{applicationId}")
     Future<List<UiDeployment>> findAllForApplication(String applicationId);
 
     /**
@@ -49,6 +60,7 @@ public interface UiDeploymentService {
      * @return a future emitting a page of ledger entries, empty when nothing has happened to the deployment
      */
     @McpTool
+    @AuthzCheck(permission = AuthzConstants.CAN_READ_DEPLOYMENTS)
     Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable);
 
     /**
@@ -59,6 +71,7 @@ public interface UiDeploymentService {
      * @param deploymentId the deployment of a UI of one of the caller's organization's projects
      * @return a future completing when the removal is asked for
      */
+    @AuthzCheck(permission = AuthzConstants.CAN_MANAGE_DEPLOYMENTS)
     Future<Void> remove(String deploymentId);
 
 }

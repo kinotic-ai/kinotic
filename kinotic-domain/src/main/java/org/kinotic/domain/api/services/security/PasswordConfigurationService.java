@@ -35,7 +35,7 @@ public interface PasswordConfigurationService {
      * Saves the configuration of the scope it names, replacing the scope's existing one; its id is derived from the
      * scope, whatever it carried. The bound participant must be one of the configuration's organization, and the
      * application, and the tenant, it names must be the organization's. {@code createUserOnSignIn} is refused on an
-     * organization's or a tenant's configuration, and on an application's whose tenants the system does not manage.
+     * organization's or a tenant's configuration.
      * Disabling an organization's own configuration fails with an {@link IllegalStateException} naming the enabled
      * members it would leave with no way to sign in to the organization.
      *

@@ -54,6 +54,23 @@ public class MigrationParser {
         return parse(CharStreams.fromString(sql, sourceName));
     }
 
+    /**
+     * Parses one statement, written with or without the terminator the grammar requires, as a named query is.
+     *
+     * @param sql        the statement
+     * @param sourceName what a syntax error names the statement as
+     * @return the statement
+     * @throws IllegalArgumentException when {@code sql} holds more than one statement
+     */
+    public Statement parseStatement(String sql, String sourceName) {
+        String statement = sql.strip();
+        List<Statement> statements = parse(statement.endsWith(";") ? statement : statement + ";", sourceName).statements();
+        if (statements.size() != 1) {
+            throw new IllegalArgumentException(sourceName + " must be one statement");
+        }
+        return statements.getFirst();
+    }
+
     public MigrationContent parse(byte[] bytes) throws IOException {
         return parse(CharStreams.fromStream(new java.io.ByteArrayInputStream(bytes)));
     }

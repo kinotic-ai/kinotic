@@ -12,6 +12,8 @@ import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 
+import java.util.Collection;
+
 /**
  * Service base that adds organization-scope enforcement on top of an
  * {@link AbstractOrganizationScopedRepository}. Per call this class derives the organization
@@ -33,7 +35,8 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public Future<Long> count() {
-        return scopedRepository.count(requireOrganizationId());
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> scopedRepository.count(organizationId, ids));
     }
 
     @Override
@@ -63,39 +66,40 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
 
     @Override
     public Future<Page<T>> findAll(Pageable pageable) {
-        return scopedRepository.findAll(requireOrganizationId(), pageable);
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> scopedRepository.findAll(organizationId, ids, pageable));
+    }
+
+    /**
+     * Hook naming the records the caller may see. Every listing and count is narrowed to them: {@link #count},
+     * {@link #findAll} and {@link #search} here, and the listings a subclass adds. Override to narrow a caller to
+     * the records its grants reach.
+     *
+     * @return a future emitting the ids of the records the caller may see, or null for every record of the
+     *         caller's organization
+     */
+    protected Future<? extends Collection<String>> visibleIds() {
+        return Future.succeededFuture();
     }
 
     @Override
     public Future<T> save(T value) {
-        return beforeSave(value).compose(v -> {
-            enforceOrgOnSave(value);
-            return scopedRepository.save(value, resolveWriteOrgId(value));
-        });
+        return prepare(value).compose(v -> scopedRepository.save(value, resolveWriteOrgId(value)));
     }
 
     @Override
     public Future<T> saveSync(T value) {
-        return beforeSave(value).compose(v -> {
-            enforceOrgOnSave(value);
-            return scopedRepository.saveSync(value, resolveWriteOrgId(value));
-        });
+        return prepare(value).compose(v -> scopedRepository.saveSync(value, resolveWriteOrgId(value)));
     }
 
     @Override
     public Future<T> create(T value) {
-        return beforeSave(value).compose(v -> {
-            enforceOrgOnSave(value);
-            return scopedRepository.create(value, resolveWriteOrgId(value));
-        });
+        return prepare(value).compose(v -> scopedRepository.create(value, resolveWriteOrgId(value)));
     }
 
     @Override
     public Future<T> createSync(T value) {
-        return beforeSave(value).compose(v -> {
-            enforceOrgOnSave(value);
-            return scopedRepository.createSync(value, resolveWriteOrgId(value));
-        });
+        return prepare(value).compose(v -> scopedRepository.createSync(value, resolveWriteOrgId(value)));
     }
 
     /**
@@ -108,9 +112,27 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
         return Future.succeededFuture();
     }
 
+    /**
+     * Hook run on every write after {@link #beforeSave}, so the entity's id is final, and before the check of the
+     * entity's organization. Override to refuse a write that would move the record the caller's organization stores
+     * under that id out of a scope it belongs to.
+     */
+    protected Future<Void> beforeWrite(T entity) {
+        return Future.succeededFuture();
+    }
+
+    private Future<Void> prepare(T value) {
+        return beforeSave(value).compose(v -> beforeWrite(value))
+                                .compose(v -> {
+                                    enforceOrgOnSave(value);
+                                    return Future.succeededFuture();
+                                });
+    }
+
     @Override
     public Future<Page<T>> search(String searchText, Pageable pageable) {
-        return scopedRepository.search(searchText, requireOrganizationId(), pageable);
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> scopedRepository.search(searchText, organizationId, ids, pageable));
     }
 
     @Override

@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/frontend-common",
-  "version": "5.0.0-beta.1",
+  "version": "5.0.0-beta.2",
   "type": "module",
   "description": "The shared UI of the Kinotic consoles: the PrimeVue theme preset, app bootstrap, session state and components.",
   "homepage": "https://github.com/kinotic-ai/kinotic",

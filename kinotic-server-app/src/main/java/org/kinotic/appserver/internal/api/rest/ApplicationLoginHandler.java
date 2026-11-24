@@ -27,6 +27,9 @@ import org.kinotic.domain.api.services.security.OidcConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 /**
  * Login routes for end-users of an application built on Kinotic, served at the application's own API host.
  * Distinct from the org-login handler: the user is logging into an application's own user base (an
@@ -77,8 +80,9 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/app/login/oidc/start/:configId[?tenantId]} — begins a sign-in through a configuration
-     * the login offers, answering {@code {redirect}} with the URL the page sends the browser to: the provider's
+     * {@code POST /api/auth/app/login/oidc/start/:configId[?tenantId][&companyName]} — begins a sign-in through a
+     * configuration the login offers, naming in {@code companyName} the company a person signing up founds a tenant
+     * for where the application's administrators manage its tenants, and answering {@code {redirect}} with the URL the page sends the browser to: the provider's
      * authorization URL for a configuration of the organization, whose flow returns to this handler's callback,
      * or the shared host's authorize URL for one of the system's social registrations (see
      * {@link ApplicationSocialLoginHandler}). {@code 400} for a configuration the login does not offer;
@@ -104,10 +108,20 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                           // so the single-use code the shared host hands back signs in no other browser
                           String binding = DomainUtil.generateUrlSafeToken(32);
                           ctx.session().put(ApplicationAuthEndpointSupport.SOCIAL_LOGIN_BINDING_SESSION_KEY, binding);
-                          ret = Future.succeededFuture(authEndpointSupport.socialAuthorizeUrl(scope, configId, origin, binding));
+                          // the shared host holds the company through the provider round-trip, so it is handed on
+                          String companyName = ctx.request().getParam(ApplicationAuthEndpointSupport.COMPANY_NAME);
+                          String authorizeUrl = authEndpointSupport.socialAuthorizeUrl(scope, configId, origin, binding);
+                          ret = Future.succeededFuture(companyName == null || companyName.isBlank()
+                                                               ? authorizeUrl
+                                                               : authorizeUrl + "&" + ApplicationAuthEndpointSupport.COMPANY_NAME + "="
+                                                                       + URLEncoder.encode(companyName, StandardCharsets.UTF_8));
                       }
                       default -> ret = oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(scope.applicationKey(), configId),
-                                                                      scope.applicationKey(), scope.tenantId(), origin);
+                                                                      scope.applicationKey(), scope.tenantId(), origin)
+                                                           .map(url -> {
+                                                               authEndpointSupport.holdCompanyName(ctx);
+                                                               return url;
+                                                           });
                   }
                   return ret;
               }))
@@ -143,7 +157,8 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
      * logs the user into the scope the flow started for, or returns the browser to the login page of the page
      * that started the flow with the error, to the application's primary UI's when no flow session names one.
      * An identity no user is bound to becomes a user on its first sign-in where the configuration signs people
-     * up and the scope admits them (see {@link ApplicationSignUpService#findOrCreateOidcUser}).
+     * up and the scope admits them, founding the tenant of the company the start named where the application's
+     * administrators manage its tenants (see {@link ApplicationSignUpService#findOrCreateOidcUser}).
      */
     private void handleCallback(RoutingContext ctx) {
         ApplicationKey applicationKey = authEndpointSupport.applicationKey(ctx);
@@ -162,11 +177,13 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private void completeAppLogin(RoutingContext ctx,
                                   CallbackResult<OidcConfiguration> result,
                                   ApplicationKey applicationKey) {
+        String companyName = ctx.session().remove(ApplicationAuthEndpointSupport.COMPANY_NAME);
         if (authEndpointSupport.verifiedSubject(ctx, result) != null) {
             // the scope offers only owned configurations at this callback; Kinotic's registration returns to the shared host
             authEndpointSupport.completeLogin(ctx, result.origin(), result.config().getProvider(),
                     authEndpointSupport.loginScope(applicationKey, result.tenantId())
-                                       .compose(scope -> authEndpointSupport.findOrCreateUser(scope, (OwnedOidcConfiguration) result.config(), result.claims()))
+                                       .compose(scope -> authEndpointSupport.findOrCreateUser(scope, (OwnedOidcConfiguration) result.config(), result.claims(),
+                                                                                              companyName))
                                        .map(user -> user == null ? null : AuthEndpointSupport.participantOf(user)));
         }
     }

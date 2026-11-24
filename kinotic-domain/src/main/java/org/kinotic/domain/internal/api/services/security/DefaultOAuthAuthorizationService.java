@@ -159,7 +159,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
 
     /**
      * Whether {@code requested} is one of the client's registered redirect URIs. Exact match, with
-     * the one exception RFC 8252 Section 7.3 requires: a loopback URI matches regardless of port,
+     * one exception: a loopback URI matches regardless of port,
      * because a native client binds its callback to an ephemeral port chosen at runtime and cannot
      * register it ahead of time. Claude Code registers {@code http://localhost/callback} and calls
      * back on whatever port it obtained.

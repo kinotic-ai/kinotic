@@ -110,7 +110,7 @@
         </template>
 
         <div v-if="signUpOffered" class="flex items-start gap-3 rounded-xl border border-surface-200 bg-surface-0 px-4 py-3.5 dark:border-surface-700 dark:bg-surface-900">
-          <ToggleSwitch input-id="oidc-create-users" v-model="createUserOnSignIn" :disabled="passwordSignUpUnavailable" class="mt-0.5 shrink-0" />
+          <ToggleSwitch input-id="oidc-create-users" v-model="createUserOnSignIn" class="mt-0.5 shrink-0" />
           <div class="flex flex-col gap-1">
             <label for="oidc-create-users" class="text-sm font-medium text-surface-950 dark:text-surface-0">Let new people sign up</label>
             <p class="text-[0.8125rem] text-muted-color">{{ signUpHelp }}</p>
@@ -285,23 +285,24 @@ const choices = computed<ProviderChoice[]>(() => [
   ...(freePasswordScopes.value.length > 0 ? [PASSWORD] : [])
 ])
 // an OIDC provider signs people up at any of an application's logins it is offered at; a password only at the
-// application's own, which gives each new user a tenant of its own
+// application's own, where each new user gets a tenant
 const signUpOffered = computed(() => props.applicationId !== null && (!isPassword.value || tenantId.value === null))
-// a password signs a new user up into a tenant of its own, which only the system's tenancy gives
-const passwordSignUpUnavailable = computed(() => isPassword.value && props.applicationId !== null
-    && props.tenantManagement !== TenantManagement.SYSTEM)
+// where a person signing up at the application's own login ends up
+const newUsersTenant = computed(() => props.tenantManagement === TenantManagement.SYSTEM
+    ? 'gets a tenant of their own'
+    : 'names their company, which becomes a tenant they administer')
 const signUpHelp = computed(() => {
   let ret: string
-  if (passwordSignUpUnavailable.value) {
-    ret = 'Needs the system to manage this application\'s tenants, so each new user gets a tenant of their own. Under tenant administrators, people join a tenant by invitation or through the tenant\'s own sign-in providers.'
-  } else if (isPassword.value) {
-    ret = createUserOnSignIn.value
-        ? 'Someone who is not yet a user here can sign up from the application\'s UIs with an email and a password, confirmed through a link sent to the email, while the system manages the application\'s tenants.'
-        : 'Only existing users sign in with a password; new people are invited or created first.'
-  } else {
-    ret = createUserOnSignIn.value
-        ? 'Someone the provider verifies who is not yet a user here becomes one the first time they sign in, where the system manages the application\'s tenants or at the tenant\'s own login.'
+  if (!createUserOnSignIn.value) {
+    ret = isPassword.value
+        ? 'Only existing users sign in with a password; new people are invited or created first.'
         : 'Someone the provider verifies who is not yet a user here is refused until they are invited or created.'
+  } else if (isPassword.value) {
+    ret = `Someone who is not yet a user here can sign up from the application's UIs with an email and a password, confirmed through a link sent to the email, and ${newUsersTenant.value}.`
+  } else if (tenantId.value !== null) {
+    ret = 'Someone the provider verifies who is not yet a user here becomes a user of this tenant the first time they sign in at its login.'
+  } else {
+    ret = `Someone the provider verifies who is not yet a user here becomes one the first time they sign in, and ${newUsersTenant.value}.`
   }
   return ret
 })
@@ -484,7 +485,7 @@ function configurationToSave(): OwnedOidcConfiguration {
 }
 
 function passwordToSave(): PasswordConfiguration {
-  const fields = { enabled: enabled.value, createUserOnSignIn: signUpOffered.value && !passwordSignUpUnavailable.value && createUserOnSignIn.value }
+  const fields = { enabled: enabled.value, createUserOnSignIn: signUpOffered.value && createUserOnSignIn.value }
   let ret: PasswordConfiguration
   if (props.password) {
     ret = { ...props.password, ...fields }

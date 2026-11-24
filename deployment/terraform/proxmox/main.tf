@@ -1,8 +1,8 @@
 # ── The development server on Proxmox ────────────────────────────────────────
 # One container per service, on one host. Every service the compose stack runs locally —
-# the org, system and app servers, the one-shot migration, three Elasticsearch nodes, Loki,
-# Tempo, Mimir — is an unprivileged LXC container created from the image compose
-# pulls, with its state in a host directory: the Elasticsearch nodes on a physical disk each.
+# the org, system and app servers, the one-shot migration, three Elasticsearch nodes, OpenFGA,
+# Postgres, Loki, Tempo, Mimir — is an unprivileged LXC container created from the
+# image compose pulls, with its state in a host directory: the Elasticsearch nodes on a physical disk each.
 # The servers live on the private network; the edge, an HAProxy container on the LAN, takes
 # the router's forwarded 443 and passes each TLS connection, unopened, to the server its SNI
 # names, apart from the license key server's, whose TLS it terminates. The workload nodes are
@@ -33,15 +33,19 @@ locals {
   mimir_ip = split("/", var.mimir_ip)[0]
 
   # The private network: the host is its gateway, the edge takes .10, the ES nodes .11 to .13,
-  # the servers .20, .22 and .23, the migration .21, Summit 42 .24, the license key server .25
-  # and its database .26
-  private_prefix       = split("/", var.private_cidr)[1]
-  private_gateway      = cidrhost(var.private_cidr, 1)
-  edge_private_ip      = cidrhost(var.private_cidr, 10)
-  es_ips               = [for i in range(3) : cidrhost(var.private_cidr, 11 + i)]
-  migration_private_ip = cidrhost(var.private_cidr, 21)
-  license_server_ip    = cidrhost(var.private_cidr, 25)
-  licenses_db_ip       = cidrhost(var.private_cidr, 26)
+  # OpenFGA .15 and its one-shot containers .16 to .18, the servers .20, .22 and .23, the
+  # migration .21, Summit 42 .24, the license key server .25 and Postgres .26
+  private_prefix             = split("/", var.private_cidr)[1]
+  private_gateway            = cidrhost(var.private_cidr, 1)
+  edge_private_ip            = cidrhost(var.private_cidr, 10)
+  es_ips                     = [for i in range(3) : cidrhost(var.private_cidr, 11 + i)]
+  openfga_private_ip         = cidrhost(var.private_cidr, 15)
+  openfga_migrate_private_ip = cidrhost(var.private_cidr, 16)
+  openfga_init_private_ip    = cidrhost(var.private_cidr, 17)
+  openfga_db_init_private_ip = cidrhost(var.private_cidr, 18)
+  migration_private_ip       = cidrhost(var.private_cidr, 21)
+  license_server_ip          = cidrhost(var.private_cidr, 25)
+  postgres_ip                = cidrhost(var.private_cidr, 26)
 
   # The router forwards the public 443 to the same port on the edge, which serves every name there
   public_port = 443
@@ -83,6 +87,20 @@ locals {
         SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
       }
     }
+    openfga = {
+      entrypoint = "/openfga run"
+      env = {
+        PATH          = "/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin"
+        SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
+      }
+    }
+    curl = {
+      entrypoint = "/entrypoint.sh curl"
+      env = {
+        PATH           = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        CURL_CA_BUNDLE = "/cacert.pem"
+      }
+    }
     # The image's docker-entrypoint.sh runs a bare haproxy command with -W -db
     haproxy = {
       entrypoint = "/usr/local/bin/docker-entrypoint.sh haproxy -f /usr/local/etc/haproxy/haproxy.cfg"
@@ -105,9 +123,9 @@ locals {
       }
     }
     # The image's docker-entrypoint.sh initializes an empty data directory, then runs postgres
-    # as the postgres user
+    # as the postgres user, admitting who postgres_hba names
     postgres = {
-      entrypoint = "/usr/local/bin/docker-entrypoint.sh postgres"
+      entrypoint = "/usr/local/bin/docker-entrypoint.sh postgres -c hba_file=/etc/postgres/pg_hba.conf"
       env = {
         PATH   = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/postgresql/${split(".", var.postgres_version)[0]}/bin"
         LANG   = "en_US.utf8"
@@ -130,6 +148,61 @@ locals {
   # The cluster is healthy once all three nodes have joined; the migration and the server
   # wait for it, and the host reaches the private network directly
   es_healthy = "curl -sf 'http://${local.es_ips[0]}:9200/_cluster/health?wait_for_nodes=3&wait_for_status=yellow&timeout=30s' >/dev/null"
+
+  # One Postgres server holds the license key server's database and OpenFGA's. It listens on
+  # TCP only once its initialization is done, so a connection is readiness
+  postgres_vm_id     = 126
+  postgres_listening = "timeout 2 bash -c 'exec 3<>/dev/tcp/${local.postgres_ip}/5432'"
+  # Who Postgres admits: its own socket and loopback without a password, as the image has it,
+  # which is how the nightly backup and the host's pct exec connect; the openfga role to its own
+  # database from the private network without one; and every other connection by password
+  postgres_hba = <<-EOT
+    local all all trust
+    host all all 127.0.0.1/32 trust
+    host all all ::1/128 trust
+    host openfga openfga ${var.private_cidr} trust
+    host all all all scram-sha-256
+  EOT
+  # OpenFGA's database, which its role reaches with trust authentication: the private network is
+  # the isolation, the decision Elasticsearch runs under, so there is no password to place.
+  # plan_cache_mode has Postgres plan each of the engine's prepared statements for its values, as
+  # compose.openfga.yml explains
+  openfga_datastore_env = {
+    OPENFGA_DATASTORE_ENGINE = "postgres"
+    OPENFGA_DATASTORE_URI    = "postgres://openfga@${local.postgres_ip}:5432/openfga?sslmode=disable&plan_cache_mode=force_custom_plan"
+  }
+  # Creates the engine's role and database unless Postgres has them, as the server's superuser,
+  # whose password the container takes from licenses-db.env
+  openfga_db_init_script = <<-EOT
+    #!/bin/sh
+    set -e
+    export PGPASSWORD="$POSTGRES_PASSWORD"
+    query() { psql -v ON_ERROR_STOP=1 -h ${local.postgres_ip} -U licenses -d licenses -tA -c "$1"; }
+    [ "$(query "SELECT 1 FROM pg_roles WHERE rolname = 'openfga'")" = 1 ] || query 'CREATE ROLE openfga LOGIN'
+    [ "$(query "SELECT 1 FROM pg_database WHERE datname = 'openfga'")" = 1 ] || query 'CREATE DATABASE openfga OWNER openfga'
+  EOT
+  # The engine's role reads its database over Postgres's own socket
+  openfga_db_exists = "pct exec ${local.postgres_vm_id} -- psql -U openfga -d openfga -c 'SELECT 1' >/dev/null"
+  # The engine's API, which no preshared key guards: the private network is the isolation here as
+  # it is for its database and for Elasticsearch
+  openfga_url     = "http://${local.openfga_private_ip}:8080"
+  openfga_healthy = "curl -sf ${local.openfga_url}/healthz >/dev/null"
+  # The system store is listed, which also takes a healthy engine
+  openfga_system_store_exists = "curl -sf '${local.openfga_url}/stores?name=kinotic-system' | grep -Eq '\"name\":[[:space:]]*\"kinotic-system\"'"
+  # Creates the system store, the one store named kinotic-system that every server looks up by
+  # name and never creates, unless the engine has it. Store names are not unique, so the listing is
+  # checked first, and a listing that fails stops the script rather than creating a second store
+  openfga_init_script = <<-EOT
+    #!/bin/sh
+    set -e
+    stores=$(curl -sf '${local.openfga_url}/stores?name=kinotic-system')
+    if echo "$stores" | grep -Eq '"name":[[:space:]]*"kinotic-system"'; then
+      echo 'The system store kinotic-system exists'
+    else
+      curl -sf -X POST '${local.openfga_url}/stores' -H 'Content-Type: application/json' -d '{"name":"kinotic-system"}'
+      echo; echo 'Created the system store kinotic-system'
+    fi
+  EOT
 
   # Loki, Tempo and Mimir run the compose stack's config files, with the compose service
   # names replaced by the containers' addresses, which the servers and the nodes reach them at
@@ -179,6 +252,7 @@ locals {
     gid              = 0
     wait_for         = null
     verify           = null
+    done_while       = null
     timeout          = 300
   } }
 
@@ -289,6 +363,9 @@ locals {
     KINOTIC_DOMAIN_APPAPIBASEURL = "https://${local.azure.apps_api_domain}"
     KINOTIC_DOMAIN_PORTALBASEURL = "https://${local.azure.portal_hostname}"
 
+    # The authorization engine, whose system store openfga-init created
+    KINOTIC_AUTHZ_APIURL = local.openfga_url
+
     # The servers find each other over their private addresses and form one Ignite cluster
     KINOTIC_IGNITE_DISCOVERYTYPE  = "LOCAL"
     KINOTIC_IGNITE_LOCALADDRESSES = join(",", [for server in local.servers : "${server.private_ip}:47500"])
@@ -342,6 +419,7 @@ locals {
     privileged_ports = false
     wait_for         = local.es_healthy
     verify           = null
+    done_while       = null
     timeout          = 300
   } }
 
@@ -352,7 +430,6 @@ locals {
     private_ip = local.license_server_ip
     port       = 58503
   }
-  licenses_db_ready = "bash -c '</dev/tcp/${local.licenses_db_ip}/5432' 2>/dev/null"
 
   edge_config = templatefile("${path.module}/haproxy.cfg.tftpl", {
     port       = local.public_port
@@ -361,6 +438,150 @@ locals {
   })
 
   containers = merge(local.es_containers, local.server_containers, {
+    postgres = {
+      vm_id         = local.postgres_vm_id
+      description   = "Postgres: the license key server's database and OpenFGA's, the relationships of every authorization store"
+      image         = proxmox_oci_image.postgres.id
+      cores         = 2
+      memory        = 1536
+      order         = 12
+      start_on_boot = true
+      run_once      = false
+      interfaces    = [{ bridge = var.private_network, address = "${local.postgres_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      # The cluster's directory is named for the database it was initialized with
+      mounts = [
+        { volume = "${local.data_root}/licenses-db", path = "/var/lib/postgresql/data", read_only = false },
+        { volume = "${local.config_root}/postgres", path = "/etc/postgres", read_only = true },
+      ]
+      entrypoint = local.images.postgres.entrypoint
+      image_env  = local.images.postgres.env
+      # The image creates the licenses user, the server's superuser, and its database on an empty
+      # data directory, with the password from licenses-db.env
+      env = {
+        POSTGRES_DB   = "licenses"
+        POSTGRES_USER = "licenses"
+      }
+      privileged_ports = false
+      secrets_env      = "${var.secrets_dir}/licenses-db.env"
+      files            = { "pg_hba.conf" = local.postgres_hba }
+      uid              = 999
+      gid              = 999
+      wait_for         = null
+      verify           = null
+      done_while       = null
+      timeout          = 300
+    }
+    openfga-db-init = {
+      vm_id            = 118
+      description      = "The one-shot creation of OpenFGA's role and database in Postgres, unless it has them"
+      image            = proxmox_oci_image.postgres.id
+      cores            = 1
+      memory           = 128
+      order            = 13
+      start_on_boot    = false
+      run_once         = true
+      interfaces       = [{ bridge = var.private_network, address = "${local.openfga_db_init_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts           = [{ volume = "${local.config_root}/openfga-db-init", path = "/etc/openfga-db-init", read_only = true }]
+      entrypoint       = "/bin/sh /etc/openfga-db-init/init.sh"
+      image_env        = local.images.postgres.env
+      env              = {}
+      privileged_ports = false
+      secrets_env      = "${var.secrets_dir}/licenses-db.env"
+      files            = { "init.sh" = local.openfga_db_init_script }
+      uid              = 0
+      gid              = 0
+      wait_for         = local.postgres_listening
+      verify           = local.openfga_db_exists
+      done_while       = local.openfga_db_exists
+      timeout          = 300
+    }
+    openfga-migrate = {
+      vm_id            = 115
+      description      = "The one-shot schema migration of OpenFGA's database, once per image and configuration"
+      image            = proxmox_oci_image.openfga.id
+      cores            = 1
+      memory           = 256
+      order            = 14
+      start_on_boot    = false
+      run_once         = true
+      interfaces       = [{ bridge = var.private_network, address = "${local.openfga_migrate_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts           = []
+      entrypoint       = "/openfga migrate"
+      image_env        = local.images.openfga.env
+      env              = local.openfga_datastore_env
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 65532
+      gid              = 65532
+      wait_for         = local.postgres_listening
+      verify           = null
+      # The engine is healthy only on a datastore at the revision it requires, so a migration that
+      # failed runs again on the next apply instead of counting as done
+      done_while = local.openfga_healthy
+      timeout    = 300
+    }
+    openfga = {
+      vm_id         = 116
+      description   = "OpenFGA on :8080, the authorization engine every server checks against"
+      image         = proxmox_oci_image.openfga.id
+      cores         = 2
+      memory        = 1024
+      order         = 16
+      start_on_boot = true
+      run_once      = false
+      interfaces    = [{ bridge = var.private_network, address = "${local.openfga_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts        = []
+      entrypoint    = local.images.openfga.entrypoint
+      image_env     = local.images.openfga.env
+      # The caches compose.openfga.yml runs with: a check answers from cached subproblems, which the
+      # cache controller invalidates once it reads a write from the store's changelog, so a cached
+      # answer can predate a write by the controller's interval, ten seconds by default
+      env = merge(local.openfga_datastore_env, {
+        OPENFGA_PLAYGROUND_ENABLED           = "false"
+        OPENFGA_CHECK_QUERY_CACHE_ENABLED    = "true"
+        OPENFGA_CHECK_ITERATOR_CACHE_ENABLED = "true"
+        OPENFGA_SHARED_ITERATOR_ENABLED      = "true"
+        OPENFGA_CACHE_CONTROLLER_ENABLED     = "true"
+      })
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 65532
+      gid              = 65532
+      wait_for         = null
+      verify           = null
+      done_while       = null
+      timeout          = 300
+    }
+    openfga-init = {
+      vm_id            = 117
+      description      = "The one-shot creation of the system store, kinotic-system, unless the engine has it"
+      image            = proxmox_oci_image.curl.id
+      cores            = 1
+      memory           = 128
+      order            = 18
+      start_on_boot    = false
+      run_once         = true
+      interfaces       = [{ bridge = var.private_network, address = "${local.openfga_init_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
+      mounts           = [{ volume = "${local.config_root}/openfga-init", path = "/etc/openfga-init", read_only = true }]
+      entrypoint       = "/bin/sh /etc/openfga-init/init.sh"
+      image_env        = local.images.curl.env
+      env              = {}
+      privileged_ports = false
+      secrets_env      = null
+      files            = { "init.sh" = local.openfga_init_script }
+      uid              = 100
+      gid              = 101
+      wait_for         = local.openfga_healthy
+      verify           = local.openfga_system_store_exists
+      # Runs again while the engine lists no system store, as on a database created since the last
+      # run, or is not healthy, which waits for the engine and fails the apply when it stays
+      # unhealthy, as it does after a schema migration that failed. The failed apply makes
+      # terraform run the applier again, and with it the migration
+      done_while = local.openfga_system_store_exists
+      timeout    = 300
+    }
     loki = {
       vm_id            = 110
       description      = "Loki: logs, multi-tenant; the node's Alloy and the servers push here"
@@ -382,6 +603,7 @@ locals {
       gid              = 10001
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     tempo = {
@@ -408,6 +630,7 @@ locals {
       gid              = 10001
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     mimir = {
@@ -434,6 +657,7 @@ locals {
       gid              = 10001
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
     kinotic-migration = {
@@ -463,35 +687,8 @@ locals {
       gid              = 1001
       wait_for         = local.es_healthy
       verify           = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
+      done_while       = null
       timeout          = 900
-    }
-    licenses-db = {
-      vm_id         = 126
-      description   = "Postgres: the license key server's database"
-      image         = proxmox_oci_image.postgres.id
-      cores         = 2
-      memory        = 1024
-      order         = 20
-      start_on_boot = true
-      run_once      = false
-      interfaces    = [{ bridge = var.private_network, address = "${local.licenses_db_ip}/${local.private_prefix}", gateway = local.private_gateway }]
-      mounts        = [{ volume = "${local.data_root}/licenses-db", path = "/var/lib/postgresql/data", read_only = false }]
-      entrypoint    = local.images.postgres.entrypoint
-      image_env     = local.images.postgres.env
-      # The image creates the licenses user and database on an empty data directory, with the
-      # password from licenses-db.env
-      env = {
-        POSTGRES_DB   = "licenses"
-        POSTGRES_USER = "licenses"
-      }
-      privileged_ports = false
-      secrets_env      = "${var.secrets_dir}/licenses-db.env"
-      files            = {}
-      uid              = 999
-      gid              = 999
-      wait_for         = null
-      verify           = local.licenses_db_ready
-      timeout          = 300
     }
     license-key-server = {
       vm_id         = 127
@@ -508,7 +705,7 @@ locals {
       entrypoint = local.images.license_key_server.entrypoint
       image_env  = local.images.license_key_server.env
       env = merge(local.azure.license_server_env, {
-        KINOTIC_LICENSES_DATABASE_HOST  = local.licenses_db_ip
+        KINOTIC_LICENSES_DATABASE_HOST  = local.postgres_ip
         KINOTIC_APIGATEWAY_SSL_ENABLED  = "true"
         KINOTIC_APIGATEWAY_SSL_CERTPATH = "/etc/license-key-server/certs/fullchain.pem"
         KINOTIC_APIGATEWAY_SSL_KEYPATH  = "/etc/license-key-server/certs/privkey.pem"
@@ -518,8 +715,9 @@ locals {
       files            = {}
       uid              = 10001
       gid              = 10001
-      wait_for         = local.licenses_db_ready
+      wait_for         = local.postgres_listening
       verify           = "curl -skf https://${local.license_server_ip}:58503/health"
+      done_while       = null
       timeout          = 300
     }
     edge = {
@@ -552,12 +750,14 @@ locals {
       gid              = 99
       wait_for         = null
       verify           = null
+      done_while       = null
       timeout          = 300
     }
   })
 
-  # The startup order is the apply order too: Elasticsearch, the stores, the migration, the
-  # servers, and the edge, which opens them to the internet once they are up
+  # The startup order is the apply order too: Elasticsearch, Postgres, the authorization engine
+  # with its database's creation, schema migration and store creation, the stores, the
+  # migration, the servers, and the edge, which opens them to the internet once they are up
   apply_order = [for entry in sort([for name, c in local.containers : format("%02d %s", c.order, name)]) : split(" ", entry)[1]]
 
   # Every config file, uploaded flat as a snippet and copied by the applier into the host
@@ -596,6 +796,7 @@ locals {
     run_once         = c.run_once
     wait_for         = c.wait_for
     verify           = c.verify
+    done_while       = c.done_while
     timeout          = c.timeout
   } }
 }
@@ -678,6 +879,18 @@ resource "proxmox_oci_image" "postgres" {
   node_name    = var.proxmox_node
   datastore_id = var.files_datastore_id
   reference    = "docker.io/library/postgres:${var.postgres_version}"
+}
+
+resource "proxmox_oci_image" "openfga" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/openfga/openfga:${var.openfga_version}"
+}
+
+resource "proxmox_oci_image" "curl" {
+  node_name    = var.proxmox_node
+  datastore_id = var.files_datastore_id
+  reference    = "docker.io/curlimages/curl:${var.curl_version}"
 }
 
 resource "proxmox_oci_image" "license_key_server" {
@@ -854,6 +1067,18 @@ moved {
 moved {
   from = proxmox_virtual_environment_container.fleet["kinotic-app-server"]
   to   = proxmox_virtual_environment_container.fleet["kinotic-server-app"]
+}
+
+# The nightly backup's script, whose timer prepare-host.sh installs: it finds Postgres by the
+# name this root gives its container, so the host's copy follows this one
+resource "terraform_data" "licenses_backup" {
+  triggers_replace = sha256(file("${path.module}/host/kinotic-licenses-backup.sh"))
+
+  provisioner "local-exec" {
+    command = "ssh -o BatchMode=yes root@${var.proxmox_host} install -m 0755 /dev/stdin /usr/local/sbin/kinotic-licenses-backup < ${path.module}/host/kinotic-licenses-backup.sh"
+  }
+
+  depends_on = [proxmox_virtual_environment_container.fleet]
 }
 
 locals {

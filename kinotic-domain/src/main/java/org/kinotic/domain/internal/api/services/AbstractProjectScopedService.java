@@ -22,12 +22,14 @@ public abstract class AbstractProjectScopedService<T extends ProjectScoped<Strin
 
     @Override
     public Future<Long> countForProject(String projectId) {
-        return projectRepository.countForProject(projectId, requireOrganizationId());
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> projectRepository.countForProject(projectId, organizationId, ids));
     }
 
     @Override
     public Future<Page<T>> findAllForProject(String projectId, Pageable pageable) {
-        return projectRepository.findAllForProject(projectId, requireOrganizationId(), pageable);
+        String organizationId = requireOrganizationId();
+        return visibleIds().compose(ids -> projectRepository.findAllForProject(projectId, organizationId, ids, pageable));
     }
 
 }

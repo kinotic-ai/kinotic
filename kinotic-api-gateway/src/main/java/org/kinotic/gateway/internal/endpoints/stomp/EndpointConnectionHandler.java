@@ -261,12 +261,27 @@ public class EndpointConnectionHandler {
                 }
 
                 incomingInvocationTracker.requestSent(incomingEvent);
-                return services.eventBusService
-                        .sendWithAck(incomingEvent)
+                // the zone admitted the destination; the function's own check decides the caller may invoke it
+                return services.requestAuthorizer
+                        .authorize(incomingEvent.cri(),
+                                   connectedInfo.getParticipant(),
+                                   incomingEvent.metadata().get(EventConstants.CONTENT_TYPE_HEADER),
+                                   incomingEvent.data())
+                        .compose(v -> {
+                            Future<String> accepted;
+                            // the connection closed while the request waited for its check
+                            if (connectedInfo == null) {
+                                accepted = Future.failedFuture(new IllegalStateException("The connection closed before the request to "
+                                                                                                 + incomingEvent.cri() + " was sent"));
+                            } else {
+                                accepted = services.eventBusService.sendWithAck(incomingEvent);
+                            }
+                            return accepted;
+                        })
+                        // no reply will come for a request that never left
+                        .onFailure(throwable -> incomingInvocationTracker.requestFinished(correlationId))
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
-                            // no reply will come for a request that never left
-                            incomingInvocationTracker.requestFinished(correlationId);
                             throwable = KinoticUtil.mapSendFailure(throwable,
                                                                    incomingEvent.cri(),
                                                                    services.serviceDirectoryProvider.getIfAvailable());
@@ -319,8 +334,9 @@ public class EndpointConnectionHandler {
 
     /**
      * Subscribes the connection to the destination.
-     * @return completes once the subscription is registered across the cluster, so an event sent to the
-     *         destination from any node reaches the connection
+     * @return completes once the connection is found allowed the destination and the subscription is registered
+     *         across the cluster, so an event sent to the destination from any node reaches the connection; fails
+     *         with an {@link AuthorizationException} when the connection may not subscribe to the destination
      */
     public Future<Void> subscribe(CRI cri,
                                   String subscriptionIdentifier,
@@ -331,10 +347,20 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        if (!stompAuthorizer.subscribeAllowed(cri)) {
-            throw new AuthorizationException("Not Authorized to subscribe to " + cri);
-        }
+        return stompAuthorizer.subscribeAllowed(cri).compose(allowed -> {
+            if (!allowed) {
+                throw new AuthorizationException("Not Authorized to subscribe to " + cri);
+            }
+            // shutdown() may have run while the authorization was asked for, and a consumer registered after it
+            // would never be unregistered
+            if (stompAuthorizer == null) {
+                throw new IllegalStateException("The connection ended before it subscribed to " + cri);
+            }
+            return listen(cri, subscriptionIdentifier, subscriptionHandler);
+        });
+    }
 
+    private Future<Void> listen(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer;
         if (cri.scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)) {
 

@@ -53,27 +53,18 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
         ScopedParticipant participant = currentParticipant();
         ParticipantScope scope = participant.getScope();
         Future<Page<JobRun>> ret;
-        if (namesOther(filter.getOrganizationId(), scope.organizationId())
-                || namesOther(filter.getApplicationId(), scope.applicationId())) {
-            log.error("Participant {} may not view the job runs of organization {} application {}",
-                      participant.getId(), filter.getOrganizationId(), filter.getApplicationId());
+        // a SYSTEM-scoped caller, with no organization, may view every run; anyone else is narrowed to their own
+        if (scope.organizationId() != null && filter.getOrganizationId() != null
+                && !filter.getOrganizationId().equals(scope.organizationId())) {
+            log.error("Participant {} may not view the job runs of organization {}", participant.getId(), filter.getOrganizationId());
             ret = Future.failedFuture(new AuthorizationException("Access denied"));
         } else {
-            // a SYSTEM-scoped caller, with no organization, may view every run; anyone else is narrowed to their own
             if (scope.organizationId() != null) {
                 filter.setOrganizationId(scope.organizationId());
-            }
-            if (scope.applicationId() != null) {
-                filter.setApplicationId(scope.applicationId());
             }
             ret = jobRunRepository.findAllMatching(filter, pageable);
         }
         return ret;
-    }
-
-    // true when the filter asks for an organization or application other than the one the caller is scoped to
-    private static boolean namesOther(String requested, String scoped) {
-        return scoped != null && requested != null && !requested.equals(scoped);
     }
 
     @Override

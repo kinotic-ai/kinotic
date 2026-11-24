@@ -1,11 +1,13 @@
 package org.kinotic.core.api.security;
 
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.net.HostAndPort;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.SessionHandler;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,9 +27,9 @@ import java.util.stream.Stream;
  * {@code Origin}, the origin of its {@code Referer}. A request that names no page, as a client outside a
  * browser sends, has its own login slot.
  *
- * <p>{@link #handler(String, SecurityService)} resolves the binding for each request and must be mounted directly behind
- * the {@code SessionHandler} of every route that reads or writes a login; the other methods read what it
- * resolved.
+ * <p>{@link #handler(SessionHandler, String, SecurityService)} resolves the binding for each request and must be
+ * mounted directly behind {@code sessionHandler} on every route that reads or writes a login; the other methods read
+ * what it resolved.
  */
 public final class SessionBinding {
     private static final Logger log = LoggerFactory.getLogger(SessionBinding.class);
@@ -36,20 +38,25 @@ public final class SessionBinding {
     private static final String ORIGIN_KEY = SessionBinding.class.getName() + ".origin";
     private static final String PRESENTED_KEY = SessionBinding.class.getName() + ".presented";
     private static final String LOGIN_KEY = SessionBinding.class.getName() + ".login";
+    private static final String SESSION_HANDLER_KEY = SessionBinding.class.getName() + ".sessionHandler";
 
     private SessionBinding() {}
 
     /**
-     * The handler that resolves each request's binding, for routes whose {@code SessionHandler} issues
+     * The handler that resolves each request's binding, for routes whose {@code sessionHandler} issues
      * {@code sessionCookieName}. It fails the request with {@code 401} and destroys the session when the
-     * session holds a login established on another host. The calling page's login is re-established with
+     * session holds a login established on another host; the session is gone from the store before the
+     * response is sent. The calling page's login is re-established with
      * {@link SecurityService#reauthenticate} on every request, so every reader of it sees the participant its
      * identity acts as at the time of the request: a login whose identity may no longer act ends, and the request
      * proceeds as one from a page with no login. A security service that cannot answer fails the request with
      * {@code 503}.
      */
-    public static Handler<RoutingContext> handler(String sessionCookieName, SecurityService securityService) {
+    public static Handler<RoutingContext> handler(SessionHandler sessionHandler,
+                                                  String sessionCookieName,
+                                                  SecurityService securityService) {
         return ctx -> {
+            ctx.put(SESSION_HANDLER_KEY, sessionHandler);
             String origin = pageOrigin(ctx.request());
             if (origin != null) {
                 ctx.put(ORIGIN_KEY, origin);
@@ -71,7 +78,7 @@ public final class SessionBinding {
             }
             if (!hostMatches) {
                 log.warn("The session was not issued by this host");
-                ctx.fail(401, new AuthenticationException("The session is not valid"));
+                flush(ctx).onComplete(flushed -> ctx.fail(401, new AuthenticationException("The session is not valid")));
             } else if (login == null) {
                 ctx.next();
             } else if (ctx.request().canUpgradeToWebSocket()) {
@@ -98,7 +105,9 @@ public final class SessionBinding {
                        .onFailure(error -> {
                            if (error instanceof AuthenticationException) {
                                log.debug("The login of {} ended with its identity", login.getParticipant().getId());
-                               unbind(ctx);
+                               // left to the SessionHandler's own flush at the end of the response, since this
+                               // request may still sign the page in again; a later request fails verify alike
+                               removeLogin(ctx);
                                ctx.next();
                            } else {
                                log.warn("The security service could not re-establish a session login", error);
@@ -165,17 +174,37 @@ public final class SessionBinding {
 
     /**
      * Ends the login of the page that sent the request. The session, and its cookie, end once it holds
-     * nothing else: no page's login and no sign-in another page has in progress.
+     * nothing else: no page's login and no sign-in another page has in progress. The returned future completes
+     * once the session store holds the change, so a request sent after the response sees it; nothing may change
+     * the session after it.
      */
-    public static void unbind(RoutingContext ctx) {
+    public static Future<Void> unbind(RoutingContext ctx) {
+        Future<Void> ret;
         if (sessionPresented(ctx)) {
-            Session session = ctx.session();
-            session.remove(loginKey(origin(ctx)));
-            ctx.remove(LOGIN_KEY);
-            if (session.isEmpty()) {
-                session.destroy();
-            }
+            removeLogin(ctx);
+            ret = flush(ctx);
+        } else {
+            ret = Future.succeededFuture();
         }
+        return ret;
+    }
+
+    private static void removeLogin(RoutingContext ctx) {
+        Session session = ctx.session();
+        session.remove(loginKey(origin(ctx)));
+        ctx.remove(LOGIN_KEY);
+        if (session.isEmpty()) {
+            session.destroy();
+        }
+    }
+
+    // The SessionHandler writes, or deletes, the session in a headers-end handler without waiting for the store,
+    // so a request sent right after the response could still read the session as it was. A flushed session is
+    // not written again at the end of the request.
+    private static Future<Void> flush(RoutingContext ctx) {
+        SessionHandler sessionHandler = ctx.get(SESSION_HANDLER_KEY);
+        return sessionHandler.flush(ctx, true)
+                             .onFailure(error -> log.warn("The session could not be written to the store", error));
     }
 
     /** Whether {@code session} holds the login identified by {@code loginId}, for any page. */

@@ -62,10 +62,15 @@
         <span v-if="selectedMember" class="truncate text-sm font-medium text-surface-950 dark:text-surface-0">{{ selectedMember.displayName || selectedMember.email }}</span>
       </template>
       <MemberDetail v-if="selectedMember" :member="selectedMember" :tint="scopeTint(scope)" :index="position - 1" />
+      <!-- a system user's grants live on the Access page; an organization's people are granted in the portal -->
+      <div v-if="selectedMember && !organizationId" class="mt-4 flex justify-end">
+        <Button label="Manage access" icon="pi pi-key" size="small" severity="secondary" outlined
+                @click="router.push({ name: 'system-access', query: { subject: selectedMember.id } })" />
+      </div>
     </SteppingDrawer>
 
     <FormDrawer :visible="addFormVisible" title="Add user"
-                description="A system user holds the system's full authority over every organization."
+                description="A system user may do what the roles granted on the Access page allow."
                 @close="addFormVisible = false">
       <form id="add-system-user-form" class="flex flex-col gap-6" @submit.prevent="addUser">
         <div>
@@ -92,6 +97,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { Users } from '@lucide/vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
@@ -139,6 +145,8 @@ const props = defineProps<{
   organizationId?: string
   applicationId?: string
 }>()
+
+const router = useRouter()
 
 const headers: CrudHeader[] = [
   { field: 'email', header: 'Person', sortable: false, width: '40%' },
