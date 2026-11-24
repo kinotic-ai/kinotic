@@ -7,19 +7,26 @@ import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.net.HostAndPort;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.sstore.LocalSessionStore;
+import io.vertx.ext.web.sstore.SessionStore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 /**
@@ -37,14 +44,26 @@ public class SessionBindingTests {
     // request still in flight on it
     private static HttpClient client;
     private static SecurityService securityService;
+    private static final Set<String> deletedSessions = ConcurrentHashMap.newKeySet();
 
     @BeforeAll
     public static void start() throws Exception {
         vertx = Vertx.vertx();
         securityService = mock(SecurityService.class);
-        SessionHandler sessionHandler = SessionHandler.create(LocalSessionStore.create(vertx));
+        // a store that deletes a session a moment after it is asked to, as a clustered store can
+        SessionStore sessionStore = spy(LocalSessionStore.create(vertx));
+        doAnswer(invocation -> vertx.timer(300).compose(fired -> {
+            Future<Void> ret;
+            try {
+                ret = (Future<Void>) invocation.callRealMethod();
+            } catch (Throwable e) {
+                ret = Future.failedFuture(e);
+            }
+            return ret;
+        }).onSuccess(deleted -> deletedSessions.add(invocation.getArgument(0)))).when(sessionStore).delete(anyString());
+        SessionHandler sessionHandler = SessionHandler.create(sessionStore);
         Router router = Router.router(vertx);
-        router.route().handler(sessionHandler).handler(SessionBinding.handler("vertx-web.session", securityService));
+        router.route().handler(sessionHandler).handler(SessionBinding.handler(sessionHandler, "vertx-web.session", securityService));
         router.post("/login").handler(ctx -> {
             ConnectedInfo login = new ConnectedInfo();
             login.setParticipant(participant("signed-in"));
@@ -104,6 +123,25 @@ public class SessionBindingTests {
         Participant current = participant("current");
         when(securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(current));
         Assertions.assertEquals(204, me(cookie).statusCode());
+    }
+
+    @Test
+    public void testASessionReplayedAtAnotherHostIsGoneBeforeTheRefusalArrives() throws Exception {
+        String cookie = login();
+        Participant current = participant("current");
+        when(securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(current));
+
+        HttpClientResponse replayed = client.request(HttpMethod.GET, server.actualPort(), "127.0.0.1", "/me")
+                                            .compose(request -> request.authority(HostAndPort.authority("elsewhere.test", server.actualPort()))
+                                                                       .putHeader(HttpHeaders.COOKIE, cookie)
+                                                                       .send())
+                                            .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        Assertions.assertEquals(401, replayed.statusCode());
+        Assertions.assertTrue(deletedSessions.contains(cookie.substring(cookie.indexOf('=') + 1)),
+                              "the refusal arrived before the session was deleted from the store");
+
+        // sent at once, at the host that issued the session
+        Assertions.assertEquals(401, me(cookie).statusCode());
     }
 
     // signs a page in and returns the session cookie the server issued it

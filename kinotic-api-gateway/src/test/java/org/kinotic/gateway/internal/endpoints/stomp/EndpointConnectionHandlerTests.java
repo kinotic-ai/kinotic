@@ -10,6 +10,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.net.HostAndPort;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.sstore.ClusteredSessionStore;
 import io.vertx.ext.web.sstore.LocalSessionStore;
 import io.vertx.spi.cluster.ignite.IgniteClusterManager;
@@ -62,6 +63,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.endsWith;
 import static org.mockito.ArgumentMatchers.eq;
@@ -928,7 +930,9 @@ public class EndpointConnectionHandlerTests {
         login.setParticipant(participant);
         SessionBinding.bind(routingContext, SessionBinding.origin(routingContext), login);
         when(services.securityService.reauthenticate(any())).thenReturn(Future.succeededFuture(participant));
-        SessionBinding.handler(SESSION_COOKIE, services.securityService).handle(routingContext);
+        SessionHandler sessionHandler = mock(SessionHandler.class);
+        when(sessionHandler.flush(any(), anyBoolean())).thenReturn(Future.succeededFuture());
+        SessionBinding.handler(sessionHandler, SESSION_COOKIE, services.securityService).handle(routingContext);
         return routingContext;
     }
 
