@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/workload-runner",
-  "version": "5.0.0-beta.4",
+  "version": "5.0.0-beta.5",
   "private": true,
   "type": "module",
   "description": "Entrypoints for the workloads that deploy and run a customer project on a node: a one-shot checkout-and-sync run and a long-lived microservice supervisor. Baked into the workload-runner OCI image, never published to npm.",
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@kinotic-ai/core": "^5.0.0-beta.30",
-    "@kinotic-ai/kinotic-cli": "5.2.0-beta.46",
+    "@kinotic-ai/kinotic-cli": "5.2.0-beta.47",
     "@kinotic-ai/management-api": "5.0.0-beta.72",
     "@opentelemetry/api": "^1.10.0",
     "@opentelemetry/sdk-node": "^0.301.2"
