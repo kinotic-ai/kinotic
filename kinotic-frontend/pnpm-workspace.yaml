@@ -15,7 +15,7 @@ catalog:
   # The build toolchain the apps and frontend-common's library build share
   '@vitejs/plugin-vue': ^6.0.8
   typescript: ~5.8.3
-  vite: ^8.2.1
+  vite: ^8.2.4
   vue-tsc: ^2.2.12
 
   # The charting libraries frontend-common declares as optional peers and the system console renders with
