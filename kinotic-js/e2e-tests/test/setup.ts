@@ -47,10 +47,12 @@ export interface GlobalSetup {
     teardown(): Promise<void>
 }
 
+const STACK_TRACE_LINE = /^(\s+at |\s+\.\.\. \d+ more|Caused by: |\s+Suppressed: |[\w.$]+(Exception|Error)\b)/
+
 /**
- * Waits for a server to answer /health while reading its output, for as long as the server runs: output
- * holding ERROR is printed as it arrives, and the end of the output is printed when the server does not
- * answer in time.
+ * Waits for a server to answer /health while reading its output, for as long as the server runs: a line
+ * holding ERROR, with the stack trace that follows it, is printed as it arrives, and the end of the output is
+ * printed when the server does not answer in time.
  */
 class ServerStartupWaitStrategy implements WaitStrategy {
 
@@ -64,11 +66,16 @@ class ServerStartupWaitStrategy implements WaitStrategy {
         let recentOutput = ''
         const client = await getContainerRuntimeClient()
         const output = await client.container.logs(args[0])
+        let inError = false
         output.on('data', (chunk: Buffer | string) => {
             const text = String(chunk)
             recentOutput = (recentOutput + text).slice(-STARTUP_FAILURE_OUTPUT_CHARS)
-            if (text.includes('ERROR')) {
-                console.error(`[${this.serverName}]`, text.trimEnd())
+            for (const line of text.split('\n').filter(line => line.trim() !== '')) {
+                // a logged exception's stack trace follows its ERROR line, often in later chunks
+                inError = line.includes('ERROR') || (inError && STACK_TRACE_LINE.test(line))
+                if (inError) {
+                    console.error(`[${this.serverName}]`, line.trimEnd())
+                }
             }
         })
         try {
