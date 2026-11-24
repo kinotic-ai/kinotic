@@ -1,12 +1,12 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.authz.api.model.AuthzNameUtil;
 import org.kinotic.authz.api.model.Grant;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.authz.api.services.AuthzStoreService;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.authz.api.services.RelationshipService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -62,10 +62,6 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     /** Bytes of entropy for a machine client secret — generated, never user-chosen. */
     private static final int MACHINE_SECRET_BYTES = 32;
-    // the cluster lock the removals of one resource's administrators hold in turn, by the resource
-    private static final String ADMINISTRATORS_LOCK_PREFIX = "kinotic.domain.administrators.";
-    // how long a removal waits for the ones before it
-    private static final long ADMINISTRATORS_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
@@ -76,7 +72,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     private final ApplicationRepository applicationRepository;
     private final RelationshipService relationships;
     private final ConnectionRevocationService connectionRevocationService;
-    private final Vertx vertx;
+    private final ObjectLockService locks;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
                                              IdentityCredentialRepository credentialRepository,
@@ -87,7 +83,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                              ApplicationRepository applicationRepository,
                                              ConnectionRevocationService connectionRevocationService,
                                              RelationshipService relationships,
-                                             Vertx vertx) {
+                                             ObjectLockService locks) {
         super(repository);
         this.identityRepository = repository;
         this.credentialRepository = credentialRepository;
@@ -98,7 +94,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         this.applicationRepository = applicationRepository;
         this.relationships = relationships;
         this.connectionRevocationService = connectionRevocationService;
-        this.vertx = vertx;
+        this.locks = locks;
     }
 
     // A connection is authenticated once, when it is established, so an identity that is disabled or deleted keeps
@@ -471,8 +467,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notNull(holderType, "holderType cannot be null");
         Validate.notNull(removal, "removal cannot be null");
         // two removals counting at once would each count the administrator the other takes away, and leave none
-        return vertx.sharedData().withLock(ADMINISTRATORS_LOCK_PREFIX + object, ADMINISTRATORS_LOCK_TIMEOUT_MILLIS,
-                                           () -> requireAnotherAdministrator(object, leaving, holderType).compose(v -> removal.get()));
+        return locks.exclusively(object, () -> requireAnotherAdministrator(object, leaving, holderType).compose(v -> removal.get()));
     }
 
     private Future<Void> requireAnotherAdministrator(String object, Predicate<Grant> leaving, Class<? extends UserParticipantIdentity> holderType) {

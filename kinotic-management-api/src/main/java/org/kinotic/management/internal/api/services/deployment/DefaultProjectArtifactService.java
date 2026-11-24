@@ -1,13 +1,15 @@
 package org.kinotic.management.internal.api.services.deployment;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.authz.api.model.Resource;
+import org.kinotic.authz.api.services.ObjectLockService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.utils.AuthzGraphUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.ProjectArtifacts;
@@ -16,6 +18,7 @@ import org.kinotic.management.api.model.deployment.ProjectDeployment;
 import org.kinotic.management.api.model.deployment.UiArtifact;
 import org.kinotic.management.api.repositories.ProjectDependenciesRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
+import org.kinotic.management.api.services.ProjectService;
 import org.kinotic.management.api.services.deployment.ProjectArtifactService;
 import org.kinotic.management.api.services.vulnerability.VulnerabilityScanner;
 import org.springframework.stereotype.Component;
@@ -33,10 +36,7 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class DefaultProjectArtifactService implements ProjectArtifactService {
 
-    // How long a report waits for another report of the same project to be recorded
-    private static final long REPORT_LOCK_TIMEOUT_MS = 30_000;
-
-    private final Vertx vertx;
+    private final ObjectLockService locks;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDependenciesRepository projectDependenciesRepository;
     private final VulnerabilityScanner vulnerabilityScanner;
@@ -88,12 +88,12 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                 .compose(recorded -> scanProject(dependencies));
     }
 
-    // Runs the recording of a report while this node holds the project's cluster lock, so the
+    // Runs the recording of a report while this node holds the project's lock, so the
     // artifacts a sync reports and the SBOM of those artifacts are recorded one after another: an
     // SBOM stored while other artifacts are being recorded would be marked as listing dependencies
     // it does not
     private <T> Future<T> oneAtATime(String projectId, String organizationId, Supplier<Future<T>> recording) {
-        return vertx.sharedData().withLock("project.artifacts:" + organizationId + ":" + projectId, REPORT_LOCK_TIMEOUT_MS, recording);
+        return locks.exclusively(AuthzGraphUtil.authzObject(organizationId, new Resource(ProjectService.RESOURCE_TYPE, projectId)), recording);
     }
 
     // The SBOM stands once stored; alerts a failed scan leaves behind are corrected by the next scan
