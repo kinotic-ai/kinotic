@@ -58,7 +58,7 @@ public class AuthzStoreReconciler implements Reconciler<AuthzStore> {
     }
 
     // The directory's word is the record's intent, written here because only a read of it says what it is; the
-    // engine's version follows, with the built-in roles the model implies brought in step ahead of it, so the
+    // engine's version follows, then the built-in roles the model implies are brought in step with it, so the
     // record is reconciled exactly when the engine runs the model the directory implies and its roles bundle what
     // that model has, and any of the writes failing leaves it for the master to retry
     private Future<Void> run(AuthzStore current, AuthzModel model) {

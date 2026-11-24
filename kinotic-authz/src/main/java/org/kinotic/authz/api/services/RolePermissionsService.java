@@ -37,8 +37,8 @@ public interface RolePermissionsService {
 
     /**
      * Makes the store run the given model with the built-in roles it holds, {@link AuthzModel#storedRoles()},
-     * bundling exactly what the model has. The roles are brought in step before the model becomes the store's
-     * current version, so a check against the model reads every role it grants through as the model needs it.
+     * bundling exactly what the model has. The version returned has every role it grants through in step, so it is
+     * the one for the store's checks to name.
      *
      * @param store the store, named as its record is
      * @param model the model the store must run

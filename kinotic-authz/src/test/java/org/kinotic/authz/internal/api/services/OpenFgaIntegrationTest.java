@@ -225,40 +225,20 @@ class OpenFgaIntegrationTest {
     }
 
     @Test
-    void nodesCreatingAStoreTogetherCreateOne() throws Exception {
-        String store = "together-" + System.nanoTime();
-        List<Future<String>> creators = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
-            creators.add(new DefaultAuthzStoreService(fga, properties, vertx, engineStores).ensureStore(store));
-        }
-
-        await(Future.all(creators));
-
-        Set<String> ids = creators.stream().map(Future::result).collect(Collectors.toSet());
-        assertEquals(1, ids.size());
-        String name = await(fga.getStore(ids.iterator().next())).getName();
-        assertEquals(1, await(fga.listStores(10, null, name)).getStores().size());
-        await(storeService.deleteStore(store));
-    }
-
-    @Test
-    void aModelIsWrittenOnlyOnceTheRolesItGrantsThroughAreInStep() throws Exception {
-        String store = "roles-first-" + System.nanoTime();
+    void aGrownModelIsWrittenAsOneVersionWithItsRolesInStep() throws Exception {
+        String store = "model-with-roles-" + System.nanoTime();
         AuthzModel kernel = generator.applicationModel(List.of(entitiesRepository()), List.of());
         AuthzModel grown = generator.applicationModel(List.of(entitiesRepository(), tenantService()), List.of());
         String storeId = await(storeService.ensureStore(store));
-        await(rolePermissions.ensureModelWithRoles(store, kernel));
+        String kernelModelId = await(rolePermissions.ensureModelWithRoles(store, kernel)).modelId();
 
         String grownModelId = await(rolePermissions.ensureModelWithRoles(store, grown)).modelId();
 
-        // the version before the grown one carries the role relations of the tenant's permission, and no type
-        // grants through them
-        List<AuthorizationModel> versions = await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels();
-        assertEquals(grownModelId, versions.getFirst().getId());
-        AuthorizationModel bridge = versions.get(1);
-        assertTrue(relationsOf(bridge, "tenant_role").contains("tenant_can_read"));
-        assertFalse(relationsOf(bridge, "tenant").contains("tenant_can_read"));
-        assertTrue(relationsOf(bridge, "tenant").contains("entity_definition_can_read"));
+        // the engine lists a store's versions newest first
+        List<String> versions = await(fga.readAuthorizationModels(storeId, 10, null)).getAuthorizationModels().stream()
+                                                                                     .map(AuthorizationModel::getId)
+                                                                                     .toList();
+        assertEquals(List.of(grownModelId, kernelModelId), versions);
         assertTrue(await(relationshipService.holds(store, new RelationshipTuple("user:*", "tenant_can_read", AuthzNameUtil.roleObject("application.admin")))));
         // a model in step writes nothing more
         assertEquals(grownModelId, await(rolePermissions.ensureModelWithRoles(store, grown)).modelId());
@@ -313,14 +293,6 @@ class OpenFgaIntegrationTest {
         assertNotEquals(modelId, recreatedModelId);
         assertEquals(recreatedModelId, await(storeService.modelId(store)));
         await(storeService.deleteStore(store));
-    }
-
-    private static Set<String> relationsOf(AuthorizationModel model, String type) {
-        return model.getTypeDefinitions().stream()
-                    .filter(definition -> type.equals(definition.getType()))
-                    .findFirst()
-                    .map(definition -> definition.getRelations().keySet())
-                    .orElse(Set.of());
     }
 
     @Test

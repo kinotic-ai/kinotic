@@ -44,7 +44,6 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.EntityDefinitionService;
 import org.kinotic.management.api.services.ProjectService;
-import org.kinotic.management.internal.api.services.ApplicationStoreProvisioner;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -124,9 +123,6 @@ public class GraphSyncTests extends KinoticTestBase {
 
     @Autowired
     private TestDataService testDataService;
-
-    @Autowired
-    private ApplicationStoreProvisioner provisioner;
 
     @Test
     public void lifecycleWritesPlaceEachRecordInTheGraphAndDeletesRemoveIt() throws Exception {
@@ -258,7 +254,8 @@ public class GraphSyncTests extends KinoticTestBase {
 
     @Test
     public void anApplicationWhoseUsersShareATenantIsProvisionedWithThem() throws Exception {
-        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Graph Sync Tenants " + suffix(), "graph sync", null)));
+        String name = "Graph Sync Tenants " + suffix();
+        Application application = await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(name, "graph sync", null)));
         String store = AuthzGraphUtil.authzApplicationId(application.getOrganizationId(), application.getId());
         String tenant = AuthzNameUtil.object(AuthzConstants.TENANT_TYPE, "tenant-" + suffix());
         List<String> users = new ArrayList<>();
@@ -267,13 +264,15 @@ public class GraphSyncTests extends KinoticTestBase {
             user.setTenantId(AuthzNameUtil.idOf(tenant));
             users.add(AuthzGraphUtil.authzUser(await(identityService.createUser(user, "Graph-sync-1")).getId()));
         }
-        // taken out of the store, the users are held by their records alone, as those a migration seeds are
+        // taken out of the store, the users are held by their records alone, as those a migration seeds are, and
+        // an application whose store has no record is one still to be provisioned
         for (String user : users) {
             await(relationships.remove(store, List.of(new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, tenant))));
         }
+        await(stores.deleteByIdSync(store));
 
         // both users place the one tenant under the application
-        await(provisioner.provision(application));
+        await(runAsOrganization(() -> applicationService.createApplicationIfNotExist(name, "graph sync", null)));
 
         for (String user : users) {
             assertTrue(await(relationships.holds(store, new RelationshipTuple(user, AuthzConstants.MEMBER_RELATION, tenant))),

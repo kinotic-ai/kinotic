@@ -33,7 +33,9 @@ public interface AuthzStoreService {
     /**
      * Makes an application's store exist in the engine, creating it when the engine has none of its name. A
      * store found or created is kept, and a lookup that fails, because the engine is unreachable, fails the
-     * caller and is made again by the next one.
+     * caller and is made again by the next one. The engine creates a store under a name another store has, so
+     * the caller holds the application's lock, {@link ObjectLockService#exclusively}: callers creating the store
+     * of one application together would each create one.
      *
      * @param store the application's store, named as its record is
      * @return the engine's id of the store

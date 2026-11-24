@@ -18,12 +18,9 @@ import org.kinotic.authz.api.model.EngineStore;
 import org.kinotic.authz.api.services.AuthzStoreService;
 import org.kinotic.authz.api.services.EngineStoreRepository;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.idl.api.utils.AuthzConstants;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
@@ -56,10 +53,6 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
     // the address every node hears a store's deletion on, so none keeps answering with the id of a store the
     // engine has deleted while another node already resolved the one created again under its name
     private static final String STORE_DELETED_ADDRESS = "kinotic.authz.store-deleted";
-    // the cluster lock a store's creators hold in turn, by the store's engine name
-    private static final String STORE_LOCK_PREFIX = "kinotic.authz.store-creation.";
-    // how long a creator waits for another creating the same store
-    private static final long STORE_LOCK_TIMEOUT_MILLIS = 30_000;
 
     private final OpenFgaService fga;
     private final KinoticAuthzProperties properties;
@@ -89,21 +82,12 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
         // resolved it is created again rather than answered with the id the engine no longer knows
         String name = storeNameOf(store);
         return findStore(name)
-                .compose(found -> found != null ? Future.succeededFuture(found) : createStore(store, name))
-                .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
-    }
-
-    // Nodes creating a store together, as the seed job and a caller creating the application do when the job
-    // reaches an application still being provisioned, hold the name's cluster lock in turn, so the first creates
-    // the store and the others find it. A listing shows a store only once its creation commits, so creators that
-    // each listed before the other's commit would otherwise each keep a store of their own
-    private Future<String> createStore(String store, String name) {
-        return vertx.sharedData().withLock(STORE_LOCK_PREFIX + name, STORE_LOCK_TIMEOUT_MILLIS, () -> findStore(name).compose(
-                found -> found != null
+                .compose(found -> found != null
                         ? Future.succeededFuture(found)
                         : fga.createStore(new CreateStoreRequest().name(name))
                              .map(CreateStoreResponse::getId)
-                             .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store))));
+                             .onSuccess(id -> log.info("Created authorization store {} for '{}'", id, store)))
+                .onSuccess(id -> storeIds.put(store, CompletableFuture.completedFuture(new ResolvedStore(id, System.currentTimeMillis()))));
     }
 
     @Override
@@ -256,97 +240,6 @@ public class DefaultAuthzStoreService implements AuthzStoreService, Initializing
             }
             return ret;
         }));
-    }
-
-    /**
-     * Makes the store's current version hold every role type of the given model with each of its relations,
-     * writing the current version with the missing ones added, so the roles the model implies can be written
-     * before the model that grants through them is the store's current one. A store with no model yet gets a
-     * version of the model's identities and roles alone.
-     *
-     * @param store the store, named as its record is
-     * @param model the model whose roles are about to be written
-     * @return completes when the store's current version holds the model's role relations
-     */
-    Future<Void> ensureRoleRelations(String store, AuthzModel model) {
-        return storeIdOf(store).compose(storeId -> latestModel(storeId).compose(latest -> {
-            ObjectNode bridge = bridgeOf(latest == null ? null : definitionOf(latest), model.definition());
-            Future<Void> ret;
-            if (bridge == null) {
-                ret = Future.succeededFuture();
-            } else {
-                ret = fga.writeAuthorizationModel(storeId, MAPPER.treeToValue(bridge, WriteAuthorizationModelRequest.class))
-                         .onSuccess(response -> log.info("Wrote authorization model {} to store {} with the role relations of the next",
-                                                         response.getAuthorizationModelId(), storeId))
-                         .mapEmpty();
-            }
-            return ret;
-        }));
-    }
-
-    // The current definition with the target's role types and role relations it lacks added, the identities and
-    // the role types of the target for a store with none; null when the current one holds them all. No other type
-    // of the current one reaches a role type or relation it lacked, so no check can traverse one before its roles
-    // are written
-    private static ObjectNode bridgeOf(ObjectNode current, ObjectNode target) {
-        ObjectNode ret = null;
-        if (current == null) {
-            ret = MAPPER.createObjectNode();
-            ret.set("schema_version", target.get("schema_version"));
-            ArrayNode types = ret.putArray("type_definitions");
-            types.add(typeDefinition(target, AuthzConstants.USER_TYPE).deepCopy());
-            for (ObjectNode targetRole : roleTypes(target)) {
-                types.add(targetRole.deepCopy());
-            }
-        } else {
-            ObjectNode bridged = current.deepCopy();
-            boolean changed = false;
-            for (ObjectNode targetRole : roleTypes(target)) {
-                ObjectNode role = typeDefinition(bridged, targetRole.path("type").asString());
-                if (role == null) {
-                    ((ArrayNode) bridged.get("type_definitions")).add(targetRole.deepCopy());
-                    changed = true;
-                } else {
-                    ObjectNode relations = role.withObjectProperty("relations");
-                    ObjectNode metadata = role.withObjectProperty("metadata").withObjectProperty("relations");
-                    for (String relation : targetRole.path("relations").propertyNames()) {
-                        if (!relations.has(relation)) {
-                            relations.set(relation, targetRole.get("relations").get(relation).deepCopy());
-                            metadata.set(relation, targetRole.get("metadata").get("relations").get(relation).deepCopy());
-                            changed = true;
-                        }
-                    }
-                }
-            }
-            ret = changed ? bridged : null;
-        }
-        // a role relation of the target may admit a tuple under a condition, which the version must then define
-        if (ret != null && target.has("conditions")) {
-            ret.set("conditions", target.get("conditions").deepCopy());
-        }
-        return ret;
-    }
-
-    private static List<ObjectNode> roleTypes(ObjectNode definition) {
-        List<ObjectNode> ret = new ArrayList<>();
-        for (JsonNode typeDefinition : definition.path("type_definitions")) {
-            String type = typeDefinition.path("type").asString();
-            // a role type holds its parts by a relation, so the type of the parts is defined wherever a role type is
-            if (type.endsWith(AuthzConstants.ROLE_TYPE_SUFFIX) || DefaultAuthzModelGenerator.ROLE_PART.equals(type)) {
-                ret.add((ObjectNode) typeDefinition);
-            }
-        }
-        return ret;
-    }
-
-    private static ObjectNode typeDefinition(ObjectNode definition, String type) {
-        ObjectNode ret = null;
-        for (JsonNode typeDefinition : definition.path("type_definitions")) {
-            if (type.equals(typeDefinition.path("type").asString())) {
-                ret = (ObjectNode) typeDefinition;
-            }
-        }
-        return ret;
     }
 
     /**
