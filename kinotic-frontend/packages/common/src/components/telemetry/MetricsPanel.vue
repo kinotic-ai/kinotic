@@ -20,6 +20,7 @@
         :loading="errors.loading"
         :error="errors.error"
         :format="formatPercent"
+        accent="red"
       >
         <template #action>
           <Button label="Failed traces" icon="pi pi-arrow-right" icon-pos="right" size="small" severity="secondary" text

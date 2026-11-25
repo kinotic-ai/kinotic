@@ -89,7 +89,7 @@
         <template #body="{ data }">
           <span class="flex items-center gap-2.5">
             <span class="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800" aria-hidden="true">
-              <span class="block h-full rounded-full bg-sky-500" :style="{ width: `${durationShare(data.durationMs)}%` }" />
+              <span :class="['block h-full rounded-full', listsOnlyErrors ? 'bg-red-500' : 'bg-sky-500']" :style="{ width: `${durationShare(data.durationMs)}%` }" />
             </span>
             <span class="whitespace-nowrap font-mono text-xs tabular-nums text-surface-800 dark:text-surface-100">{{ formatDuration(data.durationMs) }}</span>
           </span>
@@ -176,6 +176,8 @@ const filters = reactive<Omit<TraceFilters, 'applicationId'>>({
 })
 
 const traces = ref<TraceSummary[]>([])
+// Whether the listed traces came from an errors-only search, which the filter can differ from until the next search lands
+const listsOnlyErrors = ref(false)
 const loading = ref(false)
 // Searches can overlap when the range or the filters change mid-flight; only the latest lands
 let searchSequence = 0
@@ -287,10 +289,12 @@ async function search() {
   const sequence = ++searchSequence
   loading.value = true
   error.value = null
+  const onlyErrors = filters.onlyErrors
   try {
     const found = await searchTraces(props.organizationId, query.value, props.range, SEARCH_LIMIT)
     if (sequence === searchSequence) {
       traces.value = found
+      listsOnlyErrors.value = onlyErrors
     }
   } catch (err) {
     if (sequence === searchSequence) {

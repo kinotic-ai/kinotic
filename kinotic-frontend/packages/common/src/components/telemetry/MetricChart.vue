@@ -24,7 +24,7 @@ import Message from 'primevue/message'
 import VChart from 'vue-echarts'
 
 import { registerChartModules } from '../../charts/echarts'
-import { chartGridColor, chartLegend, chartTextColor, chartTooltip, seriesColor } from '../../charts/chartTheme'
+import { accentColor, chartGridColor, chartLegend, chartTextColor, chartTooltip, seriesColor, type ChartAccent } from '../../charts/chartTheme'
 import { isDark } from '../../composables/useTheme'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import DashboardSection from '../DashboardSection.vue'
@@ -46,7 +46,11 @@ const props = defineProps<{
   error: string | null
   /** Renders a value in the metric's unit, on the axis and in the tooltip. */
   format: (value: number) => string
+  /** Draws every series in this accent, told apart by dash, for a metric whose meaning has a colour (errors in red). */
+  accent?: ChartAccent
 }>()
+
+const LINE_TYPES = ['solid', 'dashed', 'dotted'] as const
 
 registerChartModules()
 
@@ -77,8 +81,8 @@ const option = computed(() => {
       name: entry.name,
       type: 'line',
       showSymbol: false,
-      lineStyle: { width: 2 },
-      itemStyle: { color: seriesColor(index, dark) },
+      lineStyle: { width: 2, type: props.accent ? LINE_TYPES[index % LINE_TYPES.length] : 'solid' },
+      itemStyle: { color: props.accent ? accentColor(props.accent, dark) : seriesColor(index, dark) },
       data: entry.points
     }))
   }
