@@ -10,7 +10,7 @@
     </PageHeader>
 
     <DeploymentFailureBanner v-for="project in failedProjects" :key="project.id ?? ''" class="mb-4"
-                             :title="`${project.name}'s last deployment failed`"
+                             :project-name="project.name"
                              :message="deploymentFailures[project.id ?? '']">
       <template #action>
         <RouterLink :to="`${basePath}/project/${encodeURIComponent(project.id ?? '')}/deployment`" class="flex items-center gap-1 hover:underline">
