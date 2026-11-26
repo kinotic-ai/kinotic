@@ -7,9 +7,8 @@ package org.kinotic.domain.api.exceptions;
  */
 public class BetaLimitException extends IllegalStateException {
 
-    private static final String BETA_NOTICE = " You're building on the free Kinotic beta cloud, which includes a set number of"
-            + " applications and microservices for each organization. When Kinotic Cloud launches, paid plans will let you"
-            + " scale well beyond these limits.";
+    private static final String BETA_NOTICE = " You're on the free Kinotic beta cloud. Paid plans at launch will let you"
+            + " scale beyond these limits.";
 
     /**
      * @param limitReached what the organization ran into and what it can do instead, as one or more sentences

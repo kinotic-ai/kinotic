@@ -116,7 +116,7 @@ public class ApplicationTests extends KinoticTestBase {
 													  () -> await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Beta Two " + suffix, "Past the limit", null))));
 			assertInstanceOf(BetaLimitException.class, refused.getCause());
 			assertTrue(refused.getCause().getMessage().contains("Kinotic beta cloud"));
-			assertTrue(refused.getCause().getMessage().contains("paid plans will let you scale well beyond these limits"));
+			assertTrue(refused.getCause().getMessage().contains("Paid plans at launch will let you scale beyond these limits"));
 
 			// an application that exists is returned and updated, whatever the cap
 			assertEquals(first.getId(), await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Beta One " + suffix, "Again", null))).getId());
