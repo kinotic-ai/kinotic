@@ -8,23 +8,15 @@
                          title="Never deployed" hint="Pushing to the repository's default branch deploys this project." />
 
     <template v-if="deployment">
-      <div v-if="phase === StatusType.FAILED && deployment.failureMessage"
-           class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50/70 px-4 py-3.5 dark:border-red-500/30 dark:bg-red-500/10"
-           role="alert">
-        <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', TINTS.red]">
-          <CircleAlert :size="16" :stroke-width="1.75" aria-hidden="true" />
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold text-red-800 dark:text-red-300">The last deployment failed</p>
-          <p class="mt-0.5 break-words text-[0.8125rem] text-red-700/90 dark:text-red-300/90">{{ deployment.failureMessage }}</p>
-        </div>
-        <a v-if="deployment.lastJobRunId" href="#latest-deployment-run"
-           class="flex shrink-0 items-center gap-1 self-center whitespace-nowrap text-sm font-medium text-red-700 hover:underline dark:text-red-300"
-           @click.prevent="scrollToLatestRun">
-          See what failed
-          <ArrowDown :size="14" :stroke-width="1.75" aria-hidden="true" />
-        </a>
-      </div>
+      <DeploymentFailureBanner v-if="phase === StatusType.FAILED && deployment.failureMessage"
+                               :message="deployment.failureMessage" class="mb-4">
+        <template v-if="deployment.lastJobRunId" #action>
+          <a href="#latest-deployment-run" class="flex items-center gap-1 hover:underline" @click.prevent="scrollToLatestRun">
+            See what failed
+            <ArrowDown :size="14" :stroke-width="1.75" aria-hidden="true" />
+          </a>
+        </template>
+      </DeploymentFailureBanner>
 
       <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard :tint="HEARTBEAT_TINTS[deploymentHeartbeat(phase)]" label="Status"
@@ -152,7 +144,7 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
-import { Activity, ArrowDown, CircleAlert, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
+import { Activity, ArrowDown, Clock, GitCommitHorizontal, Globe, KeyRound, LaptopMinimalCheck, Server } from '@lucide/vue'
 import { DatetimeUtil, HeartbeatIcon, PageHeader, shortSha, showErrorToast, EmptyChartCharacter, HEARTBEAT_TINTS } from '@kinotic-ai/frontend-common'
 import { JobRunProgress, ProjectDeployResultNames, WatchEventsTimeline, WorkloadLogsDialog, deploymentStatusSeverity,
          observedPhaseSeverity, deploymentHeartbeat } from '@kinotic-ai/frontend-common/management'
@@ -163,6 +155,7 @@ import { DeploymentStatusType,
          type ProjectDeployment,
          type UiDeployment,
          type WatchEvent } from '@kinotic-ai/management-api'
+import DeploymentFailureBanner from '@/components/DeploymentFailureBanner.vue'
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
 import { DashboardSection, StatCard, TINTS } from '@kinotic-ai/frontend-common'

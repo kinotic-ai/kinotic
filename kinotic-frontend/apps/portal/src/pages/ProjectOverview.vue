@@ -11,6 +11,15 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
+    <DeploymentFailureBanner v-if="deployment?.state.observed?.phase === DeploymentStatusType.FAILED && deployment.failureMessage"
+                             :message="deployment.failureMessage" class="mb-4">
+      <template #action>
+        <RouterLink :to="`${basePath}/deployment`" class="flex items-center gap-1 hover:underline">
+          Open deployment <ChevronRight :size="14" :stroke-width="1.75" aria-hidden="true" />
+        </RouterLink>
+      </template>
+    </DeploymentFailureBanner>
+
     <div class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard :tint="HEARTBEAT_TINTS[heartbeat]" label="Deployment" :loading="loading" :to="`${basePath}/deployment`"
                 :detail="deployment ? deploymentDetail : 'Pushing to the default branch deploys it'">
@@ -130,7 +139,8 @@ import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
-import { type MicroserviceDeployment, type Project, type ProjectDeployment, RepoHostType, type RepositoryHost, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
+import { DeploymentStatusType, type MicroserviceDeployment, type Project, type ProjectDeployment, RepoHostType, type RepositoryHost, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
+import DeploymentFailureBanner from '@/components/DeploymentFailureBanner.vue'
 import { repositoryHost, repositoryUrl } from '@/util/repositoryHost'
 import { createDebug, DatetimeUtil, FactList, HeartbeatIcon, PageHeader, StatCard, TINTS, EmptyChartCharacter, HEARTBEAT_TINTS,
          shortSha } from '@kinotic-ai/frontend-common'
