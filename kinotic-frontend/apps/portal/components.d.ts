@@ -15,6 +15,7 @@ declare module 'vue' {
     CreationStatus: typeof import('./src/components/CreationStatus.vue')['default']
     DeleteApplicationDialog: typeof import('./src/components/DeleteApplicationDialog.vue')['default']
     DeleteProjectDialog: typeof import('./src/components/DeleteProjectDialog.vue')['default']
+    DeploymentFailureBanner: typeof import('./src/components/DeploymentFailureBanner.vue')['default']
     EntityDefinitionDiagram: typeof import('./src/components/entity-definitions/EntityDefinitionDiagram.vue')['default']
     EntityDefinitionNode: typeof import('./src/components/entity-definitions/flow-components/EntityDefinitionNode.vue')['default']
     EntityDefinitionSettings: typeof import('./src/components/entity-definitions/sidebar-dashboard/EntityDefinitionSettings.vue')['default']
