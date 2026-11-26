@@ -58,7 +58,7 @@ jobs:
       # ghcr.io/kinotic-ai/workload-runner is intentionally absent: unlike the staging packages
       # its tags are consumed outside CI — DeploymentProperties.workloadRunnerImage pulls :latest.
       - name: Delete staged images past the re-run window
-        uses: dataaxiom/ghcr-cleanup-action@v1.2.2
+        uses: dataaxiom/ghcr-cleanup-action@v1.3.0
         with:
           # kinotic-server, the single server the split replaced, receives no new images; it stays listed
           # until the sweep has deleted the staged images it still holds. Every listed package must
