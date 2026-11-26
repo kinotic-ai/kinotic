@@ -21,8 +21,10 @@ for machine-specific overrides.
 (`src/composables/useSignUpAnalytics.ts`). Kinotic Cloud's builds set it, in `.env.azure` and
 `.env.dev-server`; `.env` does not, so the default build, the `kinotic-ui` image and any self-hosted
 deployment load no analytics. The tag loads only on the sign-up pages (`/signup`, `/signup/email`,
-`/signup/verify`, `/register`), sends no page views, and records these events, each with a `method`
-of `social` or `email`:
+`/signup/verify`, `/register`), sends no page views, and reports each page's URL without its query,
+which carries the registration token. Leaving a sign-up page for another route loads that route as a
+new document, so the tag never runs in the rest of the portal. Besides Google Analytics' automatic
+session and engagement events, it records these, each with a `method` of `social` or `email`:
 
 | Event | Recorded when |
 |-------|---------------|
