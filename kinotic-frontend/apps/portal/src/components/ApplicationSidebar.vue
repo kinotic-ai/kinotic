@@ -9,6 +9,8 @@ import { showErrorToast } from '@kinotic-ai/frontend-common'
 import {type Application, TenantManagement} from "@kinotic-ai/management-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
+import { APPLICATION_STATE } from '@/states/IApplicationState'
+import BetaPlanSummary from '@/components/BetaPlanSummary.vue'
 import { FormDrawer } from '@kinotic-ai/frontend-common'
 import CreationStatus from '@/components/CreationStatus.vue'
 import { useCreationPhase } from '@/composables/useCreationPhase'
@@ -37,7 +39,13 @@ const form = reactive<ApplicationForm>({
 const { phase, create, holdReady } = useCreationPhase()
 const created = ref<Application | null>(null)
 
-const isSubmitDisabled = computed(() => phase.value !== 'form' || form.name.trim() === '')
+// The beta plan's application cap is reached, so the drawer explains the plan instead of offering the form
+const atApplicationLimit = computed(() => {
+  const max = APPLICATION_STATE.betaLimits?.maxApplicationsPerOrganization ?? null
+  return phase.value === 'form' && max !== null && (APPLICATION_STATE.betaLimits?.applicationCount ?? 0) >= max
+})
+
+const isSubmitDisabled = computed(() => phase.value !== 'form' || form.name.trim() === '' || atApplicationLimit.value)
 
 // Each step reflects what the one create request has actually done so far
 const setupSteps = computed(() => {
@@ -106,7 +114,15 @@ function handleClose(): void {
     description="An application groups the projects your organization builds and deploys."
     @close="handleClose"
   >
-    <div class="flex h-full flex-col">
+    <div v-if="atApplicationLimit" class="flex flex-col gap-4">
+      <div class="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3.5 text-[0.8125rem] text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+           role="status">
+        Your organization has all the applications the free beta allows. Build in one of your existing
+        applications, or delete one you no longer need to make room.
+      </div>
+      <BetaPlanSummary />
+    </div>
+    <div v-else class="flex h-full flex-col">
       <form v-if="phase === 'form'" id="new-application-form" class="flex flex-col gap-5" @submit.prevent="handleSubmit">
         <div>
           <label for="new-application-name" class="mb-2 block text-sm font-medium">Name</label>

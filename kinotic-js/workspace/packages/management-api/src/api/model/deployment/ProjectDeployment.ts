@@ -83,6 +83,12 @@ export class ProjectDeployment implements Reconcilable<DeploymentState> {
     public failureMessage: string | null = null
 
     /**
+     * The plan limit that stopped the last deployment, explained for the person who pushed it, or
+     * null when no limit stopped it. A deployment it is set on has also failed.
+     */
+    public limitReached: string | null = null
+
+    /**
      * What the deployment should be, the commit its last qualifying push asked for, beside what it
      * is, the phase it is in and the commit it serves, with what the platform keeps on every
      * watched record.

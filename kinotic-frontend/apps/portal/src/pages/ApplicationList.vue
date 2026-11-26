@@ -86,6 +86,15 @@ function onSidebarClose(): void {
   showSidebar.value = false;
 }
 
+// On the beta cloud the page says how many of its applications the organization uses
+const applicationsDescription = computed(() => {
+  const limits = APPLICATION_STATE.betaLimits;
+  const base = "The applications your organization builds and operates on Kinotic.";
+  return limits?.maxApplicationsPerOrganization != null
+      ? `${base} The free beta allows ${limits.maxApplicationsPerOrganization}, and you have ${limits.applicationCount}.`
+      : base;
+});
+
 function onApplicationSubmit(created: Application): void {
   if (created && created.id) {
     const exists = APPLICATION_STATE.allApplications.some(
@@ -99,6 +108,8 @@ function onApplicationSubmit(created: Application): void {
     }
   }
   showSidebar.value = false;
+  // the beta plan's usage counts applications
+  void APPLICATION_STATE.loadAllApplications();
   // An application is only useful once it has a project, so carry straight on to creating one
   router.push(`/application/${encodeURIComponent(created.id)}/projects?openNewProject=1`);
 }
@@ -117,6 +128,7 @@ function onApplicationDeleted(deleted: Application): void {
   APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
     (a) => a.id !== deleted.id
   );
+  void APPLICATION_STATE.loadAllApplications();
   refreshTable();
 }
 </script>
@@ -124,7 +136,7 @@ function onApplicationDeleted(deleted: Application): void {
 <template>
   <div :class="['application-list flex flex-col transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
     <PageHeader title="Applications"
-                description="The applications your organization builds and operates on Kinotic." />
+                :description="applicationsDescription" />
     <CrudTable
       ref="crudTable"
       createNewButtonText="New application"
