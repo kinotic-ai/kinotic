@@ -45,8 +45,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -291,8 +293,9 @@ public class ProjectDeployJobDefinitionFactory {
 
     /**
      * Passes the artifacts on when the application stays within the beta limit on microservices
-     * with them deployed: the commit's microservices together with those the application's other
-     * projects deploy. Fails the run, before anything of the commit is deployed, when it does not.
+     * with them deployed: the commit's microservices together with every other microservice of the
+     * application whose deployment has not been asked to be removed, orphaned ones included. Fails
+     * the run, before any new runtime workload is asked for or UI published, when it does not.
      */
     private Future<ProjectArtifacts> requireRoomForMicroservices(Project project, ProjectArtifacts artifacts) {
         Integer max = managementApiProperties.getManagementApi().getBetaLimits().getMaxMicroservicesPerApplication();
@@ -302,21 +305,22 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             ret = microserviceDeploymentRepository.findAllForApplication(project.getApplicationId(), project.getOrganizationId())
                     .compose(deployments -> {
-                        // this project's own rows are replaced by the commit's microservices, and an orphaned
-                        // or removed one is no longer meant to run
-                        long elsewhere = deployments.stream()
-                                                    .filter(deployment -> !project.getId().equals(deployment.getProjectId())
-                                                            && deployment.getState().getDeletionRequested() == null
-                                                            && deployment.getState().getDesired() != null
-                                                            && deployment.getState().getDesired().phase() == DeploymentStatusType.DEPLOYED)
-                                                    .count();
-                        long total = elsewhere + artifacts.microservices().size();
+                        // a microservice keeps running until its deployment is removed, an orphaned one too, and
+                        // a commit's microservice replaces the deployment of the same id
+                        Set<String> running = new HashSet<>();
+                        deployments.stream()
+                                   .filter(deployment -> deployment.getState().getDeletionRequested() == null)
+                                   .forEach(deployment -> running.add(deployment.getId()));
+                        artifacts.microservices().forEach(artifact -> running.add(deploymentId(project, artifact)));
+                        int total = running.size();
                         return total > max
                                 ? Future.failedFuture(new BetaLimitException(
                                         "The application " + project.getApplicationId() + " can have at most " + max
                                                 + " microservices, and deploying this commit would give it " + total + "."
                                                 + " Put new services into the application's existing microservice instead of"
-                                                + " adding another package under packages/microservices."))
+                                                + " adding another package under packages/microservices. A microservice that"
+                                                + " a commit no longer contains keeps running, and counting, until its"
+                                                + " deployment is removed in the portal."))
                                 : Future.succeededFuture(artifacts);
                     });
         }
