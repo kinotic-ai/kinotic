@@ -10,7 +10,6 @@ import App from './App.vue'
 import loginArt from '@/assets/login-background.svg'
 import loginBrandMark from '@/assets/login-page-kinotic-logo.svg'
 import { KinoticStates } from '@/states'
-import { initAnalytics } from '@/util/analytics'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { ManagementApiPlugin } from '@kinotic-ai/management-api'
@@ -18,8 +17,6 @@ import { PersistencePlugin } from '@kinotic-ai/persistence'
 
 Kinotic.use(ManagementApiPlugin)
 Kinotic.use(PersistencePlugin)
-
-initAnalytics()
 
 if (import.meta.env.DEV) {
   try {

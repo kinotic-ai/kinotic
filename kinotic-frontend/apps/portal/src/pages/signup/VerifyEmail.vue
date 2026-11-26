@@ -58,7 +58,7 @@ import { useToast } from 'primevue/usetoast'
 import type { SignUpCompleteRequest } from '@kinotic-ai/management-api'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import { trackSignUp } from '@/util/analytics'
+import { useSignUpAnalytics } from '@/composables/useSignUpAnalytics'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { KINOTIC_UI } from '@/IKinoticUI'
@@ -66,6 +66,7 @@ import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 
 const toast = useToast()
+const { trackSignUp } = useSignUpAnalytics()
 const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
 

@@ -71,9 +71,10 @@ import type { SignUpRequest } from '@kinotic-ai/management-api'
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import { SocialAuthButton } from '@kinotic-ai/frontend-common'
-import { trackSignUp } from '@/util/analytics'
+import { useSignUpAnalytics } from '@/composables/useSignUpAnalytics'
 
 const toast = useToast()
+const { trackSignUp } = useSignUpAnalytics()
 
 const request = ref<SignUpRequest>({
   email: '',

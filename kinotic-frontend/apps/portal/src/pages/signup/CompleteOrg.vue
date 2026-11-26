@@ -101,7 +101,7 @@ import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import { trackSignUp } from '@/util/analytics'
+import { useSignUpAnalytics } from '@/composables/useSignUpAnalytics'
 import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
 import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath } from '@/pages/login/organizationLogin'
 
@@ -122,6 +122,7 @@ const connecting = ref(false)
 const organizationChoices = ref<OrganizationChoice[]>([])
 
 const toast = useToast()
+const { trackSignUp } = useSignUpAnalytics()
 const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
 const router = useRouter()

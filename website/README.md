@@ -6,7 +6,7 @@ This is the default Docus starter template that provides everything you need to 
 
 ## Kinotic Cloud beta call to action
 
-The homepage hero, the homepage's closing section and the Quick Start's Cloud tab each render `app/components/home/CloudBetaLink.vue`, a button to `https://portal.kinotic.ai/signup`. A click records a `cloud_beta_cta_clicked` event in Google Analytics, with a `placement` parameter of `hero`, `cta` or `docs`, and in Microsoft Clarity, with the session tagged `cloud_beta_cta_placement`. The portal records the rest of the funnel, `cloud_signup_started` and `cloud_signup_completed`, in the same Google Analytics property and Clarity project (see `kinotic-frontend/apps/portal/ENV_SETUP.md`).
+The homepage hero, the homepage's closing section and the Quick Start's Cloud tab each render `app/components/home/CloudBetaLink.vue`, a button to `https://portal.kinotic.ai/signup`. A click records a `cloud_beta_cta_clicked` event in Google Analytics, with a `placement` parameter of `hero`, `cta` or `docs`, and in Microsoft Clarity, with the session tagged `cloud_beta_cta_placement`. The portal records the rest of the funnel, `cloud_signup_started` and `cloud_signup_completed`, in its own data stream of the same Google Analytics property (see `kinotic-frontend/apps/portal/ENV_SETUP.md`).
 
 The visitor's cookie choice is saved in the `kinotic-consent` cookie on the site's domain, so the portal on its subdomain applies the same choice. To report on `placement` in Google Analytics, register it as an event-scoped custom dimension.
 
