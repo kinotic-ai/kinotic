@@ -106,7 +106,9 @@ public class ApplicationTests extends KinoticTestBase {
 		Application first = await(runAsOrganization(() -> applicationService.create(new Application("Beta One " + suffix, "Within the limit")
 																							 .setOrganizationId(TEST_ORG_ID))));
 		try {
-			// the shared test organization holds other tests' applications, so the cap is the count it has now
+			// the shared test organization holds other tests' applications, so the cap is the count it has now;
+			// the index is refreshed first so an application another test just deleted is not still counted
+			await(runAsOrganization(() -> applicationService.syncIndex()));
 			long count = await(runAsOrganization(() -> applicationService.count()));
 			betaLimits.setMaxApplicationsPerOrganization((int) count);
 
