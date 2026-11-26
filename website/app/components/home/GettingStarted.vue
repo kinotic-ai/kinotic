@@ -4,8 +4,8 @@ import { trackGoogleAnalyticsEvent } from '~/utils/googleAnalytics'
 
 const INSTALL_COMMAND = 'curl -fsSL https://kinotic.ai/install | sh'
 const options = [
-  { id: 'local', label: 'Local install' },
   { id: 'cloud', label: 'Kinotic Cloud' },
+  { id: 'local', label: 'Local install' },
 ] as const
 
 const id = useId()
@@ -76,7 +76,19 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
     </div>
 
     <div
-      v-show="activeIndex === 0"
+      v-show="options[activeIndex]?.id === 'cloud'"
+      :id="`${id}-panel-cloud`"
+      class="getting-started__body"
+      role="tabpanel"
+      :aria-labelledby="`${id}-tab-cloud`"
+    >
+      <h2 class="getting-started__heading">Try Kinotic Cloud beta for free</h2>
+      <p class="getting-started__intro">Kinotic, managed for you. Nothing to install.</p>
+      <HomeCloudBetaLink class="getting-started__cloud-beta" placement="hero" />
+    </div>
+
+    <div
+      v-show="options[activeIndex]?.id === 'local'"
       :id="`${id}-panel-local`"
       class="getting-started__body"
       role="tabpanel"
@@ -98,18 +110,6 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
         <NuxtLink to="/getting-started/quick-start" @click="trackInstallIntent('install_quickstart_opened')">More info ↗</NuxtLink>
       </div>
       <span class="getting-started__status" role="status">{{ copyStatus }}</span>
-    </div>
-
-    <div
-      v-show="activeIndex === 1"
-      :id="`${id}-panel-cloud`"
-      class="getting-started__body"
-      role="tabpanel"
-      :aria-labelledby="`${id}-tab-cloud`"
-    >
-      <h2 class="getting-started__heading">Try Kinotic Cloud beta for free</h2>
-      <p class="getting-started__intro">Kinotic, managed for you. Nothing to install.</p>
-      <HomeCloudBetaLink class="getting-started__cloud-beta" placement="hero" />
     </div>
   </div>
 </template>
