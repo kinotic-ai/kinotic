@@ -75,7 +75,8 @@ async function handleSubmit(): Promise<void> {
     finish()
   } catch (error) {
     debug('Failed to create application: %O', error)
-    showErrorToast(toast, 'Failed to create application', error)
+    // A beta-limit refusal explains what to do instead, so it stays up long enough to read
+    showErrorToast(toast, 'Failed to create application', error, { life: 15000 })
   }
 }
 
