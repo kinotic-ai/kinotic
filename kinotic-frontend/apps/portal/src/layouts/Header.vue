@@ -109,16 +109,6 @@
     </div>
 
     <div class="flex shrink-0 items-center gap-2">
-      <template v-if="APPLICATION_STATE.betaLimits">
-        <button type="button" aria-haspopup="dialog"
-                class="whitespace-nowrap rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
-                @click="betaPopover?.toggle($event)">
-          Free beta
-        </button>
-        <Popover ref="betaPopover">
-          <BetaPlanSummary class="max-w-xs" />
-        </Popover>
-      </template>
       <HeaderSearchButton @open="searchOpen = true" />
 
       <HeaderIconButton label="Send feedback about Kinotic" tooltip="Send feedback" aria-haspopup="true"
@@ -149,8 +139,6 @@ import { BreadcrumbSwitcher, CommandPalette, type CommandPaletteGroup, createDeb
          sidebarPageEntries, ThemeToggleButton } from '@kinotic-ai/frontend-common'
 import { BookOpenText, CircleHelp, MessageSquarePlus, Plus } from '@lucide/vue';
 import Menu from 'primevue/menu';
-import Popover from 'primevue/popover';
-import BetaPlanSummary from '@/components/BetaPlanSummary.vue';
 import type { MenuItem } from 'primevue/menuitem';
 import { DOCUMENTATION_URL, newIssueUrl } from '@/util/externalLinks';
 
@@ -170,7 +158,6 @@ const router = useRouter();
 
 const searchOpen = ref(false);
 const feedbackMenu = ref<InstanceType<typeof Menu> | null>(null);
-const betaPopover = ref<InstanceType<typeof Popover> | null>(null);
 
 // the issue is public, so it carries the route pattern rather than the path with its ids
 const pagePattern = computed(() => route.matched.at(-1)?.path ?? '/');

@@ -313,21 +313,15 @@ public class ProjectDeployJobDefinitionFactory {
                                    .forEach(deployment -> running.add(deployment.getId()));
                         artifacts.microservices().forEach(artifact -> running.add(deploymentId(project, artifact)));
                         int total = running.size();
-                        Future<ProjectArtifacts> checked;
-                        if (total > max) {
-                            BetaLimitException limit = new BetaLimitException(
-                                    "The application " + project.getApplicationId() + " can have at most " + max
-                                            + " microservices, and deploying this commit would give it " + total + "."
-                                            + " Put new services into the application's existing microservice instead of"
-                                            + " adding another package under packages/microservices. A microservice that"
-                                            + " a commit no longer contains keeps running, and counting, until its"
-                                            + " deployment is removed in the portal.");
-                            checked = projectDeploymentRepository.recordLimitReached(project.getId(), project.getOrganizationId(), limit.getMessage())
-                                                                 .compose(v -> Future.failedFuture(limit));
-                        } else {
-                            checked = Future.succeededFuture(artifacts);
-                        }
-                        return checked;
+                        return total > max
+                                ? Future.failedFuture(new BetaLimitException(
+                                        "The application " + project.getApplicationId() + " can have at most " + max
+                                                + " microservices, and deploying this commit would give it " + total + "."
+                                                + " Put new services into the application's existing microservice instead of"
+                                                + " adding another package under packages/microservices. A microservice that"
+                                                + " a commit no longer contains keeps running, and counting, until its"
+                                                + " deployment is removed in the portal."))
+                                : Future.succeededFuture(artifacts);
                     });
         }
         return ret;

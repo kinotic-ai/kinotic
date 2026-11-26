@@ -17,8 +17,6 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.exceptions.BetaLimitException;
 import org.kinotic.management.api.config.BetaLimitsProperties;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.model.BetaLimits;
-import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
@@ -26,10 +24,8 @@ import org.kinotic.domain.api.services.security.ApplicationSignUpService;
 import org.kinotic.domain.api.services.security.PasswordConfigurationService;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
@@ -40,7 +36,6 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final ProjectService projectService;
     private final ApplicationSignUpService applicationSignUpService;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final PasswordConfigurationService passwordConfigurationService;
     private final BetaLimitsProperties betaLimits;
 
@@ -48,7 +43,6 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                      ProjectService projectService,
                                      ApplicationSignUpService applicationSignUpService,
                                      UiDeploymentRepository uiDeploymentRepository,
-                                     MicroserviceDeploymentRepository microserviceDeploymentRepository,
                                      PasswordConfigurationService passwordConfigurationService,
                                      KinoticManagementApiProperties properties,
                                      SecurityContext securityContext) {
@@ -56,7 +50,6 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         this.projectService = projectService;
         this.applicationSignUpService = applicationSignUpService;
         this.uiDeploymentRepository = uiDeploymentRepository;
-        this.microserviceDeploymentRepository = microserviceDeploymentRepository;
         this.passwordConfigurationService = passwordConfigurationService;
         this.betaLimits = properties.getManagementApi().getBetaLimits();
     }
@@ -143,43 +136,6 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     // Only a new application counts against the cap, so an existing one can always be updated
-    @Override
-    public Future<BetaLimits> findBetaLimits() {
-        Integer maxApplications = betaLimits.getMaxApplicationsPerOrganization();
-        Integer maxMicroservices = betaLimits.getMaxMicroservicesPerApplication();
-        Future<BetaLimits> ret;
-        if (maxApplications == null && maxMicroservices == null) {
-            ret = Future.succeededFuture();
-        } else {
-            String organizationId = requireOrganizationId();
-            ret = count().compose(applicationCount -> microserviceDeploymentRepository
-                    .findAllForOrganization(organizationId)
-                    .map(deployments -> new BetaLimits()
-                            .setSummary(betaSummary(maxApplications, maxMicroservices))
-                            .setMaxApplicationsPerOrganization(maxApplications)
-                            .setMaxMicroservicesPerApplication(maxMicroservices)
-                            .setApplicationCount(applicationCount)
-                            // counted as the deployment's beta check counts them: until its deployment is removed
-                            .setMicroservicesByApplication(deployments.stream()
-                                                                      .filter(deployment -> deployment.getState().getDeletionRequested() == null)
-                                                                      .collect(Collectors.groupingBy(deployment -> deployment.getApplicationId(),
-                                                                                                     Collectors.summingInt(deployment -> 1))))));
-        }
-        return ret;
-    }
-
-    private static String betaSummary(Integer maxApplications, Integer maxMicroservices) {
-        List<String> limits = new ArrayList<>();
-        if (maxApplications != null) {
-            limits.add("an organization can have up to " + maxApplications + (maxApplications == 1 ? " application" : " applications"));
-        }
-        if (maxMicroservices != null) {
-            limits.add("each application can run " + maxMicroservices + (maxMicroservices == 1 ? " microservice, which holds all of its services" : " microservices"));
-        }
-        return "Kinotic Cloud is in beta and free to use, with limits: " + String.join(", and ", limits) + "."
-                + " These limits will be removed when Kinotic Cloud is released for production.";
-    }
-
     private Future<Void> requireRoomForApplication(String applicationId) {
         Integer max = betaLimits.getMaxApplicationsPerOrganization();
         Future<Void> ret;

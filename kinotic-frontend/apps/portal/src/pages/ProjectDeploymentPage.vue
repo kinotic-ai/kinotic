@@ -8,7 +8,8 @@
                          title="Never deployed" hint="Pushing to the repository's default branch deploys this project." />
 
     <template v-if="deployment">
-      <DeploymentFailureBanner :deployment="deployment" class="mb-4">
+      <DeploymentFailureBanner v-if="phase === StatusType.FAILED && deployment.failureMessage"
+                               :message="deployment.failureMessage" class="mb-4">
         <template v-if="deployment.lastJobRunId" #action>
           <a href="#latest-deployment-run" class="flex items-center gap-1 hover:underline" @click.prevent="scrollToLatestRun">
             See what failed
@@ -182,6 +183,7 @@ const HISTORY_PAGE_SIZE = 50
 
 const toast = useToast()
 const confirm = useConfirm()
+const StatusType = DeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
 /** The phase the deployment reports it is in, or null for a record with no report yet. */

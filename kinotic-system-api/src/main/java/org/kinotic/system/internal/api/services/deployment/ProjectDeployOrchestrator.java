@@ -300,12 +300,11 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     }
 
     // The run reports that it is deploying, which generation of intent it answers, and the commit
-    // that stays live meanwhile; a limit that stopped the run before is checked again by this one
+    // that stays live meanwhile
     private Future<Void> recordDeploying(ProjectDeployment deployment, String jobRunId, long generation) {
         String projectId = deployment.getId();
         String organizationId = deployment.getOrganizationId();
         return projectDeploymentRepository.recordJobRun(projectId, organizationId, jobRunId)
-                .compose(v -> projectDeploymentRepository.recordLimitReached(projectId, organizationId, null))
                 .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId,
                                                                         new DeploymentState(DeploymentStatusType.DEPLOYING, DeploymentState.commitOf(deployment.getState().getObserved())),
                                                                         generation, "deploy job " + jobRunId));

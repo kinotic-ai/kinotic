@@ -249,16 +249,6 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
         return partial(projectId, orgId, fields);
     }
 
-    /**
-     * Records the plan limit that stopped the last deployment, or clears it with null, leaving every
-     * other field as it is.
-     */
-    public Future<Void> recordLimitReached(String projectId, String orgId, String message) {
-        Map<String, Object> fields = new HashMap<>();
-        fields.put("limitReached", message);
-        return partial(projectId, orgId, fields);
-    }
-
     // The entity's own fields are merged in place, so the state the platform keeps is never written back from a read copy
     private Future<Void> partial(String projectId, String orgId, Map<String, Object> fields) {
         Validate.notBlank(projectId, "projectId cannot be blank");

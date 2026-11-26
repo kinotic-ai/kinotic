@@ -7,7 +7,6 @@ import org.kinotic.domain.api.model.TenantManagement;
 import org.kinotic.domain.api.model.security.ApplicationLoginProvider;
 import org.kinotic.domain.api.services.OrganizationScopedCrudService;
 import org.kinotic.idl.api.annotations.McpTool;
-import org.kinotic.management.api.model.BetaLimits;
 
 import java.util.List;
 
@@ -54,17 +53,5 @@ public interface ApplicationService extends OrganizationScopedCrudService<Applic
      * @return the providers; fails when the id names no application in the caller's organization
      */
     Future<List<ApplicationLoginProvider>> getLoginMethods(String applicationId);
-
-    /**
-     * Returns the free Kinotic beta cloud plan the caller's organization is on: the most applications
-     * it may have, the most microservices each application may run, how many of each it uses, and a
-     * summary of the plan to tell the person using it. Read it before planning an application, so the
-     * plan fits the limits from the start: while they apply, every service of an application belongs in
-     * its one microservice. Creating an application or deploying a microservice past a limit is refused
-     * with a message that names the limit.
-     *
-     * @return a {@link Future} emitting the plan, or {@code null} when the server imposes no limits
-     */
-    Future<BetaLimits> findBetaLimits();
 
 }

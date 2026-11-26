@@ -98,12 +98,6 @@ public class ProjectDeployment implements Reconcilable<DeploymentState>, Applica
     private String failureMessage;
 
     /**
-     * The plan limit that stopped the last deployment, explained for the person who pushed it, or
-     * {@code null} when no limit stopped it. A deployment it is set on has also failed.
-     */
-    private String limitReached;
-
-    /**
      * What the deployment should be, the commit its last qualifying push asked for, beside what it is,
      * the phase it is in and the commit it serves, with what the platform keeps on every watched
      * record.

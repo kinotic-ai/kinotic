@@ -9,8 +9,9 @@
       </template>
     </PageHeader>
 
-    <DeploymentFailureBanner v-for="project in projects" :key="project.id ?? ''" class="mb-4"
-                             :deployment="deployments[project.id ?? ''] ?? null" :project-name="project.name">
+    <DeploymentFailureBanner v-for="project in failedProjects" :key="project.id ?? ''" class="mb-4"
+                             :title="`${project.name}'s last deployment failed`"
+                             :message="deploymentFailures[project.id ?? '']">
       <template #action>
         <RouterLink :to="`${basePath}/project/${encodeURIComponent(project.id ?? '')}/deployment`" class="flex items-center gap-1 hover:underline">
           Open deployment <ChevronRight :size="14" :stroke-width="1.75" aria-hidden="true" />
@@ -159,7 +160,7 @@ import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { type Project, type ProjectDeployment, DeploymentStatusType, RepositoryConnectionStatus, TenantManagement, type UiDeployment } from '@kinotic-ai/management-api'
+import { type Project, DeploymentStatusType, RepositoryConnectionStatus, TenantManagement, type UiDeployment } from '@kinotic-ai/management-api'
 import { createDebug, DatetimeUtil, FactList, InitialsTile, PageHeader, ProjectsIcon, StatCard, TINTS,
          EmptyChartCharacter } from '@kinotic-ai/frontend-common'
 import { deploymentStatusSeverity, observedPhase, observedPhaseSeverity } from '@kinotic-ai/frontend-common/management'
@@ -209,8 +210,9 @@ const application = computed(() => {
 const projects = ref<Project[]>([])
 const loadingProjects = ref(true)
 const deploymentStatus = ref<Record<string, DeploymentStatusType>>({})
-// Each listed project's deployment, for the banner that says why its last push did not go live
-const deployments = ref<Record<string, ProjectDeployment>>({})
+// Why each listed project's last deployment failed, for the projects whose last deployment failed
+const deploymentFailures = ref<Record<string, string>>({})
+const failedProjects = computed(() => projects.value.filter(project => deploymentFailures.value[project.id ?? '']))
 const uis = ref<UiDeployment[]>([])
 const loadingUis = ref(true)
 // A count reads '—' once it fails to load, rather than loading for ever
@@ -274,7 +276,7 @@ async function load(): Promise<void> {
   loadingProjects.value = true
   projects.value = []
   deploymentStatus.value = {}
-  deployments.value = {}
+  deploymentFailures.value = {}
   uis.value = []
   usersCount.value = null
   machinesCount.value = null
@@ -302,7 +304,9 @@ async function loadDeploymentStatus(project: Project): Promise<void> {
     const deployment = await Kinotic.projects.findDeployment(project.id)
     if (deployment?.state.observed) {
       deploymentStatus.value[project.id] = deployment.state.observed.phase
-      deployments.value[project.id] = deployment
+      if (deployment.state.observed.phase === DeploymentStatusType.FAILED && deployment.failureMessage) {
+        deploymentFailures.value[project.id] = deployment.failureMessage
+      }
     }
   } catch (error) {
     debug('Failed to load deployment for %s: %O', project.id, error)

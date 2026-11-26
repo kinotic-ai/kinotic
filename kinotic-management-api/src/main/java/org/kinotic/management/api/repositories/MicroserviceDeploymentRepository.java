@@ -81,18 +81,6 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
     }
 
     /**
-     * Lists the deployments of the microservices of every project of the organization.
-     *
-     * @param organizationId the organization whose microservice deployments to list
-     * @return a future emitting the deployments, empty when the organization has none
-     */
-    public Future<List<MicroserviceDeployment>> findAllForOrganization(String organizationId) {
-        Validate.notBlank(organizationId, "organizationId cannot be blank");
-        return findAll(Pageable.ofSize(PROJECT_PAGE_SIZE), b -> b.query(termFilter("organizationId", organizationId)))
-                .map(page -> page.getContent());
-    }
-
-    /**
      * @see ReconcileStateRepository#renewDesired(WatchedDocument, String)
      */
     public Future<Void> renewDesired(String id, String source) {
