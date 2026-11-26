@@ -1,1 +1,0 @@
-{"id":"1696e3b358fb3e135301fe7a8334ff0f.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenBinaryAssignmentReadsAField_thenRejected","name":"whenBinaryAssignmentReadsAField_thenRejected()","status":"passed","testResultsByEnv":{"default":"d62e3e7f4d0270f2fb1ccbb7ab27d6b6"}}

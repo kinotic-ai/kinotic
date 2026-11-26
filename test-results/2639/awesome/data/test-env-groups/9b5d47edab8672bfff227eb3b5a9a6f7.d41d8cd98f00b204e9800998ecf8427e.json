@@ -1,1 +1,0 @@
-{"id":"9b5d47edab8672bfff227eb3b5a9a6f7.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.vulnerability.AffectedVersionsTest.aVersionBeforeLastAffectedHasNoFixFromALaterInterval","name":"aVersionBeforeLastAffectedHasNoFixFromALaterInterval()","status":"passed","testResultsByEnv":{"default":"d665eb407c95272b01760ea90941505a"}}
