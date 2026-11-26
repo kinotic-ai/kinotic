@@ -12,6 +12,11 @@ spring:
     import: optional:file:/etc/kinotic/secrets.yml
 kinotic:
   managementApi:
+    # Kinotic Cloud is in beta until cloud billing is enabled: an organization may have two
+    # applications, each deploying one microservice. Removing a limit lifts it.
+    betaLimits:
+      maxApplicationsPerOrganization: 2
+      maxMicroservicesPerApplication: 1
     entityDefinition:
       # Three master-eligible data nodes, one physical disk each: one replica survives a disk,
       # and one shard per index keeps a published EntityDefinition cheap against the

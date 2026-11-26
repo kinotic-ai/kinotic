@@ -31,7 +31,7 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
 
     private static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.MICROSERVICE_DEPLOYMENT, "kinotic_microservice_deployment");
 
-    /** More microservices than one project deploys, so a project's deployments are read in one page. */
+    /** More microservices than one project or application deploys, so their deployments are read in one page. */
     private static final int PROJECT_PAGE_SIZE = 500;
 
     public MicroserviceDeploymentRepository(CrudServiceTemplate crudServiceTemplate,
@@ -62,6 +62,22 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
                 .map(page -> page.getContent().stream()
                                  .sorted(Comparator.comparing(MicroserviceDeployment::getName))
                                  .toList());
+    }
+
+    /**
+     * Lists the deployments of the microservices of every project of the application. An
+     * application id is unique only within its organization, so the organization is part of the key.
+     *
+     * @param applicationId  the application whose microservice deployments to list
+     * @param organizationId the organization the application belongs to
+     * @return a future emitting the deployments, empty when the application has none
+     */
+    public Future<List<MicroserviceDeployment>> findAllForApplication(String applicationId, String organizationId) {
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findAll(Pageable.ofSize(PROJECT_PAGE_SIZE),
+                       b -> b.query(composeFilter(termFilter("organizationId", organizationId), termFilter("applicationId", applicationId))))
+                .map(page -> page.getContent());
     }
 
     /**

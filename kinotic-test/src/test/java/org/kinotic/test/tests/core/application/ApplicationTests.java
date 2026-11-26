@@ -5,7 +5,10 @@ package org.kinotic.test.tests.core.application;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.ApplicationKey;
+import org.kinotic.domain.api.exceptions.BetaLimitException;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
+import org.kinotic.management.api.config.BetaLimitsProperties;
+import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +16,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.concurrent.ExecutionException;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -26,6 +33,9 @@ public class ApplicationTests extends KinoticTestBase {
 
 	@Autowired
 	private ApplicationRepository applicationRepository;
+
+	@Autowired
+	private KinoticManagementApiProperties properties;
 
 	@Test
 	public void createAndDeleteApplication() {
@@ -85,6 +95,34 @@ public class ApplicationTests extends KinoticTestBase {
 			assertEquals("https://primary-claim--web.test-org.example.net", moved.getPrimaryUiUrl());
 		} finally {
 			await(runAsOrganization(() -> applicationService.deleteById(created.getId())));
+		}
+	}
+
+
+	@Test
+	public void aNewApplicationPastTheBetaLimitIsRefusedAndAnExistingOneStillUpdates() throws Exception {
+		BetaLimitsProperties betaLimits = properties.getManagementApi().getBetaLimits();
+		String suffix = suffix();
+		Application first = await(runAsOrganization(() -> applicationService.create(new Application("Beta One " + suffix, "Within the limit")
+																							 .setOrganizationId(TEST_ORG_ID))));
+		try {
+			// the shared test organization holds other tests' applications, so the cap is the count it has now
+			long count = await(runAsOrganization(() -> applicationService.count()));
+			betaLimits.setMaxApplicationsPerOrganization((int) count);
+
+			ExecutionException refused = assertThrows(ExecutionException.class,
+													  () -> await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Beta Two " + suffix, "Past the limit", null))));
+			assertInstanceOf(BetaLimitException.class, refused.getCause());
+			assertTrue(refused.getCause().getMessage().contains("Kinotic beta cloud"));
+			assertTrue(refused.getCause().getMessage().contains("will be removed once Kinotic Cloud is out of beta"));
+
+			// an application that exists is returned and updated, whatever the cap
+			assertEquals(first.getId(), await(runAsOrganization(() -> applicationService.createApplicationIfNotExist("Beta One " + suffix, "Again", null))).getId());
+			first.setDescription("Updated within the limit");
+			assertEquals("Updated within the limit", await(runAsOrganization(() -> applicationService.save(first))).getDescription());
+		} finally {
+			betaLimits.setMaxApplicationsPerOrganization(null);
+			await(runAsOrganization(() -> applicationService.deleteById(first.getId())));
 		}
 	}
 
