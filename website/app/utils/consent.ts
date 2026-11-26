@@ -1,8 +1,14 @@
 import { setClarityConsent } from '~/utils/clarity'
 import { setGoogleAnalyticsConsent } from '~/utils/googleAnalytics'
 
-/** The localStorage key holding the visitor's choice. Existing choices live under it, so it stays fixed. */
-export const CONSENT_STORAGE_KEY = 'kinotic-clarity-consent'
+/**
+ * The cookie holding the visitor's choice. It is set on the site's own domain and its subdomains, so the
+ * Kinotic Cloud portal at portal.kinotic.ai applies the same choice; the portal reads it by this name.
+ */
+export const CONSENT_COOKIE = 'kinotic-consent'
+
+// The banner asks again once a year.
+const CONSENT_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
 
 /** A visitor's choice for each optional cookie category. Necessary storage is always on. */
 export interface ConsentChoice {
@@ -15,22 +21,13 @@ export const NO_CONSENT: ConsentChoice = { analytics: false, marketing: false }
 
 /** Returns the visitor's saved choice, or null when they have not chosen yet. */
 export function readConsent(): ConsentChoice | null {
-  let stored: string | null = null
-  try {
-    stored = localStorage.getItem(CONSENT_STORAGE_KEY)
-  } catch {
-    // Storage is unavailable in some private modes; treat it as no choice.
-  }
+  const prefix = `${CONSENT_COOKIE}=`
+  const stored = document.cookie.split('; ').find(cookie => cookie.startsWith(prefix))?.slice(prefix.length)
 
   let choice: ConsentChoice | null = null
-  // A single accept or decline covers every category.
-  if (stored === 'accepted') {
-    choice = { analytics: true, marketing: true }
-  } else if (stored === 'declined') {
-    choice = { ...NO_CONSENT }
-  } else if (stored) {
+  if (stored) {
     try {
-      const parsed = JSON.parse(stored)
+      const parsed = JSON.parse(decodeURIComponent(stored))
       if (typeof parsed?.analytics === 'boolean' && typeof parsed?.marketing === 'boolean') {
         choice = { analytics: parsed.analytics, marketing: parsed.marketing }
       }
@@ -41,13 +38,14 @@ export function readConsent(): ConsentChoice | null {
   return choice
 }
 
-/** Saves the visitor's choice for later visits. */
+/** Saves the visitor's choice for later visits to the site and the Kinotic Cloud portal. */
 export function persistConsent(choice: ConsentChoice): void {
-  try {
-    localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(choice))
-  } catch {
-    // Storage is unavailable in some private modes; the choice lasts for this page load.
-  }
+  const { hostname, protocol } = window.location
+  // A Domain attribute shares the cookie with subdomains; a single-label host such as localhost cannot take one.
+  const domain = hostname.includes('.') ? `; Domain=${hostname}` : ''
+  const secure = protocol === 'https:' ? '; Secure' : ''
+  document.cookie = `${CONSENT_COOKIE}=${encodeURIComponent(JSON.stringify(choice))}; Path=/; `
+    + `Max-Age=${CONSENT_MAX_AGE_SECONDS}; SameSite=Lax${domain}${secure}`
 }
 
 /** Grants or revokes each analytics provider's storage to match the visitor's choice. */

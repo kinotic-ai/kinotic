@@ -1,14 +1,14 @@
 <template>
-  <section id="cloud-waitlist" class="cta" aria-labelledby="cloud-waitlist-title">
+  <section id="cloud-beta" class="cta" aria-labelledby="cloud-beta-title">
     <div id="cta" class="k-wrap cta__grid">
       <div class="cta__copy">
         <div class="k-eyebrow cta__eyebrow">
-          <span>KINOTIC OS CLOUD · EARLY ACCESS</span>
+          <span>KINOTIC CLOUD · FREE BETA</span>
         </div>
-        <h2 id="cloud-waitlist-title" class="k-heading cta__title">Be first to build on Kinotic OS Cloud</h2>
-        <p class="cta__description">Get early access to the cloud release.</p>
+        <h2 id="cloud-beta-title" class="k-heading cta__title">Try Kinotic Cloud beta for free</h2>
+        <p class="cta__description">Kinotic, managed for you. Nothing to install.</p>
 
-        <HomeWaitlistForm class="cta__signup" submit-label="Join cloud waitlist ↗" />
+        <HomeCloudBetaLink class="cta__signup" placement="cta" />
       </div>
 
       <FloatingCubes class="cta__visual" data-reveal />

@@ -4,15 +4,11 @@
 
 This is the default Docus starter template that provides everything you need to build beautiful documentation sites with Markdown and Vue components.
 
-## Kinotic OS Cloud waitlist
+## Kinotic Cloud beta call to action
 
-The homepage hero and closing section both render the signup form in `app/components/home/WaitlistForm.vue`. The form posts directly to Waitlister, keeping the site compatible with static GitHub Pages hosting. Its `WAITLIST_URL` constant contains the public waitlist key; it is not a private account API credential.
+The homepage hero, the homepage's closing section and the Quick Start's Cloud tab each render `app/components/home/CloudBetaLink.vue`, a button to `https://portal.kinotic.ai/signup`. A click records a `cloud_beta_cta_clicked` event in Google Analytics, with a `placement` parameter of `hero`, `cta` or `docs`, and in Microsoft Clarity, with the session tagged `cloud_beta_cta_placement`. The portal records the rest of the funnel, `cloud_signup_started` and `cloud_signup_completed`, in the same Google Analytics property and Clarity project (see `kinotic-frontend/apps/portal/ENV_SETUP.md`).
 
-Before publishing, add `kinotic.ai` to **Settings → Whitelisted domains** in the Waitlister dashboard. Add `localhost` if you want to submit signups during local development, and whitelist any other host where the form will run. No deployment secret or backend route is required.
-
-The enhanced form sends a JSON body with `Content-Type: application/json` and `Accept: application/json`. Waitlister returns a redirect for form-encoded submissions even when the Accept header requests JSON, so JavaScript submissions must use the JSON content type to avoid a cross-origin redirect error. The form distinguishes new signups, existing subscribers (including Waitlister's `Already signed up` response), and pending email confirmation. It retains the email on failure so visitors can retry. Without JavaScript, the native form submits to the same endpoint and uses Waitlister's redirect flow.
-
-See [Waitlister's form action documentation](https://waitlister.me/docs/form-action-endpoint) for domain setup and response details.
+The visitor's cookie choice is saved in the `kinotic-consent` cookie on the site's domain, so the portal on its subdomain applies the same choice. To report on `placement` in Google Analytics, register it as an event-scoped custom dimension.
 
 > [!TIP]
 > If you're looking for i18n support, check out the [i18n starter](https://github.com/nuxt-themes/docus/tree/main/.starters/i18n).

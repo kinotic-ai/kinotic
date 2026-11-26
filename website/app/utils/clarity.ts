@@ -20,10 +20,11 @@ export function setClarityConsent(choice: ConsentChoice): void {
   })
 }
 
-/** Records a website interaction when the visitor has allowed Analytics. */
-export function trackClarityEvent(name: string): void {
+/** Records a website interaction, tagging the session with any given tags, when the visitor has allowed Analytics. */
+export function trackClarityEvent(name: string, tags?: Record<string, string>): void {
   if (!clarityInitialized || !analyticsConsentGranted) return
   try {
+    for (const [key, value] of Object.entries(tags ?? {})) Clarity.setTag(key, value)
     Clarity.event(name)
   } catch {
     // Analytics must not interrupt the visitor's action when the provider is unavailable.

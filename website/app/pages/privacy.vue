@@ -11,14 +11,14 @@ useHead({ title: 'Privacy Policy' })
           Privacy Policy
         </h1>
         <p class="mt-4 text-[14px] text-[#8A8A90]">
-          Last updated: October 14, 2026
+          Last updated: November 26, 2026
         </p>
 
         <div class="mt-10 space-y-8 font-[InterRegular] text-[16px] leading-[160%]">
           <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Our Commitment</h2>
             <p class="mt-3">
-              At Kinotic, we respect your privacy. <strong class="text-white">We do not sell your data.</strong> This policy describes the limited information we handle when you visit our website, join our cloud waitlist, or use our open source software, including the analytics we use to improve the site.
+              At Kinotic, we respect your privacy. <strong class="text-white">We do not sell your data.</strong> This policy describes the limited information we handle when you visit our website or the Kinotic Cloud portal, or use our open source software, including the analytics we use to improve them.
             </p>
           </section>
 
@@ -37,13 +37,6 @@ useHead({ title: 'Privacy Policy' })
           </section>
 
           <section>
-            <h2 class="font-[InterBold] text-[22px] text-white">Kinotic OS Cloud Waitlist</h2>
-            <p class="mt-3">
-              When you join the Kinotic OS Cloud waitlist, your email address is sent to Waitlister, the service we use to manage signups and notify you when cloud access opens. We use this information to manage your waitlist subscription and communicate about the cloud release.
-            </p>
-          </section>
-
-          <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Log and Server Data</h2>
             <p class="mt-3">
               Like most websites, our hosting provider may automatically record basic technical information such as IP addresses and browser types in server logs for security and reliability purposes. This data is not used to identify individual visitors and is not shared.
@@ -53,7 +46,7 @@ useHead({ title: 'Privacy Policy' })
           <section>
             <h2 class="font-[InterBold] text-[22px] text-white">Analytics</h2>
             <p class="mt-3">
-              We use two analytics services to understand how visitors interact with our website so we can improve it:
+              We use two analytics services to understand how visitors interact with our website and the Kinotic Cloud portal at portal.kinotic.ai so we can improve them:
             </p>
             <ul class="mt-3 list-disc space-y-2 pl-6">
               <li>
@@ -64,9 +57,11 @@ useHead({ title: 'Privacy Policy' })
               </li>
             </ul>
             <p class="mt-3">
-              When you allow Analytics, we also record when you successfully copy the installation command or
-              open the quickstart from the homepage's getting-started panel. These website events help us
-              measure interest in installing Kinotic; they do not tell us whether an installation completed.
+              We also record a few interactions as events: on the website, when you copy the installation
+              command, open the quickstart from the homepage's getting-started panel, or click a button to try
+              Kinotic Cloud; on the Kinotic Cloud portal, when you start signing up and when your organization is
+              created. These events help us measure interest in Kinotic and how many visitors go on to sign up.
+              They do not include your email address, your name, or your organization's name.
             </p>
             <p class="mt-3">
               We use this information in aggregate to measure site performance and usage trends, and we do not use it to identify individual visitors. If you allow Marketing cookies, Google may also use the data Google Analytics collects for advertising, including measuring ad performance and personalizing the ads you see on Google and its partners, and Microsoft may connect Clarity data to Microsoft Advertising. Their handling of this data is governed by the
@@ -79,7 +74,7 @@ useHead({ title: 'Privacy Policy' })
               <a href="https://marketingplatform.google.com/about/analytics/" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Google Analytics</a>.
             </p>
             <p class="mt-3">
-              By default, both services run in <strong class="text-white">cookieless mode</strong> on our site: no first- or third-party cookies are set, and visits are not linked across pageviews. The consent banner lets you choose two categories separately: <strong class="text-white">Analytics</strong> turns on analytics cookies and Clarity's continuous session recordings, and <strong class="text-white">Marketing</strong> turns on advertising cookies and Google's and Microsoft's use of the data for advertising. Each stays off until you turn it on, and you can change your choice at any time with <strong class="text-white">Cookie settings</strong> in the site footer. You can control how Google personalizes ads in <a href="https://myadcenter.google.com/" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Google's My Ad Center</a>.
+              By default, both services run in <strong class="text-white">cookieless mode</strong> on our website and the Kinotic Cloud portal: no first- or third-party cookies are set, and visits are not linked across pageviews. The consent banner lets you choose two categories separately: <strong class="text-white">Analytics</strong> turns on analytics cookies and Clarity's continuous session recordings, and <strong class="text-white">Marketing</strong> turns on advertising cookies and Google's and Microsoft's use of the data for advertising. Each stays off until you turn it on, and you can change your choice at any time with <strong class="text-white">Cookie settings</strong> in the site footer. The portal applies the choice you make on the website. You can control how Google personalizes ads in <a href="https://myadcenter.google.com/" target="_blank" rel="noreferrer" class="text-white underline hover:text-[#FF2D7A]">Google's My Ad Center</a>.
             </p>
           </section>
 

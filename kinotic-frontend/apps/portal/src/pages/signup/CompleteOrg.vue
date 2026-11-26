@@ -101,6 +101,7 @@ import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
+import { trackSignUp } from '@/util/analytics'
 import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
 import { loadOrganizationChoices, type OrganizationChoice, organizationLoginPath } from '@/pages/login/organizationLogin'
 
@@ -181,6 +182,7 @@ async function handleSubmit() {
       displayError(message)
       return
     }
+    trackSignUp('cloud_signup_completed', 'social')
     // The org and admin user are created and the session established; connect with it.
     await userState.login()
     // Explain the second GitHub round-trip (repository access) before redirecting —
