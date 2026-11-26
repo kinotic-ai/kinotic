@@ -30,6 +30,9 @@ public class ManagementApiProperties {
     @Valid
     private EntityDefinitionProperties entityDefinition = new EntityDefinitionProperties();
 
+    @Valid
+    private BetaLimitsProperties betaLimits = new BetaLimitsProperties();
+
     /**
      * Base URL of the management server's API as a browser reaches it (no trailing slash): the base of the
      * management server's OIDC {@code redirect_uri}s, including the callback of each organization's own OIDC

@@ -9,6 +9,7 @@ import { showErrorToast } from '@kinotic-ai/frontend-common'
 import {type Application, TenantManagement} from "@kinotic-ai/management-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
+import { betaLimitMessage } from '@/util/betaLimit'
 import { FormDrawer } from '@kinotic-ai/frontend-common'
 import CreationStatus from '@/components/CreationStatus.vue'
 import { useCreationPhase } from '@/composables/useCreationPhase'
@@ -37,7 +38,10 @@ const form = reactive<ApplicationForm>({
 const { phase, create, holdReady } = useCreationPhase()
 const created = ref<Application | null>(null)
 
-const isSubmitDisabled = computed(() => phase.value !== 'form' || form.name.trim() === '')
+// The free beta limit the last create reached; the drawer explains it in place of a toast
+const betaLimit = ref<string | null>(null)
+
+const isSubmitDisabled = computed(() => phase.value !== 'form' || form.name.trim() === '' || betaLimit.value !== null)
 
 // Each step reflects what the one create request has actually done so far
 const setupSteps = computed(() => {
@@ -54,6 +58,7 @@ function resetForm(): void {
   form.description = ''
   phase.value = 'form'
   created.value = null
+  betaLimit.value = null
 }
 
 async function handleSubmit(): Promise<void> {
@@ -75,7 +80,10 @@ async function handleSubmit(): Promise<void> {
     finish()
   } catch (error) {
     debug('Failed to create application: %O', error)
-    showErrorToast(toast, 'Failed to create application', error)
+    betaLimit.value = betaLimitMessage(error)
+    if (betaLimit.value === null) {
+      showErrorToast(toast, 'Failed to create application', error)
+    }
   }
 }
 
@@ -107,6 +115,11 @@ function handleClose(): void {
   >
     <div class="flex h-full flex-col">
       <form v-if="phase === 'form'" id="new-application-form" class="flex flex-col gap-5" @submit.prevent="handleSubmit">
+        <div v-if="betaLimit" role="alert"
+             class="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3.5 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">You've reached a free beta limit</p>
+          <p class="mt-0.5 text-[0.8125rem] text-amber-700/90 dark:text-amber-300/90">{{ betaLimit }}</p>
+        </div>
         <div>
           <label for="new-application-name" class="mb-2 block text-sm font-medium">Name</label>
           <InputText id="new-application-name" v-model="form.name" type="text" class="w-full" required autofocus />

@@ -14,6 +14,9 @@ import org.kinotic.domain.api.model.security.LoginScope;
 import org.kinotic.domain.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.api.exceptions.BetaLimitException;
+import org.kinotic.management.api.config.BetaLimitsProperties;
+import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ApplicationService;
 import org.kinotic.management.api.services.ProjectService;
@@ -34,18 +37,21 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     private final ApplicationSignUpService applicationSignUpService;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final PasswordConfigurationService passwordConfigurationService;
+    private final BetaLimitsProperties betaLimits;
 
     public DefaultApplicationService(ApplicationRepository repository,
                                      ProjectService projectService,
                                      ApplicationSignUpService applicationSignUpService,
                                      UiDeploymentRepository uiDeploymentRepository,
                                      PasswordConfigurationService passwordConfigurationService,
+                                     KinoticManagementApiProperties properties,
                                      SecurityContext securityContext) {
         super(repository, securityContext);
         this.projectService = projectService;
         this.applicationSignUpService = applicationSignUpService;
         this.uiDeploymentRepository = uiDeploymentRepository;
         this.passwordConfigurationService = passwordConfigurationService;
+        this.betaLimits = properties.getManagementApi().getBetaLimits();
     }
 
     @Override
@@ -126,6 +132,29 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
                                 + " %d characters so a tenant's name fits in front; shorten the application name",
                         entity.getId(), HostLabelUtil.MAX_SITE_LABEL_LENGTH);
         entity.setUpdated(new Date());
+        return requireRoomForApplication(entity.getId()).compose(v -> resolvePrimaryUiUrl(entity, applicationKey));
+    }
+
+    // Only a new application counts against the cap, so an existing one can always be updated
+    private Future<Void> requireRoomForApplication(String applicationId) {
+        Integer max = betaLimits.getMaxApplicationsPerOrganization();
+        Future<Void> ret;
+        if (max == null) {
+            ret = Future.succeededFuture();
+        } else {
+            ret = findById(applicationId)
+                    .compose(existing -> existing != null
+                            ? Future.succeededFuture()
+                            : count().compose(count -> count >= max
+                                    ? Future.failedFuture(new BetaLimitException(
+                                            "Your organization already has " + count + " applications, the most it can have."
+                                                    + " Build in one of its existing applications instead, or delete one it no longer needs."))
+                                    : Future.<Void>succeededFuture()));
+        }
+        return ret;
+    }
+
+    private Future<Void> resolvePrimaryUiUrl(Application entity, ApplicationKey applicationKey) {
         Future<String> primaryUiUrl;
         if (entity.getPrimaryUiId() == null) {
             primaryUiUrl = Future.succeededFuture();

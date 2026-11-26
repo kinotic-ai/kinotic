@@ -27,6 +27,8 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
+import org.kinotic.domain.api.exceptions.BetaLimitException;
+import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
@@ -43,8 +45,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -83,6 +87,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
     private final KinoticSystemApiProperties properties;
+    private final KinoticManagementApiProperties managementApiProperties;
 
     /**
      * Creates the job definition deploying the given commit of the project.
@@ -125,6 +130,7 @@ public class ProjectDeployJobDefinitionFactory {
                 // task, so a resume replays it alongside the skipped sync
                 .task(Tasks.fromCallable("Resolve artifacts",
                                          () -> resolveArtifacts(project, commitSha)
+                                                 .compose(artifacts -> requireRoomForMicroservices(project, artifacts))
                                                  .toCompletionStage().toCompletableFuture())
                            .icon("package")
                            .store(Store.state(ProjectDeployResultNames.ARTIFACTS))
@@ -283,6 +289,42 @@ public class ProjectDeployJobDefinitionFactory {
                     }
                     return deployment.getArtifacts();
                 });
+    }
+
+    /**
+     * Passes the artifacts on when the application stays within the beta limit on microservices
+     * with them deployed: the commit's microservices together with every other microservice of the
+     * application whose deployment has not been asked to be removed, orphaned ones included. Fails
+     * the run, before any new runtime workload is asked for or UI published, when it does not.
+     */
+    private Future<ProjectArtifacts> requireRoomForMicroservices(Project project, ProjectArtifacts artifacts) {
+        Integer max = managementApiProperties.getManagementApi().getBetaLimits().getMaxMicroservicesPerApplication();
+        Future<ProjectArtifacts> ret;
+        if (max == null || artifacts.microservices().isEmpty()) {
+            ret = Future.succeededFuture(artifacts);
+        } else {
+            ret = microserviceDeploymentRepository.findAllForApplication(project.getApplicationId(), project.getOrganizationId())
+                    .compose(deployments -> {
+                        // a microservice keeps running until its deployment is removed, an orphaned one too, and
+                        // a commit's microservice replaces the deployment of the same id
+                        Set<String> running = new HashSet<>();
+                        deployments.stream()
+                                   .filter(deployment -> deployment.getState().getDeletionRequested() == null)
+                                   .forEach(deployment -> running.add(deployment.getId()));
+                        artifacts.microservices().forEach(artifact -> running.add(deploymentId(project, artifact)));
+                        int total = running.size();
+                        return total > max
+                                ? Future.failedFuture(new BetaLimitException(
+                                        "The application " + project.getApplicationId() + " can have at most " + max
+                                                + " microservices, and deploying this commit would give it " + total + "."
+                                                + " Put new services into the application's existing microservice instead of"
+                                                + " adding another package under packages/microservices. A microservice that"
+                                                + " a commit no longer contains keeps running, and counting, until its"
+                                                + " deployment is removed in the portal."))
+                                : Future.succeededFuture(artifacts);
+                    });
+        }
+        return ret;
     }
 
     /**
