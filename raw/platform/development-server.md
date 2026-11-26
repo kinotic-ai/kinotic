@@ -775,6 +775,28 @@ Server side, in the servers' `application-dev-server.yml` and their environment:
   <tr>
     <td>
       <code>
+        kinotic.managementApi.betaLimits.maxApplicationsPerOrganization
+      </code>
+      
+       / <code>
+        maxMicroservicesPerApplication
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        2
+      </code>
+      
+       / <code>
+        1
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         KINOTIC_MIGRATION_ELASTIC_HOST
       </code>
     </td>

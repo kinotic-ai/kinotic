@@ -20,6 +20,20 @@ Every application has:
 
 Applications are created and managed through the Kinotic CLI and the Kinotic OS dashboard.
 
+### Beta limits
+
+While Kinotic Cloud is in beta, an organization can have at most two applications, and each
+application can deploy at most one microservice across all of its projects. Creating a third
+application fails, and so does a deployment whose commit would give its application a second
+microservice; both failures say that the organization is on the free beta cloud and that
+paid plans will let it scale beyond these limits once Kinotic Cloud launches. The portal shows either as a free beta
+limit reached rather than as an error: the New application drawer explains the refusal in
+place, and the failed deployment's banner on the project's pages and its application's
+overview names the limit. A server enforces these limits only when
+`kinotic.managementApi.betaLimits.maxApplicationsPerOrganization` and
+`kinotic.managementApi.betaLimits.maxMicroservicesPerApplication` are set; a server that
+leaves them unset has no such limits.
+
 ## Projects
 
 A project is a directory with its own `package.json` and a `.config/kinotic.config.ts` configuration file. The CLI uses that config to understand how the project fits into the broader application.
@@ -468,7 +482,7 @@ every application; elsewhere an application's users sign in only from its publis
 
 ## Typical Setup
 
-Most applications start with a single project created through Kinotic OS, which provisions a GitHub repository scaffolded as a Bun workspace mono repo: `packages/domain` (entity model and generated repositories), `packages/microservices`, `packages/ui`, and a `.config/kinotic.config.ts` wired to the owning organization and application. Clone the provisioned repository and start building.
+Most applications start with a single project created through Kinotic OS, which provisions a GitHub repository scaffolded as a Bun workspace mono repo: `packages/domain` (entity model and generated repositories), `packages/ui`, and a `.config/kinotic.config.ts` wired to the owning organization and application. The scaffold has no microservice: an application that needs one, to publish services, adds a package under `packages/microservices` (the scaffold's README shows its shape). Clone the provisioned repository and start building.
 
 As the application grows, you can add additional projects for microservices, batch jobs, or frontends -- each with its own `.config/kinotic.config.ts` pointing to the same application identifier.
 

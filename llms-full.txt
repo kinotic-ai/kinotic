@@ -32,6 +32,20 @@ Every application has:
 
 Applications are created and managed through the Kinotic CLI and the Kinotic OS dashboard.
 
+### Beta limits
+
+While Kinotic Cloud is in beta, an organization can have at most two applications, and each
+application can deploy at most one microservice across all of its projects. Creating a third
+application fails, and so does a deployment whose commit would give its application a second
+microservice; both failures say that the organization is on the free beta cloud and that
+paid plans will let it scale beyond these limits once Kinotic Cloud launches. The portal shows either as a free beta
+limit reached rather than as an error: the New application drawer explains the refusal in
+place, and the failed deployment's banner on the project's pages and its application's
+overview names the limit. A server enforces these limits only when
+`kinotic.managementApi.betaLimits.maxApplicationsPerOrganization` and
+`kinotic.managementApi.betaLimits.maxMicroservicesPerApplication` are set; a server that
+leaves them unset has no such limits.
+
 ## Projects
 
 A project is a directory with its own `package.json` and a `.config/kinotic.config.ts` configuration file. The CLI uses that config to understand how the project fits into the broader application.
@@ -480,7 +494,7 @@ every application; elsewhere an application's users sign in only from its publis
 
 ## Typical Setup
 
-Most applications start with a single project created through Kinotic OS, which provisions a GitHub repository scaffolded as a Bun workspace mono repo: `packages/domain` (entity model and generated repositories), `packages/microservices`, `packages/ui`, and a `.config/kinotic.config.ts` wired to the owning organization and application. Clone the provisioned repository and start building.
+Most applications start with a single project created through Kinotic OS, which provisions a GitHub repository scaffolded as a Bun workspace mono repo: `packages/domain` (entity model and generated repositories), `packages/ui`, and a `.config/kinotic.config.ts` wired to the owning organization and application. The scaffold has no microservice: an application that needs one, to publish services, adds a package under `packages/microservices` (the scaffold's README shows its shape). Clone the provisioned repository and start building.
 
 As the application grows, you can add additional projects for microservices, batch jobs, or frontends -- each with its own `.config/kinotic.config.ts` pointing to the same application identifier.
 
@@ -1230,6 +1244,15 @@ The artifacts are found inside the build VM, over the checked-out commit, and re
 the project's deployment together with the commit they were found in and the hash of the
 dependencies installed for them.
 
+On a server that caps microservices per application
+(`kinotic.managementApi.betaLimits.maxMicroservicesPerApplication`, set on the Kinotic beta
+cloud to one), a deployment whose commit would give its application more microservices than
+the cap fails once its artifacts are resolved; its `failureMessage` names the limit and the
+beta. Every microservice of the application whose deployment has not been removed counts,
+including the other projects' and an orphaned one, which keeps running until its deployment is
+removed. The failure comes before any new runtime VM is asked for or UI published, but after the
+sync, so a microservice already running picks the commit up through the reload sentinel (see [Beta limits](https://kinotic.ai/apps/application-structure/applications-and-projects#beta-limits)).
+
 ## Machine identities
 
 Every VM connects to Kinotic as a machine identity the deployment provisions for the project,
@@ -1539,7 +1562,10 @@ list what happened to one deployment and to the VMs or uploads it ran, and both 
 assistant can answer how a deployment got to where it is. The project's
 Deployment page shows the observed phase alongside the served commit, the commit being deployed
 while a job runs, and the most recent deployment job's steps, live while a deployment runs — so
-it always answers exactly what the last push did, step by step.
+it always answers exactly what the last push did, step by step. When the last deployment
+failed, its `failureMessage` is shown at the top of the project's Deployment page, of the
+project's overview and of its application's overview, as a free beta limit reached when a beta
+limit stopped it.
 
 ## Failure behavior
 
@@ -10491,6 +10517,28 @@ Server side, in the servers' `application-dev-server.yml` and their environment:
     <td>
       <code>
         1
+      </code>
+      
+       / <code>
+        1
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementApi.betaLimits.maxApplicationsPerOrganization
+      </code>
+      
+       / <code>
+        maxMicroservicesPerApplication
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        2
       </code>
       
        / <code>
