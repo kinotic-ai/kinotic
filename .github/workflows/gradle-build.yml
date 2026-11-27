@@ -5,23 +5,14 @@ on:
     branches:
       - develop
       - main
-    paths-ignore: &ignored-paths
-      - 'helm/**'
-      - 'deployment/**'
-      - 'docker-compose/**'
-      - 'docs/**'
-      - 'kinotic-js/boxlite-test/**'
-      - 'kinotic-js/firecracker-vmm-manager/**'
-      - 'kinotic-js/load-generator/**'
-      - 'website/**'
-  # Runs every suite and the image scan against the merge result before a change lands.
+  # Runs the parts of the pipeline the change needs, as the changes job decides, against the merge
+  # result before a change lands.
   # Staging to ghcr.io needs packages: write, which GitHub withholds from pull requests opened from
   # forks, so those runs fail at staging; push the branch to this repository to build it.
   pull_request:
     branches:
       - develop
       - main
-    paths-ignore: *ignored-paths
   # Nightly full run. This is what refreshes the 5.0.0-SNAPSHOT jars on Sonatype: the publish job
   # below is deliberately off the per-push path because its ~3.5 min of uploads gates nothing else.
   schedule:
@@ -42,11 +33,73 @@ env:
 # unvalidated build. Nothing reads the staged tags except this workflow; ghcr-cleanup.yml prunes
 # them once they are past the window in which a run's jobs might still be re-run.
 jobs:
+  # Decides which parts of the pipeline a change needs. The server pipeline is every job from
+  # migration_image, build, server_images and arm64_images on, and runs for any change outside the
+  # frontend, the CLI and the paths below; js_build compiles the frontend and the CLI when they change.
+  # A scheduled or manual run, or a push whose previous commit cannot be fetched, runs everything.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      server: ${{ steps.paths.outputs.server }}
+      js_projects: ${{ steps.paths.outputs.js_projects }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Classify the changed paths
+        id: paths
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          server=false
+          frontend=false
+          cli=false
+          classify() {
+            while IFS= read -r file; do
+              case "$file" in
+                '') ;;
+                kinotic-frontend/*) frontend=true ;;
+                kinotic-js/kinotic-cli/*) cli=true ;;
+                helm/*|deployment/*|docker-compose/*|docs/*|website/*) ;;
+                kinotic-js/boxlite-test/*|kinotic-js/firecracker-vmm-manager/*|kinotic-js/load-generator/*) ;;
+                *) server=true ;;
+              esac
+            done
+          }
+
+          # A pull request is checked out as its merge commit, whose first parent is the base branch
+          if [ "$EVENT" = pull_request ]; then
+            classify < <(git diff --name-only HEAD^1 HEAD)
+          elif [ "$EVENT" = push ] && git fetch --quiet --depth=1 origin "$BEFORE"; then
+            classify < <(git diff --name-only "$BEFORE" HEAD)
+          else
+            server=true
+            frontend=true
+            cli=true
+          fi
+
+          projects=()
+          [ "$frontend" = true ] && projects+=('"kinotic-frontend"')
+          [ "$cli" = true ] && projects+=('"kinotic-js/kinotic-cli"')
+          js_projects="[$(IFS=,; echo "${projects[*]}")]"
+
+          echo "server=$server" >> "$GITHUB_OUTPUT"
+          echo "js_projects=$js_projects" >> "$GITHUB_OUTPUT"
+          echo "Server pipeline: $server, JS projects: $js_projects"
+
   # Only the jar and the image — kinotic-migration's tests run in the `build` job with every other
   # module's. Kept separate from `build` because nothing here depends on the main build, so this
   # runs concurrently with it and the staged image is ready when the test jobs need it.
   migration_image:
     name: Migration Image
+    needs: changes
+    if: ${{ needs.changes.outputs.server == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,6 +145,8 @@ jobs:
   # on the runs that ship them.
   build:
     name: Build
+    needs: changes
+    if: ${{ needs.changes.outputs.server == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -133,16 +188,21 @@ jobs:
         with:
           name: build
 
-  # The CLI ships as an npm package of its own, so it gets its own compile. kinotic-frontend is
-  # compiled by the UI image build in server_images and arm64_images, from its frozen lockfile.
-  cli:
-    name: CLI
+  # Installs each changed pnpm project from its frozen lockfile and builds it
+  js_build:
+    name: JS Build (${{ matrix.project }})
+    needs: changes
+    if: ${{ needs.changes.outputs.js_projects != '[]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.changes.outputs.js_projects) }}
     defaults:
       run:
-        working-directory: kinotic-js/kinotic-cli
+        working-directory: ${{ matrix.project }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -166,6 +226,8 @@ jobs:
   # build job, so the suites that run against the images start as early as possible.
   server_images:
     name: Server Images
+    needs: changes
+    if: ${{ needs.changes.outputs.server == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -225,6 +287,8 @@ jobs:
   # multi-platform tag on promotion; kinotic-server-test runs only in CI, so it has no arm64 build.
   arm64_images:
     name: Arm64 Images
+    needs: changes
+    if: ${{ needs.changes.outputs.server == 'true' }}
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -588,9 +652,10 @@ jobs:
 
   # Promotes the staged images and is the single required check for branch protection. Both live
   # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
+  # A change that skips the server pipeline builds no images, so it promotes none.
   results:
     name: Build Result
-    needs: [migration_image, build, cli, server_images, arm64_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
+    needs: [changes, migration_image, build, js_build, server_images, arm64_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -632,7 +697,8 @@ jobs:
             docker buildx imagetools create -t "kinoticai/${image}:${version}" "$staged" "${staged}-arm64"
           done
 
-      # `skipped` is a pass: the publish job is skipped on every develop push by design.
+      # `skipped` is a pass: the publish job is skipped on every develop push by design, and the server
+      # pipeline and js_build are skipped for a change outside their paths.
       - name: Fail if any job failed
         run: |
           failed=false
@@ -642,9 +708,10 @@ jobs:
               *) echo "::error::$1: $2" ; failed=true ;;
             esac
           }
+          check "Changes" "${{ needs.changes.result }}"
           check "Migration image" "${{ needs.migration_image.result }}"
           check "Build" "${{ needs.build.result }}"
-          check "CLI" "${{ needs.cli.result }}"
+          check "JS build" "${{ needs.js_build.result }}"
           check "Server images" "${{ needs.server_images.result }}"
           check "Arm64 images" "${{ needs.arm64_images.result }}"
           check "SBOM and vulnerability scan" "${{ needs.sbom_scan.result }}"
