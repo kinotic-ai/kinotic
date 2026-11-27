@@ -11,7 +11,7 @@
       <Message v-if="statusError" severity="error" :closable="false">{{ statusError }}</Message>
       <div class="grid gap-4 sm:grid-cols-2">
         <StatCard v-for="stat in importStats" :key="stat.label" :icon="DatabaseZap" :tint="stat.tint" :label="stat.label"
-                  :value="stat.value" :detail="stat.detail" :loading="statusLoading && statuses === null" />
+                  :value="stat.value" :detail="stat.detail" :loading="statusLoading && statuses === null" :href="stat.href" />
       </div>
 
       <DashboardSection :icon="Search" :tint="TINTS.sky" title="Look up an advisory"
@@ -186,6 +186,7 @@ const VERSIONS_SHOWN = 12
 /** What a node running from classes, with no packaged version, shows for one. */
 const UNKNOWN_VERSION = 'unknown'
 
+/** OSV's name of each ecosystem, which the page shows and osv.dev lists the ecosystem's advisories by. */
 const ECOSYSTEM_NAMES: Record<PackageEcosystem, string> = {
   [PackageEcosystem.NPM]: 'npm',
   [PackageEcosystem.MAVEN]: 'Maven',
@@ -211,6 +212,7 @@ const importStats = computed(() => (statuses.value ?? Object.values(PackageEcosy
     value: statuses.value ? status.advisoryCount.toLocaleString() : '—',
     detail: status.syncedThrough ? `Read through ${new Date(status.syncedThrough).toLocaleString()}` : 'Not imported yet',
     tint: statuses.value && !status.syncedThrough ? TINTS.orange : TINTS.blue,
+    href: `https://osv.dev/list?ecosystem=${encodeURIComponent(ECOSYSTEM_NAMES[status.ecosystem])}`,
   })))
 
 async function loadStatus(): Promise<void> {
