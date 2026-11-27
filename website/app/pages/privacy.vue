@@ -64,8 +64,8 @@ useHead({ title: 'Privacy Policy' })
             <p class="mt-3">
               On the Kinotic Cloud portal at portal.kinotic.ai, we use Google Analytics only on the sign-up
               pages, to record when you start signing up and when your organization is created, along with the
-              visit and engagement time Google Analytics measures automatically. Page addresses are recorded
-              without their query strings. We do not use Google Analytics in the rest of the portal, and we do
+              visit and engagement time Google Analytics measures automatically. Registration tokens are removed
+              from page addresses before anything is sent. We do not use Google Analytics in the rest of the portal, and we do
               not use Clarity there. These events tell us how many visitors go on to sign up; they do not include
               your email address, your name, or your organization's name.
             </p>
