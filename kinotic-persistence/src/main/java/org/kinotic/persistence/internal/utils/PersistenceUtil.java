@@ -6,6 +6,7 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.domain.api.model.persistence.EntityDescriptor;
 import org.kinotic.domain.api.model.persistence.idl.decorators.MultiTenancyType;
 import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.LinkedHashMap;
@@ -20,7 +21,9 @@ public class PersistenceUtil {
      * An application's participant reaches only the entities of its own application; an organization's reaches every
      * entity of the organization. The tenant selection must already be applied to the context. A participant that
      * belongs to a tenant may select only that tenant, and a participant without one must select the tenants of a
-     * {@link MultiTenancyType#SHARED} entity.
+     * {@link MultiTenancyType#SHARED} entity. Selecting tenants requires an entity with multi-tenant selection enabled,
+     * except that an organization's participant may select every tenant ({@link EntityContext#ALL_TENANTS}) of any
+     * entity.
      *
      * @param entityDescriptor the entity the operation acts on
      * @param context          the context of the operation
@@ -37,8 +40,14 @@ public class PersistenceUtil {
         }
         Future<Void> ret;
         // Kinotic allows any published service to be called, so the admin service can reach an
-        // EntityDefinition that never enabled multi-tenant selection; the selection is refused here
-        if(context.hasTenantSelection() && !entityDescriptor.isMultiTenantSelectionEnabled()){
+        // EntityDefinition that never enabled multi-tenant selection; the selection is refused here.
+        // An organization's participant owns every tenant's data, and selecting all of them applies no
+        // tenant filter, so it needs no tenant id field of the entity's own
+        boolean organizationSelectsAllTenants = context.selectsAllTenants()
+                && context.getParticipant() instanceof OrganizationParticipant;
+        if(context.hasTenantSelection()
+                && !entityDescriptor.isMultiTenantSelectionEnabled()
+                && !organizationSelectsAllTenants){
             ret = Future.failedFuture(
                     new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
                             entityDescriptor.name()))

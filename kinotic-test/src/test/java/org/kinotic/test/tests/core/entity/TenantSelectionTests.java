@@ -40,7 +40,8 @@ import java.util.Map;
 /**
  * Exercises a {@code SHARED} entity with a {@link TenantIdDecorator} field from both kinds of participant:
  * one that belongs to a tenant, and one connected at organization scope that names tenants through a
- * tenant selection the way the admin repository does.
+ * tenant selection the way the admin repository does. Also covers the selection of every tenant of a
+ * {@code SHARED} entity without such a field, which the portal's data view makes.
  */
 @SpringBootTest
 public class TenantSelectionTests extends KinoticTestBase {
@@ -164,6 +165,41 @@ public class TenantSelectionTests extends KinoticTestBase {
                     .expectNextMatches(page -> page.getTotalElements() == 5 && page.getContent().size() == 5)
                     .as("The wildcard returns every tenant's rows")
                     .verifyComplete();
+    }
+
+    @Test
+    public void organizationParticipantSelectsEveryTenantOfAnEntityWithoutATenantIdField() {
+        EntityDefinition definition = runAsOrganization(() -> testDataService.createEntityDefinition("UntenantedPerson_selectAll",
+                                                                                                    testDataService.createPersonSchema(MultiTenancyType.SHARED))).await();
+        EntityContext tenant1 = new DefaultEntityContext(applicationParticipant("tenant1", "user1"));
+        EntityContext tenant2 = new DefaultEntityContext(applicationParticipant("tenant2", "user2"));
+        for (int i = 0; i < 2; i++) {
+            savePerson(definition, tenant1, null, "One" + i).await();
+        }
+        savePerson(definition, tenant2, null, "Two").await();
+        runAsOrganization(() -> entitiesService.syncIndex(definition.getId(), tenant1)).await();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> adminJsonEntitiesRepository.findAll(definition.getId(),
+                                                                                                                 List.of(EntityContext.ALL_TENANTS),
+                                                                                                                 Pageable.ofSize(10),
+                                                                                                                 TEST_ORGANIZATION_PARTICIPANT)).toCompletionStage()))
+                    .expectNextMatches(page -> page.getTotalElements() == 3 && page.getContent().size() == 3)
+                    .as("An organization participant reads every tenant's rows")
+                    .verifyComplete();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> adminJsonEntitiesRepository.count(definition.getId(),
+                                                                                                               List.of("tenant1"),
+                                                                                                               TEST_ORGANIZATION_PARTICIPANT)).toCompletionStage()))
+                    .as("Naming a tenant needs the entity's own tenant id field")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
+
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> adminJsonEntitiesRepository.count(definition.getId(),
+                                                                                                               List.of(EntityContext.ALL_TENANTS),
+                                                                                                               applicationParticipant("tenant1", "user1"))).toCompletionStage()))
+                    .as("An application participant selecting every tenant is refused")
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
     }
 
     @Test

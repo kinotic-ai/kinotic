@@ -6,7 +6,7 @@ import { useRoute } from 'vue-router'
 import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/management-api'
-import { type IEntitiesRepository } from '@kinotic-ai/persistence'
+import { type IAdminEntitiesRepository, type TenantSelection } from '@kinotic-ai/persistence'
 import { createDebug } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('entity-list')
@@ -78,7 +78,9 @@ const _resizeRafId = ref<number | null>(null)
 const _pendingResizeEvent = ref<MouseEvent | null>(null)
 const _pendingResizeKind = ref<ResizeKind | null>(null)
 
-const entitiesService: IEntitiesRepository = Kinotic.entities
+// the portal user is an organization participant, which reads every tenant's data
+const entitiesService: IAdminEntitiesRepository = Kinotic.adminEntities
+const ALL_TENANTS: TenantSelection = ['*']
 const entityDefinitionService: IEntityDefinitionService = Kinotic.entityDefinitions
 
 const options = ref({
@@ -582,8 +584,8 @@ function find() {
   const id = props.entityDefinitionId || (Array.isArray(paramId) ? paramId[0] : paramId)
 
   const queryPromise = (searchText.value?.length)
-    ? entitiesService.search(id, searchText.value, pageable)
-    : entitiesService.findAll(id, pageable)
+    ? entitiesService.search(id, searchText.value, ALL_TENANTS, pageable)
+    : entitiesService.findAll(id, ALL_TENANTS, pageable)
 
   queryPromise
     .then((page: Page<any>) => {
