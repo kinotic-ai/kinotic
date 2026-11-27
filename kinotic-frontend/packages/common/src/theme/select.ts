@@ -77,7 +77,7 @@ import type { SelectDesignTokens } from '@primeuix/themes/types/select';
         color: "{form.field.icon.color}"
     },
     checkmark: {
-        color: "{sky.500}",
+        color: "{primary.color}",
         gutterStart: "-0.375rem",
         gutterEnd: "0.375rem"
     },

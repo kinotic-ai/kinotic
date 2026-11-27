@@ -88,7 +88,7 @@
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-semibold text-surface-950 dark:text-surface-0">{{ ui.name }}</div>
                 <a :href="ui.url" target="_blank" rel="noopener"
-                   class="inline-flex items-center gap-1 text-xs font-medium text-sky-600 hover:underline dark:text-sky-300">
+                   class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                   Open site <ArrowUpRight :size="12" :stroke-width="1.75" aria-hidden="true" />
                 </a>
               </div>

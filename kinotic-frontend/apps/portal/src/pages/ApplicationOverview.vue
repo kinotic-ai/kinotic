@@ -139,7 +139,7 @@
               <div class="flex items-center gap-1.5 text-xs">
                 <RouterLink :to="`${basePath}/project/${encodeURIComponent(ui.projectId)}`" class="truncate text-muted-color hover:underline">{{ ui.projectId }}</RouterLink>
                 <span class="text-muted-color" aria-hidden="true">·</span>
-                <a :href="ui.url" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center gap-1 font-medium text-sky-600 hover:underline dark:text-sky-300">
+                <a :href="ui.url" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline">
                   Open site <ArrowUpRight :size="12" :stroke-width="1.75" aria-hidden="true" />
                 </a>
               </div>

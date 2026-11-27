@@ -340,9 +340,9 @@ export default {
         focusRing: {
             width: "0",
             style: "none",
-            color: "{sky.200}",
+            color: "{primary.200}",
             offset: "0",
-            shadow: "0 0 0 3px {sky.200}"
+            shadow: "0 0 0 3px {primary.200}"
         },
         transitionDuration: "{transition.duration}"
     },
@@ -490,8 +490,8 @@ export default {
             list: {
                 option: {
                     focusBackground: "{surface.100}",
-                    selectedBackground: "{sky.100}",
-                    selectedFocusBackground: "{sky.100}",
+                    selectedBackground: "{primary.100}",
+                    selectedFocusBackground: "{primary.100}",
                     color: "{text.color}",
                     focusColor: "{text.hover.color}",
                     selectedColor: "{surface.950}",
@@ -616,8 +616,8 @@ export default {
             list: {
                 option: {
                     focusBackground: "{surface.800}",
-                    selectedBackground: "color-mix(in srgb, {sky.400}, transparent 84%)",
-                    selectedFocusBackground: "color-mix(in srgb, {sky.400}, transparent 84%)",
+                    selectedBackground: "color-mix(in srgb, {primary.400}, transparent 84%)",
+                    selectedFocusBackground: "color-mix(in srgb, {primary.400}, transparent 84%)",
                     color: "{text.color}",
                     focusColor: "{text.hover.color}",
                     selectedColor: "{surface.0}",

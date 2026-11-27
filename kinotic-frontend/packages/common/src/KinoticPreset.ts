@@ -41,9 +41,9 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         },
         colorScheme: {
             light: {
-                // Keyboard focus is sky everywhere: rings, focused field borders and focused labels
+                // Keyboard focus takes the primary colour everywhere: rings, focused field borders and focused labels
                 focusRing: {
-                    color: '{sky.500}'
+                    color: '{primary.500}'
                 },
                 // sky.500 reads at 2.8:1 on white, too faint for link text; 600 reads at 4:1
                 primary: {
@@ -91,7 +91,7 @@ export const KinoticPreset = definePreset(KinoticTheme, {
             },
             dark : {
                 focusRing: {
-                    color: '{sky.400}'
+                    color: '{primary.400}'
                 },
                 surface: {
                     0  : "#ffffff",
@@ -130,8 +130,8 @@ export const KinoticPreset = definePreset(KinoticTheme, {
                     placeholderColor: '#8d8d96',
                     shadow: 'none',
                     focusRing: {
-                        color: '{sky.900}',
-                        shadow: '0 0 0 3px {sky.900}'
+                        color: '{primary.900}',
+                        shadow: '0 0 0 3px {primary.900}'
                     }
                 }
             }
