@@ -13,6 +13,7 @@ import java.util.Date;
  *                     data stream's time field
  * @param type         the kind of record that changed
  * @param id           the record's id
+ * @param name         the record's name when written, null for a record whose id names it
  * @param scope        the scope the record is addressed under, as its repository's {@code scopeOf} gives
  *                     it: its organization for a record an organization owns, null for a node
  * @param parent       what the record belongs to, null for a record the platform made on its own
@@ -26,6 +27,7 @@ import java.util.Date;
 public record WatchEvent(@JsonProperty("@timestamp") Date timestamp,
                          WatchedType type,
                          String id,
+                         String name,
                          String scope,
                          WatchedParent parent,
                          WatchEventType eventType,
