@@ -11,11 +11,14 @@
       <Message v-if="statusError" severity="error" :closable="false">{{ statusError }}</Message>
       <div class="grid gap-4 sm:grid-cols-2">
         <StatCard v-for="stat in importStats" :key="stat.label" :icon="DatabaseZap" :tint="stat.tint" :label="stat.label"
-                  :value="stat.value" :detail="stat.detail" :loading="statusLoading && statuses === null" :href="stat.href" />
+                  :value="stat.value" :detail="stat.detail" :loading="statusLoading && statuses === null" :to="stat.to" />
       </div>
 
       <DashboardSection :icon="Search" :tint="TINTS.sky" title="Look up an advisory"
-                        description="Find an advisory by its OSV id, an alias such as its CVE, or a package URL, and see the projects and server builds it affects.">
+                        :description="listing?.ecosystem
+                          ? `The ${ECOSYSTEM_NAMES[listing.ecosystem]} advisories imported into Kinotic and not withdrawn, the most recently changed first. Select one to see the projects and server builds it affects.`
+                          : 'Find an advisory by its OSV id, an alias such as its CVE, or a package URL, and see the projects and server builds it affects.'"
+                        :count="listing?.ecosystem && found ? foundTotal : undefined">
         <form class="flex flex-wrap items-center gap-2 border-b border-surface-200 px-5 py-3 dark:border-surface-700" @submit.prevent="lookUp">
           <IconField class="w-full sm:w-[28rem]">
             <InputIcon class="pi pi-search" />
@@ -25,13 +28,15 @@
         </form>
 
         <Message v-if="searchError" severity="error" :closable="false" class="m-5">{{ searchError }}</Message>
-        <p v-else-if="search === null" class="px-5 py-4 text-sm text-muted-color">
-          Search by id or alias to find an advisory even after it was withdrawn; a package URL lists the advisories standing against any version of the package.
+        <p v-else-if="listing === null" class="px-5 py-4 text-sm text-muted-color">
+          Search by id or alias to find an advisory even after it was withdrawn; a package URL lists the advisories standing against any version of the package. Select an ecosystem's card above to list the advisories imported for it.
         </p>
         <template v-else-if="found !== null">
-          <EmptyChartCharacter v-if="foundTotal === 0" class="py-6" title="No advisory found"
-                               :hint="`No stored advisory is known as ${search}. An id or alias must match in full.`" />
-          <template v-else-if="foundTotal > 1">
+          <EmptyChartCharacter v-if="foundTotal === 0 && listing.ecosystem" class="py-6" title="No advisory imported"
+                               :hint="`No ${ECOSYSTEM_NAMES[listing.ecosystem]} advisory has been imported from OSV yet.`" />
+          <EmptyChartCharacter v-else-if="foundTotal === 0" class="py-6" title="No advisory found"
+                               :hint="`No stored advisory is known as ${listing.search}. An id or alias must match in full.`" />
+          <template v-else-if="foundTotal > 1 || listing.ecosystem">
             <DataTable :value="found.content" size="small" class="text-sm" data-key="id" selection-mode="single"
                        :selection="selected" @row-select="select($event.data)">
               <Column header="Severity" style="width: 9rem">
@@ -50,8 +55,11 @@
                 <template #body="{ data }"><TimePill :date="data.modified" /></template>
               </Column>
             </DataTable>
+            <p v-if="foundTotal > DEEPEST_PAGED" class="border-t border-surface-200 px-5 py-3 text-sm text-muted-color dark:border-surface-700">
+              The first {{ DEEPEST_PAGED.toLocaleString() }} of {{ foundTotal.toLocaleString() }} advisories are listed; look one up by id, alias or package to find any of them.
+            </p>
             <TablePaginator class="border-t border-surface-200 px-5 py-3 dark:border-surface-700"
-                            :first="foundFirst" :rows="foundPageSize" :total-records="foundTotal"
+                            :first="foundFirst" :rows="foundPageSize" :total-records="Math.min(foundTotal, DEEPEST_PAGED)"
                             :rows-per-page-options="PAGE_SIZES" @page="onFoundPage" />
           </template>
         </template>
@@ -186,15 +194,14 @@ const VERSIONS_SHOWN = 12
 /** What a node running from classes, with no packaged version, shows for one. */
 const UNKNOWN_VERSION = 'unknown'
 
-/** OSV's name of each ecosystem, which the page shows and osv.dev lists the ecosystem's advisories by. */
 const ECOSYSTEM_NAMES: Record<PackageEcosystem, string> = {
   [PackageEcosystem.NPM]: 'npm',
   [PackageEcosystem.MAVEN]: 'Maven',
 }
 
-/** Advisories found by package, the most recently changed first. */
+/** Advisories found or listed, the most recently changed first; the id orders those changed together. */
 const ADVISORY_SORT = new Sort()
-ADVISORY_SORT.orders = [new Order('modified', Direction.DESC)]
+ADVISORY_SORT.orders = [new Order('modified', Direction.DESC), new Order('id', Direction.ASC)]
 
 /** Alerts across organizations, grouped by organization. */
 const ALERT_SORT = new Sort()
@@ -212,7 +219,7 @@ const importStats = computed(() => (statuses.value ?? Object.values(PackageEcosy
     value: statuses.value ? status.advisoryCount.toLocaleString() : '—',
     detail: status.syncedThrough ? `Read through ${new Date(status.syncedThrough).toLocaleString()}` : 'Not imported yet',
     tint: statuses.value && !status.syncedThrough ? TINTS.orange : TINTS.blue,
-    href: `https://osv.dev/list?ecosystem=${encodeURIComponent(ECOSYSTEM_NAMES[status.ecosystem])}`,
+    to: { query: { ecosystem: status.ecosystem } },
   })))
 
 async function loadStatus(): Promise<void> {
@@ -227,12 +234,28 @@ async function loadStatus(): Promise<void> {
   }
 }
 
-// ---- lookup ----
+// ---- lookup and ecosystem listing ----
+
+type AdvisoryListing = { search: string, ecosystem?: undefined } | { search?: undefined, ecosystem: PackageEcosystem }
 
 const searchText = ref(typeof route.query.q === 'string' ? route.query.q : '')
 
-/** The search the results are of, kept in the route so a lookup can be linked to. */
-const search = computed(() => typeof route.query.q === 'string' && route.query.q.trim() ? route.query.q.trim() : null)
+/**
+ * What the results list, kept in the route so it can be linked to: the advisories a search finds,
+ * or the advisories imported for an ecosystem.
+ */
+const listing = computed<AdvisoryListing | null>(() => {
+  const { q, ecosystem } = route.query
+  let ret: AdvisoryListing | null = null
+  if (typeof q === 'string' && q.trim()) {
+    ret = { search: q.trim() }
+  } else if (Object.values(PackageEcosystem).includes(ecosystem as PackageEcosystem)) {
+    ret = { ecosystem: ecosystem as PackageEcosystem }
+  }
+  return ret
+})
+// a listing is replaced only when what it lists changes, not on every route update
+const listingKey = computed(() => JSON.stringify(listing.value))
 
 const found = ref<Page<VulnerabilityAdvisory> | null>(null)
 const searching = ref(false)
@@ -244,10 +267,11 @@ const { first: foundFirst, pageSize: foundPageSize, page: foundPage, onPage: onF
 
 function lookUp(): void {
   const q = searchText.value.trim()
-  if (q === search.value) {
+  if (q === listing.value?.search) {
     void loadFound()
   } else {
-    void router.replace({ query: { ...route.query, q } })
+    const { ecosystem: _listed, ...query } = route.query
+    void router.replace({ query: { ...query, q } })
   }
 }
 
@@ -255,22 +279,25 @@ function lookUp(): void {
 let latestSearch = 0
 
 async function loadFound(): Promise<void> {
-  const q = search.value
+  const shown = listing.value
   const current = ++latestSearch
   found.value = null
-  if (q === null) {
+  if (shown === null) {
     selected.value = null
     return
   }
   searching.value = true
   try {
-    const page = await Kinotic.vulnerabilityAdvisories.findAdvisories(q, Pageable.create(foundPage.value, foundPageSize.value, ADVISORY_SORT))
+    const pageable = Pageable.create(foundPage.value, foundPageSize.value, ADVISORY_SORT)
+    const page = shown.ecosystem
+                 ? await Kinotic.vulnerabilityAdvisories.findAdvisoriesOf(shown.ecosystem, pageable)
+                 : await Kinotic.vulnerabilityAdvisories.findAdvisories(shown.search, pageable)
     if (current === latestSearch) {
       found.value = page
       searchError.value = null
       const content = page.content ?? []
-      // a single match opens at once; a list reopens the advisory opened before, as it reads now
-      const reopened = content.length === 1 && page.totalElements === 1
+      // a search's single match opens at once; a list reopens the advisory opened before, as it reads now
+      const reopened = shown.search && content.length === 1 && page.totalElements === 1
                        ? content[0]
                        : content.find(advisory => advisory.id === selected.value?.id)
       if (reopened) {
@@ -281,7 +308,7 @@ async function loadFound(): Promise<void> {
     }
   } catch (err) {
     if (current === latestSearch) {
-      searchError.value = errorMessage(err, 'The advisories could not be looked up')
+      searchError.value = errorMessage(err, shown.ecosystem ? 'The advisories could not be listed' : 'The advisories could not be looked up')
       selected.value = null
     }
   } finally {
@@ -291,8 +318,8 @@ async function loadFound(): Promise<void> {
   }
 }
 
-watch(search, q => {
-  searchText.value = q ?? ''
+watch(listingKey, () => {
+  searchText.value = listing.value?.search ?? ''
   foundFirst.value = 0
   void loadFound()
 })
