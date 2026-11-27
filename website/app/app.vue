@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import DocusApp from 'docus/app/app.vue'
-import { CONSENT_STORAGE_KEY } from '~/utils/consent'
+import { CONSENT_COOKIE } from '~/utils/consent'
 
 const consent = useCookieConsent()
 
@@ -9,8 +9,8 @@ const consent = useCookieConsent()
 useHead({
   script: [{
     key: 'cookie-consent-saved',
-    innerHTML: `try{if(localStorage.getItem(${JSON.stringify(CONSENT_STORAGE_KEY)}))`
-      + `document.documentElement.classList.add('k-consent-saved')}catch(e){}`,
+    innerHTML: `if(document.cookie.split('; ').some(function(c){return c.indexOf(${JSON.stringify(`${CONSENT_COOKIE}=`)})===0}))`
+      + `document.documentElement.classList.add('k-consent-saved')`,
   }],
 })
 

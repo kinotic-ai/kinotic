@@ -31,9 +31,9 @@ const questions = [
   },
   {
     q: 'Do you host Kinotic for me?',
-    a: 'Not yet. These plans license Kinotic\'s Enterprise features in your own cloud, on infrastructure you control. '
-      + 'Kinotic Cloud, which we host for you, is coming: join the waitlist on our home page to hear first.',
-    link: { label: 'Join the Kinotic Cloud waitlist', to: '/#cloud-waitlist' },
+    a: 'Yes. Kinotic Cloud, which we host for you, is in beta and free to try. The plans on this page license '
+      + 'Kinotic\'s Enterprise features in your own cloud, on infrastructure you control.',
+    link: { label: 'Try Kinotic Cloud beta for free', to: '/#cloud-beta' },
   },
   {
     q: 'Do I need a license to use Kinotic?',

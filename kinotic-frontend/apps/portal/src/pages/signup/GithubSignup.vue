@@ -13,6 +13,7 @@
           provider="github"
           :action="apiUrl('/api/auth/org/signup/social/start/github')"
           intent="sign-up"
+          @submit="trackSignUp('cloud_signup_started', 'social')"
         />
       </div>
 
@@ -27,4 +28,7 @@
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import { SocialAuthButton } from '@kinotic-ai/frontend-common'
+import { useSignUpAnalytics } from '@/composables/useSignUpAnalytics'
+
+const { trackSignUp } = useSignUpAnalytics()
 </script>

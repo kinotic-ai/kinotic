@@ -4,8 +4,8 @@ import { trackGoogleAnalyticsEvent } from '~/utils/googleAnalytics'
 
 const INSTALL_COMMAND = 'curl -fsSL https://kinotic.ai/install | sh'
 const options = [
-  { id: 'local', label: 'Local install' },
   { id: 'cloud', label: 'Kinotic Cloud' },
+  { id: 'local', label: 'Local install' },
 ] as const
 
 const id = useId()
@@ -71,12 +71,24 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
           <path v-else d="M6 18a5 5 0 0 1-1-9.9A7 7 0 0 1 18.5 8 5 5 0 0 1 18 18Z" />
         </svg>
         {{ option.label }}
-        <span v-if="option.id === 'cloud'" class="getting-started__soon">Coming soon</span>
+        <span v-if="option.id === 'cloud'" class="getting-started__badge">Free beta</span>
       </button>
     </div>
 
     <div
-      v-show="activeIndex === 0"
+      v-show="options[activeIndex]?.id === 'cloud'"
+      :id="`${id}-panel-cloud`"
+      class="getting-started__body"
+      role="tabpanel"
+      :aria-labelledby="`${id}-tab-cloud`"
+    >
+      <h2 class="getting-started__heading">Try Kinotic Cloud beta for free</h2>
+      <p class="getting-started__intro">Kinotic, managed for you. Nothing to install.</p>
+      <HomeCloudBetaLink class="getting-started__cloud-beta" placement="hero" />
+    </div>
+
+    <div
+      v-show="options[activeIndex]?.id === 'local'"
       :id="`${id}-panel-local`"
       class="getting-started__body"
       role="tabpanel"
@@ -98,18 +110,6 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
         <NuxtLink to="/getting-started/quick-start" @click="trackInstallIntent('install_quickstart_opened')">More info ↗</NuxtLink>
       </div>
       <span class="getting-started__status" role="status">{{ copyStatus }}</span>
-    </div>
-
-    <div
-      v-show="activeIndex === 1"
-      :id="`${id}-panel-cloud`"
-      class="getting-started__body"
-      role="tabpanel"
-      :aria-labelledby="`${id}-tab-cloud`"
-    >
-      <h2 class="getting-started__heading">Join our waiting list</h2>
-      <p class="getting-started__intro">Kinotic, managed for you. Nothing to install.</p>
-      <HomeWaitlistForm class="getting-started__waitlist" submit-label="Join waiting list ↗" />
     </div>
   </div>
 </template>
@@ -166,7 +166,7 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
   background: var(--color-k-mint);
 }
 
-.getting-started__soon {
+.getting-started__badge {
   padding: 2px 4px;
   border: 1px solid rgba(236, 31, 82, 0.19);
   border-radius: 3px;
@@ -266,19 +266,9 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
   font-size: 11px;
 }
 
-.getting-started__waitlist :deep(.waitlist__email) {
-  padding: 11px 12px;
-  font-size: 11px;
-}
-
-.getting-started__waitlist :deep(.waitlist__submit) {
-  padding: 10px 13px;
-  font-size: 11px;
-}
-
-.getting-started__waitlist :deep(.waitlist__note) {
-  margin-top: 10px;
-  font-size: 10px;
+.getting-started__cloud-beta {
+  padding: 11px 16px;
+  font-size: 11.5px;
 }
 
 @media (max-width: 768px) {
@@ -305,7 +295,7 @@ onBeforeUnmount(() => clearTimeout(copyTimeout))
 }
 
 @media (max-width: 480px) {
-  .getting-started__soon {
+  .getting-started__badge {
     display: none;
   }
 

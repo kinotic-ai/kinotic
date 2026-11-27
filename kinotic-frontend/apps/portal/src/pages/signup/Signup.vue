@@ -11,6 +11,7 @@
           :provider="provider"
           :action="apiUrl('/api/auth/org/signup/social/start/' + provider)"
           intent="sign-up"
+          @submit="trackSignUp('cloud_signup_started', 'social')"
         />
         <div class="login-divider"><span>or with email</span></div>
       </div>
@@ -70,8 +71,10 @@ import type { SignUpRequest } from '@kinotic-ai/management-api'
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import { SocialAuthButton } from '@kinotic-ai/frontend-common'
+import { useSignUpAnalytics } from '@/composables/useSignUpAnalytics'
 
 const toast = useToast()
+const { trackSignUp } = useSignUpAnalytics()
 
 const request = ref<SignUpRequest>({
   email: '',
@@ -114,6 +117,8 @@ async function handleSubmit() {
       displayAlert(data.error || 'Sign-up failed')
       return
     }
+
+    trackSignUp('cloud_signup_started', 'email')
 
     // a server that shows links in the UI in place of email returns the verification link, and the sign-up continues there
     if (data.verificationUrl) {

@@ -58,6 +58,7 @@ import { useToast } from 'primevue/usetoast'
 import type { SignUpCompleteRequest } from '@kinotic-ai/management-api'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
+import { useSignUpAnalytics } from '@/composables/useSignUpAnalytics'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { KINOTIC_UI } from '@/IKinoticUI'
@@ -65,6 +66,7 @@ import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 
 const toast = useToast()
+const { trackSignUp } = useSignUpAnalytics()
 const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
 
@@ -141,6 +143,7 @@ async function handleSubmit() {
       return
     }
 
+    trackSignUp('cloud_signup_completed', 'email')
     // The org, admin user, and browser session are created; connect with it and go to the app.
     await userState.login()
     await KINOTIC_UI.navigate('/')

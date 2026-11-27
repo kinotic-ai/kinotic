@@ -55,11 +55,12 @@ export function setGoogleAnalyticsConsent(choice: ConsentChoice): void {
   })
 }
 
-/** Records a website interaction when the visitor has allowed Analytics. */
-export function trackGoogleAnalyticsEvent(name: string): void {
+/** Records a website interaction, with optional event parameters, when the visitor has allowed Analytics. */
+export function trackGoogleAnalyticsEvent(name: string, params?: Record<string, string>): void {
   if (!googleAnalyticsInitialized || !analyticsConsentGranted) return
   try {
-    gtag('event', name)
+    if (params) gtag('event', name, params)
+    else gtag('event', name)
   } catch {
     // Analytics must not interrupt the visitor's action when the provider is unavailable.
   }
