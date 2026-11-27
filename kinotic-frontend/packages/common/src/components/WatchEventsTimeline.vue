@@ -184,22 +184,24 @@ const hiddenCount = computed<number>(() => props.entries.length - visibleEntries
 /** The visible entries in runs of one calendar day, newest day first. */
 const days = computed(() => {
   const out: { key: string, label: string, rows: Row[] }[] = []
-  visibleEntries.value.forEach((entry, position) => {
+  visibleEntries.value.forEach(entry => {
     const key = new Date(entry['@timestamp']).toDateString()
     let day = out[out.length - 1]
     if (!day || day.key !== key) {
       day = { key, label: formatDayLabel(entry['@timestamp']), rows: [] }
       out.push(day)
     }
-    day.rows.push(rowOf(entry, position))
+    day.rows.push(rowOf(entry))
   })
   return out
 })
 
-function rowOf(entry: WatchEvent, position: number): Row {
+function rowOf(entry: WatchEvent): Row {
   const headline = headlineOf(entry)
   return {
-    key: `${entry['@timestamp']}-${entry.type}-${entry.id}-${entry.eventType}-${position}`,
+    // A record's writes are stamped strictly later than every earlier one, so its time names an entry
+    // whatever entries are added around it
+    key: `${entry['@timestamp']}|${entry.type}|${entry.scope ?? ''}|${entry.id}`,
     entry,
     recordLabel: entry.name ?? entry.id,
     link: props.recordLink?.(entry) ?? null,

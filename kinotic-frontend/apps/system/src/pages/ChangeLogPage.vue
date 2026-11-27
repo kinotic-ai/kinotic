@@ -91,18 +91,28 @@ function recordLink(entry: WatchEvent): string | null {
   return ret
 }
 
+// Counts the loads started, so a load another has superseded leaves the page to the latest one
+let loadsStarted = 0
+
 async function load() {
+  const thisLoad = ++loadsStarted
   loading.value = true
   error.value = null
   try {
     const types = recordFilter.value ? RECORD_FILTERS[recordFilter.value].types : null
     const page = await Kinotic.watchEvents.findAll(types, Pageable.create(pageShown.value, pageSize.value))
-    entries.value = page.content ?? []
-    total.value = page.totalElements ?? 0
+    if (thisLoad === loadsStarted) {
+      entries.value = page.content ?? []
+      total.value = page.totalElements ?? 0
+    }
   } catch (err) {
-    error.value = errorMessage(err, 'Failed to load the change log')
+    if (thisLoad === loadsStarted) {
+      error.value = errorMessage(err, 'Failed to load the change log')
+    }
   } finally {
-    loading.value = false
+    if (thisLoad === loadsStarted) {
+      loading.value = false
+    }
   }
 }
 
