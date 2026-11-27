@@ -1,1 +1,0 @@
-{"id":"e3ef88cf48aeb722917f21a79347cd46.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.system.internal.api.services.vulnerability.OsvAdvisoryReaderTest.readsAMaliciousPackageAsCritical","name":"readsAMaliciousPackageAsCritical()","status":"passed","testResultsByEnv":{"default":"93c663fe18e0504411a5455ed65a3265"}}
