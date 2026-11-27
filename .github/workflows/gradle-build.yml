@@ -10,10 +10,8 @@ on:
       - 'deployment/**'
       - 'docker-compose/**'
       - 'docs/**'
-      - 'kinotic-frontend/**'
       - 'kinotic-js/boxlite-test/**'
       - 'kinotic-js/firecracker-vmm-manager/**'
-      - 'kinotic-js/kinotic-cli/**'
       - 'kinotic-js/load-generator/**'
       - 'website/**'
   # Runs every suite and the image scan against the merge result before a change lands.
@@ -134,6 +132,35 @@ jobs:
         uses: ./.github/actions/collect-allure
         with:
           name: build
+
+  # The CLI ships as an npm package of its own, so it gets its own compile. kinotic-frontend is
+  # compiled by the UI image build in server_images and arm64_images, from its frozen lockfile.
+  cli:
+    name: CLI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: kinotic-js/kinotic-cli
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Corepack provides the pnpm version the project's packageManager field pins
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
 
   # Compiles what the server images need and stages them, without waiting on the unit tests in the
   # build job, so the suites that run against the images start as early as possible.
@@ -563,7 +590,7 @@ jobs:
   # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
   results:
     name: Build Result
-    needs: [migration_image, build, server_images, arm64_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
+    needs: [migration_image, build, cli, server_images, arm64_images, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -617,6 +644,7 @@ jobs:
           }
           check "Migration image" "${{ needs.migration_image.result }}"
           check "Build" "${{ needs.build.result }}"
+          check "CLI" "${{ needs.cli.result }}"
           check "Server images" "${{ needs.server_images.result }}"
           check "Arm64 images" "${{ needs.arm64_images.result }}"
           check "SBOM and vulnerability scan" "${{ needs.sbom_scan.result }}"
