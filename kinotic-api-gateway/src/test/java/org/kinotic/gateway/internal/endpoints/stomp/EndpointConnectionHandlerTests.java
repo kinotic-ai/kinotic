@@ -75,8 +75,9 @@ import static org.mockito.Mockito.when;
 /**
  * Pins what a STOMP connection's caller side owes its client: a request whose serving node leaves the
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
- * request releases it, a session under an open connection outlives its timeout, a session lasts its full timeout
- * after the connection's last frame, an idle connection on a browser login ends when that login's session expires,
+ * request releases it, a session under an open connection outlives its timeout, a session lasts exactly its timeout
+ * after the last frame on any of its connections, an idle connection on a browser login ends when that login's
+ * session expires,
  * and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
  * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
@@ -277,7 +278,7 @@ public class EndpointConnectionHandlerTests {
 
         // with no frame and no request, the session expires and the connection ends with it
         Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 4, TimeUnit.MILLISECONDS), "the idle connection outlived its session");
-        Assertions.assertEquals("The session the connection was established with has ended", closeCause.get().getMessage());
+        Assertions.assertEquals("The session the connection was established with has expired", closeCause.get().getMessage());
     }
 
     @Test
@@ -302,7 +303,37 @@ public class EndpointConnectionHandlerTests {
 
         Thread.sleep(lastFrame + SESSION_TIMEOUT_MS - 100 - System.currentTimeMillis());
         Assertions.assertNotNull(storedSession(session.id()), "the session expired sooner than its timeout after the last frame");
-        Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 3, TimeUnit.MILLISECONDS), "the idle connection outlived its session");
+        Assertions.assertEquals(1, closed.getCount(), "the connection ended sooner than its session's timeout after the last frame");
+
+        Assertions.assertTrue(closed.await(lastFrame + SESSION_TIMEOUT_MS + 300 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
+                              "the idle connection outlived its session's timeout after the last frame");
+        Assertions.assertNull(storedSession(session.id()), "the expired session is still in the store");
+    }
+
+    @Test
+    public void testFramesOnAnotherConnectionKeepTheSharedSessionAlive() throws Exception {
+        services.sessionStore = LocalSessionStore.create(vertx);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // two tabs of the same page, on the one session cookie
+        CountDownLatch idleClosed = new CountDownLatch(1);
+        EndpointConnectionHandler idle = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> idleClosed.countDown());
+        idle.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        idle.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        EndpointConnectionHandler busy = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
+        busy.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        busy.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        for (int i = 0; i < 6; i++) {
+            Thread.sleep(SESSION_TIMEOUT_MS / 2);
+            busy.unsubscribe("none");
+        }
+        Assertions.assertEquals(1, idleClosed.getCount(), "an idle tab ended the session another tab was using");
+        Assertions.assertNotNull(storedSession(session.id()), "the session another tab was using was removed");
+
+        busy.shutdown();
+        Assertions.assertTrue(idleClosed.await(SESSION_TIMEOUT_MS * 3, TimeUnit.MILLISECONDS), "the idle tab outlived the session once both went idle");
     }
 
     @Test
