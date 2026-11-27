@@ -119,7 +119,7 @@
 
         <DashboardSection :icon="Clock" class="order-7" :tint="TINTS.purple" title="History" :count="history.length"
                           :description="`Everything that happened to the deployment and what it runs, newest first. The latest ${HISTORY_PAGE_SIZE} entries.`">
-          <WatchEventsTimeline :entries="history" show-record empty-text="Nothing has happened to the deployment yet." />
+          <WatchEventsTimeline :entries="history" show-record :record-link="historyRecordLink" empty-text="Nothing has happened to the deployment yet." />
         </DashboardSection>
       </div>
     </template>
@@ -154,7 +154,8 @@ import { DeploymentStatusType,
          type MicroserviceDeployment,
          type ProjectDeployment,
          type UiDeployment,
-         type WatchEvent } from '@kinotic-ai/management-api'
+         type WatchEvent,
+         WatchedType } from '@kinotic-ai/management-api'
 import DeploymentFailureBanner from '@/components/DeploymentFailureBanner.vue'
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
@@ -292,6 +293,11 @@ async function loadDetails(): Promise<void> {
 
 async function loadUis(): Promise<void> {
   uis.value = await Kinotic.uiDeployments.findAllForProject(props.projectId)
+}
+
+// A deploy job's run opens on the organization's Jobs page; the deployment's other records are on this page
+function historyRecordLink(entry: WatchEvent): string | null {
+  return entry.type === WatchedType.JOB_RUN ? `/jobs/${encodeURIComponent(entry.id)}` : null
 }
 
 async function loadHistory(): Promise<void> {

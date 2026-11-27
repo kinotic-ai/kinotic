@@ -15,7 +15,7 @@
     >
       <span v-if="chip.severity" :class="['h-2 w-2 shrink-0 rounded-full', SEVERITY_FILL[chip.severity] ?? SEVERITY_FILL.secondary]" aria-hidden="true" />
       {{ chip.label }}
-      <span class="rounded-md bg-surface-100 px-1.5 text-xs font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300">{{ chip.count }}</span>
+      <span v-if="chip.count !== undefined" class="rounded-md bg-surface-100 px-1.5 text-xs font-medium tabular-nums text-surface-600 dark:bg-surface-800 dark:text-surface-300">{{ chip.count }}</span>
     </button>
   </div>
 </template>
