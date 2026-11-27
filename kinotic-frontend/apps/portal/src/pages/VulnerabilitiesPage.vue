@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <PageHeader title="Vulnerabilities"
-                description="Advisories from OSV that affect your projects' SBOMs, newest first. An alert is raised when a project's SBOM or a newly published advisory brings the two together, and clears itself once the project no longer installs an affected version.">
+                :description="`Advisories from OSV that affect ${scope.sboms}, newest first. An alert is raised when a project's SBOM or a newly published advisory brings the two together, and clears itself once the project no longer installs an affected version.`">
       <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined :loading="loading" @click="load" />
       </template>
@@ -17,15 +17,15 @@
     </div>
 
     <DashboardSection :icon="ShieldAlert" :tint="TINTS.red" title="Alerts" :count="total ?? undefined"
-                      description="Each alert links to the project's SBOM. Acknowledge marks it as seen; it stays until the project no longer installs an affected version.">
+                      :description="`${projectId === null ? 'Each alert links to the SBOM of its project. ' : ''}Acknowledge marks an alert as seen; it stays until the project no longer installs an affected version.`">
       <VulnerabilityFindingsTable :items="alerts" data-key="id" :loading="loading"
-                                  empty-hint="No advisory affects any of your projects' SBOMs.">
+                                  :empty-hint="`No advisory affects ${scope.sboms}.`">
         <template #columns>
-          <Column header="Project" style="width: 16%">
+          <Column v-if="projectId === null" header="Project" style="width: 16%">
             <template #body="{ data }">
               <RouterLink :to="{ name: 'project-sbom', params: { applicationId: data.applicationId, projectId: data.projectId } }"
                           class="font-medium text-primary hover:underline">{{ data.projectId }}</RouterLink>
-              <div class="text-xs text-muted-color">{{ data.applicationId }}</div>
+              <div v-if="applicationId === null" class="text-xs text-muted-color">{{ data.applicationId }}</div>
             </template>
           </Column>
           <Column header="Raised" style="width: 10rem">
@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
@@ -60,13 +60,21 @@ import Tag from 'primevue/tag'
 import { BellDot, ShieldAlert } from '@lucide/vue'
 import { DashboardSection, errorMessage, PageHeader, StatCard, TablePaginator, TimePill, TINTS, usePaging } from '@kinotic-ai/frontend-common'
 import { VulnerabilityFindingsTable } from '@kinotic-ai/frontend-common/management'
-import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
+import { Direction, Kinotic, Order, type Page, Pageable, Sort } from '@kinotic-ai/core'
 import type { VulnerabilityAlert } from '@kinotic-ai/management-api'
 
 /**
- * The organization's vulnerability inbox: every alert raised against its projects' SBOMs, newest
- * first, with how many are open and how many no member has acknowledged yet.
+ * A vulnerability inbox: every alert raised against the SBOMs of the organization's projects (both
+ * ids null), of one application's projects, or of one project, newest first, with how many are open
+ * and how many no member has acknowledged yet.
  */
+const props = withDefaults(defineProps<{
+  applicationId?: string | null
+  projectId?: string | null
+}>(), {
+  applicationId: null,
+  projectId: null,
+})
 
 const PAGE_SIZES = [25, 50, 100]
 // how deep into its results a search reads, which every page size above divides, so the last page ends on it
@@ -74,6 +82,37 @@ const DEEPEST_PAGED = 10_000
 // one scan raises many alerts in the same millisecond, so the id orders them for the pages to stay apart
 const NEWEST_FIRST = new Sort()
 NEWEST_FIRST.orders = [new Order('created', Direction.DESC), new Order('id', Direction.ASC)]
+
+// what the inbox lists, as the page states it and as the service reads it
+const scope = computed(() => {
+  const service = Kinotic.vulnerabilityAlerts
+  const { applicationId, projectId } = props
+  let ret: {
+    sboms: string
+    findPage: (pageable: Pageable) => Promise<Page<VulnerabilityAlert>>
+    countUnacknowledged: () => Promise<number>
+  }
+  if (projectId !== null) {
+    ret = {
+      sboms: "the project's SBOM",
+      findPage: pageable => service.findAllForProject(projectId, pageable),
+      countUnacknowledged: () => service.countUnacknowledgedForProject(projectId),
+    }
+  } else if (applicationId !== null) {
+    ret = {
+      sboms: "the application's projects' SBOMs",
+      findPage: pageable => service.findAllForApplication(applicationId, pageable),
+      countUnacknowledged: () => service.countUnacknowledgedForApplication(applicationId),
+    }
+  } else {
+    ret = {
+      sboms: "your projects' SBOMs",
+      findPage: pageable => service.findAll(pageable),
+      countUnacknowledged: () => service.countUnacknowledged(),
+    }
+  }
+  return ret
+})
 
 const alerts = ref<VulnerabilityAlert[]>([])
 const total = ref<number | null>(null)
@@ -94,7 +133,7 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     const [page] = await Promise.all([
-      Kinotic.vulnerabilityAlerts.findAll(Pageable.create(pageShown.value, pageSize.value, NEWEST_FIRST)),
+      scope.value.findPage(Pageable.create(pageShown.value, pageSize.value, NEWEST_FIRST)),
       loadUnacknowledged(),
     ])
     if (current === latestLoad) {
@@ -115,7 +154,7 @@ async function load(): Promise<void> {
 
 async function loadUnacknowledged(): Promise<void> {
   const current = ++latestCount
-  const count = await Kinotic.vulnerabilityAlerts.countUnacknowledged()
+  const count = await scope.value.countUnacknowledged()
   if (current === latestCount) {
     unacknowledged.value = count
   }
@@ -140,5 +179,14 @@ async function acknowledge(alert: VulnerabilityAlert): Promise<void> {
   }
 }
 
-void load()
+// another application or project opened in the same route starts over at its first page, showing
+// none of the previous one's alerts while its own load
+watch(() => [props.applicationId, props.projectId], () => {
+  first.value = 0
+  alerts.value = []
+  total.value = null
+  unacknowledged.value = null
+  error.value = null
+  void load()
+}, { immediate: true })
 </script>

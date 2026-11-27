@@ -192,7 +192,7 @@ const { first, pageSize, pageItems: pageRows, onPage } = usePagedList(visibleRow
 async function load(): Promise<void> {
   try {
     // the SBOM shows without its alerts when they cannot be read
-    const raised = Kinotic.vulnerabilityAlerts.findAllForProject(props.projectId).catch((err: unknown) => {
+    const raised = Kinotic.vulnerabilityAlerts.findAllForProjectMostSevereFirst(props.projectId).catch((err: unknown) => {
       alertsError.value = errorMessage(err, "The SBOM's vulnerabilities could not be checked")
       return []
     })

@@ -159,10 +159,11 @@ public class McpServiceSchemaTest {
                                                        .findFirst()
                                                        .orElseThrow();
 
-        // the three that read are hinted by their names
-        Assertions.assertTrue(mcpTool(service, "findAllForProject").isReadOnlyHint());
-        Assertions.assertTrue(mcpTool(service, "findAll").isReadOnlyHint());
-        Assertions.assertTrue(mcpTool(service, "countUnacknowledged").isReadOnlyHint());
+        // the ones that read are hinted by their names
+        for (String reader : List.of("findAllForProjectMostSevereFirst", "findAll", "findAllForApplication", "findAllForProject",
+                                     "countUnacknowledged", "countUnacknowledgedForApplication", "countUnacknowledgedForProject")) {
+            Assertions.assertTrue(mcpTool(service, reader).isReadOnlyHint(), reader);
+        }
 
         // acknowledge changes an alert, and its own @McpTool states what its name leaves out
         McpToolC3Decorator acknowledge = mcpTool(service, "acknowledge");
