@@ -195,6 +195,13 @@ const pageRoutes: RouteRecordRaw[] = [
         props: true
       },
       {
+        name: 'application-vulnerabilities',
+        path: 'vulnerabilities',
+        meta: { sidebar: applicationItem('Vulnerabilities', ShieldAlert, 45) } as RouteMeta,
+        component: () => import('@/pages/VulnerabilitiesPage.vue'),
+        props: true
+      },
+      {
         name: 'application-users',
         path: 'users',
         meta: { sidebar: applicationItem('Users', Users, 50, 'Access') } as RouteMeta,
@@ -255,6 +262,13 @@ const pageRoutes: RouteRecordRaw[] = [
         path: 'sbom',
         meta: { sidebar: projectItem('SBOM', ListTree, 40) } as RouteMeta,
         component: () => import('@/pages/ProjectSbomPage.vue'),
+        props: true
+      },
+      {
+        name: 'project-vulnerabilities',
+        path: 'vulnerabilities',
+        meta: { sidebar: projectItem('Vulnerabilities', ShieldAlert, 50) } as RouteMeta,
+        component: () => import('@/pages/VulnerabilitiesPage.vue'),
         props: true
       }
     ]
