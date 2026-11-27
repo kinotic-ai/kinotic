@@ -493,7 +493,8 @@ Ignite id, deletes that row when it shuts down, and deletes the rows of nodes th
 without shutting down; the page reads the rows of the nodes running and groups the nodes
 listing the same libraries into one build. `VulnerabilityAdvisoryService` backs the system console's
 Advisories page: for each ecosystem, how far OSV has been read (`syncedThrough`) and how many
-advisories not withdrawn are stored; a lookup by OSV id or alias, ignoring case and including
+advisories not withdrawn are stored, which selecting the ecosystem's card lists (`findAdvisoriesOf`),
+the most recently changed first and paged to the first 10,000; a lookup by OSV id or alias, ignoring case and including
 withdrawn advisories, or by package URL, matched without its version; and an advisory's alerts across
 every organization, read from the alert index, while the page checks the running server builds through
 `ClusterVulnerabilityService`. Nothing is stored for the page. `kinotic.systemApi.disableOsvImport` stops OSV being read,
