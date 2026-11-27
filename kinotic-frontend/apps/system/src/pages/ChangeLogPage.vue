@@ -12,7 +12,7 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <WatchEventsTimeline :entries="entries" show-record show-scope paged :record-link="recordLink"
+    <WatchEventsTimeline :entries="entries" show-record show-scope paged :record-link="recordLink" :loading="loading"
                          empty-text="Nothing has happened in the system yet." />
 
     <TablePaginator v-if="total > 0" class="mt-3"

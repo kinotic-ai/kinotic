@@ -1,10 +1,13 @@
 /* A DataTable that is loading: an indeterminate line runs along the header row's bottom divider,
-   in place of PrimeVue's mask over the rows, so the rows stay readable while the next page loads. */
-.datatable-loading .p-datatable-thead {
+   in place of PrimeVue's mask over the rows, so the rows stay readable while the next page loads.
+   A listing with no header row, .listing-loading, carries the same line along its top edge. */
+.datatable-loading .p-datatable-thead,
+.listing-loading {
   position: relative;
 }
 
-.datatable-loading .p-datatable-thead::after {
+.datatable-loading .p-datatable-thead::after,
+.listing-loading::before {
   content: "";
   position: absolute;
   left: 0;
@@ -15,6 +18,11 @@
   background-size: 40% 100%;
   background-repeat: no-repeat;
   animation: datatable-loading-slide 1.2s ease-in-out infinite;
+}
+
+.listing-loading::before {
+  top: 0;
+  bottom: auto;
 }
 
 @keyframes datatable-loading-slide {

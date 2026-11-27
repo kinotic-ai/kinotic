@@ -1,6 +1,7 @@
 <template>
-  <EmptyChartCharacter v-if="entries.length === 0" class="py-6" :title="emptyText" />
-  <div v-else class="px-5 py-4">
+  <div v-if="entries.length === 0 && loading" class="listing-loading h-24" />
+  <EmptyChartCharacter v-else-if="entries.length === 0" class="py-6" :title="emptyText" />
+  <div v-else :class="['px-5 py-4', { 'listing-loading': loading }]">
     <section v-for="day in days" :key="day.key" class="mb-2 last:mb-0">
       <h3 class="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">{{ day.label }}</h3>
       <ol>
@@ -84,6 +85,7 @@ import DatetimeUtil from '../util/DatetimeUtil'
 import { shortSha, withoutExceptionPrefix } from '../util/helpers'
 import { TINTS } from '../util/tints'
 import EmptyChartCharacter from './EmptyChartCharacter.vue'
+import '../styles/datatable-loading.css'
 
 /**
  * A record's ledger entries, newest first, as a timeline grouped by day: when each write landed,
@@ -101,12 +103,15 @@ const props = withDefaults(defineProps<{
   paged?: boolean
   /** Where an entry's record opens, null for a record with no page; the record shows unlinked without one. */
   recordLink?: (entry: WatchEvent) => RouteLocationRaw | null
+  /** Whether the entries are being loaded, which runs the loading line along the listing's top edge. */
+  loading?: boolean
   emptyText?: string
 }>(), {
   showRecord: false,
   showScope: false,
   paged: false,
   recordLink: undefined,
+  loading: false,
   emptyText: 'Nothing has happened to it yet.'
 })
 
