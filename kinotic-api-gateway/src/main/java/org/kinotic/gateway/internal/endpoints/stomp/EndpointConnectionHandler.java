@@ -73,8 +73,8 @@ public class EndpointConnectionHandler {
     private boolean sessionCreatedHere;
     // the id of the browser login the connection was established on, or null when it authenticated with credentials
     private String sessionLoginId;
+    // the CONNECTION mode's periodic touch, or the ACTIVITY mode's check at the session's expiry
     private long sessionTimer = -1;
-    private long sessionExpiryTimer = -1;
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
         this.services = services;
@@ -311,10 +311,6 @@ public class EndpointConnectionHandler {
             services.vertx.cancelTimer(sessionTimer);
             sessionTimer = -1;
         }
-        if (sessionExpiryTimer != -1) {
-            services.vertx.cancelTimer(sessionExpiryTimer);
-            sessionExpiryTimer = -1;
-        }
         subscriptions.forEach((s, subscription) -> subscription.consumer().unregister());
         subscriptions.clear();
         registrations.forEach(Runnable::run);
@@ -505,13 +501,13 @@ public class EndpointConnectionHandler {
 
     private void scheduleSessionExpiryCheck(long expiresAt) {
         long delay = Math.max(expiresAt - System.currentTimeMillis(), 0) + SESSION_EXPIRY_CHECK_DELAY_MILLIS;
-        sessionExpiryTimer = services.vertx.setTimer(delay, timerId -> checkSessionExpiry());
+        sessionTimer = services.vertx.setTimer(delay, timerId -> checkSessionExpiry());
     }
 
     // Reads the stored copy without writing it back, so the check never extends the session it watches. Requests on
     // the same cookie and this connection's own touches move the stored expiry, and the next check follows it.
     private void checkSessionExpiry() {
-        sessionExpiryTimer = -1;
+        sessionTimer = -1;
         String sessionId = session.id();
         services.sessionStore.get(sessionId).onComplete(ar -> {
             // the connection ended while the store answered
