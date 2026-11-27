@@ -190,7 +190,7 @@ jobs:
 
   # Installs each changed pnpm project from its frozen lockfile and builds it
   js_build:
-    name: JS Build (${{ matrix.project }})
+    name: JS Build
     needs: changes
     if: ${{ needs.changes.outputs.js_projects != '[]' }}
     runs-on: ubuntu-latest
