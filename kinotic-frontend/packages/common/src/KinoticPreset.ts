@@ -24,24 +24,32 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         },
     },
     semantic: {
+        // The accent is sky, the hue of focus and selection; the brand red stays on the logo and the
+        // sign-in pages, and red marks failures and destructive actions
         primary    : {
-            50 : '{brand.50}',
-            100: '{brand.100}',
-            200: '{brand.200}',
-            300: '{brand.300}',
-            400: '{brand.400}',
-            500: '{brand.500}',
-            600: '{brand.600}',
-            700: '{brand.700}',
-            800: '{brand.800}',
-            900: '{brand.900}',
-            950: '{brand.950}'
+            50 : '{sky.50}',
+            100: '{sky.100}',
+            200: '{sky.200}',
+            300: '{sky.300}',
+            400: '{sky.400}',
+            500: '{sky.500}',
+            600: '{sky.600}',
+            700: '{sky.700}',
+            800: '{sky.800}',
+            900: '{sky.900}',
+            950: '{sky.950}'
         },
         colorScheme: {
             light: {
                 // Keyboard focus is sky everywhere: rings, focused field borders and focused labels
                 focusRing: {
                     color: '{sky.500}'
+                },
+                // sky.500 reads at 2.8:1 on white, too faint for link text; 600 reads at 4:1
+                primary: {
+                    color: '{primary.600}',
+                    hoverColor: '{primary.700}',
+                    activeColor: '{primary.800}'
                 },
                 surface: {
                     0  : "#ffffff",
