@@ -30,10 +30,12 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 ## Branch and pull request workflow
 
 A merged pull request is finished — never stack new commits onto its history, and never reuse
-it to track follow-up work. When your PR merges, restart your working branch from the latest
-`develop` (keeping the same branch name, force-with-lease push) and open a **new** pull
-request for the next unit of work. If the branch carries unmerged commits, rebase them onto
-the new base instead of discarding them.
+it to track follow-up work. A merge leaves the working branch as it is: don't reset, push or
+recreate it then, since the maintainer may have deleted it. Only once there is new work to
+commit on it, restart the branch from the latest `develop` (keeping the same branch name, with
+a force-with-lease push if it still exists on the remote) and open a **new** pull request for
+that work. If the branch carries unmerged commits, rebase them onto the new base instead of
+discarding them.
 
 A pull request description never mentions Claude or any AI tool: no "Generated with Claude Code"
 line, no `Co-Authored-By` trailer, no session link, and no other attribution to an assistant.
