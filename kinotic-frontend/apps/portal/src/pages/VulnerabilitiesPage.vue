@@ -179,9 +179,14 @@ async function acknowledge(alert: VulnerabilityAlert): Promise<void> {
   }
 }
 
-// another application or project opened in the same route starts over at its first page
+// another application or project opened in the same route starts over at its first page, showing
+// none of the previous one's alerts while its own load
 watch(() => [props.applicationId, props.projectId], () => {
   first.value = 0
+  alerts.value = []
+  total.value = null
+  unacknowledged.value = null
+  error.value = null
   void load()
 }, { immediate: true })
 </script>
