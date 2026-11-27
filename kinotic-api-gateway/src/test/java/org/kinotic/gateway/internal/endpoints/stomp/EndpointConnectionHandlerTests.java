@@ -37,6 +37,7 @@ import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.kinotic.core.api.security.ConnectionRevocationType;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
@@ -48,6 +49,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -73,8 +75,9 @@ import static org.mockito.Mockito.when;
 /**
  * Pins what a STOMP connection's caller side owes its client: a request whose serving node leaves the
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
- * request releases it, a session under an open connection outlives its timeout, an idle connection on a browser
- * login ends when that login's session expires, and a connection that closes
+ * request releases it, a session under an open connection outlives its timeout, a session lasts its full timeout
+ * after the connection's last frame, an idle connection on a browser login ends when that login's session expires,
+ * and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
  * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
  * connection, and a client that falls behind a stream has the stream suspended until it catches up, or
@@ -275,6 +278,31 @@ public class EndpointConnectionHandlerTests {
         // with no frame and no request, the session expires and the connection ends with it
         Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 4, TimeUnit.MILLISECONDS), "the idle connection outlived its session");
         Assertions.assertEquals("The session the connection was established with has ended", closeCause.get().getMessage());
+    }
+
+    @Test
+    public void testSessionLastsTheFullTimeoutAfterTheLastFrame() throws Exception {
+        // The clustered store keeps its own copy of the session, so only what the connection saves reaches it, and
+        // expires that copy on the TTL of its last put. The login it holds is marshalled with this mapper.
+        ConnectedInfo.setSerializationMapper(JsonMapper.builder()
+                                                       .addModule(new SimpleModule().addAbstractTypeMapping(Participant.class, TestParticipant.class))
+                                                       .build());
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // a frame late in the save interval the connect started
+        Thread.sleep(SESSION_TIMEOUT_MS / 5);
+        handler.unsubscribe("none");
+        long lastFrame = System.currentTimeMillis();
+
+        Thread.sleep(lastFrame + SESSION_TIMEOUT_MS - 100 - System.currentTimeMillis());
+        Assertions.assertNotNull(storedSession(session.id()), "the session expired sooner than its timeout after the last frame");
+        Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 3, TimeUnit.MILLISECONDS), "the idle connection outlived its session");
     }
 
     @Test

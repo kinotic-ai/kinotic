@@ -67,13 +67,17 @@ public class EndpointConnectionHandler {
     private Throwable revocation;
     private Session session;
     private long lastSessionFlush = 0;
+    // ACTIVITY mode: activity since the last save, which the session timer saves once the save interval ends
+    private boolean activityUnsaved;
+    // ACTIVITY mode on a browser login: when the session timer next checks whether the stored session has ended
+    private long expiryCheckAt;
     private ConnectedInfo connectedInfo;
     private StompAuthorizer stompAuthorizer;
     private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
     private boolean sessionCreatedHere;
     // the id of the browser login the connection was established on, or null when it authenticated with credentials
     private String sessionLoginId;
-    // the CONNECTION mode's periodic touch, or the ACTIVITY mode's check at the session's expiry
+    // the CONNECTION mode's periodic touch, or the ACTIVITY mode's next save or expiry check
     private long sessionTimer = -1;
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
@@ -182,9 +186,6 @@ public class EndpointConnectionHandler {
                     // the upgrade response never reaches the store, so the connection's first write is this one
                     touchSession();
                     startSessionTouchTimer();
-                } else if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY && !sessionCreatedHere) {
-                    // the connection ends with the browser's login, which expires while the page sits idle
-                    scheduleSessionExpiryCheck(session.lastAccessed() + session.timeout());
                 }
                 ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
                                                     services.jsonMapper.writeValueAsString(connectedInfo)));
@@ -434,24 +435,78 @@ public class EndpointConnectionHandler {
         return ret;
     }
 
+    // The first activity of a save interval is saved at once, and later activity once the interval ends, so the
+    // stored session expires no sooner than the timeout after the connection's last activity, and at most one
+    // interval after it, while the store is written at most once per interval.
     private void signalActivity() {
         if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY) {
             if (session == null) {
                 log.error("Session is null while sessionKeepAliveMode is ACTIVITY");
                 throw new IllegalStateException("Internal server error");
             }
-            touchSession();
+            if (System.currentTimeMillis() - lastSessionFlush >= sessionSaveInterval()) {
+                saveActivity();
+            } else if (!activityUnsaved) {
+                activityUnsaved = true;
+                scheduleSessionTimer();
+            }
         }
+    }
+
+    private void saveActivity() {
+        activityUnsaved = false;
+        lastSessionFlush = System.currentTimeMillis();
+        expiryCheckAt = lastSessionFlush + session.timeout() + SESSION_EXPIRY_CHECK_DELAY_MILLIS;
+        flushSession(session).onComplete(ar -> {
+            // the connection ended while the store answered
+            if (session == null) {
+                return;
+            }
+            if (ar.failed()) {
+                activityUnsaved = true;
+            }
+            scheduleSessionTimer();
+        });
+    }
+
+    // Replaces the pending session timer with one for the ACTIVITY mode's next step: saving unsaved activity, or,
+    // on a browser login, checking whether its session has ended. Requests on the same cookie and other
+    // connections move the stored expiry, and each check follows it.
+    private void scheduleSessionTimer() {
+        if (sessionTimer != -1) {
+            services.vertx.cancelTimer(sessionTimer);
+            sessionTimer = -1;
+        }
+        long wakeAt = -1;
+        if (activityUnsaved) {
+            wakeAt = lastSessionFlush + sessionSaveInterval();
+        } else if (!sessionCreatedHere) {
+            wakeAt = expiryCheckAt;
+        }
+        if (wakeAt != -1) {
+            sessionTimer = services.vertx.setTimer(Math.max(wakeAt - System.currentTimeMillis(), 1), timerId -> {
+                sessionTimer = -1;
+                if (activityUnsaved) {
+                    saveActivity();
+                } else {
+                    checkSessionExpiry();
+                }
+            });
+        }
+    }
+
+    // a quarter of the timeout, so a save that fails is retried before the stored copy expires
+    private long sessionSaveInterval() {
+        return services.apiGatewayProperties.getSessionTimeout() / 4;
     }
 
     // SessionHandler flushes a session to the store when a response ends, which on a WebSocket happened
     // once, at the upgrade. Every touch after that has to reach the store itself or the clustered entry
-    // expires under the open connection. The write is rate limited to a fraction of the timeout, which
-    // bounds how far the stored expiry lags a busy connection.
+    // expires under the open connection. The write is rate limited to a fraction of the timeout.
     private void touchSession() {
         session.setAccessed();
         long now = System.currentTimeMillis();
-        if (now - lastSessionFlush >= services.apiGatewayProperties.getSessionTimeout() / 4) {
+        if (now - lastSessionFlush >= sessionSaveInterval()) {
             lastSessionFlush = now;
             flushSession(session);
         }
@@ -463,29 +518,24 @@ public class EndpointConnectionHandler {
     // connection a browser login established ends with it, since the login is gone with the session. It ends too
     // once the stored session no longer holds its login: a logout removes the login before it publishes the
     // revocation, so this read ends a connection the revocation missed, lost on its way or delivered before the
-    // connection registered for it.
-    private void flushSession(Session flushed) {
-        services.sessionStore.get(flushed.id()).onComplete(ar -> {
-            if (session != flushed) {
-                return;
-            }
-            if (ar.failed()) {
-                log.warn("Session {} could not be read from the store", flushed.id(), ar.cause());
-            } else {
-                AuthenticationException ended = sessionEnded(ar.result());
+    // connection registered for it. The returned future fails when the store could not be read or written.
+    private Future<Void> flushSession(Session flushed) {
+        return services.sessionStore.get(flushed.id()).compose(stored -> {
+            Future<Void> ret = Future.succeededFuture();
+            if (session == flushed) {
+                AuthenticationException ended = sessionEnded(stored);
                 if (ended != null) {
                     close.accept(ended);
-                } else if (ar.result() == null) {
+                } else if (stored == null) {
                     log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
                 } else {
-                    Session stored = ar.result();
                     session = stored;
                     stored.setAccessed();
-                    services.sessionStore.put(stored)
-                                         .onFailure(throwable -> log.warn("Session {} could not be refreshed in the store", stored.id(), throwable));
+                    ret = services.sessionStore.put(stored);
                 }
             }
-        });
+            return ret;
+        }).onFailure(throwable -> log.warn("Session {} could not be refreshed in the store", flushed.id(), throwable));
     }
 
     // The reason the connection ends, given the stored copy of its session, or null while the connection may go on
@@ -501,15 +551,8 @@ public class EndpointConnectionHandler {
         return ret;
     }
 
-    private void scheduleSessionExpiryCheck(long expiresAt) {
-        long delay = Math.max(expiresAt - System.currentTimeMillis(), 0) + SESSION_EXPIRY_CHECK_DELAY_MILLIS;
-        sessionTimer = services.vertx.setTimer(delay, timerId -> checkSessionExpiry());
-    }
-
-    // Reads the stored copy without writing it back, so the check never extends the session it watches. Requests on
-    // the same cookie and this connection's own touches move the stored expiry, and the next check follows it.
+    // Reads the stored copy without writing it back, so the check never extends the session it watches
     private void checkSessionExpiry() {
-        sessionTimer = -1;
         String sessionId = session.id();
         services.sessionStore.get(sessionId).onComplete(ar -> {
             // the connection ended while the store answered
@@ -517,15 +560,18 @@ public class EndpointConnectionHandler {
                 return;
             }
             if (ar.failed()) {
-                // retried at the touch timer's interval, which spaces the reads every connection makes while the store is down
+                // retried a save interval later, which spaces the reads every connection makes while the store is down
                 log.warn("Session {} could not be read from the store", sessionId, ar.cause());
-                scheduleSessionExpiryCheck(System.currentTimeMillis() + services.apiGatewayProperties.getSessionTimeout() / 4);
+                expiryCheckAt = System.currentTimeMillis() + sessionSaveInterval();
+                scheduleSessionTimer();
             } else {
                 AuthenticationException ended = sessionEnded(ar.result());
                 if (ended != null) {
                     close.accept(ended);
                 } else {
-                    scheduleSessionExpiryCheck(ar.result().lastAccessed() + ar.result().timeout());
+                    expiryCheckAt = Math.max(ar.result().lastAccessed() + ar.result().timeout(), System.currentTimeMillis())
+                                    + SESSION_EXPIRY_CHECK_DELAY_MILLIS;
+                    scheduleSessionTimer();
                 }
             }
         });
@@ -536,9 +582,7 @@ public class EndpointConnectionHandler {
             log.error("Session-touch timer already started");
             throw new IllegalStateException("Internal server error");
         }
-        // a quarter of the timeout, so a flush that fails is retried before the stored copy expires
-        long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 4;
-        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
+        sessionTimer = services.vertx.setPeriodic(sessionSaveInterval(), event -> {
             if (session == null) {
                 log.error("Session is null while session-touch timer is active");
                 throw new IllegalStateException("Internal server error");
