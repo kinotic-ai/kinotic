@@ -10,11 +10,11 @@
     <div class="flex flex-col gap-4">
       <Message v-if="statusError" severity="error" :closable="false">{{ statusError }}</Message>
       <div class="grid gap-4 sm:grid-cols-2">
-        <StatCard v-for="stat in importStats" :key="stat.label" :icon="DatabaseZap" :tint="stat.tint" :label="stat.label"
+        <StatCard v-for="stat in importStats" :key="stat.label" :icon="DatabaseZap" :tint="TINTS.ink" :label="stat.label"
                   :value="stat.value" :detail="stat.detail" :loading="statusLoading && statuses === null" :to="stat.to" />
       </div>
 
-      <DashboardSection :icon="Search" :tint="TINTS.sky" title="Look up an advisory"
+      <DashboardSection :icon="Search" :tint="TINTS.ink" title="Look up an advisory"
                         :description="listing?.ecosystem
                           ? `The ${ECOSYSTEM_NAMES[listing.ecosystem]} advisories imported into Kinotic and not withdrawn, the most recently changed first. Select one to see the projects and server builds it affects.`
                           : 'Find an advisory by its OSV id, an alias such as its CVE, or a package URL, and see the projects and server builds it affects.'"
@@ -100,7 +100,7 @@
           </template>
         </DashboardSection>
 
-        <DashboardSection :icon="Server" :tint="TINTS.blue" title="Server builds" :count="affectedBuilds?.length"
+        <DashboardSection :icon="Server" :tint="TINTS.ink" title="Server builds" :count="affectedBuilds?.length"
                           description="The running server builds whose libraries the advisory affects.">
           <Message v-if="buildsError" severity="warn" :closable="false" class="m-5">{{ buildsError }}</Message>
           <div v-else-if="affectedBuilds === null" class="py-6 text-center text-sm text-muted-color">Checking the servers' libraries…</div>
@@ -117,7 +117,7 @@
           </ul>
         </DashboardSection>
 
-        <DashboardSection :icon="FolderGit2" :tint="TINTS.purple" title="Projects" :count="alerts ? alertsTotal : undefined"
+        <DashboardSection :icon="FolderGit2" :tint="TINTS.ink" title="Projects" :count="alerts ? alertsTotal : undefined"
                           description="The projects of every organization whose SBOM holds a version the advisory affects, one alert each.">
           <Message v-if="alertsError" severity="error" :closable="false" class="m-5">{{ alertsError }}</Message>
           <template v-else>
@@ -218,7 +218,6 @@ const importStats = computed(() => (statuses.value ?? Object.values(PackageEcosy
     label: `${ECOSYSTEM_NAMES[status.ecosystem]} advisories`,
     value: statuses.value ? status.advisoryCount.toLocaleString() : '—',
     detail: status.syncedThrough ? `Read through ${new Date(status.syncedThrough).toLocaleString()}` : 'Not imported yet',
-    tint: statuses.value && !status.syncedThrough ? TINTS.orange : TINTS.blue,
     to: { query: { ecosystem: status.ecosystem } },
   })))
 
