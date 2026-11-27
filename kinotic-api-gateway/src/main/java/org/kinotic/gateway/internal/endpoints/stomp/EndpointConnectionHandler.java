@@ -197,13 +197,15 @@ public class EndpointConnectionHandler {
         return ret;
     }
 
-    public void removeSession() {
+    private void removeSession() {
         // a login session the client presented belongs to the browser, not to this connection
         if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null && sessionCreatedHere) {
             // The Vert.x SessionHandler deletes a destroyed session from the store when the response
             // ends. A WebSocket's response ended at the upgrade, so the store entry is removed here.
-            services.sessionStore.delete(session.id())
-                                 .onFailure(throwable -> log.warn("Session {} could not be removed from the store", session.id(), throwable));
+            // The id is captured because shutdown() clears the field before the delete completes.
+            String sessionId = session.id();
+            services.sessionStore.delete(sessionId)
+                                 .onFailure(throwable -> log.warn("Session {} could not be removed from the store", sessionId, throwable));
             session.destroy();
         }
     }
@@ -515,8 +517,9 @@ public class EndpointConnectionHandler {
                 return;
             }
             if (ar.failed()) {
+                // retried at the touch timer's interval, which spaces the reads every connection makes while the store is down
                 log.warn("Session {} could not be read from the store", sessionId, ar.cause());
-                scheduleSessionExpiryCheck(System.currentTimeMillis());
+                scheduleSessionExpiryCheck(System.currentTimeMillis() + services.apiGatewayProperties.getSessionTimeout() / 4);
             } else {
                 AuthenticationException ended = sessionEnded(ar.result());
                 if (ended != null) {
