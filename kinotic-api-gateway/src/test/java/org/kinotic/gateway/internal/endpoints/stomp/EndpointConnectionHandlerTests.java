@@ -73,7 +73,8 @@ import static org.mockito.Mockito.when;
 /**
  * Pins what a STOMP connection's caller side owes its client: a request whose serving node leaves the
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
- * request releases it, a session under an open connection outlives its timeout, and a connection that closes
+ * request releases it, a session under an open connection outlives its timeout, an idle connection on a browser
+ * login ends when that login's session expires, and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
  * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
  * connection, and a client that falls behind a stream has the stream suspended until it catches up, or
@@ -244,6 +245,36 @@ public class EndpointConnectionHandlerTests {
         SessionBinding.unbind(routingContext);
 
         Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 2, TimeUnit.MILLISECONDS), "the connection outlived its login");
+    }
+
+    @Test
+    public void testIdleConnectionEndsWhenItsLoginSessionExpires() throws Exception {
+        // a local store hands back the session it was given, so the login it holds needs no serialization mapper
+        services.sessionStore = LocalSessionStore.create(vertx);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        AtomicReference<Throwable> closeCause = new AtomicReference<>();
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> {
+            closeCause.set(cause);
+            closed.countDown();
+        });
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // requests the page makes on the same cookie keep the session alive past the expiry the connect set
+        for (int i = 0; i < 6; i++) {
+            Thread.sleep(SESSION_TIMEOUT_MS / 2);
+            Session stored = storedSession(session.id());
+            stored.setAccessed();
+            services.sessionStore.put(stored).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        }
+        Assertions.assertEquals(1, closed.getCount(), "the connection ended while its session was live");
+
+        // with no frame and no request, the session expires and the connection ends with it
+        Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 4, TimeUnit.MILLISECONDS), "the idle connection outlived its session");
+        Assertions.assertEquals("The session the connection was established with has ended", closeCause.get().getMessage());
     }
 
     @Test

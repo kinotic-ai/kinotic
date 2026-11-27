@@ -49,6 +49,9 @@ public class EndpointConnectionHandler {
     private static final AuthenticationContext GATEWAY_CONTEXT = new AuthenticationContext(AuthenticationContext.PUBLISHED_SERVICES);
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
+    // The store expires a session on the TTL of its last put, which runs from a moment after the setAccessed that
+    // preceded it, so the expiry check waits this long past the computed expiry to read the entry once it is gone
+    private static final long SESSION_EXPIRY_CHECK_DELAY_MILLIS = 1000;
     /** Upgrade header carrying the client secret; also read by name in DefaultCredentialAuthenticationService. */
     private static final String CLIENT_SECRET_HEADER = "clientSecret";
     private final SecurityService securityService;
@@ -71,6 +74,7 @@ public class EndpointConnectionHandler {
     // the id of the browser login the connection was established on, or null when it authenticated with credentials
     private String sessionLoginId;
     private long sessionTimer = -1;
+    private long sessionExpiryTimer = -1;
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
         this.services = services;
@@ -178,6 +182,9 @@ public class EndpointConnectionHandler {
                     // the upgrade response never reaches the store, so the connection's first write is this one
                     touchSession();
                     startSessionTouchTimer();
+                } else if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY && !sessionCreatedHere) {
+                    // the connection ends with the browser's login, which expires while the page sits idle
+                    scheduleSessionExpiryCheck(session.lastAccessed() + session.timeout());
                 }
                 ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
                                                     services.jsonMapper.writeValueAsString(connectedInfo)));
@@ -303,6 +310,10 @@ public class EndpointConnectionHandler {
         if (sessionTimer != -1) {
             services.vertx.cancelTimer(sessionTimer);
             sessionTimer = -1;
+        }
+        if (sessionExpiryTimer != -1) {
+            services.vertx.cancelTimer(sessionExpiryTimer);
+            sessionExpiryTimer = -1;
         }
         subscriptions.forEach((s, subscription) -> subscription.consumer().unregister());
         subscriptions.clear();
@@ -462,20 +473,61 @@ public class EndpointConnectionHandler {
             }
             if (ar.failed()) {
                 log.warn("Session {} could not be read from the store", flushed.id(), ar.cause());
-            } else if (ar.result() == null) {
-                if (sessionCreatedHere) {
+            } else {
+                AuthenticationException ended = sessionEnded(ar.result());
+                if (ended != null) {
+                    close.accept(ended);
+                } else if (ar.result() == null) {
                     log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
                 } else {
-                    close.accept(new AuthenticationException("The session the connection was established with has ended"));
+                    Session stored = ar.result();
+                    session = stored;
+                    stored.setAccessed();
+                    services.sessionStore.put(stored)
+                                         .onFailure(throwable -> log.warn("Session {} could not be refreshed in the store", stored.id(), throwable));
                 }
-            } else if (sessionLoginId != null && !SessionBinding.holdsLogin(ar.result(), sessionLoginId)) {
-                close.accept(new AuthenticationException("The login the connection was established on has ended"));
+            }
+        });
+    }
+
+    // The reason the connection ends, given the stored copy of its session, or null while the connection may go on
+    private AuthenticationException sessionEnded(Session stored) {
+        AuthenticationException ret = null;
+        if (stored == null) {
+            if (!sessionCreatedHere) {
+                ret = new AuthenticationException("The session the connection was established with has ended");
+            }
+        } else if (sessionLoginId != null && !SessionBinding.holdsLogin(stored, sessionLoginId)) {
+            ret = new AuthenticationException("The login the connection was established on has ended");
+        }
+        return ret;
+    }
+
+    private void scheduleSessionExpiryCheck(long expiresAt) {
+        long delay = Math.max(expiresAt - System.currentTimeMillis(), 0) + SESSION_EXPIRY_CHECK_DELAY_MILLIS;
+        sessionExpiryTimer = services.vertx.setTimer(delay, timerId -> checkSessionExpiry());
+    }
+
+    // Reads the stored copy without writing it back, so the check never extends the session it watches. Requests on
+    // the same cookie and this connection's own touches move the stored expiry, and the next check follows it.
+    private void checkSessionExpiry() {
+        sessionExpiryTimer = -1;
+        String sessionId = session.id();
+        services.sessionStore.get(sessionId).onComplete(ar -> {
+            // the connection ended while the store answered
+            if (session == null) {
+                return;
+            }
+            if (ar.failed()) {
+                log.warn("Session {} could not be read from the store", sessionId, ar.cause());
+                scheduleSessionExpiryCheck(System.currentTimeMillis());
             } else {
-                Session stored = ar.result();
-                session = stored;
-                stored.setAccessed();
-                services.sessionStore.put(stored)
-                                     .onFailure(throwable -> log.warn("Session {} could not be refreshed in the store", stored.id(), throwable));
+                AuthenticationException ended = sessionEnded(ar.result());
+                if (ended != null) {
+                    close.accept(ended);
+                } else {
+                    scheduleSessionExpiryCheck(ar.result().lastAccessed() + ar.result().timeout());
+                }
             }
         });
     }
