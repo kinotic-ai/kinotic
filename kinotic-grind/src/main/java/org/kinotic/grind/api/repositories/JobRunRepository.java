@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,7 +112,8 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
         params.put("message", condition.message());
         params.put("since", condition.since().toInstant().toString());
         return watchedStateRepository.write(document(jobRunId), RECORD_ABANDONED, params,
-                                            new WatchedChange(WatchEventType.STATUS_CHANGED, source, condition.message(), ExecutionStatus.FAILED))
+                                            new WatchedChange(WatchEventType.STATUS_CHANGED, source, condition.message(),
+                                                              outcome(ExecutionStatus.FAILED, condition.message())))
                                      .map(written -> written != null);
     }
 
@@ -137,7 +139,7 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
         params.put("error", error);
         params.put("finished", finished.toInstant().toString());
         return watchedStateRepository.write(document(jobRunId), RECORD_OUTCOME, params,
-                                            new WatchedChange(WatchEventType.STATUS_CHANGED, source, "Run " + status, status))
+                                            new WatchedChange(WatchEventType.STATUS_CHANGED, source, "Run " + status, outcome(status, error)))
                                      .map(written -> written != null);
     }
 
@@ -273,4 +275,11 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
                                    });
     }
 
+    // What a run's end enters in the ledger: the status it ended in and, for a failure, why
+    private static Map<String, Object> outcome(ExecutionStatus status, String error) {
+        Map<String, Object> ret = new LinkedHashMap<>();
+        ret.put("status", status);
+        ret.put("error", error);
+        return ret;
+    }
 }

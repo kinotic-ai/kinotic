@@ -2,7 +2,8 @@
 export interface StatusChip {
     label: string
     value: string | null
-    count: number
+    /** How many items are in the state, shown beside the label when given. */
+    count?: number
     /** The state's status, as a Tag severity, which colours its dot; the All chip has none. */
     severity?: string
 }

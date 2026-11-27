@@ -82,7 +82,7 @@ public class DeploymentHistoryTests extends KinoticTestBase {
     }
 
     private void enter(String id, WatchedType type, String scope, WatchedParent parent, WatchEventType eventType, long at) throws Exception {
-        WatchEvent event = new WatchEvent(new Date(at), type, id, scope, parent, eventType, "history test", "test-node",
+        WatchEvent event = new WatchEvent(new Date(at), type, id, null, scope, parent, eventType, "history test", "test-node",
                                           null, eventType + " " + id, null);
         await(watchEvents.record(UUID.randomUUID().toString(), event));
     }

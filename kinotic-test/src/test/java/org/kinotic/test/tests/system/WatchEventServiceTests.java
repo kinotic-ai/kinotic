@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
+import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.system.api.services.WatchEventService;
 import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
@@ -18,12 +19,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The platform's ledger as the console's Change log page reads it: every record's entries in one
- * listing, newest first.
+ * The system's ledger as the console's Change log page reads it: every record's entries in one
+ * listing, newest first, narrowed to the kinds of record asked for.
  */
 @SpringBootTest
 public class WatchEventServiceTests extends KinoticTestBase {
@@ -69,8 +71,31 @@ public class WatchEventServiceTests extends KinoticTestBase {
         }
     }
 
+    @Test
+    public void listsOnlyTheEntriesOfTheGivenTypesEachNamingItsRecord() throws Exception {
+        await(runAsNode(firstNode, () -> nodeOrchestration.registerNode(NodeFixtures.registration(firstNode, 4, 4096, 10240))));
+
+        long deadline = System.currentTimeMillis() + 30_000;
+        List<WatchEvent> entries = latest(List.of(WatchedType.VM_NODE));
+        while (entries.stream().noneMatch(entry -> firstNode.equals(entry.id())) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(250);
+            entries = latest(List.of(WatchedType.VM_NODE));
+        }
+
+        assertFalse(entries.isEmpty(), "the listing of node entries is empty");
+        assertTrue(entries.stream().allMatch(entry -> entry.type() == WatchedType.VM_NODE),
+                   "the listing holds entries of other types: " + entries);
+        // the fixture's machine is displayed under the node's id, which registration takes as the node's name
+        WatchEvent registered = entries.stream().filter(entry -> firstNode.equals(entry.id())).findFirst().orElseThrow();
+        assertEquals(firstNode, registered.name());
+    }
+
     private List<WatchEvent> latest() throws Exception {
-        return await(watchEvents.findAll(Pageable.create(0, 100, null))).getContent();
+        return latest(null);
+    }
+
+    private List<WatchEvent> latest(List<WatchedType> types) throws Exception {
+        return await(watchEvents.findAll(types, Pageable.create(0, 100, null))).getContent();
     }
 
     private boolean namesBoth(List<WatchEvent> entries) {

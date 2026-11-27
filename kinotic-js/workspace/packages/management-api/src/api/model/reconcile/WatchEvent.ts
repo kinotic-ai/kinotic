@@ -13,6 +13,8 @@ export interface WatchEvent {
     type: WatchedType
     /** The record's id. */
     id: string
+    /** The record's name when written, null for a record whose id names it. */
+    name: string | null
     /**
      * The scope the record is addressed under, as its repository gives it: its organization for a
      * record an organization owns, null for a node.

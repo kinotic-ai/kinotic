@@ -50,15 +50,21 @@ public class WatchEventRepository {
     }
 
     /**
-     * Lists what happened to every watched record, newest first.
+     * Lists what happened to every watched record of the given types, newest first.
      *
+     * @param types    the kinds of record to list the entries of, every kind when null or empty
      * @param pageable the page to return
      * @return a future emitting a page of entries
      */
-    public Future<Page<WatchEvent>> findAll(Pageable pageable) {
+    public Future<Page<WatchEvent>> findAll(List<WatchedType> types, Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
-        return crudServiceTemplate.search(DATA_STREAM, pageable, WatchEvent.class,
-                                          b -> b.sort(so -> so.field(f -> f.field("@timestamp").order(SortOrder.Desc))));
+        List<FieldValue> typeValues = types == null ? List.of() : types.stream().map(type -> FieldValue.of(type.name())).toList();
+        return crudServiceTemplate.search(DATA_STREAM, pageable, WatchEvent.class, b -> {
+            if (!typeValues.isEmpty()) {
+                b.query(q -> q.bool(bq -> bq.filter(f -> f.terms(t -> t.field("type").terms(v -> v.value(typeValues))))));
+            }
+            b.sort(so -> so.field(f -> f.field("@timestamp").order(SortOrder.Desc)));
+        });
     }
 
     /**
