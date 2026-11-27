@@ -99,7 +99,7 @@ const RepoStatus = RepositoryConnectionStatus
 // The health bar's buckets, in the order they stack, keyed by the Tag severity a run status maps to
 const HEALTH_BUCKETS = [
   { severity: 'success', label: 'Completed', bar: 'bg-green-500' },
-  { severity: 'info', label: 'Running', bar: 'bg-sky-500' },
+  { severity: 'info', label: 'Running', bar: 'bg-primary-500' },
   { severity: 'warn', label: 'Cancelled', bar: 'bg-amber-500' },
   { severity: 'danger', label: 'Failed', bar: 'bg-red-500' },
   { severity: 'none', label: 'Never deployed', bar: 'bg-surface-300 dark:bg-surface-600' }

@@ -17,7 +17,7 @@
       <div v-if="inviteTotal > 0" class="leading-tight">
         <div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-color">Pending invitations</div>
         <div class="mt-0.5 flex items-center gap-2 text-lg font-semibold tabular-nums text-surface-950 dark:text-surface-0">
-          <span class="h-2 w-2 rounded-full bg-sky-500" aria-hidden="true" />{{ inviteTotal }}
+          <span class="h-2 w-2 rounded-full bg-primary-500" aria-hidden="true" />{{ inviteTotal }}
         </div>
       </div>
     </section>

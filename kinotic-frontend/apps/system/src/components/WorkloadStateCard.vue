@@ -28,14 +28,14 @@ import { accentColor, DashboardSection, isDark, type ChartAccent } from '@kinoti
 import CapacityBar from './CapacityBar.vue'
 import { WORKLOAD_STATES, countByStatus, workloadStateLabel } from '@/util/workloads'
 
-// The states take the system console's status colours: green running, sky on the way up or down, red
+// The states take the system console's status colours: green running, the primary colour on the way up or down, red
 // failed, and neutral greys for waiting and stopped; every row carries its label and count, so
 // identity is never color alone
-const ACCENT_BY_STATE: Record<WorkloadStatus, ChartAccent | 'waiting' | 'stopped'> = {
+const ACCENT_BY_STATE: Record<WorkloadStatus, ChartAccent | 'primary' | 'waiting' | 'stopped'> = {
   [WorkloadStatus.RUNNING]: 'green',
-  [WorkloadStatus.STARTING]: 'sky',
+  [WorkloadStatus.STARTING]: 'primary',
   [WorkloadStatus.PENDING]: 'waiting',
-  [WorkloadStatus.STOPPING]: 'sky',
+  [WorkloadStatus.STOPPING]: 'primary',
   [WorkloadStatus.STOPPED]: 'stopped',
   [WorkloadStatus.FAILED]: 'red'
 }

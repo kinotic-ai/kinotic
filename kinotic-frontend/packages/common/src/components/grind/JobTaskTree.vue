@@ -2,7 +2,7 @@
   <div class="overflow-hidden rounded-xl border border-surface-200 dark:border-surface-700">
     <div v-for="row in rows" :key="row.node.taskPath" :data-task-path="row.node.taskPath"
          class="border-b border-surface-200 last:border-b-0 dark:border-surface-700"
-         :class="row.node.status === ExecutionStatus.RUNNING ? 'bg-sky-50 dark:bg-sky-500/10' : ''">
+         :class="row.node.status === ExecutionStatus.RUNNING ? 'bg-primary-50 dark:bg-primary-500/10' : ''">
       <div class="flex items-center gap-2.5 py-2.5 pr-3"
            :style="{ paddingLeft: `${row.depth * 1.25 + (nested ? 0.75 : FLAT_INSET_REM)}rem` }">
         <button v-if="row.node.children.length > 0"
@@ -31,7 +31,7 @@
 
         <span class="ml-auto shrink-0 font-mono text-xs text-muted-color">{{ row.node.taskPath }}</span>
         <span class="w-16 shrink-0 text-right font-mono text-xs tabular-nums"
-              :class="row.node.status === ExecutionStatus.RUNNING ? 'text-sky-600 dark:text-sky-300' : 'text-muted-color'">
+              :class="row.node.status === ExecutionStatus.RUNNING ? 'text-primary-600 dark:text-primary-300' : 'text-muted-color'">
           {{ formatDuration(row.node.started, row.node.finished, now) }}
         </span>
         <button v-if="taskViewComponent(row.node)"

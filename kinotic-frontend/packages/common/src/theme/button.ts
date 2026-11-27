@@ -67,17 +67,17 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     }
                 },
                 info: {
-                    background: "{sky.500}",
-                    hoverBackground: "{sky.600}",
-                    activeBackground: "{sky.700}",
-                    borderColor: "{sky.500}",
-                    hoverBorderColor: "{sky.600}",
-                    activeBorderColor: "{sky.700}",
+                    background: "{primary.500}",
+                    hoverBackground: "{primary.600}",
+                    activeBackground: "{primary.700}",
+                    borderColor: "{primary.500}",
+                    hoverBorderColor: "{primary.600}",
+                    activeBorderColor: "{primary.700}",
                     color: "#ffffff",
                     hoverColor: "#ffffff",
                     activeColor: "#ffffff",
                     focusRing: {
-                        color: "{sky.500}",
+                        color: "{primary.500}",
                         shadow: "none"
                     }
                 },
@@ -177,10 +177,10 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     color: "{green.500}"
                 },
                 info: {
-                    hoverBackground: "{sky.50}",
-                    activeBackground: "{sky.100}",
-                    borderColor: "{sky.200}",
-                    color: "{sky.500}"
+                    hoverBackground: "{primary.50}",
+                    activeBackground: "{primary.100}",
+                    borderColor: "{primary.200}",
+                    color: "{primary.500}"
                 },
                 warn: {
                     hoverBackground: "{orange.50}",
@@ -230,9 +230,9 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     color: "{green.500}"
                 },
                 info: {
-                    hoverBackground: "{sky.50}",
-                    activeBackground: "{sky.100}",
-                    color: "{sky.500}"
+                    hoverBackground: "{primary.50}",
+                    activeBackground: "{primary.100}",
+                    color: "{primary.500}"
                 },
                 warn: {
                     hoverBackground: "{orange.50}",
@@ -300,17 +300,17 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     }
                 },
                 info: {
-                    background: "{sky.400}",
-                    hoverBackground: "{sky.300}",
-                    activeBackground: "{sky.200}",
-                    borderColor: "{sky.400}",
-                    hoverBorderColor: "{sky.300}",
-                    activeBorderColor: "{sky.200}",
-                    color: "{sky.950}",
-                    hoverColor: "{sky.950}",
-                    activeColor: "{sky.950}",
+                    background: "{primary.400}",
+                    hoverBackground: "{primary.300}",
+                    activeBackground: "{primary.200}",
+                    borderColor: "{primary.400}",
+                    hoverBorderColor: "{primary.300}",
+                    activeBorderColor: "{primary.200}",
+                    color: "{primary.950}",
+                    hoverColor: "{primary.950}",
+                    activeColor: "{primary.950}",
                     focusRing: {
-                        color: "{sky.400}",
+                        color: "{primary.400}",
                         shadow: "none"
                     }
                 },
@@ -410,10 +410,10 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     color: "{green.400}"
                 },
                 info: {
-                    hoverBackground: "color-mix(in srgb, {sky.400}, transparent 96%)",
-                    activeBackground: "color-mix(in srgb, {sky.400}, transparent 84%)",
-                    borderColor: "{sky.700}",
-                    color: "{sky.400}"
+                    hoverBackground: "color-mix(in srgb, {primary.400}, transparent 96%)",
+                    activeBackground: "color-mix(in srgb, {primary.400}, transparent 84%)",
+                    borderColor: "{primary.700}",
+                    color: "{primary.400}"
                 },
                 warn: {
                     hoverBackground: "color-mix(in srgb, {orange.400}, transparent 96%)",
@@ -463,9 +463,9 @@ import type { ButtonDesignTokens } from '@primeuix/themes/types/button';
                     color: "{green.400}"
                 },
                 info: {
-                    hoverBackground: "color-mix(in srgb, {sky.400}, transparent 96%)",
-                    activeBackground: "color-mix(in srgb, {sky.400}, transparent 84%)",
-                    color: "{sky.400}"
+                    hoverBackground: "color-mix(in srgb, {primary.400}, transparent 96%)",
+                    activeBackground: "color-mix(in srgb, {primary.400}, transparent 84%)",
+                    color: "{primary.400}"
                 },
                 warn: {
                     hoverBackground: "color-mix(in srgb, {orange.400}, transparent 96%)",

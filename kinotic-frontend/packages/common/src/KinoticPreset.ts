@@ -24,8 +24,8 @@ export const KinoticPreset = definePreset(KinoticTheme, {
         },
     },
     semantic: {
-        // The accent is sky, the hue of focus and selection; the brand red stays on the logo and the
-        // sign-in pages, and red marks failures and destructive actions
+        // The accent is sky: links, focus, selection and in-progress or info statuses all take it; the
+        // brand red stays on the logo and the sign-in pages, and red marks failures and destructive actions
         primary    : {
             50 : '{sky.50}',
             100: '{sky.100}',

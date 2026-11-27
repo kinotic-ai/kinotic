@@ -27,8 +27,8 @@ import type { TagDesignTokens } from '@primeuix/themes/types/tag';
                 color: "{green.700}"
             },
             info: {
-                background: "{sky.100}",
-                color: "{sky.700}"
+                background: "{primary.100}",
+                color: "{primary.700}"
             },
             warn: {
                 background: "{orange.100}",
@@ -57,8 +57,8 @@ import type { TagDesignTokens } from '@primeuix/themes/types/tag';
                 color: "{green.300}"
             },
             info: {
-                background: "color-mix(in srgb, {sky.500}, transparent 84%)",
-                color: "{sky.300}"
+                background: "color-mix(in srgb, {primary.500}, transparent 84%)",
+                color: "{primary.300}"
             },
             warn: {
                 background: "color-mix(in srgb, {orange.500}, transparent 84%)",

@@ -190,7 +190,7 @@ const cardClass = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:bo
 // The health bar's buckets, in the order they stack, keyed by the Tag severity a phase maps to
 const HEALTH_BUCKETS = [
   { severity: 'success', label: 'Running', bar: 'bg-green-500' },
-  { severity: 'info', label: 'In progress', bar: 'bg-sky-500' },
+  { severity: 'info', label: 'In progress', bar: 'bg-primary-500' },
   { severity: 'warn', label: 'Needs attention', bar: 'bg-amber-500' },
   { severity: 'danger', label: 'Failed', bar: 'bg-red-500' },
   { severity: 'none', label: 'Not deployed', bar: 'bg-surface-300 dark:bg-surface-600' }

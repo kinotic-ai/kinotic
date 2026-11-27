@@ -110,7 +110,7 @@ const outcome = computed(() => {
   return [
     { label: 'Completed', status: ExecutionStatus.COMPLETED, bar: 'bg-green-500' },
     { label: 'Failed', status: ExecutionStatus.FAILED, bar: 'bg-red-500' },
-    { label: 'Running', status: ExecutionStatus.RUNNING, bar: 'bg-sky-500' }
+    { label: 'Running', status: ExecutionStatus.RUNNING, bar: 'bg-primary-500' }
   ].map(part => {
     const count = stateCount(part.status)
     return { ...part, count, share: Math.round((count / total) * 100) }

@@ -15,8 +15,16 @@ export type ChartAccent = keyof typeof CHART_ACCENTS
 
 const ACCENT_ORDER: ChartAccent[] = ['sky', 'violet', 'green', 'amber', 'red', 'teal']
 
-export function accentColor(accent: ChartAccent, dark: boolean): string {
-    return dark ? CHART_ACCENTS[accent].dark : CHART_ACCENTS[accent].light
+/** The colour of an accent, or of the theme's primary colour, in the given colour scheme. */
+export function accentColor(accent: ChartAccent | 'primary', dark: boolean): string {
+    let ret: string
+    if (accent === 'primary') {
+        // ECharts paints on a canvas, which cannot resolve a CSS variable, so read the theme's value
+        ret = getComputedStyle(document.documentElement).getPropertyValue(dark ? '--p-primary-400' : '--p-primary-500').trim()
+    } else {
+        ret = dark ? CHART_ACCENTS[accent].dark : CHART_ACCENTS[accent].light
+    }
+    return ret
 }
 
 /** The accent of the n-th series of a chart, cycling once a chart holds more series than accents. */

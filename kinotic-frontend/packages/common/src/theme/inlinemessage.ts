@@ -15,10 +15,10 @@ import type { InlineMessageDesignTokens } from '@primeuix/themes/types/inlinemes
     colorScheme: {
         light: {
             info: {
-                background: "color-mix(in srgb, {blue.50}, transparent 5%)",
-                borderColor: "{blue.200}",
-                color: "{blue.600}",
-                shadow: "0px 4px 8px 0px color-mix(in srgb, {blue.500}, transparent 96%)"
+                background: "color-mix(in srgb, {primary.50}, transparent 5%)",
+                borderColor: "{primary.200}",
+                color: "{primary.600}",
+                shadow: "0px 4px 8px 0px color-mix(in srgb, {primary.500}, transparent 96%)"
             },
             success: {
                 background: "color-mix(in srgb, {green.50}, transparent 5%)",
@@ -53,10 +53,10 @@ import type { InlineMessageDesignTokens } from '@primeuix/themes/types/inlinemes
         },
         dark: {
             info: {
-                background: "color-mix(in srgb, {blue.500}, transparent 84%)",
-                borderColor: "color-mix(in srgb, {blue.700}, transparent 64%)",
-                color: "{blue.500}",
-                shadow: "0px 4px 8px 0px color-mix(in srgb, {blue.500}, transparent 96%)"
+                background: "color-mix(in srgb, {primary.500}, transparent 84%)",
+                borderColor: "color-mix(in srgb, {primary.700}, transparent 64%)",
+                color: "{primary.500}",
+                shadow: "0px 4px 8px 0px color-mix(in srgb, {primary.500}, transparent 96%)"
             },
             success: {
                 background: "color-mix(in srgb, {green.500}, transparent 84%)",

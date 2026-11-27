@@ -82,7 +82,7 @@ const TONES: Record<Tone, { marker: string, text: string }> = {
   danger: { marker: TINTS.red, text: 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300' },
   warn: { marker: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', text: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' },
   success: { marker: TINTS.green, text: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' },
-  info: { marker: TINTS.sky, text: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' },
+  info: { marker: TINTS.primary, text: 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' },
   neutral: {
     marker: 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
     text: 'bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200'

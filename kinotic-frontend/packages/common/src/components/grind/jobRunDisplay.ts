@@ -48,10 +48,10 @@ export const TASK_STATUS_STYLE: Record<ExecutionStatus, TaskStatusStyle> = {
   },
   [ExecutionStatus.RUNNING]: {
     icon: markRaw(LoaderCircle),
-    badge: 'bg-surface-0 text-sky-600 dark:bg-surface-900 dark:text-sky-300',
+    badge: 'bg-surface-0 text-primary-600 dark:bg-surface-900 dark:text-primary-300',
     rowIcon: markRaw(LoaderCircle),
-    row: 'animate-spin text-sky-500',
-    tile: 'bg-sky-50 dark:bg-sky-500/15'
+    row: 'animate-spin text-primary-500',
+    tile: 'bg-primary-50 dark:bg-primary-500/15'
   },
   [ExecutionStatus.COMPLETED]: {
     icon: markRaw(Check),

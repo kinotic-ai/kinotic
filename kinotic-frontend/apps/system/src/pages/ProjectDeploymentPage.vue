@@ -152,7 +152,7 @@ const props = defineProps<{
 /** The status groups a workload falls in, worst last, with the colour of each. */
 const STATUS_BUCKETS = [
   { severity: 'success', label: 'Running', border: 'border-green-500' },
-  { severity: 'info', label: 'Starting or pending', border: 'border-sky-500' },
+  { severity: 'info', label: 'Starting or pending', border: 'border-primary-500' },
   { severity: 'warn', label: 'Stopping', border: 'border-amber-500' },
   { severity: 'danger', label: 'Failed', border: 'border-red-500' },
   { severity: 'secondary', label: 'Stopped', border: 'border-surface-300 dark:border-surface-600' }
@@ -210,7 +210,7 @@ const runSummary = computed(() => {
     { label: 'Completed', icon: markRaw(CircleCheck), tint: TINTS.green, count: count(ExecutionStatus.COMPLETED) },
     { label: 'Failed', icon: markRaw(CircleX), tint: TINTS.red, count: count(ExecutionStatus.FAILED) },
     { label: 'Cancelled', icon: markRaw(Ban), tint: TINTS.orange, count: count(ExecutionStatus.CANCELLED) },
-    { label: 'Running', icon: markRaw(LoaderCircle), tint: TINTS.sky, count: count(ExecutionStatus.RUNNING) }
+    { label: 'Running', icon: markRaw(LoaderCircle), tint: TINTS.primary, count: count(ExecutionStatus.RUNNING) }
   ]
 })
 

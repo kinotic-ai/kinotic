@@ -44,15 +44,15 @@ import type { ToastDesignTokens } from '@primeuix/themes/types/toast';
                 blur: "1.5px"
             },
             info: {
-                background: "color-mix(in srgb, {blue.50}, transparent 5%)",
-                borderColor: "{blue.200}",
-                color: "{blue.600}",
+                background: "color-mix(in srgb, {primary.50}, transparent 5%)",
+                borderColor: "{primary.200}",
+                color: "{primary.600}",
                 detailColor: "{surface.700}",
-                shadow: "0px 4px 8px 0px color-mix(in srgb, {blue.500}, transparent 96%)",
+                shadow: "0px 4px 8px 0px color-mix(in srgb, {primary.500}, transparent 96%)",
                 closeButton: {
-                    hoverBackground: "{blue.100}",
+                    hoverBackground: "{primary.100}",
                     focusRing: {
-                        color: "{blue.600}",
+                        color: "{primary.600}",
                         shadow: "none"
                     }
                 }
@@ -133,15 +133,15 @@ import type { ToastDesignTokens } from '@primeuix/themes/types/toast';
                 blur: "10px"
             },
             info: {
-                background: "color-mix(in srgb, {blue.500}, transparent 84%)",
-                borderColor: "color-mix(in srgb, {blue.700}, transparent 64%)",
-                color: "{blue.500}",
+                background: "color-mix(in srgb, {primary.500}, transparent 84%)",
+                borderColor: "color-mix(in srgb, {primary.700}, transparent 64%)",
+                color: "{primary.500}",
                 detailColor: "{surface.0}",
-                shadow: "0px 4px 8px 0px color-mix(in srgb, {blue.500}, transparent 96%)",
+                shadow: "0px 4px 8px 0px color-mix(in srgb, {primary.500}, transparent 96%)",
                 closeButton: {
                     hoverBackground: "rgba(255, 255, 255, 0.05)",
                     focusRing: {
-                        color: "{blue.500}",
+                        color: "{primary.500}",
                         shadow: "none"
                     }
                 }

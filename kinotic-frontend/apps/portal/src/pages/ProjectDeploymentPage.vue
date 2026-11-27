@@ -202,7 +202,7 @@ const loading = ref(true)
 /** The phase groups a workload's status falls in, worst last, with the colour of each. */
 const STATUS_BUCKETS = [
   { severity: 'success', label: 'Running', border: 'border-green-500' },
-  { severity: 'info', label: 'In progress', border: 'border-sky-500' },
+  { severity: 'info', label: 'In progress', border: 'border-primary-500' },
   { severity: 'warn', label: 'Needs attention', border: 'border-amber-500' },
   { severity: 'danger', label: 'Failed', border: 'border-red-500' },
   { severity: 'secondary', label: 'Pending', border: 'border-surface-300 dark:border-surface-600' }
