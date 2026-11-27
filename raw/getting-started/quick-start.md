@@ -1,15 +1,23 @@
 ---
 title: "Quick Start"
-description: "Run Kinotic on your own machine, create your organization, and build your first app with Claude Code, Codex or Grok Build."
+description: "Try Kinotic Cloud or run Kinotic on your own machine, create your organization, and build your first app with Claude Code, Codex or Grok Build."
 canonical_url: "https://kinotic.ai/getting-started/quick-start"
 ---
 # Quick Start
 
-> Run Kinotic on your own machine, create your organization, and build your first app with Claude Code, Codex or Grok Build.
+> Try Kinotic Cloud or run Kinotic on your own machine, create your organization, and build your first app with Claude Code, Codex or Grok Build.
 
-Kinotic runs on your own machine today. Kinotic OS Cloud, where Kinotic runs for you, is coming soon.
+Try Kinotic Cloud, where Kinotic runs for you, free while it is in beta, or run Kinotic on your own machine.
 
 <tabs sync="kinotic-install">
+<tabs-item icon="i-lucide-cloud" label="Cloud">
+<cloud-beta>
+
+
+
+</cloud-beta>
+</tabs-item>
+
 <tabs-item icon="i-lucide-laptop" label="Local">
 
 The local install runs the whole of Kinotic OS in Docker on your machine: its servers, the portal, the
@@ -81,14 +89,6 @@ server that holds it, and asks which one to create a new app on.
 it is doing, and the [CLI reference](https://kinotic.ai/apps/cli-reference#kinotic-local) covers each command.
 [Developing Kinotic](https://kinotic.ai/platform/contributing) covers how to work on Kinotic itself.
 
-</tabs-item>
-
-<tabs-item icon="i-lucide-cloud" label="Cloud">
-<cloud-waitlist>
-
-
-
-</cloud-waitlist>
 </tabs-item>
 </tabs>
 
