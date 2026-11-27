@@ -343,7 +343,11 @@ function handleCardClick(item: Identifiable<string>, index: number) {
   onRowClick({ data: item, index });
 }
 
+// Counts the finds started, so a find another has superseded leaves the table to the latest one
+let findsStarted = 0;
+
 function find() {
+  const thisFind = ++findsStarted;
   if (!loading.value && props.dataSource) {
     loading.value = true;
   }
@@ -361,6 +365,9 @@ function find() {
 
   queryPromise
     .then((page: Page<Identifiable<string>>) => {
+      if (thisFind !== findsStarted) {
+        return;
+      }
       loading.value = false;
       const content = page.content ?? [];
       // A row deleted a moment ago can still come back while the search index catches up; it stays
@@ -380,8 +387,10 @@ function find() {
 
     .catch((error: unknown) => {
       debug('Error loading data: %O', error);
-      loading.value = false;
-      initialSearchCompleted.value = true;
+      if (thisFind === findsStarted) {
+        loading.value = false;
+        initialSearchCompleted.value = true;
+      }
     });
 }
 
