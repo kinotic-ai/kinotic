@@ -1,1 +1,0 @@
-{"id":"a19bc11d10ff7275c7da935597311a44.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.management.internal.api.services.vulnerability.AffectedVersionsTest.aVersionPartTooLongForNpmIsAffectedOnlyWhenListed","name":"aVersionPartTooLongForNpmIsAffectedOnlyWhenListed()","status":"passed","testResultsByEnv":{"default":"e0dd7628f3ceca21884b6abff65228ac"}}
