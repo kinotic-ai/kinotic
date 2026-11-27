@@ -3,6 +3,7 @@ package org.kinotic.management.api.services.telemetry;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.management.api.model.telemetry.LogQuery;
 import org.kinotic.management.api.model.telemetry.ServerLogQuery;
 import reactor.core.publisher.Flux;
@@ -38,6 +39,7 @@ public interface LogService {
      * @param query the {@link LogQuery} naming the organization, workload, time range, and limit
      * @return a {@link Future} emitting the raw Loki {@code query_range} response
      */
+    @McpTool
     Future<Buffer> history(LogQuery query);
 
     /**

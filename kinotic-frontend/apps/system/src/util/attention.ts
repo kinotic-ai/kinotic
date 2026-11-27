@@ -46,8 +46,18 @@ function ownerOf(run: { organizationId: string | null; applicationId: string | n
     return parts.length > 0 ? parts.join(' / ') : (run.organizationId ? 'organization' : 'system')
 }
 
+// A job's latest run supersedes its earlier ones, so only a job whose latest run failed still has a failure to
+// look at; runs arrive newest first, and a job is its name within the organization it runs for
 function failedRuns(runs: JobRun[], scope: Scope): AttentionItem[] {
-    return runs.filter(run => run.status === ExecutionStatus.FAILED)
+    const latest = new Map<string, JobRun>()
+    for (const run of runs) {
+        const job = `${run.organizationId ?? ''}/${run.name}`
+        if (!latest.has(job)) {
+            latest.set(job, run)
+        }
+    }
+    return [...latest.values()]
+               .filter(run => run.status === ExecutionStatus.FAILED)
                .slice(0, MAX_PER_KIND)
                .map(run => ({
                    kind: AttentionType.FAILED_RUN,
@@ -62,20 +72,16 @@ function failedRuns(runs: JobRun[], scope: Scope): AttentionItem[] {
                }))
 }
 
-// nodes are the worker nodes whose names a failure is placed by; a workload on any other is shown without its node
-function failedWorkloads(workloads: Workload[], scope: Scope, nodes: VmNode[]): AttentionItem[] {
-    const nodeNames = new Map(nodes.map(node => [node.id, node.name]))
-    return workloads.filter(workload => workload.status === WorkloadStatus.FAILED)
+// A foreground workload's failure is the outcome of the run that started it, which reports it as a failed run
+function failedWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
+    return workloads.filter(workload => workload.status === WorkloadStatus.FAILED && workload.detached)
                     .slice(0, MAX_PER_KIND)
                     .map(workload => ({
                         kind: AttentionType.FAILED_WORKLOAD,
                         title: workload.name,
                         badge: null,
                         owner: ownerOf(workload, scope),
-                        reason: [
-                            workload.exitCode !== null ? `Exited with code ${workload.exitCode}` : null,
-                            workload.nodeId && nodeNames.has(workload.nodeId) ? `on ${nodeNames.get(workload.nodeId)}` : null
-                        ].filter(Boolean).join(' ') || null,
+                        reason: workload.exitCode !== null ? `Exited with code ${workload.exitCode}` : null,
                         when: relative(workload.created),
                         to: `${scopePath(scope)}/workloads/${encodeURIComponent(workload.id ?? '')}`
                     }))
@@ -151,25 +157,28 @@ function versionSkew(cluster: KinoticClusterInfo | null): AttentionItem[] {
     return ret
 }
 
-/** What needs a system user across the system, failures first. */
+/**
+ * What a system user can act on across the system, failures first: the system jobs whose latest run failed, and
+ * the worker nodes, the workloads they strand and the server nodes that need a system user.
+ */
 export function systemAttention(cluster: KinoticClusterInfo | null, nodes: VmNode[], workloads: Workload[],
                                   runs: JobRun[]): AttentionItem[] {
     const scope: Scope = {}
     return [
-        ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope, nodes),
+        // an organization's failed runs and workloads are its own to fix, and its overview shows them
+        ...failedRuns(runs.filter(run => !run.organizationId), scope),
         ...unreachableWorkloads(workloads, scope),
         ...unfitNodes(nodes),
         ...versionSkew(cluster)
     ]
 }
 
-/** What needs a system user within one organization, failures first. */
+/** What needs looking at within one organization, failures first: its jobs whose latest run failed and its failed workloads. */
 export function organizationAttention(organization: Organization, workloads: Workload[], runs: JobRun[]): AttentionItem[] {
     const scope: Scope = { organizationId: organization.id ?? '' }
     return [
         ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope, []),
+        ...failedWorkloads(workloads, scope),
         ...unreachableWorkloads(workloads, scope)
     ]
 }

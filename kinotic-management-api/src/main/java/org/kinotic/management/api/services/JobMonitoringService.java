@@ -11,6 +11,7 @@ import org.kinotic.grind.api.model.JobRunFilter;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
+import org.kinotic.idl.api.annotations.McpTool;
 import reactor.core.publisher.Flux;
 
 /**
@@ -43,6 +44,7 @@ public interface JobMonitoringService {
      * @return a future that will complete with the page of runs, or fail if the filter names an
      *         organization or application other than the participant's own
      */
+    @McpTool
     @ScopeOptional
     Future<Page<JobRun>> findJobRuns(JobRunFilter filter, Pageable pageable);
 
@@ -53,6 +55,7 @@ public interface JobMonitoringService {
      * @return a future that will complete with the run, or fail if the run does not exist
      *         or belongs to another organization
      */
+    @McpTool
     @ScopeOptional
     Future<JobRun> findJobRun(String jobRunId);
 
@@ -66,6 +69,7 @@ public interface JobMonitoringService {
      * @return a future that will complete with the page of records, or fail if the run does
      *         not exist or belongs to another organization
      */
+    @McpTool
     @ScopeOptional
     Future<Page<TaskRecord>> findTasks(String jobRunId, Pageable pageable);
 

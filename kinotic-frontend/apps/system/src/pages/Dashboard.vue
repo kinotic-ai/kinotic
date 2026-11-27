@@ -133,7 +133,7 @@ const stats = computed<Stat[]>(() => {
   const today = runs.value.filter(run => (DatetimeUtil.toEpochMillis(run.started) ?? 0) >= dayAgo)
   const runningRuns = runs.value.filter(run => run.status === ExecutionStatus.RUNNING).length
   const failedWorkloads = workloads.value.filter(workload => workload.status === WorkloadStatus.FAILED).length
-  const failedToday = today.filter(run => run.status === ExecutionStatus.FAILED).length
+  const failedToday = today.filter(run => run.status === ExecutionStatus.FAILED)
   const offlineNodes = nodes.value.length - onlineNodes.value.length
   return [
     {
@@ -160,15 +160,17 @@ const stats = computed<Stat[]>(() => {
       detail: failedWorkloads > 0 ? `running of ${workloads.value.length} · ${failedWorkloads} failed` : `running of ${workloads.value.length}`,
       to: '/workloads',
       icon: markRaw(Boxes),
-      tint: failedWorkloads > 0 ? TINTS.red : TINTS.ink
+      // an organization's failed workload is its own to fix, so the count informs without alarming
+      tint: TINTS.ink
     },
     {
       label: 'Jobs · 24 h',
       value: `${today.length}`,
-      detail: failedToday > 0 ? `${failedToday} failed · ${runningRuns} running now` : `${runningRuns} running now`,
+      detail: failedToday.length > 0 ? `${failedToday.length} failed · ${runningRuns} running now` : `${runningRuns} running now`,
       to: '/jobs',
       icon: markRaw(LaptopMinimalCheck),
-      tint: failedToday > 0 ? TINTS.red : TINTS.ink
+      // only a failed system job is the system user's to fix
+      tint: failedToday.some(run => !run.organizationId) ? TINTS.red : TINTS.ink
     },
     {
       label: 'Organizations',
