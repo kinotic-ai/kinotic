@@ -139,7 +139,7 @@
               <div class="flex items-center gap-1.5 text-xs">
                 <RouterLink :to="`${basePath}/project/${encodeURIComponent(ui.projectId)}`" class="truncate text-muted-color hover:underline">{{ ui.projectId }}</RouterLink>
                 <span class="text-muted-color" aria-hidden="true">·</span>
-                <a :href="ui.url" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center gap-1 font-medium text-sky-600 hover:underline dark:text-sky-300">
+                <a :href="ui.url" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center gap-1 font-medium text-primary hover:underline">
                   Open site <ArrowUpRight :size="12" :stroke-width="1.75" aria-hidden="true" />
                 </a>
               </div>
@@ -190,7 +190,7 @@ const cardClass = 'rounded-xl border border-surface-200 bg-surface-0 p-5 dark:bo
 // The health bar's buckets, in the order they stack, keyed by the Tag severity a phase maps to
 const HEALTH_BUCKETS = [
   { severity: 'success', label: 'Running', bar: 'bg-green-500' },
-  { severity: 'info', label: 'In progress', bar: 'bg-sky-500' },
+  { severity: 'info', label: 'In progress', bar: 'bg-primary-500' },
   { severity: 'warn', label: 'Needs attention', bar: 'bg-amber-500' },
   { severity: 'danger', label: 'Failed', bar: 'bg-red-500' },
   { severity: 'none', label: 'Not deployed', bar: 'bg-surface-300 dark:bg-surface-600' }

@@ -78,7 +78,7 @@ const BADGES: Record<FeatureEmptyStateBadge, { label: string, icon: Component, c
   'coming-soon': {
     label: 'Coming soon',
     icon: markRaw(Sparkles),
-    classes: 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300'
+    classes: 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-500/30 dark:bg-primary-500/10 dark:text-primary-300'
   },
   'built-in': {
     label: 'Using the built-in email',

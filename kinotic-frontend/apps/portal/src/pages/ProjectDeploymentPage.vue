@@ -69,7 +69,7 @@
               <div class="min-w-0 flex-1">
                 <div class="text-xs text-muted-color">{{ onCommit.total.current }} of {{ onCommit.total.all }} workloads</div>
                 <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700">
-                  <div class="h-full rounded-full bg-sky-500" :style="{ width: `${onCommit.total.percent}%` }" />
+                  <div class="h-full rounded-full bg-primary" :style="{ width: `${onCommit.total.percent}%` }" />
                 </div>
               </div>
               <div class="text-4xl font-light tabular-nums tracking-tight text-surface-950 dark:text-surface-0">{{ onCommit.total.percent }}%</div>
@@ -79,7 +79,7 @@
                 <component :is="row.icon" :size="16" :stroke-width="1.75" class="shrink-0 text-surface-400" aria-hidden="true" />
                 <span class="w-24 shrink-0 text-surface-800 dark:text-surface-100">{{ row.label }}</span>
                 <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700">
-                  <div class="h-full rounded-full bg-sky-500" :style="{ width: `${row.percent}%` }" />
+                  <div class="h-full rounded-full bg-primary" :style="{ width: `${row.percent}%` }" />
                 </div>
                 <span class="w-10 text-right text-xs tabular-nums text-muted-color">{{ row.percent }}%</span>
                 <span class="w-12 text-right text-xs font-medium tabular-nums text-surface-800 dark:text-surface-100">{{ row.current }} of {{ row.all }}</span>
@@ -203,7 +203,7 @@ const loading = ref(true)
 /** The phase groups a workload's status falls in, worst last, with the colour of each. */
 const STATUS_BUCKETS = [
   { severity: 'success', label: 'Running', border: 'border-green-500' },
-  { severity: 'info', label: 'In progress', border: 'border-sky-500' },
+  { severity: 'info', label: 'In progress', border: 'border-primary-500' },
   { severity: 'warn', label: 'Needs attention', border: 'border-amber-500' },
   { severity: 'danger', label: 'Failed', border: 'border-red-500' },
   { severity: 'secondary', label: 'Pending', border: 'border-surface-300 dark:border-surface-600' }

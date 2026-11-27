@@ -8,9 +8,9 @@
       <label v-for="job in jobs" :key="job.name" :for="`system-job-${job.name}`"
              :class="['flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors',
                       selected === job.name
-                        ? 'border-blue-500 bg-blue-500/10'
+                        ? 'border-primary bg-primary/10'
                         : 'border-surface-200 hover:bg-surface-50 dark:border-surface-700 dark:hover:bg-surface-800/40']">
-        <RadioButton v-model="selected" :input-id="`system-job-${job.name}`" name="system-job" :value="job.name" :dt="BLUE_RADIO" class="mt-0.5" />
+        <RadioButton v-model="selected" :input-id="`system-job-${job.name}`" name="system-job" :value="job.name" :dt="PRIMARY_RADIO" class="mt-0.5" />
         <span class="min-w-0 flex-1">
           <span class="flex items-center gap-2">
             <span class="min-w-0 truncate font-mono text-sm font-semibold text-surface-950 dark:text-surface-0">{{ job.name }}</span>
@@ -51,14 +51,14 @@ const emit = defineEmits<{
   (e: 'started', jobRunId: string): void
 }>()
 
-// Blue marks the selected job, leaving the brand red to failures
-const BLUE_RADIO = {
+// The selected job's radio takes the primary colour, matching its card, where radios elsewhere are near-black
+const PRIMARY_RADIO = {
   root: {
-    checkedBackground: '{blue.500}',
-    checkedHoverBackground: '{blue.600}',
-    checkedBorderColor: '{blue.500}',
-    checkedHoverBorderColor: '{blue.600}',
-    checkedFocusBorderColor: '{blue.500}'
+    checkedBackground: '{primary.color}',
+    checkedHoverBackground: '{primary.hover.color}',
+    checkedBorderColor: '{primary.color}',
+    checkedHoverBorderColor: '{primary.hover.color}',
+    checkedFocusBorderColor: '{primary.color}'
   }
 }
 

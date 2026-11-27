@@ -67,23 +67,23 @@ import type { MessageDesignTokens } from '@primeuix/themes/types/message';
     colorScheme: {
         light: {
             info: {
-                background: "color-mix(in srgb, {blue.50}, transparent 5%)",
-                borderColor: "{blue.200}",
-                color: "{blue.600}",
-                shadow: "0px 4px 8px 0px color-mix(in srgb, {blue.500}, transparent 96%)",
+                background: "color-mix(in srgb, {primary.50}, transparent 5%)",
+                borderColor: "{primary.200}",
+                color: "{primary.600}",
+                shadow: "0px 4px 8px 0px color-mix(in srgb, {primary.500}, transparent 96%)",
                 closeButton: {
-                    hoverBackground: "{blue.100}",
+                    hoverBackground: "{primary.100}",
                     focusRing: {
-                        color: "{blue.600}",
+                        color: "{primary.600}",
                         shadow: "none"
                     }
                 },
                 outlined: {
-                    color: "{blue.600}",
-                    borderColor: "{blue.600}"
+                    color: "{primary.600}",
+                    borderColor: "{primary.600}"
                 },
                 simple: {
-                    color: "{blue.600}"
+                    color: "{primary.600}"
                 }
             },
             success: {
@@ -189,23 +189,23 @@ import type { MessageDesignTokens } from '@primeuix/themes/types/message';
         },
         dark: {
             info: {
-                background: "color-mix(in srgb, {blue.500}, transparent 84%)",
-                borderColor: "color-mix(in srgb, {blue.700}, transparent 64%)",
-                color: "{blue.500}",
-                shadow: "0px 4px 8px 0px color-mix(in srgb, {blue.500}, transparent 96%)",
+                background: "color-mix(in srgb, {primary.500}, transparent 84%)",
+                borderColor: "color-mix(in srgb, {primary.700}, transparent 64%)",
+                color: "{primary.500}",
+                shadow: "0px 4px 8px 0px color-mix(in srgb, {primary.500}, transparent 96%)",
                 closeButton: {
                     hoverBackground: "rgba(255, 255, 255, 0.05)",
                     focusRing: {
-                        color: "{blue.500}",
+                        color: "{primary.500}",
                         shadow: "none"
                     }
                 },
                 outlined: {
-                    color: "{blue.500}",
-                    borderColor: "{blue.500}"
+                    color: "{primary.500}",
+                    borderColor: "{primary.500}"
                 },
                 simple: {
-                    color: "{blue.500}"
+                    color: "{primary.500}"
                 }
             },
             success: {

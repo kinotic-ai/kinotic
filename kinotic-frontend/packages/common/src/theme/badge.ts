@@ -42,7 +42,7 @@ import type { BadgeDesignTokens } from '@primeuix/themes/types/badge';
                 color: "{surface.0}"
             },
             info: {
-                background: "{sky.500}",
+                background: "{primary.500}",
                 color: "{surface.0}"
             },
             warn: {
@@ -72,8 +72,8 @@ import type { BadgeDesignTokens } from '@primeuix/themes/types/badge';
                 color: "{green.950}"
             },
             info: {
-                background: "{sky.400}",
-                color: "{sky.950}"
+                background: "{primary.400}",
+                color: "{primary.950}"
             },
             warn: {
                 background: "{orange.400}",

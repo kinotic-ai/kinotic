@@ -14,7 +14,7 @@
   right: 0;
   bottom: 0;
   height: 3px;
-  background: linear-gradient(90deg, transparent, var(--p-primary-500), transparent);
+  background: linear-gradient(90deg, transparent, var(--p-primary-color), transparent);
   background-size: 40% 100%;
   background-repeat: no-repeat;
   animation: datatable-loading-slide 1.2s ease-in-out infinite;

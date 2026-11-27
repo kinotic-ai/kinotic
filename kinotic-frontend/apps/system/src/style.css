@@ -22,12 +22,12 @@ body {
 /* The console's auth pages take the brand red where the shared auth styles use the portal's mint.
    :root outranks the preset's .login-page and html.dark .login-page selectors. */
 :root .login-page {
-  --lp-link-color: var(--p-primary-600);
-  --lp-footer-link: var(--p-primary-500);
+  --lp-link-color: var(--p-brand-600);
+  --lp-footer-link: var(--p-brand-500);
 }
 
 :root.dark .login-page {
-  --lp-link-color: var(--p-primary-400);
-  --lp-footer-link: var(--p-primary-400);
-  --lp-footer-divider: var(--p-primary-400);
+  --lp-link-color: var(--p-brand-400);
+  --lp-footer-link: var(--p-brand-400);
+  --lp-footer-divider: var(--p-brand-400);
 }

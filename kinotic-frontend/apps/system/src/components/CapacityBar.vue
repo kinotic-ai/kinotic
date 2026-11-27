@@ -34,7 +34,7 @@ const option = computed(() => {
   } else if (props.pct >= 80) {
     fill = accentColor('amber', isDark.value)
   } else {
-    fill = accentColor('sky', isDark.value)
+    fill = accentColor('primary', isDark.value)
   }
   return {
     animationDuration: 300,

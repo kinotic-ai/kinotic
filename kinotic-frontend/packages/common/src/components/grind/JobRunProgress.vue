@@ -13,8 +13,8 @@
             <div class="flex flex-wrap items-center gap-2.5">
               <h2 class="min-w-0 truncate font-mono text-base font-semibold text-surface-950 dark:text-surface-0">{{ run.name }}</h2>
               <Tag :value="run.status" :severity="executionStatusSeverity(run.status)" />
-              <span v-if="live" class="flex items-center gap-1.5 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-500" />
+              <span v-if="live" class="flex items-center gap-1.5 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
+                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-primary-500" />
                 live
               </span>
             </div>
