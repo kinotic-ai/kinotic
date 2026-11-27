@@ -1,0 +1,1 @@
+{"id":"50e29af916bacbf8824b1742aa90d9bb.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.test.tests.system.SystemJobServiceTests.theJobRunRetentionSweepDeletesRunsThatEndedLongAgoWithTheirTaskRecords","name":"theJobRunRetentionSweepDeletesRunsThatEndedLongAgoWithTheirTaskRecords()","status":"passed","testResultsByEnv":{"default":"8b20d1c07e2eb99a95d59866f7fad21b"}}
