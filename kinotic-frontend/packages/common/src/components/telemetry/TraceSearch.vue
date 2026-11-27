@@ -89,7 +89,7 @@
         <template #body="{ data }">
           <span class="flex items-center gap-2.5">
             <span class="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800" aria-hidden="true">
-              <span :class="['block h-full rounded-full', listsOnlyErrors ? 'bg-red-500' : 'bg-sky-500']" :style="{ width: `${durationShare(data.durationMs)}%` }" />
+              <span :class="['block h-full rounded-full', listsOnlyErrors ? 'bg-red-500' : 'bg-primary']" :style="{ width: `${durationShare(data.durationMs)}%` }" />
             </span>
             <span class="whitespace-nowrap font-mono text-xs tabular-nums text-surface-800 dark:text-surface-100">{{ formatDuration(data.durationMs) }}</span>
           </span>

@@ -51,7 +51,7 @@
               <RouterLink :to="`/worker-nodes/${encodeURIComponent(row.nodeId)}`"
                           class="w-28 shrink-0 truncate text-surface-800 hover:underline dark:text-surface-100" v-tooltip.top="row.name">{{ row.name }}</RouterLink>
               <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-700">
-                <div class="h-full rounded-full bg-sky-500" :style="{ width: `${row.percent}%` }" />
+                <div class="h-full rounded-full bg-primary" :style="{ width: `${row.percent}%` }" />
               </div>
               <span class="w-10 text-right text-xs tabular-nums text-muted-color">{{ row.percent }}%</span>
               <span class="w-6 text-right text-xs font-medium tabular-nums text-surface-800 dark:text-surface-100">{{ row.count }}</span>

@@ -175,7 +175,7 @@ import { formatDuration } from './telemetryDisplay'
 
 /**
  * One trace as a waterfall of its spans on the trace's timeline, nested under their parents, each
- * span sky blue and a failed one red. Clicking a span opens its status, attributes, events
+ * span in the primary colour and a failed one red. Clicking a span opens its status, attributes, events
  * and resource under its row; the trace opens on its first failed span, or its root.
  */
 const props = defineProps<{
@@ -226,7 +226,7 @@ const ticks = computed(() => [0, 25, 50, 75, 100].map(percent => ({
 const rows = computed(() => spans.value.map(span => {
   const left = Math.min(((span.startMs - traceStartMs.value) / traceDurationMs.value) * 100, 99.7)
   const width = Math.min(Math.max(0.3, (span.durationMs / traceDurationMs.value) * 100), 100 - left)
-  const color = accentColor(span.error ? 'red' : 'sky', isDark.value)
+  const color = span.error ? accentColor('red', isDark.value) : 'var(--p-primary-color)'
   return {
     span,
     color,
