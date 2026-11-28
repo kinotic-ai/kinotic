@@ -1,5 +1,12 @@
 package org.kinotic.system.internal.api.services.reconcile;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -32,7 +39,8 @@ import java.util.Optional;
  * queued once more when the worker returns; a worker that fails is retried with backoff; a worker
  * that asks to be called again is. At most {@link #MAX_IN_FLIGHT} workers run at once, and the rest
  * wait their turn, so a scan that finds many records, a resync of many, or the initial list reaches
- * the store at a bounded rate rather than all at once.
+ * the store at a bounded rate rather than all at once. Every call of a worker starts a trace of its
+ * own, whose root span is named {@code reconcile <type>}, such as {@code reconcile VM_NODE}.
  */
 @Slf4j
 public class ReconcileMaster implements Service {
@@ -44,11 +52,20 @@ public class ReconcileMaster implements Service {
     private static final long BACKOFF_MAX_MS = 300_000;
     private static final int MAX_IN_FLIGHT = 32;
 
+    private static final String INSTRUMENTATION_NAME = "org.kinotic.system.reconcile";
+    private static final AttributeKey<String> RECORD_TYPE = AttributeKey.stringKey("kinotic.reconcile.type");
+    private static final AttributeKey<String> RECORD_ID = AttributeKey.stringKey("kinotic.reconcile.id");
+    private static final AttributeKey<String> RECORD_SCOPE = AttributeKey.stringKey("kinotic.reconcile.scope");
+
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = ReconcilerRegistry.class)
     private transient ReconcilerRegistry registry;
     @SpringResource(resourceClass = Vertx.class)
     private transient Vertx vertx;
+    @SpringResource(resourceClass = OpenTelemetry.class)
+    private transient OpenTelemetry openTelemetry;
+
+    private transient Tracer tracer;
 
     // Guarded by this: the timers and the workers' completions arrive on Vert.x threads
     private transient Map<Key, Entry> queue;
@@ -83,6 +100,7 @@ public class ReconcileMaster implements Service {
         // than in field initializers, which do not run on deserialization
         queue = new HashMap<>();
         waiting = new ArrayDeque<>();
+        tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         registry.reconcilableRepositories().forEach(repository -> enqueueAll(repository, 0));
         tick();
         resync();
@@ -193,15 +211,31 @@ public class ReconcileMaster implements Service {
         entry.waiting = false;
         entry.again = false;
         inFlight++;
+        // The span's parent is the root context because run is reached from timers and completion
+        // callbacks that carry the previous call's context, which would otherwise chain every call of a
+        // record's worker into one endless trace
+        Span span = tracer.spanBuilder("reconcile " + key.type())
+                          .setParent(Context.root())
+                          .setAttribute(RECORD_TYPE, key.type().name())
+                          .setAttribute(RECORD_ID, key.id())
+                          .setAttribute(RECORD_SCOPE, key.scope())
+                          .startSpan();
         Future<Requeue> outcome;
-        try {
+        try (Scope ignored = span.makeCurrent()) {
             outcome = current(key).compose(record -> record == null
                     ? Future.succeededFuture(Requeue.NONE)
                     : reconcile(key.type(), record));
         } catch (RuntimeException error) {
             outcome = Future.failedFuture(error);
         }
-        outcome.onComplete(result -> done(key, entry, result));
+        outcome.onComplete(result -> {
+            if (result.failed()) {
+                span.recordException(result.cause());
+                span.setStatus(StatusCode.ERROR);
+            }
+            span.end();
+            done(key, entry, result);
+        });
     }
 
     private Future<Watched> current(Key key) {
