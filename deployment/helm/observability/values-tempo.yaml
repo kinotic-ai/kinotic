@@ -12,7 +12,12 @@ tempo:
       cpu: 100m
       memory: 512Mi
     limits:
-      memory: 1Gi
+      memory: 2Gi
+  # The Go runtime sees no container limit on its own; this makes it collect harder as the heap
+  # nears the limit instead of growing into an OOM kill, leaving room for memory outside the heap
+  extraEnv:
+    - name: GOMEMLIMIT
+      value: 1600MiB
   # Where trace blocks are kept: on the persistent volume here, in Azure Blob Storage on Azure
   # (values-tempo-azure.yaml). The write-ahead log is on the volume either way.
   storage:

@@ -19,12 +19,16 @@ export interface ITelemetryService {
     searchTraces(query: TraceQuery): Promise<Uint8Array>
 
     /**
-     * Returns one trace with every span it holds, as the raw Tempo trace response (OTLP JSON).
+     * Returns one trace with every span it holds within a time range, as the raw Tempo trace
+     * response (OTLP JSON). The range should cover the whole trace, as the trace search reported
+     * it: spans outside it may be left out.
      * @param organizationId the organization the trace belongs to; null for the system's own,
      *        which only a system participant may read
      * @param traceId the hex trace id
+     * @param start start of the time range, epoch milliseconds (inclusive)
+     * @param end end of the time range, epoch milliseconds (inclusive)
      */
-    findTrace(organizationId: string | null, traceId: string): Promise<Uint8Array>
+    findTrace(organizationId: string | null, traceId: string, start: number, end: number): Promise<Uint8Array>
 
     /**
      * Evaluates a PromQL expression across a time range, as the raw Prometheus query_range
@@ -46,8 +50,8 @@ export class TelemetryService implements ITelemetryService {
         return this.serviceProxy.invoke('searchTraces', [query])
     }
 
-    public findTrace(organizationId: string | null, traceId: string): Promise<Uint8Array> {
-        return this.serviceProxy.invoke('findTrace', [organizationId, traceId])
+    public findTrace(organizationId: string | null, traceId: string, start: number, end: number): Promise<Uint8Array> {
+        return this.serviceProxy.invoke('findTrace', [organizationId, traceId, start, end])
     }
 
     public queryMetrics(query: MetricQuery): Promise<Uint8Array> {

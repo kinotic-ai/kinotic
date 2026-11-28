@@ -110,7 +110,7 @@
 
     <!-- The picked trace opens beside the list; the arrows step through the list in its current order -->
     <SteppingDrawer v-model:visible="drawerVisible" :position="position" :total="orderedTraces.length"
-                    :expand-to="traceRoute && selectedTrace ? traceRoute(selectedTrace.traceId) : undefined"
+                    :expand-to="selectedTrace ? tracePageRoute(selectedTrace) : undefined"
                     expand-label="Open the trace's page" @step="stepTrace">
       <template #title>
         <template v-if="selectedTrace">
@@ -119,14 +119,14 @@
           <span class="hidden truncate text-xs text-muted-color sm:inline">{{ selectedTrace.rootService }}</span>
         </template>
       </template>
-      <TraceDetail v-if="selectedTrace" :organization-id="organizationId" :trace-id="selectedTrace.traceId" />
+      <TraceDetail v-if="selectedTrace" :organization-id="organizationId" :trace-id="selectedTrace.traceId" :range="traceWindow(selectedTrace)" />
     </SteppingDrawer>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
@@ -147,15 +147,16 @@ import { errorMessage } from '../../util/helpers'
 import TraceDetail from './TraceDetail.vue'
 import type { TimeRange } from './TimeRange'
 import type { TraceSummary } from './TraceSummary'
-import { searchTraces, traceQl, type TraceFilters } from './telemetryApi'
+import { searchTraces, traceQl, traceWindow, traceWindowQuery, type TraceFilters } from './telemetryApi'
 import { formatDuration } from './telemetryDisplay'
 
 /**
  * Searches the organization's traces — or one application's — over the given range, and opens
  * the one picked from the results in a drawer beside them, whose arrows and the arrow keys step
  * through the results in their current order; {@code traceRoute}, when given, links from there to
- * the trace's own page. searchStatus(onlyErrors) narrows the search to the traces with a failed
- * span, or widens it back to every trace, and runs it.
+ * the trace's own page, with the trace's time window added to the link's query.
+ * searchStatus(onlyErrors) narrows the search to the traces with a failed span, or widens it back
+ * to every trace, and runs it.
  */
 const props = defineProps<{
   organizationId: string | null
@@ -163,6 +164,8 @@ const props = defineProps<{
   range: TimeRange
   traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
+
+const router = useRouter()
 
 /** How many traces one search returns. */
 const SEARCH_LIMIT = 50
@@ -201,6 +204,16 @@ function serviceColor(service: string): string {
 }
 
 const slowest = computed(() => Math.max(1, ...traces.value.map(trace => trace.durationMs)))
+
+// The app's route to the trace's page, carrying the window the page looks the trace up in
+function tracePageRoute(trace: TraceSummary): RouteLocationRaw | undefined {
+  let ret: RouteLocationRaw | undefined
+  if (props.traceRoute) {
+    const resolved = router.resolve(props.traceRoute(trace.traceId))
+    ret = { path: resolved.path, query: { ...resolved.query, ...traceWindowQuery(traceWindow(trace)) } }
+  }
+  return ret
+}
 
 /** A trace's duration as a share of the slowest in the list, never too thin to see. */
 function durationShare(durationMs: number): number {

@@ -42,14 +42,14 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.queryMetrics(metricQuery("globex"))));
         assertInstanceOf(AuthorizationException.class,
-                         failureOf(ACME_USER, () -> service.findTrace("globex", "abc123")));
+                         failureOf(ACME_USER, () -> service.findTrace("globex", "abc123", 0, 1000)));
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.searchTraces(traceQuery(null))));
     }
 
     @Test
     void systemParticipantReadsAnyOrganization() throws Throwable {
-        callAs(SYSTEM_PARTICIPANT, () -> service.findTrace("globex", "abc123"));
+        callAs(SYSTEM_PARTICIPANT, () -> service.findTrace("globex", "abc123", 0, 1000));
 
         assertEquals("globex", tempoClient.tenant);
         assertEquals("abc123", tempoClient.traceId);
@@ -117,7 +117,7 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
         }
 
         @Override
-        public Future<Buffer> findTrace(String tenant, String traceId) {
+        public Future<Buffer> findTrace(String tenant, String traceId, long start, long end) {
             this.tenant = tenant;
             this.traceId = traceId;
             return Future.succeededFuture(Buffer.buffer("trace"));

@@ -167,6 +167,7 @@ import { Check, ChevronRight, CircleAlert, Copy } from '@lucide/vue'
 import { isDark } from '../../composables/useTheme'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import { errorMessage } from '../../util/helpers'
+import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
 import type { TraceSpanEvent } from './TraceSpanEvent'
 import { fetchTrace } from './telemetryApi'
@@ -176,11 +177,13 @@ import { formatDuration } from './telemetryDisplay'
 /**
  * One trace as a waterfall of its spans on the trace's timeline, nested under their parents, each
  * span in the primary colour and a failed one red. Clicking a span opens its status, attributes, events
- * and resource under its row; the trace opens on its first failed span, or its root.
+ * and resource under its row; the trace opens on its first failed span, or its root. The trace is
+ * looked up within {@code range}, which should cover the whole trace.
  */
 const props = defineProps<{
   organizationId: string | null
   traceId: string
+  range: TimeRange
 }>()
 
 const CHIP = 'inline-flex items-center gap-1.5 rounded-md bg-surface-100 px-2 py-0.5 text-[11px] font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200'
@@ -290,7 +293,7 @@ async function load() {
   error.value = null
   selected.value = null
   try {
-    spans.value = await fetchTrace(props.organizationId, props.traceId)
+    spans.value = await fetchTrace(props.organizationId, props.traceId, props.range)
     selected.value = spans.value.find(span => span.error) ?? spans.value[0] ?? null
   } catch (err) {
     spans.value = []
@@ -300,7 +303,7 @@ async function load() {
   }
 }
 
-watch(() => [props.organizationId, props.traceId], load, { immediate: true })
+watch(() => [props.organizationId, props.traceId, props.range.start, props.range.end], load, { immediate: true })
 
 watch(selected, () => expandedKeys.value.clear())
 </script>

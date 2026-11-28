@@ -37,9 +37,10 @@ public class DefaultTelemetryService implements TelemetryService {
     }
 
     @Override
-    public Future<Buffer> findTrace(String organizationId, String traceId) {
+    public Future<Buffer> findTrace(String organizationId, String traceId, long start, long end) {
         Validate.notBlank(traceId, "traceId cannot be blank");
-        return tempoClient.findTrace(readableTenant(organizationId), traceId);
+        Validate.isTrue(start <= end, "start must not be after end");
+        return tempoClient.findTrace(readableTenant(organizationId), traceId, start, end);
     }
 
     @Override

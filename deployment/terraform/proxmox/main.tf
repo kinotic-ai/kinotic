@@ -389,7 +389,7 @@ locals {
       description   = "Tempo: traces, multi-tenant; span metrics to Mimir"
       image         = proxmox_oci_image.tempo.id
       cores         = 2
-      memory        = 1024
+      memory        = 2048
       order         = 20
       start_on_boot = true
       run_once      = false
@@ -400,7 +400,9 @@ locals {
       ]
       entrypoint       = local.images.tempo.entrypoint
       image_env        = local.images.tempo.env
-      env              = {}
+      # The Go runtime sees no container limit on its own; this makes it collect harder as the heap
+      # nears the limit instead of growing into an OOM kill, leaving room for memory outside the heap
+      env              = { GOMEMLIMIT = "1600MiB" }
       privileged_ports = false
       secrets_env      = null
       files            = { "tempo.yml" = local.tempo_config }

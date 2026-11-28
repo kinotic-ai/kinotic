@@ -8,19 +8,21 @@
       </template>
     </PageHeader>
 
-    <TraceDetail :key="traceId" :organization-id="organizationId" :trace-id="traceId" />
+    <TraceDetail :key="traceId" :organization-id="organizationId" :trace-id="traceId" :range="range" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { PageHeader } from '@kinotic-ai/frontend-common'
-import { TraceDetail } from '@kinotic-ai/frontend-common/management'
+import { TraceDetail, traceWindowFromQuery } from '@kinotic-ai/frontend-common/management'
 import { USER_STATE } from '@/states/IUserState'
 
 /**
  * One trace opened from an Observability page: the organization's, or an application's when
- * {@code applicationId} is given. The eyebrow leads back to the page it was opened from.
+ * {@code applicationId} is given, looked up in the time window the link's query names. The eyebrow
+ * leads back to the page it was opened from.
  */
 const props = defineProps<{
   traceId: string
@@ -28,6 +30,8 @@ const props = defineProps<{
 }>()
 
 const organizationId = computed(() => USER_STATE.getOrganizationId())
+const route = useRoute()
+const range = computed(() => traceWindowFromQuery(route.query))
 
 const observabilityPath = computed(() => props.applicationId
     ? `/application/${encodeURIComponent(props.applicationId)}/observability`

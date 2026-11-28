@@ -1,4 +1,5 @@
 import { Kinotic } from '@kinotic-ai/core'
+import type { LocationQuery } from 'vue-router'
 import { parseJsonBytes } from '../../util/helpers'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
@@ -11,6 +12,14 @@ const SPAN_METRIC_CALLS = 'traces_spanmetrics_calls_total'
 const SPAN_METRIC_LATENCY = 'traces_spanmetrics_latency_bucket'
 /** The span metrics of the calls a service handles, leaving out the calls it makes, such as to Elasticsearch. */
 const SERVER_SPANS = 'span_kind="SPAN_KIND_SERVER"'
+
+/**
+ * How far a trace lookup reaches past the start and end the trace search reported, which come from
+ * the blocks that answered the search rather than from every span of the trace.
+ */
+const TRACE_WINDOW_MARGIN_MS = 5 * 60_000
+/** The window a trace's page looks the trace up in when its link names none: the day before it opened. */
+const TRACE_FALLBACK_WINDOW_MS = 24 * 60 * 60_000
 
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
@@ -109,10 +118,42 @@ function parseTraceSummary(trace: any): TraceSummary {
     }
 }
 
-/** Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start. */
-export async function fetchTrace(organizationId: string | null, traceId: string): Promise<TraceSpan[]> {
+/** The time range a trace from the search is looked up in: the trace's own, with a margin on both sides. */
+export function traceWindow(trace: TraceSummary): TimeRange {
+    return {
+        start: trace.startMs - TRACE_WINDOW_MARGIN_MS,
+        end: trace.startMs + trace.durationMs + TRACE_WINDOW_MARGIN_MS
+    }
+}
+
+/** A trace window as the query of a link to the trace's page, which {@link traceWindowFromQuery} reads back. */
+export function traceWindowQuery(range: TimeRange): Record<string, string> {
+    return { start: String(Math.floor(range.start)), end: String(Math.ceil(range.end)) }
+}
+
+/**
+ * The trace window a link to a trace's page carries in its query, or the day before now when it
+ * carries none, as a link typed or shared by hand may not.
+ */
+export function traceWindowFromQuery(query: LocationQuery): TimeRange {
+    const start = Number(query.start)
+    const end = Number(query.end)
+    let ret: TimeRange
+    if (typeof query.start === 'string' && typeof query.end === 'string' && Number.isFinite(start) && Number.isFinite(end) && start <= end) {
+        ret = { start, end }
+    } else {
+        ret = rangeEndingNow(TRACE_FALLBACK_WINDOW_MS)
+    }
+    return ret
+}
+
+/**
+ * Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start.
+ * Only the spans within the range are certain to be found, so the range should cover the whole trace.
+ */
+export async function fetchTrace(organizationId: string | null, traceId: string, range: TimeRange): Promise<TraceSpan[]> {
     // Raw Tempo trace response: OTLP JSON, whose top-level resourceSpans list Tempo names batches
-    const body = parseJsonBytes(await Kinotic.telemetry.findTrace(organizationId, traceId))
+    const body = parseJsonBytes(await Kinotic.telemetry.findTrace(organizationId, traceId, Math.floor(range.start), Math.ceil(range.end)))
     return orderForWaterfall(collectSpans(body?.batches ?? []))
 }
 
