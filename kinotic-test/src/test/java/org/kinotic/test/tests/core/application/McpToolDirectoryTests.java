@@ -86,11 +86,9 @@ public class McpToolDirectoryTests extends KinoticTestBase {
         Assertions.assertEquals("Application Service Count: Returns the number of entities available.",
                                 countApplications.getDescription());
 
-        // a tool call names no instance, so a scoped service's tool is addressed where any instance answers
-        McpToolDefinition findJobRun = tools.stream()
-                                            .filter(tool -> tool.getName().equals(FIND_JOB_RUN))
-                                            .findFirst()
-                                            .orElseThrow();
+        // a tool call names no instance, so a scoped service's tool is addressed where any instance answers;
+        // a listing leaves the address out, so the tool is resolved as a call resolves it
+        McpToolDefinition findJobRun = serviceDirectory.findMcpToolByName(FIND_JOB_RUN, null, null).await();
         Assertions.assertFalse(CRI.create(findJobRun.getCri()).hasScope(), findJobRun.getCri());
         // a function only the instance running the job can answer stays off the listing
         Assertions.assertFalse(names.contains(WATCH_JOB_RUN));
