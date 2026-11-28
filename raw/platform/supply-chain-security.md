@@ -563,7 +563,35 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
         .github/workflows/dependabot-merge.yml
       </code>
       
-      ) merges each such pull request once at least one of the repository's GitHub Actions checks has succeeded on it, none of its checks has failed and none is still running, which closes its alerts. A failure from any check blocks the merge, as does a GitHub Actions run that was cancelled, timed out, went stale or needs action; another app's cancelled or skipped check does not. A pull request with a blocking check, with no successful or running GitHub Actions check a day after it was opened, or that GitHub refuses to merge is assigned to a maintainer. The Java libraries are covered by the image vulnerability scanning above.
+      ) merges each such pull request once at least one of the repository's GitHub Actions checks has succeeded on it, none of its checks has failed and none is still running, which closes its alerts. A failure from any check blocks the merge, as does a GitHub Actions run that was cancelled, timed out, went stale or needs action; another app's cancelled or skipped check does not. A pull request with a blocking check that is behind <code>
+        develop
+      </code>
+      
+       is asked to rebase (<code>
+        @dependabot rebase
+      </code>
+      
+      ), once per commit Dependabot pushes to it, so a failure caused by <code>
+        develop
+      </code>
+      
+       clears once <code>
+        develop
+      </code>
+      
+       is fixed. Dependabot refuses commands from GitHub Apps, so the request is posted with the <code>
+        DEPENDABOT_REBASE_TOKEN
+      </code>
+      
+       secret, a maintainer's fine-grained personal access token for the repository with Pull requests: write. A pull request with a blocking check while up to date with <code>
+        develop
+      </code>
+      
+      , behind <code>
+        develop
+      </code>
+      
+       while that secret is not set, that Dependabot has not rebased six hours after it was first asked, with no successful or running GitHub Actions check a day after it was opened, or that GitHub refuses to merge is assigned to a maintainer. The Java libraries are covered by the image vulnerability scanning above.
     </td>
   </tr>
   
@@ -575,7 +603,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     </td>
     
     <td>
-      Alerts are raised as advisories are published. Security updates are checked weekly, and passing pull requests are merged daily.
+      Alerts are raised as advisories are published. Security updates are checked weekly, and passing pull requests are merged every three hours.
     </td>
   </tr>
   
