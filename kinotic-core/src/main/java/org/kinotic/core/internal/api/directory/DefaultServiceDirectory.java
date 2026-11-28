@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.ScopeOptional;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
@@ -267,7 +268,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
         String entryId = entry.getZone() + ZoneUtil.ZONE_DELIMITER + (inZoneNamespace ? definition.getName() : definition.getQualifiedName());
         String serviceAddress = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, entryId, null, null).baseResource();
         // the runtime declares its types inline, so no reference resolves
-        List<McpToolDefinition> tools = toolsOf(entryId, null, definition, Map.of());
+        List<McpToolDefinition> tools = toolsOf(entryId, Set.of(), definition, Map.of());
         ServiceDirectoryEntry stored = new ServiceDirectoryEntry()
                 .setId(entryId)
                 .setServiceAddress(serviceAddress)
@@ -383,7 +384,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                              ServiceDefinition serviceDefinition,
                                              Map<String, ObjectC3Type> referenceResolver) {
         List<McpToolDefinition> tools = toolsOf(serviceIdentifier.qualifiedName(),
-                                                serviceIdentifier.scope(),
+                                                instanceBoundFunctions(serviceIdentifier, serviceInterface),
                                                 serviceDefinition,
                                                 referenceResolver);
         return new ServiceDirectoryEntry()
@@ -400,13 +401,31 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
     }
 
     /**
+     * The names of a scoped service's functions that only the instance a call names may answer: every function
+     * not annotated {@link ScopeOptional}. An unscoped service has none.
+     */
+    private static Set<String> instanceBoundFunctions(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        Set<String> ret = new HashSet<>();
+        if (serviceIdentifier.scope() != null) {
+            for (Method method : serviceInterface.getMethods()) {
+                if (AnnotationUtils.findAnnotation(method, ScopeOptional.class) == null) {
+                    ret.add(method.getName());
+                }
+            }
+        }
+        return ret;
+    }
+
+    /**
      * The MCP tools of a service's functions, one per function carrying the tool decorator, named and
-     * addressed under the service's qualified name.
+     * addressed under the service's qualified name at its unscoped address.
      *
-     * @throws IllegalStateException when a tool's function streams its result, or two tools share a name
+     * @param instanceBoundFunctions the functions that only an instance named by its scope may answer
+     * @throws IllegalStateException when a tool's function streams its result, is bound to an instance, or two
+     *                               tools share a name
      */
     private List<McpToolDefinition> toolsOf(String qualifiedName,
-                                            String scope,
+                                            Set<String> instanceBoundFunctions,
                                             ServiceDefinition serviceDefinition,
                                             Map<String, ObjectC3Type> referenceResolver) {
         List<McpToolDefinition> tools = new ArrayList<>();
@@ -427,6 +446,13 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                 if (returnType instanceof StreamC3Type) {
                     throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + qualifiedName
                                                             + " has a streaming return type, which MCP tools do not support");
+                }
+                // a tool call names no instance, so it reaches a scoped service at the shared unscoped address,
+                // where only the ScopeOptional functions are answered
+                if (instanceBoundFunctions.contains(function.getName())) {
+                    throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + qualifiedName
+                                                            + " is answered only by the instance a call names, and a tool call names"
+                                                            + " none; annotate it @ScopeOptional if any instance can answer it");
                 }
 
                 String toolName = KinoticUtil.mcpToolName(qualifiedName, function.getName());
@@ -452,7 +478,7 @@ public class DefaultServiceDirectory implements ServiceDirectory, SmartInitializ
                                   // the full invocation CRI, so dispatching a call needs no reconstruction;
                                   // no version: the invoker does not support version-specific routing
                                   .setCri(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
-                                                     scope,
+                                                     null,
                                                      qualifiedName,
                                                      "/" + function.getName(),
                                                      null).raw())

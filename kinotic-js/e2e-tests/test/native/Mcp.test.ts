@@ -22,6 +22,8 @@ const CREATE_APPLICATION = 'Application Service Create Application If Not Exist'
 // ProjectService inherits save from CrudService, which declares save(T entity), while the implementation it
 // inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
 const SAVE_PROJECT = 'Project Service Save'
+// JobMonitoringService is published once per node, scoped by its node id
+const FIND_JOB_RUNS = 'Job Monitoring Service Find Job Runs'
 
 /** applicationId of the APPLICATION-scope user seeded for this suite by V4__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
@@ -70,7 +72,7 @@ describe('Kinotic JS', () => {
                                                                   organizationId: E2E_ORGANIZATION_ID})
 
         // the directory publishes on server startup; wait for the listing to settle
-        const expected = [FIND_PROJECTS_BY_REPO, CREATE_APPLICATION, SAVE_PROJECT]
+        const expected = [FIND_PROJECTS_BY_REPO, CREATE_APPLICATION, SAVE_PROJECT, FIND_JOB_RUNS]
         const deadline = Date.now() + 30000
         let titles: string[] = []
         while (!expected.every(title => titles.includes(title))) {
@@ -143,6 +145,14 @@ describe('Kinotic JS', () => {
         const content = result.content as Array<{ type: string, text?: string }>
         expect(content[0].type).toBe('text')
         expect(content[0].text).toBe('[]')
+    })
+
+    it('dispatches a scoped service\'s tool to whichever instance receives it', async () => {
+        const result = await organizationClient.callTool({name: toolName(FIND_JOB_RUNS),
+                                                          arguments: {filter: {}, pageable: {pageNumber: 0, pageSize: 5}}})
+        const content = result.content as Array<{ type: string, text?: string }>
+        expect(result.isError, content[0]?.text).toBeFalsy()
+        expect(Array.isArray(JSON.parse(content[0].text ?? '').content)).toBe(true)
     })
 
     it('rejects arguments matching no parameter as a tool error', async () => {

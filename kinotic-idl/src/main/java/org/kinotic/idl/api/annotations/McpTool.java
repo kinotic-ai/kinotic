@@ -16,6 +16,9 @@ import java.lang.annotation.Target;
  * Anything the method leaves empty comes from the function itself: its name becomes its half of the title,
  * its Javadoc becomes the description, and the words in its name become the hints.
  *
+ * A tool call names no instance of a scoped service, so on a service published per instance only a function
+ * annotated {@code @ScopeOptional}, which any instance answers, can be a tool.
+ *
  * Use {@link McpToolInfo} to describe a function without exposing it. Both annotations are inherited, so a
  * base interface such as a CRUD contract can describe functions that only its subtypes expose.
  */

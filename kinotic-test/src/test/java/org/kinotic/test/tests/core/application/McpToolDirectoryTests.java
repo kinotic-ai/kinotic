@@ -9,6 +9,7 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
+import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
@@ -30,6 +31,8 @@ public class McpToolDirectoryTests extends KinoticTestBase {
     private static final String APPLICATION_SERVICE = "management-api~org.kinotic.management.api.services.ApplicationService";
     private static final String MICROSERVICE_DEPLOYMENT_SERVICE = "management-api~org.kinotic.management.api.services.deployment.MicroserviceDeploymentService";
     private static final String REPO_CREDENTIAL_SERVICE = "management-api~org.kinotic.management.api.services.github.ProjectRepoCredentialService";
+    private static final String JOB_MONITORING_SERVICE = "management-api~org.kinotic.management.api.services.JobMonitoringService";
+    private static final String LOG_SERVICE = "management-api~org.kinotic.management.api.services.telemetry.LogService";
 
     private static final String FIND_PROJECTS_BY_REPO = KinoticUtil.mcpToolName(PROJECT_SERVICE, "findByRepoFullName");
     private static final String GET_LOGIN_METHODS = KinoticUtil.mcpToolName(APPLICATION_SERVICE, "getLoginMethods");
@@ -37,6 +40,10 @@ public class McpToolDirectoryTests extends KinoticTestBase {
     // a service in a sub-package publishes in the zone its own package-info declares
     private static final String FIND_MICROSERVICE_DEPLOYMENTS = KinoticUtil.mcpToolName(MICROSERVICE_DEPLOYMENT_SERVICE, "findAllForProject");
     private static final String ISSUE_WRITE_TOKEN = KinoticUtil.mcpToolName(REPO_CREDENTIAL_SERVICE, "issueWriteToken");
+    // each node publishes its own instance of JobMonitoringService, scoped by its node id
+    private static final String FIND_JOB_RUN = KinoticUtil.mcpToolName(JOB_MONITORING_SERVICE, "findJobRun");
+    private static final String WATCH_JOB_RUN = KinoticUtil.mcpToolName(JOB_MONITORING_SERVICE, "watch");
+    private static final String LOG_HISTORY = KinoticUtil.mcpToolName(LOG_SERVICE, "history");
 
     @Autowired
     private ServiceDirectory serviceDirectory;
@@ -52,7 +59,7 @@ public class McpToolDirectoryTests extends KinoticTestBase {
         // the directory publishes on ApplicationReadyEvent and liveness flips entries online one at a
         // time, so the poll must wait for every expected tool before asserting anything
         List<String> expected = List.of(FIND_PROJECTS_BY_REPO, GET_LOGIN_METHODS, FIND_MICROSERVICE_DEPLOYMENTS, COUNT_APPLICATIONS,
-                                      ISSUE_WRITE_TOKEN);
+                                      ISSUE_WRITE_TOKEN, FIND_JOB_RUN, LOG_HISTORY);
         CursorPageable pageable = Pageable.create(null, 1000, Sort.by("id"));
         List<McpToolDefinition> tools = List.of();
         List<String> names = List.of();
@@ -78,6 +85,13 @@ public class McpToolDirectoryTests extends KinoticTestBase {
                                                    .orElseThrow();
         Assertions.assertEquals("Application Service Count: Returns the number of entities available.",
                                 countApplications.getDescription());
+
+        // a tool call names no instance, so a scoped service's tool is addressed where any instance answers;
+        // a listing leaves the address out, so the tool is resolved as a call resolves it
+        McpToolDefinition findJobRun = serviceDirectory.findMcpToolByName(FIND_JOB_RUN, null, null).await();
+        Assertions.assertFalse(CRI.create(findJobRun.getCri()).hasScope(), findJobRun.getCri());
+        // a function only the instance running the job can answer stays off the listing
+        Assertions.assertFalse(names.contains(WATCH_JOB_RUN));
     }
 
     @Test
