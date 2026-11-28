@@ -75,7 +75,7 @@ import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import DatetimeUtil from '../util/DatetimeUtil'
-import { errorMessage, parseJsonBytes } from '../util/helpers'
+import { errorMessage } from '../util/helpers'
 import type { LogSource } from './LogSource'
 import type { TimeRange } from './telemetry/TimeRange'
 import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetry/telemetryApi'
@@ -506,10 +506,8 @@ async function refresh() {
   loadingHistory.value = true
   error.value = null
   try {
-    const bytes = await props.source.history(range.start, range.end, limit.value)
+    const body = await props.source.history(range.start, range.end, limit.value)
     if (generation === refreshGeneration) {
-      // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
-      const body = parseJsonBytes(bytes)
       const entries = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
       rows.value = toRows(entries)
       entryCount.value = entries.length
@@ -536,9 +534,7 @@ async function refresh() {
 
 function startTail(start: number) {
   tailSubscription = props.source.tail(start).subscribe({
-    next: (bytes: Uint8Array) => {
-      // Raw Loki tail WebSocket frame: {streams: [{stream, values}], dropped_entries?}
-      const frame = parseJsonBytes(bytes)
+    next: (frame: any) => {
       const fresh = parseStreams(frame?.streams)
       if (fresh.length > 0) {
         const merged = rows.value.concat(toRows(fresh))

@@ -1,6 +1,5 @@
 import { Kinotic } from '@kinotic-ai/core'
 import type { LocationQuery } from 'vue-router'
-import { parseJsonBytes } from '../../util/helpers'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
@@ -101,8 +100,7 @@ export function redQueries(applicationId: string | null, range: TimeRange): { re
 
 /** Searches the organization's traces: the first ones Tempo finds in the range, up to the limit, in no particular order. */
 export async function searchTraces(organizationId: string | null, query: string, range: TimeRange, limit: number): Promise<TraceSummary[]> {
-    // Raw Tempo search response: {traces: [{traceID, rootServiceName, rootTraceName, startTimeUnixNano, durationMs, spanSets}]}
-    const body = parseJsonBytes(await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit }))
+    const body = await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit })
     return ((body?.traces ?? []) as any[]).map(parseTraceSummary)
 }
 
@@ -152,8 +150,7 @@ export function traceWindowFromQuery(query: LocationQuery): TimeRange {
  * Only the spans within the range are certain to be found, so the range should cover the whole trace.
  */
 export async function fetchTrace(organizationId: string | null, traceId: string, range: TimeRange): Promise<TraceSpan[]> {
-    // Raw Tempo trace response: OTLP JSON, whose top-level resourceSpans list Tempo names batches
-    const body = parseJsonBytes(await Kinotic.telemetry.findTrace(organizationId, traceId, Math.floor(range.start), Math.ceil(range.end)))
+    const body = await Kinotic.telemetry.findTrace(organizationId, traceId, Math.floor(range.start), Math.ceil(range.end))
     return orderForWaterfall(collectSpans(body?.batches ?? []))
 }
 
@@ -321,8 +318,7 @@ function anyValueToString(value: any): string {
 
 /** Evaluates a PromQL expression over the range, one series per result. */
 export async function queryMetrics(organizationId: string | null, query: string, range: TimeRange): Promise<MetricSeries[]> {
-    // Raw Prometheus query_range response: {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}}
-    const body = parseJsonBytes(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
+    const body = await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) })
     if (body?.status !== 'success') {
         throw new Error(body?.error ?? 'Metric query failed')
     }

@@ -57,11 +57,6 @@ export function errorMessage(err: unknown, fallback: string): string {
     return err instanceof Error && err.message ? err.message : fallback
 }
 
-/** Parses a service reply that carries a backend's raw JSON bytes. */
-export function parseJsonBytes(bytes: Uint8Array): any {
-    return JSON.parse(new TextDecoder().decode(bytes))
-}
-
 /**
  * Up to two uppercase initials standing in for an avatar image, from the display name or,
  * when it is blank, the email's local part. Empty when neither is available.
