@@ -24,14 +24,14 @@ public interface TelemetryService {
     Future<Buffer> searchTraces(TraceQuery query);
 
     /**
-     * Returns one trace with every span it holds within a time range. The range should cover the
-     * whole trace, as the trace search reported it: spans outside it may be left out.
+     * Returns one trace with every span it holds within a time range of at most a day. The range
+     * should cover the whole trace, as the trace search reported it: spans outside it may be left out.
      *
      * @param organizationId the organization the trace belongs to; null for the system's own,
      *                       which only a system participant may read
      * @param traceId        the hex trace id
-     * @param start          start of the time range, epoch milliseconds (inclusive)
-     * @param end            end of the time range, epoch milliseconds (inclusive)
+     * @param start          start of the time range, epoch milliseconds (inclusive), at least 1000
+     * @param end            end of the time range, epoch milliseconds (inclusive), at most a day after start
      * @return a {@link Future} emitting the raw Tempo trace response, OTLP JSON
      */
     Future<Buffer> findTrace(String organizationId, String traceId, long start, long end);

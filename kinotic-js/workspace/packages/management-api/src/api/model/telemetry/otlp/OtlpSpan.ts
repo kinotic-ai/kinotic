@@ -1,6 +1,8 @@
 import type { OtlpKeyValue } from '@/api/model/telemetry/otlp/OtlpKeyValue'
 import type { OtlpSpanEvent } from '@/api/model/telemetry/otlp/OtlpSpanEvent'
 import type { OtlpSpanLink } from '@/api/model/telemetry/otlp/OtlpSpanLink'
+import type { OtlpSpanType } from '@/api/model/telemetry/otlp/OtlpSpanType'
+import type { OtlpSpanTypeName } from '@/api/model/telemetry/otlp/OtlpSpanTypeName'
 import type { OtlpStatus } from '@/api/model/telemetry/otlp/OtlpStatus'
 
 /**
@@ -24,11 +26,8 @@ export interface OtlpSpan {
 
     name?: string
 
-    /**
-     * The span's kind, as its number or its name: 0 or `SPAN_KIND_UNSPECIFIED`, 1 `SPAN_KIND_INTERNAL`,
-     * 2 `SPAN_KIND_SERVER`, 3 `SPAN_KIND_CLIENT`, 4 `SPAN_KIND_PRODUCER`, 5 `SPAN_KIND_CONSUMER`.
-     */
-    kind?: number | string
+    /** The span's kind, OTLP's SpanKind, as its number or its name; absent when unspecified. */
+    kind?: OtlpSpanType | OtlpSpanTypeName
 
     /** When the span started, epoch nanoseconds. */
     startTimeUnixNano?: string

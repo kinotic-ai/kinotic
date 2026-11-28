@@ -44,10 +44,13 @@ public class DefaultTempoClient extends AbstractTenantScopedClient implements Te
     @Override
     public Future<Buffer> findTrace(String tenant, String traceId, long start, long end) {
         Validate.isTrue(TRACE_ID.matcher(traceId).matches(), "traceId must be a hex trace id");
-        // The end rounds up to the next second so the range never loses the trace's last millisecond
+        long startSeconds = msToSeconds(start);
+        // The end rounds up so the range keeps its last millisecond, and is at least a second past the
+        // start because Tempo rejects an end that is not after the start
+        long endSeconds = Math.max(startSeconds + 1, msToSeconds(end + 999));
         return get(tempoUrl + TRACES_PATH + traceId,
-                   Map.of("start", Long.toString(msToSeconds(start)),
-                          "end", Long.toString(msToSeconds(end + 999))),
+                   Map.of("start", Long.toString(startSeconds),
+                          "end", Long.toString(endSeconds)),
                    tenant,
                    "Tempo trace lookup");
     }

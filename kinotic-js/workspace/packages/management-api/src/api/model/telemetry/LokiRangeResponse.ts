@@ -4,7 +4,7 @@ import type { LokiRangeData } from '@/api/model/telemetry/LokiRangeData'
 export interface LokiRangeResponse {
 
     /** Whether the query succeeded. */
-    status: string
+    status: 'success' | 'error'
 
     /** The log streams the query read, and what reading them took. */
     data?: LokiRangeData

@@ -5,7 +5,7 @@ import type { MetricQuery } from '@/api/model/telemetry/MetricQuery'
 import type { PrometheusRangeResponse } from '@/api/model/telemetry/PrometheusRangeResponse'
 import type { TempoSearchResponse } from '@/api/model/telemetry/TempoSearchResponse'
 import type { TempoTraceResponse } from '@/api/model/telemetry/TempoTraceResponse'
-import { parseJsonBytes } from '@/internal/parseJsonBytes'
+import { parseJsonBytes } from '@/api/services/telemetry/parseJsonBytes'
 
 /**
  * Queries the traces and metrics that the workloads of an organization exported: an organization

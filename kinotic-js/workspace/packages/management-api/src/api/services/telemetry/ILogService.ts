@@ -5,7 +5,7 @@ import type { LogQuery } from '@/api/model/telemetry/LogQuery'
 import type { ServerLogQuery } from '@/api/model/telemetry/ServerLogQuery'
 import type { LokiRangeResponse } from '@/api/model/telemetry/LokiRangeResponse'
 import type { LokiTailFrame } from '@/api/model/telemetry/LokiTailFrame'
-import { parseJsonBytes } from '@/internal/parseJsonBytes'
+import { parseJsonBytes } from '@/api/services/telemetry/parseJsonBytes'
 
 /**
  * Streams and queries the logs of workloads by the organization they ran for, and of the Kinotic

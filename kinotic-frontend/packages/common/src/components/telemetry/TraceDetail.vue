@@ -4,6 +4,11 @@
     <div v-else-if="loading" class="py-6 text-center text-sm text-muted-color">Loading trace…</div>
     <div v-else-if="spans.length === 0" class="py-6 text-center text-sm text-muted-color">The trace holds no spans</div>
     <template v-else>
+      <Message v-if="rootMissing" severity="warn" :closable="false">
+        The trace's root span was not found in the day before its last span, so the spans whose parent is
+        missing are shown at the top level.
+      </Message>
+
       <!-- The trace at a glance -->
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
         <span v-for="fact in summary" :key="fact.label" class="flex items-baseline gap-1.5">
@@ -209,6 +214,7 @@ const error = ref<string | null>(null)
 const traceStartMs = computed(() => Math.min(...spans.value.map(span => span.startMs)))
 const traceDurationMs = computed(() => Math.max(1, ...spans.value.map(span => span.startMs + span.durationMs - traceStartMs.value)))
 const errorCount = computed(() => spans.value.filter(span => span.error).length)
+const rootMissing = computed(() => !spans.value.some(span => span.parentSpanId === null))
 
 const summary = computed(() => [
   { label: 'Started', value: DatetimeUtil.formatDateFromEpoch(traceStartMs.value) },

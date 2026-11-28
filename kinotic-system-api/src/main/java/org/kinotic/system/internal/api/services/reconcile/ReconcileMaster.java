@@ -4,7 +4,9 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.SpanId;
 import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceId;
 import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -30,6 +32,7 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * The one place reconciliation is driven from, running as one HA cluster singleton on the Ignite
@@ -60,10 +63,6 @@ public class ReconcileMaster implements Service {
     private static final AttributeKey<String> RECORD_TYPE = AttributeKey.stringKey("kinotic.reconcile.type");
     private static final AttributeKey<String> RECORD_ID = AttributeKey.stringKey("kinotic.reconcile.id");
     private static final AttributeKey<String> RECORD_SCOPE = AttributeKey.stringKey("kinotic.reconcile.scope");
-    // A valid parent that is not sampled: the agent's parent-based sampler then records no span started
-    // under it, such as the Elasticsearch calls of the scans every TICK_MS and RESYNC_MS
-    private static final Context UNSAMPLED = Context.root().with(Span.wrap(SpanContext.create(
-            "00000000000000000000000000000001", "0000000000000001", TraceFlags.getDefault(), TraceState.getDefault())));
 
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = ReconcilerRegistry.class)
@@ -139,7 +138,7 @@ public class ReconcileMaster implements Service {
 
     // The trigger: every record written since the last tick queues its own worker and its parent's
     private void tick() {
-        try (Scope ignored = UNSAMPLED.makeCurrent()) {
+        try (Scope ignored = unsampled().makeCurrent()) {
             registry.repositories().forEach(this::scanDirty);
         }
     }
@@ -168,7 +167,7 @@ public class ReconcileMaster implements Service {
     // The backstop: every record not in its desired state queues its worker, whether or not a write
     // was seen, so a lost tick or a worker that gave up costs one period
     private void resync() {
-        try (Scope ignored = UNSAMPLED.makeCurrent()) {
+        try (Scope ignored = unsampled().makeCurrent()) {
             registry.reconcilableRepositories().forEach(this::scanUnreconciled);
         }
     }
@@ -178,6 +177,17 @@ public class ReconcileMaster implements Service {
                   .onSuccess(page -> page.getContent().forEach(
                           record -> enqueue(new Key(repository.type(), record.getId(), repository.scopeOf(record)))))
                   .onFailure(error -> log.error("Resync of {} failed", repository.type(), error));
+    }
+
+    // A valid parent that is not sampled, so the agent's parent-based sampler drops every span the scans'
+    // Elasticsearch calls start under it. Its ids are random because they reach Elasticsearch in the
+    // traceparent header; the lower bound of 1 keeps them off the all-zero id, which is invalid.
+    private static Context unsampled() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        return Context.root().with(Span.wrap(SpanContext.create(TraceId.fromLongs(random.nextLong(1, Long.MAX_VALUE), random.nextLong()),
+                                                                SpanId.fromLong(random.nextLong(1, Long.MAX_VALUE)),
+                                                                TraceFlags.getDefault(),
+                                                                TraceState.getDefault())));
     }
 
     // The one look at every record: page by page, since a kind may hold more than a scan reads

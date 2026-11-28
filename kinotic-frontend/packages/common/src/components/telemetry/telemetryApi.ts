@@ -1,5 +1,6 @@
 import { Kinotic } from '@kinotic-ai/core'
-import type { OtlpAnyValue, OtlpKeyValue, OtlpResourceSpans, OtlpSpanEvent, TempoSearchTrace } from '@kinotic-ai/management-api'
+import { OtlpSpanType, OtlpStatusCode } from '@kinotic-ai/management-api'
+import type { OtlpAnyValue, OtlpKeyValue, OtlpResourceSpans, OtlpSpanEvent, OtlpSpanTypeName, TempoSearchTrace } from '@kinotic-ai/management-api'
 import type { LocationQuery } from 'vue-router'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
@@ -18,8 +19,11 @@ const SERVER_SPANS = 'span_kind="SPAN_KIND_SERVER"'
  * the blocks that answered the search rather than from every span of the trace.
  */
 const TRACE_WINDOW_MARGIN_MS = 5 * 60_000
-/** The window a trace's page looks the trace up in when its link names none: the day before it opened. */
-const TRACE_FALLBACK_WINDOW_MS = 24 * 60 * 60_000
+/**
+ * The widest window a trace is looked up in, the day TelemetryService.findTrace accepts at most; also
+ * the window a trace's page looks in when its link names none.
+ */
+const TRACE_LOOKUP_MAX_MS = 24 * 60 * 60_000
 
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
@@ -131,28 +135,43 @@ export function traceWindowQuery(range: TimeRange): Record<string, string> {
 }
 
 /**
- * The trace window a link to a trace's page carries in its query, or the day before now when it
- * carries none, as a link typed or shared by hand may not.
+ * The trace window a link to a trace's page carries in its query, or the day before now when the
+ * link carries no window a trace can be looked up in, as a link typed or shared by hand may not.
  */
 export function traceWindowFromQuery(query: LocationQuery): TimeRange {
-    const start = Number(query.start)
-    const end = Number(query.end)
+    const isEpochMs = (value: unknown): value is string => typeof value === 'string' && /^\d+$/.test(value)
     let ret: TimeRange
-    if (typeof query.start === 'string' && typeof query.end === 'string' && Number.isFinite(start) && Number.isFinite(end) && start <= end) {
-        ret = { start, end }
+    if (isEpochMs(query.start) && isEpochMs(query.end)
+        && Number(query.start) >= 1000
+        && Number(query.start) <= Number(query.end)
+        && Number(query.end) - Number(query.start) <= TRACE_LOOKUP_MAX_MS) {
+        ret = { start: Number(query.start), end: Number(query.end) }
     } else {
-        ret = rangeEndingNow(TRACE_FALLBACK_WINDOW_MS)
+        ret = rangeEndingNow(TRACE_LOOKUP_MAX_MS)
     }
     return ret
 }
 
 /**
  * Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start.
- * Only the spans within the range are certain to be found, so the range should cover the whole trace.
+ * A trace whose root span is not within the range is looked up again over the day up to the range's
+ * end; spans that began before that are not found.
  */
 export async function fetchTrace(organizationId: string | null, traceId: string, range: TimeRange): Promise<TraceSpan[]> {
-    const body = await Kinotic.telemetry.findTrace(organizationId, traceId, Math.floor(range.start), Math.ceil(range.end))
-    return orderForWaterfall(collectSpans(body.batches ?? []))
+    const start = Math.floor(range.start)
+    const end = Math.ceil(range.end)
+    let spans = await fetchSpans(organizationId, traceId, start, end)
+    // The search reports the start it saw within its own range, so a trace that began before that range
+    // comes back without its root
+    if (!spans.some(span => span.parentSpanId === null) && end - start < TRACE_LOOKUP_MAX_MS) {
+        spans = await fetchSpans(organizationId, traceId, end - TRACE_LOOKUP_MAX_MS, end)
+    }
+    return orderForWaterfall(spans)
+}
+
+async function fetchSpans(organizationId: string | null, traceId: string, start: number, end: number): Promise<TraceSpan[]> {
+    const body = await Kinotic.telemetry.findTrace(organizationId, traceId, start, end)
+    return collectSpans(body.batches ?? [])
 }
 
 function collectSpans(batches: OtlpResourceSpans[]): TraceSpan[] {
@@ -172,7 +191,7 @@ function collectSpans(batches: OtlpResourceSpans[]): TraceSpan[] {
                     kind: kindOf(span.kind),
                     startMs,
                     durationMs: Math.max(0, endMs - startMs),
-                    error: span.status?.code === 2 || span.status?.code === 'STATUS_CODE_ERROR',
+                    error: span.status?.code === OtlpStatusCode.ERROR || span.status?.code === 'STATUS_CODE_ERROR',
                     statusMessage: span.status?.message ?? '',
                     attributes: attributesOf(span.attributes),
                     resource,
@@ -243,11 +262,10 @@ function idToHex(id: string): string {
 }
 
 // The kind arrives as the protobuf enum name or its number, depending on the encoder
-function kindOf(kind: unknown): string {
-    const names = ['unspecified', 'internal', 'server', 'client', 'producer', 'consumer']
+function kindOf(kind: OtlpSpanType | OtlpSpanTypeName | undefined): string {
     let ret: string
     if (typeof kind === 'number') {
-        ret = names[kind] ?? 'unspecified'
+        ret = OtlpSpanType[kind]?.toLowerCase() ?? 'unspecified'
     } else if (typeof kind === 'string') {
         ret = kind.replace(/^SPAN_KIND_/, '').toLowerCase()
     } else {

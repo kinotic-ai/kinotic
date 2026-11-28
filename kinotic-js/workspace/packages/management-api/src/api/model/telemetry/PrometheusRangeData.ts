@@ -4,7 +4,7 @@ import type { PrometheusSeries } from '@/api/model/telemetry/PrometheusSeries'
 export interface PrometheusRangeData {
 
     /** The kind of result; a range query yields `matrix`. */
-    resultType: string
+    resultType: 'matrix' | 'vector' | 'scalar' | 'string'
 
     /** One series per label set the expression produced, sorted by their labels. */
     result: PrometheusSeries[]
