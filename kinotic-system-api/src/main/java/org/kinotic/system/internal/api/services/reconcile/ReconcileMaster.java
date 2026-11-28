@@ -3,6 +3,9 @@ package org.kinotic.system.internal.api.services.reconcile;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
@@ -39,8 +42,9 @@ import java.util.Optional;
  * queued once more when the worker returns; a worker that fails is retried with backoff; a worker
  * that asks to be called again is. At most {@link #MAX_IN_FLIGHT} workers run at once, and the rest
  * wait their turn, so a scan that finds many records, a resync of many, or the initial list reaches
- * the store at a bounded rate rather than all at once. Every call of a worker starts a trace of its
- * own, whose root span is named {@code reconcile <type>}, such as {@code reconcile VM_NODE}.
+ * the store at a bounded rate rather than all at once. Only the calls of workers are traced, each
+ * starting a trace of its own whose root span is named {@code reconcile <type>}, such as
+ * {@code reconcile VM_NODE}; the periodic scans that find the records to queue are untraced.
  */
 @Slf4j
 public class ReconcileMaster implements Service {
@@ -56,6 +60,10 @@ public class ReconcileMaster implements Service {
     private static final AttributeKey<String> RECORD_TYPE = AttributeKey.stringKey("kinotic.reconcile.type");
     private static final AttributeKey<String> RECORD_ID = AttributeKey.stringKey("kinotic.reconcile.id");
     private static final AttributeKey<String> RECORD_SCOPE = AttributeKey.stringKey("kinotic.reconcile.scope");
+    // A valid parent that is not sampled: the agent's parent-based sampler then records no span started
+    // under it, such as the Elasticsearch calls of the scans every TICK_MS and RESYNC_MS
+    private static final Context UNSAMPLED = Context.root().with(Span.wrap(SpanContext.create(
+            "00000000000000000000000000000001", "0000000000000001", TraceFlags.getDefault(), TraceState.getDefault())));
 
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = ReconcilerRegistry.class)
@@ -131,7 +139,9 @@ public class ReconcileMaster implements Service {
 
     // The trigger: every record written since the last tick queues its own worker and its parent's
     private void tick() {
-        registry.repositories().forEach(this::scanDirty);
+        try (Scope ignored = UNSAMPLED.makeCurrent()) {
+            registry.repositories().forEach(this::scanDirty);
+        }
     }
 
     // One type parameter per repository, so the page's records are typed by the repository that read them
@@ -158,7 +168,9 @@ public class ReconcileMaster implements Service {
     // The backstop: every record not in its desired state queues its worker, whether or not a write
     // was seen, so a lost tick or a worker that gave up costs one period
     private void resync() {
-        registry.reconcilableRepositories().forEach(this::scanUnreconciled);
+        try (Scope ignored = UNSAMPLED.makeCurrent()) {
+            registry.reconcilableRepositories().forEach(this::scanUnreconciled);
+        }
     }
 
     private <R extends Reconcilable<?>> void scanUnreconciled(ReconcilableRepository<R> repository) {
