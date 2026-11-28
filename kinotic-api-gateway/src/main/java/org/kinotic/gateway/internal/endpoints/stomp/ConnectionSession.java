@@ -25,12 +25,12 @@ import java.util.function.Consumer;
 @Slf4j
 public class ConnectionSession {
 
-    // Session data holding the latest frame a connection saved to the session, and the lastAccessed that save wrote,
-    // which tells a save apart from a request: a request writes a later lastAccessed
-    private static final String LAST_FRAME_KEY = ConnectionSession.class.getName() + ".lastFrame";
+    // Session data holding the time of the latest activity a connection saved to the session, and the lastAccessed
+    // that save wrote, which tells a save apart from a request: a request writes a later lastAccessed
+    private static final String LAST_ACTIVITY_AT_KEY = ConnectionSession.class.getName() + ".lastActivityAt";
     private static final String SAVED_AT_KEY = ConnectionSession.class.getName() + ".savedAt";
-    // how long before a session's expiry the review saves the frames since the last save, so the put reaches the
-    // store before the TTL of the previous put lapses
+    // how long before a session's expiry the review saves the time of the connection's last activity, so the put
+    // reaches the store before the TTL of the previous put lapses
     private static final long SESSION_SAVE_MARGIN_MILLIS = 60_000;
 
     private final Services services;
@@ -42,11 +42,11 @@ public class ConnectionSession {
     private SessionKeepAliveMode keepAliveMode = SessionKeepAliveMode.ACTIVITY;
     // CONNECTION mode: when the session was last written to the store
     private long lastTouch = 0;
-    // ACTIVITY mode: when the connection's last frame arrived
-    private long lastFrameAt;
-    // ACTIVITY mode: a frame from this time on starts a review at once, since no review before the session's expiry
+    // ACTIVITY mode: when the client last sent a frame
+    private long lastActivityAt;
+    // ACTIVITY mode: activity from this time on starts a review at once, since no review before the session's expiry
     // remains to save it; Long.MAX_VALUE while a review is in flight
-    private long reviewFramesFrom;
+    private long reviewActivityFrom;
     // the CONNECTION mode's periodic touch, or the ACTIVITY mode's next review
     private long timer = -1;
 
@@ -94,10 +94,10 @@ public class ConnectionSession {
                 log.error("Session is null while sessionKeepAliveMode is ACTIVITY");
                 throw new IllegalStateException("Internal server error");
             }
-            // A frame is recorded here and saved to the store by the review shortly before the session would
-            // expire, so a busy connection writes the store about once per timeout
-            lastFrameAt = System.currentTimeMillis();
-            if (lastFrameAt >= reviewFramesFrom) {
+            // Only the time is kept; the review saves it to the store shortly before the session would expire, so a
+            // busy connection writes the store about once per timeout
+            lastActivityAt = System.currentTimeMillis();
+            if (lastActivityAt >= reviewActivityFrom) {
                 reviewSession();
             }
         }
@@ -126,11 +126,11 @@ public class ConnectionSession {
 
     // Reads the stored session and ends the connection once the session has ended. A session that has gone unused,
     // by requests on its cookie and by every connection's frames, for its timeout has expired: a browser login's is
-    // deleted and the connection closed. While the session is in use, the frames since the last save are written to
-    // it a margin before it would expire, and the next review is set a margin before the new expiry; inside the
+    // deleted and the connection closed. While the session is in use, the time of the connection's last activity is
+    // written to it a margin before it would expire, and the next review is set a margin before the new expiry; inside the
     // margin, the last review runs at the expiry itself.
     private void reviewSession() {
-        reviewFramesFrom = Long.MAX_VALUE;
+        reviewActivityFrom = Long.MAX_VALUE;
         if (timer != -1) {
             services.vertx.cancelTimer(timer);
             timer = -1;
@@ -147,7 +147,7 @@ public class ConnectionSession {
                     close.accept(ended);
                 } else if (stored != null) {
                     long lastUse = lastUse(stored);
-                    long expiresAt = Math.max(lastFrameAt, lastUse) + stored.timeout();
+                    long expiresAt = Math.max(lastActivityAt, lastUse) + stored.timeout();
                     if (System.currentTimeMillis() >= expiresAt) {
                         // a session created for this connection lapses on its TTL, and the connection goes on without it
                         if (!createdHere) {
@@ -156,10 +156,10 @@ public class ConnectionSession {
                                 return null;
                             });
                         }
-                    } else if (lastFrameAt > lastUse) {
+                    } else if (lastActivityAt > lastUse) {
                         stored.setAccessed();
                         stored.put(SAVED_AT_KEY, stored.lastAccessed());
-                        stored.put(LAST_FRAME_KEY, lastFrameAt);
+                        stored.put(LAST_ACTIVITY_AT_KEY, lastActivityAt);
                         ret = services.sessionStore.put(stored).map(expiresAt);
                     } else {
                         ret = Future.succeededFuture(expiresAt);
@@ -180,10 +180,10 @@ public class ConnectionSession {
             } else if (ar.result() != null) {
                 long saveAt = ar.result() - saveMargin;
                 if (now < saveAt) {
-                    reviewFramesFrom = saveAt;
+                    reviewActivityFrom = saveAt;
                     scheduleReview(saveAt);
                 } else {
-                    reviewFramesFrom = now;
+                    reviewActivityFrom = now;
                     scheduleReview(ar.result());
                 }
             }
@@ -197,13 +197,14 @@ public class ConnectionSession {
         });
     }
 
-    // The latest use of the stored session: the last frame a connection saved to it, or the last request that wrote
-    // it. A save is made only for a frame later than every use before it, so a lastAccessed a save wrote is dropped.
+    // The latest use of the stored session: the last activity a connection saved to it, or the last request that
+    // wrote it. A save is made only for activity later than every use before it, so a lastAccessed a save wrote is
+    // dropped.
     private static long lastUse(Session stored) {
-        Long lastFrame = stored.get(LAST_FRAME_KEY);
+        Long lastActivity = stored.get(LAST_ACTIVITY_AT_KEY);
         Long savedAt = stored.get(SAVED_AT_KEY);
         long lastRequest = savedAt == null || stored.lastAccessed() != savedAt ? stored.lastAccessed() : 0;
-        return Math.max(lastRequest, lastFrame != null ? lastFrame : 0);
+        return Math.max(lastRequest, lastActivity != null ? lastActivity : 0);
     }
 
     // a quarter of the timeout, so a touch that fails is retried before the stored copy expires
