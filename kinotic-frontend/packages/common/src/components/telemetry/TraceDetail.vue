@@ -4,9 +4,9 @@
     <div v-else-if="loading" class="py-6 text-center text-sm text-muted-color">Loading trace…</div>
     <div v-else-if="spans.length === 0" class="py-6 text-center text-sm text-muted-color">The trace holds no spans</div>
     <template v-else>
-      <Message v-if="rootMissing" severity="warn" :closable="false">
-        The trace's root span was not found in the day before its last span, so the spans whose parent is
-        missing are shown at the top level.
+      <Message v-if="incomplete" severity="warn" :closable="false">
+        Some of this trace's spans were not found in the day before its last span, so the spans whose
+        parent is missing are shown at the top level.
       </Message>
 
       <!-- The trace at a glance -->
@@ -175,7 +175,7 @@ import { errorMessage } from '../../util/helpers'
 import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
 import type { TraceSpanEvent } from './TraceSpanEvent'
-import { fetchTrace } from './telemetryApi'
+import { fetchTrace, isIncompleteTrace } from './telemetryApi'
 import { accentColor } from '../../charts/chartTheme'
 import { formatDuration } from './telemetryDisplay'
 
@@ -214,7 +214,7 @@ const error = ref<string | null>(null)
 const traceStartMs = computed(() => Math.min(...spans.value.map(span => span.startMs)))
 const traceDurationMs = computed(() => Math.max(1, ...spans.value.map(span => span.startMs + span.durationMs - traceStartMs.value)))
 const errorCount = computed(() => spans.value.filter(span => span.error).length)
-const rootMissing = computed(() => !spans.value.some(span => span.parentSpanId === null))
+const incomplete = computed(() => isIncompleteTrace(spans.value))
 
 const summary = computed(() => [
   { label: 'Started', value: DatetimeUtil.formatDateFromEpoch(traceStartMs.value) },
@@ -294,18 +294,29 @@ async function copy(key: string, text: string): Promise<void> {
   }, 1500)
 }
 
+// Lookups can overlap when the trace or its range changes mid-flight; only the latest lands
+let loadSequence = 0
+
 async function load() {
+  const sequence = ++loadSequence
   loading.value = true
   error.value = null
   selected.value = null
   try {
-    spans.value = await fetchTrace(props.organizationId, props.traceId, props.range)
-    selected.value = spans.value.find(span => span.error) ?? spans.value[0] ?? null
+    const found = await fetchTrace(props.organizationId, props.traceId, props.range)
+    if (sequence === loadSequence) {
+      spans.value = found
+      selected.value = found.find(span => span.error) ?? found[0] ?? null
+    }
   } catch (err) {
-    spans.value = []
-    error.value = errorMessage(err, 'Failed to load the trace')
+    if (sequence === loadSequence) {
+      spans.value = []
+      error.value = errorMessage(err, 'Failed to load the trace')
+    }
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) {
+      loading.value = false
+    }
   }
 }
 

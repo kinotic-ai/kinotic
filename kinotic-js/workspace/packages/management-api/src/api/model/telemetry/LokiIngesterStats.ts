@@ -1,25 +1,18 @@
+import type { LokiStoreStats } from '@/api/model/telemetry/LokiStoreStats'
+
 /** What the Loki ingesters read to answer a query. */
 export interface LokiIngesterStats {
 
-    compressedBytes?: number
-
-    decompressedBytes?: number
-
-    decompressedLines?: number
-
-    /** The bytes and lines read from chunks still open in memory. */
-    headChunkBytes?: number
-
-    headChunkLines?: number
-
-    totalBatches?: number
+    /** How many ingesters the query reached. */
+    totalReached?: number
 
     totalChunksMatched?: number
 
-    totalDuplicates?: number
+    /** How many batches the ingesters sent. */
+    totalBatches?: number
 
     totalLinesSent?: number
 
-    /** How many ingesters answered. */
-    totalReached?: number
+    /** What the ingesters read from the chunks they hold. */
+    store?: LokiStoreStats
 }

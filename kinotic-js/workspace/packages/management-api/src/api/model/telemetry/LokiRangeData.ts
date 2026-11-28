@@ -4,8 +4,8 @@ import type { LokiStream } from '@/api/model/telemetry/LokiStream'
 /** The result of a Loki range query for log lines. */
 export interface LokiRangeData {
 
-    /** The kind of result: `streams` for a log query, `matrix` for a metric query. */
-    resultType: 'streams' | 'matrix'
+    /** The kind of result, which for a log query is `streams`. */
+    resultType: 'streams'
 
     /** One stream per label set, each with its lines. */
     result: LokiStream[]

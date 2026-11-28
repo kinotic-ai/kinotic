@@ -24,6 +24,8 @@ const TRACE_WINDOW_MARGIN_MS = 5 * 60_000
  * the window a trace's page looks in when its link names none.
  */
 const TRACE_LOOKUP_MAX_MS = 24 * 60 * 60_000
+/** The earliest start, epoch milliseconds, that TelemetryService.findTrace accepts. */
+const TRACE_LOOKUP_MIN_START_MS = 1000
 
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
@@ -121,12 +123,14 @@ function parseTraceSummary(trace: TempoSearchTrace): TraceSummary {
     }
 }
 
-/** The time range a trace from the search is looked up in: the trace's own, with a margin on both sides. */
+/**
+ * The time range a trace from the search is looked up in: the trace's own with a margin on both
+ * sides, in whole milliseconds. A range wider than a lookup accepts keeps its end and starts later.
+ */
 export function traceWindow(trace: TraceSummary): TimeRange {
-    return {
-        start: trace.startMs - TRACE_WINDOW_MARGIN_MS,
-        end: trace.startMs + trace.durationMs + TRACE_WINDOW_MARGIN_MS
-    }
+    const end = Math.ceil(trace.startMs + trace.durationMs + TRACE_WINDOW_MARGIN_MS)
+    const start = Math.max(Math.floor(trace.startMs - TRACE_WINDOW_MARGIN_MS), end - TRACE_LOOKUP_MAX_MS, TRACE_LOOKUP_MIN_START_MS)
+    return { start, end }
 }
 
 /** A trace window as the query of a link to the trace's page, which {@link traceWindowFromQuery} reads back. */
@@ -136,16 +140,17 @@ export function traceWindowQuery(range: TimeRange): Record<string, string> {
 
 /**
  * The trace window a link to a trace's page carries in its query, or the day before now when the
- * link carries no window a trace can be looked up in, as a link typed or shared by hand may not.
+ * link carries no window, as a link typed or shared by hand may not. A window wider than a lookup
+ * accepts keeps its end and starts a day before it.
  */
 export function traceWindowFromQuery(query: LocationQuery): TimeRange {
     const isEpochMs = (value: unknown): value is string => typeof value === 'string' && /^\d+$/.test(value)
     let ret: TimeRange
     if (isEpochMs(query.start) && isEpochMs(query.end)
-        && Number(query.start) >= 1000
-        && Number(query.start) <= Number(query.end)
-        && Number(query.end) - Number(query.start) <= TRACE_LOOKUP_MAX_MS) {
-        ret = { start: Number(query.start), end: Number(query.end) }
+        && Number(query.start) >= TRACE_LOOKUP_MIN_START_MS
+        && Number(query.start) <= Number(query.end)) {
+        const end = Number(query.end)
+        ret = { start: Math.max(Number(query.start), end - TRACE_LOOKUP_MAX_MS), end }
     } else {
         ret = rangeEndingNow(TRACE_LOOKUP_MAX_MS)
     }
@@ -153,17 +158,27 @@ export function traceWindowFromQuery(query: LocationQuery): TimeRange {
 }
 
 /**
+ * Whether spans of the trace are missing: it has no root span, or a span whose parent is not among
+ * them. A trace whose parent spans went to another tenant reads the same way.
+ */
+export function isIncompleteTrace(spans: TraceSpan[]): boolean {
+    const spanIds = new Set(spans.map(span => span.spanId))
+    return !spans.some(span => span.parentSpanId === null)
+        || spans.some(span => span.parentSpanId !== null && !spanIds.has(span.parentSpanId))
+}
+
+/**
  * Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start.
- * A trace whose root span is not within the range is looked up again over the day up to the range's
- * end; spans that began before that are not found.
+ * A trace that comes back incomplete from the range is looked up again over the day up to the
+ * range's end; spans that began before that are not found.
  */
 export async function fetchTrace(organizationId: string | null, traceId: string, range: TimeRange): Promise<TraceSpan[]> {
     const start = Math.floor(range.start)
     const end = Math.ceil(range.end)
     let spans = await fetchSpans(organizationId, traceId, start, end)
-    // The search reports the start it saw within its own range, so a trace that began before that range
-    // comes back without its root
-    if (!spans.some(span => span.parentSpanId === null) && end - start < TRACE_LOOKUP_MAX_MS) {
+    // The search reports a trace's start and duration from the blocks its query matched in, so the range
+    // derived from them can leave out blocks that hold the rest of the trace
+    if (isIncompleteTrace(spans) && end - start < TRACE_LOOKUP_MAX_MS) {
         spans = await fetchSpans(organizationId, traceId, end - TRACE_LOOKUP_MAX_MS, end)
     }
     return orderForWaterfall(spans)
