@@ -1,4 +1,5 @@
 import { Kinotic } from '@kinotic-ai/core'
+import type { OtlpAnyValue, OtlpKeyValue, OtlpResourceSpans, OtlpSpanEvent, TempoSearchTrace } from '@kinotic-ai/management-api'
 import type { LocationQuery } from 'vue-router'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
@@ -101,13 +102,13 @@ export function redQueries(applicationId: string | null, range: TimeRange): { re
 /** Searches the organization's traces: the first ones Tempo finds in the range, up to the limit, in no particular order. */
 export async function searchTraces(organizationId: string | null, query: string, range: TimeRange, limit: number): Promise<TraceSummary[]> {
     const body = await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit })
-    return ((body?.traces ?? []) as any[]).map(parseTraceSummary)
+    return (body.traces ?? []).map(parseTraceSummary)
 }
 
-function parseTraceSummary(trace: any): TraceSummary {
-    const spanSets: any[] = trace.spanSets ?? []
+function parseTraceSummary(trace: TempoSearchTrace): TraceSummary {
+    const spanSets = trace.spanSets ?? []
     return {
-        traceId: String(trace.traceID ?? ''),
+        traceId: trace.traceID,
         rootService: trace.rootServiceName ?? '',
         rootName: trace.rootTraceName ?? '',
         startMs: Number(trace.startTimeUnixNano ?? 0) / 1_000_000,
@@ -151,10 +152,10 @@ export function traceWindowFromQuery(query: LocationQuery): TimeRange {
  */
 export async function fetchTrace(organizationId: string | null, traceId: string, range: TimeRange): Promise<TraceSpan[]> {
     const body = await Kinotic.telemetry.findTrace(organizationId, traceId, Math.floor(range.start), Math.ceil(range.end))
-    return orderForWaterfall(collectSpans(body?.batches ?? []))
+    return orderForWaterfall(collectSpans(body.batches ?? []))
 }
 
-function collectSpans(batches: any[]): TraceSpan[] {
+function collectSpans(batches: OtlpResourceSpans[]): TraceSpan[] {
     const spans: TraceSpan[] = []
     for (const batch of batches) {
         const resource = attributesOf(batch.resource?.attributes)
@@ -175,7 +176,7 @@ function collectSpans(batches: any[]): TraceSpan[] {
                     statusMessage: span.status?.message ?? '',
                     attributes: attributesOf(span.attributes),
                     resource,
-                    events: ((span.events ?? []) as any[]).map(eventOf),
+                    events: (span.events ?? []).map(eventOf),
                     depth: 0
                 })
             }
@@ -218,7 +219,7 @@ function orderForWaterfall(spans: TraceSpan[]): TraceSpan[] {
     return ordered
 }
 
-function eventOf(event: any): TraceSpanEvent {
+function eventOf(event: OtlpSpanEvent): TraceSpanEvent {
     return {
         name: event.name ?? '',
         timeMs: Number(event.timeUnixNano ?? 0) / 1_000_000,
@@ -256,7 +257,7 @@ function kindOf(kind: unknown): string {
 }
 
 // OTLP attributes are a list of {key, value: {stringValue | intValue | ...}} pairs
-function attributesOf(list: any[] | undefined): Record<string, string> {
+function attributesOf(list: OtlpKeyValue[] | undefined): Record<string, string> {
     const ret: Record<string, string> = {}
     for (const entry of list ?? []) {
         if (entry?.key !== undefined) {
@@ -271,7 +272,7 @@ const ANY_VALUE_MAX_DEPTH = 32
 const ANY_VALUE_DEPTH_MARKER = '…'
 
 /** An OTLP AnyValue as the native value it encodes: scalars as they are, lists and maps converted recursively. */
-function anyValueToJson(value: any, depth: number = 0): unknown {
+function anyValueToJson(value: OtlpAnyValue | undefined, depth: number = 0): unknown {
     let ret: unknown
     if (value === null || value === undefined) {
         ret = null
@@ -284,13 +285,15 @@ function anyValueToJson(value: any, depth: number = 0): unknown {
         ret = value.doubleValue
     } else if (value.boolValue !== undefined) {
         ret = value.boolValue
+    } else if (value.bytesValue !== undefined) {
+        ret = value.bytesValue
     } else if (depth >= ANY_VALUE_MAX_DEPTH) {
         ret = ANY_VALUE_DEPTH_MARKER
     } else if (value.arrayValue !== undefined) {
-        ret = ((value.arrayValue.values ?? []) as any[]).map(entry => anyValueToJson(entry, depth + 1))
+        ret = (value.arrayValue.values ?? []).map(entry => anyValueToJson(entry, depth + 1))
     } else if (value.kvlistValue !== undefined) {
         const map: Record<string, unknown> = {}
-        for (const entry of (value.kvlistValue.values ?? []) as any[]) {
+        for (const entry of value.kvlistValue.values ?? []) {
             if (entry?.key !== undefined) {
                 map[entry.key] = anyValueToJson(entry.value, depth + 1)
             }
@@ -303,7 +306,7 @@ function anyValueToJson(value: any, depth: number = 0): unknown {
 }
 
 // A list or map is serialised once, from the native value, so a nested value is never stringified twice
-function anyValueToString(value: any): string {
+function anyValueToString(value: OtlpAnyValue | undefined): string {
     const json = anyValueToJson(value)
     let ret: string
     if (json === null) {
@@ -319,12 +322,12 @@ function anyValueToString(value: any): string {
 /** Evaluates a PromQL expression over the range, one series per result. */
 export async function queryMetrics(organizationId: string | null, query: string, range: TimeRange): Promise<MetricSeries[]> {
     const body = await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) })
-    if (body?.status !== 'success') {
-        throw new Error(body?.error ?? 'Metric query failed')
+    if (body.status !== 'success') {
+        throw new Error(body.error ?? 'Metric query failed')
     }
-    return ((body.data?.result ?? []) as any[]).map(result => ({
-        name: seriesName(result.metric ?? {}),
-        points: ((result.values ?? []) as Array<[number | string, string]>).map(([seconds, value]) => [Number(seconds) * 1000, Number(value)] as [number, number])
+    return (body.data?.result ?? []).map(result => ({
+        name: seriesName(result.metric),
+        points: (result.values ?? []).map(([seconds, value]) => [seconds * 1000, Number(value)] as [number, number])
     }))
 }
 
