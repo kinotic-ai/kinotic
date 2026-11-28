@@ -23,11 +23,14 @@ public interface TempoClient {
     Future<Buffer> search(String tenant, String query, long start, long end, int limit);
 
     /**
-     * Fetches one trace by id and returns the raw response body: the trace's spans as OTLP JSON.
+     * Fetches one trace by id from the blocks covering a time range and returns the raw response
+     * body: the trace's spans as OTLP JSON.
      *
      * @param tenant  the Tempo tenant ({@code X-Scope-OrgID})
      * @param traceId the hex trace id
+     * @param start   start of the time range, epoch milliseconds (inclusive)
+     * @param end     end of the time range, epoch milliseconds (inclusive)
      * @return a {@link Future} of the raw Tempo response body
      */
-    Future<Buffer> findTrace(String tenant, String traceId);
+    Future<Buffer> findTrace(String tenant, String traceId, long start, long end);
 }

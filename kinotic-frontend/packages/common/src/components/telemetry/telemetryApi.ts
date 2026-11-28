@@ -1,5 +1,7 @@
 import { Kinotic } from '@kinotic-ai/core'
-import { parseJsonBytes } from '../../util/helpers'
+import { OtlpSpanType, OtlpStatusCode } from '@kinotic-ai/management-api'
+import type { OtlpAnyValue, OtlpKeyValue, OtlpResourceSpans, OtlpSpanEvent, OtlpSpanTypeName, TempoSearchTrace } from '@kinotic-ai/management-api'
+import type { LocationQuery } from 'vue-router'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
@@ -11,6 +13,19 @@ const SPAN_METRIC_CALLS = 'traces_spanmetrics_calls_total'
 const SPAN_METRIC_LATENCY = 'traces_spanmetrics_latency_bucket'
 /** The span metrics of the calls a service handles, leaving out the calls it makes, such as to Elasticsearch. */
 const SERVER_SPANS = 'span_kind="SPAN_KIND_SERVER"'
+
+/**
+ * How far a trace lookup reaches past the start and end the trace search reported, which come from
+ * the blocks that answered the search rather than from every span of the trace.
+ */
+const TRACE_WINDOW_MARGIN_MS = 5 * 60_000
+/**
+ * The widest window a trace is looked up in, the day TelemetryService.findTrace accepts at most; also
+ * the window a trace's page looks in when its link names none.
+ */
+const TRACE_LOOKUP_MAX_MS = 24 * 60 * 60_000
+/** The earliest start, epoch milliseconds, that TelemetryService.findTrace accepts. */
+const TRACE_LOOKUP_MIN_START_MS = 1000
 
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
@@ -92,15 +107,14 @@ export function redQueries(applicationId: string | null, range: TimeRange): { re
 
 /** Searches the organization's traces: the first ones Tempo finds in the range, up to the limit, in no particular order. */
 export async function searchTraces(organizationId: string | null, query: string, range: TimeRange, limit: number): Promise<TraceSummary[]> {
-    // Raw Tempo search response: {traces: [{traceID, rootServiceName, rootTraceName, startTimeUnixNano, durationMs, spanSets}]}
-    const body = parseJsonBytes(await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit }))
-    return ((body?.traces ?? []) as any[]).map(parseTraceSummary)
+    const body = await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit })
+    return (body.traces ?? []).map(parseTraceSummary)
 }
 
-function parseTraceSummary(trace: any): TraceSummary {
-    const spanSets: any[] = trace.spanSets ?? []
+function parseTraceSummary(trace: TempoSearchTrace): TraceSummary {
+    const spanSets = trace.spanSets ?? []
     return {
-        traceId: String(trace.traceID ?? ''),
+        traceId: trace.traceID,
         rootService: trace.rootServiceName ?? '',
         rootName: trace.rootTraceName ?? '',
         startMs: Number(trace.startTimeUnixNano ?? 0) / 1_000_000,
@@ -109,14 +123,73 @@ function parseTraceSummary(trace: any): TraceSummary {
     }
 }
 
-/** Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start. */
-export async function fetchTrace(organizationId: string | null, traceId: string): Promise<TraceSpan[]> {
-    // Raw Tempo trace response: OTLP JSON, whose top-level resourceSpans list Tempo names batches
-    const body = parseJsonBytes(await Kinotic.telemetry.findTrace(organizationId, traceId))
-    return orderForWaterfall(collectSpans(body?.batches ?? []))
+/**
+ * The time range a trace from the search is looked up in: the trace's own with a margin on both
+ * sides, in whole milliseconds. A range wider than a lookup accepts keeps its end and starts later.
+ */
+export function traceWindow(trace: TraceSummary): TimeRange {
+    const end = Math.ceil(trace.startMs + trace.durationMs + TRACE_WINDOW_MARGIN_MS)
+    const start = Math.max(Math.floor(trace.startMs - TRACE_WINDOW_MARGIN_MS), end - TRACE_LOOKUP_MAX_MS, TRACE_LOOKUP_MIN_START_MS)
+    return { start, end }
 }
 
-function collectSpans(batches: any[]): TraceSpan[] {
+/** A trace window as the query of a link to the trace's page, which {@link traceWindowFromQuery} reads back. */
+export function traceWindowQuery(range: TimeRange): Record<string, string> {
+    return { start: String(Math.floor(range.start)), end: String(Math.ceil(range.end)) }
+}
+
+/**
+ * The trace window a link to a trace's page carries in its query, or the day before now when the
+ * link carries no window, as a link typed or shared by hand may not. A window wider than a lookup
+ * accepts keeps its end and starts a day before it.
+ */
+export function traceWindowFromQuery(query: LocationQuery): TimeRange {
+    const isEpochMs = (value: unknown): value is string => typeof value === 'string' && /^\d+$/.test(value)
+    let ret: TimeRange
+    if (isEpochMs(query.start) && isEpochMs(query.end)
+        && Number(query.start) >= TRACE_LOOKUP_MIN_START_MS
+        && Number(query.start) <= Number(query.end)) {
+        const end = Number(query.end)
+        ret = { start: Math.max(Number(query.start), end - TRACE_LOOKUP_MAX_MS), end }
+    } else {
+        ret = rangeEndingNow(TRACE_LOOKUP_MAX_MS)
+    }
+    return ret
+}
+
+/**
+ * Whether spans of the trace are missing: it has no root span, or a span whose parent is not among
+ * them. A trace whose parent spans went to another tenant reads the same way.
+ */
+export function isIncompleteTrace(spans: TraceSpan[]): boolean {
+    const spanIds = new Set(spans.map(span => span.spanId))
+    return !spans.some(span => span.parentSpanId === null)
+        || spans.some(span => span.parentSpanId !== null && !spanIds.has(span.parentSpanId))
+}
+
+/**
+ * Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start.
+ * A trace that comes back incomplete from the range is looked up again over the day up to the
+ * range's end; spans that began before that are not found.
+ */
+export async function fetchTrace(organizationId: string | null, traceId: string, range: TimeRange): Promise<TraceSpan[]> {
+    const start = Math.floor(range.start)
+    const end = Math.ceil(range.end)
+    let spans = await fetchSpans(organizationId, traceId, start, end)
+    // The search reports a trace's start and duration from the blocks its query matched in, so the range
+    // derived from them can leave out blocks that hold the rest of the trace
+    if (isIncompleteTrace(spans) && end - start < TRACE_LOOKUP_MAX_MS) {
+        spans = await fetchSpans(organizationId, traceId, end - TRACE_LOOKUP_MAX_MS, end)
+    }
+    return orderForWaterfall(spans)
+}
+
+async function fetchSpans(organizationId: string | null, traceId: string, start: number, end: number): Promise<TraceSpan[]> {
+    const body = await Kinotic.telemetry.findTrace(organizationId, traceId, start, end)
+    return collectSpans(body.batches ?? [])
+}
+
+function collectSpans(batches: OtlpResourceSpans[]): TraceSpan[] {
     const spans: TraceSpan[] = []
     for (const batch of batches) {
         const resource = attributesOf(batch.resource?.attributes)
@@ -133,11 +206,11 @@ function collectSpans(batches: any[]): TraceSpan[] {
                     kind: kindOf(span.kind),
                     startMs,
                     durationMs: Math.max(0, endMs - startMs),
-                    error: span.status?.code === 2 || span.status?.code === 'STATUS_CODE_ERROR',
+                    error: span.status?.code === OtlpStatusCode.ERROR || span.status?.code === 'STATUS_CODE_ERROR',
                     statusMessage: span.status?.message ?? '',
                     attributes: attributesOf(span.attributes),
                     resource,
-                    events: ((span.events ?? []) as any[]).map(eventOf),
+                    events: (span.events ?? []).map(eventOf),
                     depth: 0
                 })
             }
@@ -180,7 +253,7 @@ function orderForWaterfall(spans: TraceSpan[]): TraceSpan[] {
     return ordered
 }
 
-function eventOf(event: any): TraceSpanEvent {
+function eventOf(event: OtlpSpanEvent): TraceSpanEvent {
     return {
         name: event.name ?? '',
         timeMs: Number(event.timeUnixNano ?? 0) / 1_000_000,
@@ -204,11 +277,10 @@ function idToHex(id: string): string {
 }
 
 // The kind arrives as the protobuf enum name or its number, depending on the encoder
-function kindOf(kind: unknown): string {
-    const names = ['unspecified', 'internal', 'server', 'client', 'producer', 'consumer']
+function kindOf(kind: OtlpSpanType | OtlpSpanTypeName | undefined): string {
     let ret: string
     if (typeof kind === 'number') {
-        ret = names[kind] ?? 'unspecified'
+        ret = OtlpSpanType[kind]?.toLowerCase() ?? 'unspecified'
     } else if (typeof kind === 'string') {
         ret = kind.replace(/^SPAN_KIND_/, '').toLowerCase()
     } else {
@@ -218,7 +290,7 @@ function kindOf(kind: unknown): string {
 }
 
 // OTLP attributes are a list of {key, value: {stringValue | intValue | ...}} pairs
-function attributesOf(list: any[] | undefined): Record<string, string> {
+function attributesOf(list: OtlpKeyValue[] | undefined): Record<string, string> {
     const ret: Record<string, string> = {}
     for (const entry of list ?? []) {
         if (entry?.key !== undefined) {
@@ -233,7 +305,7 @@ const ANY_VALUE_MAX_DEPTH = 32
 const ANY_VALUE_DEPTH_MARKER = '…'
 
 /** An OTLP AnyValue as the native value it encodes: scalars as they are, lists and maps converted recursively. */
-function anyValueToJson(value: any, depth: number = 0): unknown {
+function anyValueToJson(value: OtlpAnyValue | undefined, depth: number = 0): unknown {
     let ret: unknown
     if (value === null || value === undefined) {
         ret = null
@@ -246,13 +318,15 @@ function anyValueToJson(value: any, depth: number = 0): unknown {
         ret = value.doubleValue
     } else if (value.boolValue !== undefined) {
         ret = value.boolValue
+    } else if (value.bytesValue !== undefined) {
+        ret = value.bytesValue
     } else if (depth >= ANY_VALUE_MAX_DEPTH) {
         ret = ANY_VALUE_DEPTH_MARKER
     } else if (value.arrayValue !== undefined) {
-        ret = ((value.arrayValue.values ?? []) as any[]).map(entry => anyValueToJson(entry, depth + 1))
+        ret = (value.arrayValue.values ?? []).map(entry => anyValueToJson(entry, depth + 1))
     } else if (value.kvlistValue !== undefined) {
         const map: Record<string, unknown> = {}
-        for (const entry of (value.kvlistValue.values ?? []) as any[]) {
+        for (const entry of value.kvlistValue.values ?? []) {
             if (entry?.key !== undefined) {
                 map[entry.key] = anyValueToJson(entry.value, depth + 1)
             }
@@ -265,7 +339,7 @@ function anyValueToJson(value: any, depth: number = 0): unknown {
 }
 
 // A list or map is serialised once, from the native value, so a nested value is never stringified twice
-function anyValueToString(value: any): string {
+function anyValueToString(value: OtlpAnyValue | undefined): string {
     const json = anyValueToJson(value)
     let ret: string
     if (json === null) {
@@ -280,14 +354,13 @@ function anyValueToString(value: any): string {
 
 /** Evaluates a PromQL expression over the range, one series per result. */
 export async function queryMetrics(organizationId: string | null, query: string, range: TimeRange): Promise<MetricSeries[]> {
-    // Raw Prometheus query_range response: {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}}
-    const body = parseJsonBytes(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
-    if (body?.status !== 'success') {
-        throw new Error(body?.error ?? 'Metric query failed')
+    const body = await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) })
+    if (body.status !== 'success') {
+        throw new Error(body.error ?? 'Metric query failed')
     }
-    return ((body.data?.result ?? []) as any[]).map(result => ({
-        name: seriesName(result.metric ?? {}),
-        points: ((result.values ?? []) as Array<[number | string, string]>).map(([seconds, value]) => [Number(seconds) * 1000, Number(value)] as [number, number])
+    return (body.data?.result ?? []).map(result => ({
+        name: seriesName(result.metric),
+        points: (result.values ?? []).map(([seconds, value]) => [seconds * 1000, Number(value)] as [number, number])
     }))
 }
 

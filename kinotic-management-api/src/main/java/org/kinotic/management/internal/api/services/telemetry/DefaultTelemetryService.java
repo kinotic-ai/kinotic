@@ -11,6 +11,8 @@ import org.kinotic.management.api.services.telemetry.TelemetryService;
 import org.kinotic.management.api.services.telemetry.TempoClient;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 /**
  * Default {@link TelemetryService} that reads the tenant the caller may see, per
  * {@link TenantAccess}, via {@link TempoClient} and {@link MimirClient}. Every query is confined
@@ -20,6 +22,8 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class DefaultTelemetryService implements TelemetryService {
+
+    private static final long MAX_TRACE_LOOKUP_MS = Duration.ofDays(1).toMillis();
 
     private final TempoClient tempoClient;
     private final MimirClient mimirClient;
@@ -37,9 +41,13 @@ public class DefaultTelemetryService implements TelemetryService {
     }
 
     @Override
-    public Future<Buffer> findTrace(String organizationId, String traceId) {
+    public Future<Buffer> findTrace(String organizationId, String traceId, long start, long end) {
         Validate.notBlank(traceId, "traceId cannot be blank");
-        return tempoClient.findTrace(readableTenant(organizationId), traceId);
+        // Tempo reads a start of 0 seconds as no lower bound, which would scan every block it keeps
+        Validate.isTrue(start >= 1_000, "start must be at least 1000");
+        Validate.isTrue(start <= end, "start must not be after end");
+        Validate.isTrue(end - start <= MAX_TRACE_LOOKUP_MS, "the time range must span at most a day");
+        return tempoClient.findTrace(readableTenant(organizationId), traceId, start, end);
     }
 
     @Override

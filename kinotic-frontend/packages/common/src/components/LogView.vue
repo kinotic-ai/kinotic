@@ -74,8 +74,9 @@ import SelectButton from 'primevue/selectbutton'
 import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
+import type { LokiStream, LokiTailFrame } from '@kinotic-ai/management-api'
 import DatetimeUtil from '../util/DatetimeUtil'
-import { errorMessage, parseJsonBytes } from '../util/helpers'
+import { errorMessage } from '../util/helpers'
 import type { LogSource } from './LogSource'
 import type { TimeRange } from './telemetry/TimeRange'
 import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetry/telemetryApi'
@@ -269,7 +270,7 @@ const showDate = computed(() => {
 // OpenTelemetry logback appender sets to the logger's name. The level is that
 // severity_text because Loki's detected_level is a keyword guess on a plain-text line, labelling some lines
 // of a workload log and leaving the rest bare.
-function parseStreams(streams: Array<{ stream?: Record<string, string>; values?: [string, string][] }> | undefined): LogEntry[] {
+function parseStreams(streams: LokiStream[] | undefined): LogEntry[] {
   const out: LogEntry[] = []
   for (const { stream, values } of streams ?? []) {
     const severity = stream?.severity_text?.toLowerCase()
@@ -506,11 +507,9 @@ async function refresh() {
   loadingHistory.value = true
   error.value = null
   try {
-    const bytes = await props.source.history(range.start, range.end, limit.value)
+    const body = await props.source.history(range.start, range.end, limit.value)
     if (generation === refreshGeneration) {
-      // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
-      const body = parseJsonBytes(bytes)
-      const entries = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
+      const entries = parseStreams(body.data?.result).sort((a, b) => a.ts - b.ts)
       rows.value = toRows(entries)
       entryCount.value = entries.length
       loadedRange.value = range
@@ -536,10 +535,8 @@ async function refresh() {
 
 function startTail(start: number) {
   tailSubscription = props.source.tail(start).subscribe({
-    next: (bytes: Uint8Array) => {
-      // Raw Loki tail WebSocket frame: {streams: [{stream, values}], dropped_entries?}
-      const frame = parseJsonBytes(bytes)
-      const fresh = parseStreams(frame?.streams)
+    next: (frame: LokiTailFrame) => {
+      const fresh = parseStreams(frame.streams)
       if (fresh.length > 0) {
         const merged = rows.value.concat(toRows(fresh))
         const overflow = Math.max(0, merged.length - MAX_ROWS)

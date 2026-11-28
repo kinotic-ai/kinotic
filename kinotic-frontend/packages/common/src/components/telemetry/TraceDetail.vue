@@ -4,6 +4,11 @@
     <div v-else-if="loading" class="py-6 text-center text-sm text-muted-color">Loading trace…</div>
     <div v-else-if="spans.length === 0" class="py-6 text-center text-sm text-muted-color">The trace holds no spans</div>
     <template v-else>
+      <Message v-if="incomplete" severity="warn" :closable="false">
+        Some of this trace's spans were not found in the day before its last span, so the spans whose
+        parent is missing are shown at the top level.
+      </Message>
+
       <!-- The trace at a glance -->
       <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
         <span v-for="fact in summary" :key="fact.label" class="flex items-baseline gap-1.5">
@@ -167,20 +172,23 @@ import { Check, ChevronRight, CircleAlert, Copy } from '@lucide/vue'
 import { isDark } from '../../composables/useTheme'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import { errorMessage } from '../../util/helpers'
+import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
 import type { TraceSpanEvent } from './TraceSpanEvent'
-import { fetchTrace } from './telemetryApi'
+import { fetchTrace, isIncompleteTrace } from './telemetryApi'
 import { accentColor } from '../../charts/chartTheme'
 import { formatDuration } from './telemetryDisplay'
 
 /**
  * One trace as a waterfall of its spans on the trace's timeline, nested under their parents, each
  * span in the primary colour and a failed one red. Clicking a span opens its status, attributes, events
- * and resource under its row; the trace opens on its first failed span, or its root.
+ * and resource under its row; the trace opens on its first failed span, or its root. The trace is
+ * looked up within {@code range}, which should cover the whole trace.
  */
 const props = defineProps<{
   organizationId: string | null
   traceId: string
+  range: TimeRange
 }>()
 
 const CHIP = 'inline-flex items-center gap-1.5 rounded-md bg-surface-100 px-2 py-0.5 text-[11px] font-medium text-surface-700 dark:bg-surface-800 dark:text-surface-200'
@@ -206,6 +214,7 @@ const error = ref<string | null>(null)
 const traceStartMs = computed(() => Math.min(...spans.value.map(span => span.startMs)))
 const traceDurationMs = computed(() => Math.max(1, ...spans.value.map(span => span.startMs + span.durationMs - traceStartMs.value)))
 const errorCount = computed(() => spans.value.filter(span => span.error).length)
+const incomplete = computed(() => isIncompleteTrace(spans.value))
 
 const summary = computed(() => [
   { label: 'Started', value: DatetimeUtil.formatDateFromEpoch(traceStartMs.value) },
@@ -285,22 +294,33 @@ async function copy(key: string, text: string): Promise<void> {
   }, 1500)
 }
 
+// Lookups can overlap when the trace or its range changes mid-flight; only the latest lands
+let loadSequence = 0
+
 async function load() {
+  const sequence = ++loadSequence
   loading.value = true
   error.value = null
   selected.value = null
   try {
-    spans.value = await fetchTrace(props.organizationId, props.traceId)
-    selected.value = spans.value.find(span => span.error) ?? spans.value[0] ?? null
+    const found = await fetchTrace(props.organizationId, props.traceId, props.range)
+    if (sequence === loadSequence) {
+      spans.value = found
+      selected.value = found.find(span => span.error) ?? found[0] ?? null
+    }
   } catch (err) {
-    spans.value = []
-    error.value = errorMessage(err, 'Failed to load the trace')
+    if (sequence === loadSequence) {
+      spans.value = []
+      error.value = errorMessage(err, 'Failed to load the trace')
+    }
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) {
+      loading.value = false
+    }
   }
 }
 
-watch(() => [props.organizationId, props.traceId], load, { immediate: true })
+watch(() => [props.organizationId, props.traceId, props.range.start, props.range.end], load, { immediate: true })
 
 watch(selected, () => expandedKeys.value.clear())
 </script>

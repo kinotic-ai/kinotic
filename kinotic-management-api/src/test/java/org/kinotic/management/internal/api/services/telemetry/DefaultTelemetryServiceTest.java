@@ -42,17 +42,30 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.queryMetrics(metricQuery("globex"))));
         assertInstanceOf(AuthorizationException.class,
-                         failureOf(ACME_USER, () -> service.findTrace("globex", "abc123")));
+                         failureOf(ACME_USER, () -> service.findTrace("globex", "abc123", 1_000, 2_000)));
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.searchTraces(traceQuery(null))));
     }
 
     @Test
     void systemParticipantReadsAnyOrganization() throws Throwable {
-        callAs(SYSTEM_PARTICIPANT, () -> service.findTrace("globex", "abc123"));
+        callAs(SYSTEM_PARTICIPANT, () -> service.findTrace("globex", "abc123", 1_000, 2_000));
 
         assertEquals("globex", tempoClient.tenant);
         assertEquals("abc123", tempoClient.traceId);
+        assertEquals(1_000L, tempoClient.start);
+        assertEquals(2_000L, tempoClient.end);
+    }
+
+    @Test
+    void traceLookupRangeIsBounded() {
+        long day = 24 * 60 * 60 * 1000L;
+        assertInstanceOf(IllegalArgumentException.class,
+                         failureOf(ACME_USER, () -> service.findTrace("acme", "abc123", 2_000, 1_000)));
+        assertInstanceOf(IllegalArgumentException.class,
+                         failureOf(ACME_USER, () -> service.findTrace("acme", "abc123", 0, 1_000)));
+        assertInstanceOf(IllegalArgumentException.class,
+                         failureOf(ACME_USER, () -> service.findTrace("acme", "abc123", 1_000, 1_001 + day)));
     }
 
     @Test
@@ -117,9 +130,11 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
         }
 
         @Override
-        public Future<Buffer> findTrace(String tenant, String traceId) {
+        public Future<Buffer> findTrace(String tenant, String traceId, long start, long end) {
             this.tenant = tenant;
             this.traceId = traceId;
+            this.start = start;
+            this.end = end;
             return Future.succeededFuture(Buffer.buffer("trace"));
         }
     }
