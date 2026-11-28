@@ -1,0 +1,1 @@
+{"id":"88fdf97b965f91f921eddffb9d856e2e.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testSessionLastsTheFullTimeoutAfterTheLastFrame","name":"testSessionLastsTheFullTimeoutAfterTheLastFrame()","status":"passed","testResultsByEnv":{"default":"a98dba52c7f8de9b2bd8626808372a7f"}}

@@ -1,0 +1,1 @@
+{"id":"9f053837dc291ed393536ccf6960d52c.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testClosingConnectionSavesItsLastFrameForTheSharedSession","name":"testClosingConnectionSavesItsLastFrameForTheSharedSession()","status":"passed","testResultsByEnv":{"default":"0f7d421f36989570aa714754c37bfd11"}}

@@ -1,0 +1,1 @@
+{"id":"a4a6511ec3f28efa4d3dfbb5e612ddec.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testFramesOnAnotherConnectionKeepTheSharedSessionAlive","name":"testFramesOnAnotherConnectionKeepTheSharedSessionAlive()","status":"passed","testResultsByEnv":{"default":"d203a6b4ec8b2ec8871f82c825de4bb1"}}

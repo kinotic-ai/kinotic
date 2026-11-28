@@ -1,0 +1,1 @@
+{"id":"d24123548467ea986245676f7bfc9671.d41d8cd98f00b204e9800998ecf8427e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testConnectionEndedByALogoutWritesNothingToTheSession","name":"testConnectionEndedByALogoutWritesNothingToTheSession()","status":"passed","testResultsByEnv":{"default":"b08c8976ee1ad8aedbabc226767595fe"}}
