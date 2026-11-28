@@ -46,6 +46,8 @@ public class ConnectionSession {
     private long reviewActivityFrom;
     // the CONNECTION mode's periodic touch, or the next review
     private long timer = -1;
+    // true once the gateway has ended the connection, as opposed to the client closing it
+    private boolean ended;
 
     /**
      * @param services    the gateway's services, of which the session store and the session timeout are used
@@ -104,16 +106,27 @@ public class ConnectionSession {
     }
 
     /**
-     * Stops keeping the session, once the connection has ended. Activity of an {@code ACTIVITY} connection not yet
-     * saved is saved to the session, while it lives, for the other connections and requests on it. A {@code NONE}
-     * session created for the connection is removed from the store.
+     * Ends the connection with the cause given, on the gateway's decision: its login was signed out, its
+     * authorization was revoked, or its session ended.
+     */
+    public void end(Throwable cause) {
+        ended = true;
+        close.accept(cause);
+    }
+
+    /**
+     * Stops keeping the session, once the connection has ended. When the client closed an {@code ACTIVITY}
+     * connection, its activity not yet saved is saved to the session, while it lives, for the other connections and
+     * requests on it. A {@code NONE} session created for the connection is removed from the store.
      */
     public void stop() {
         if (timer != -1) {
             services.vertx.cancelTimer(timer);
             timer = -1;
         }
-        if (keepAliveMode == SessionKeepAliveMode.ACTIVITY && session != null && !createdHere) {
+        // A connection the gateway ended writes nothing: a sign-out is writing the session at the same moment, and a
+        // put racing it would restore the login the sign-out removed
+        if (!ended && keepAliveMode == SessionKeepAliveMode.ACTIVITY && session != null && !createdHere) {
             saveLastActivity(session.id(), lastActivityAt);
         }
         // a login session the client presented belongs to the browser, not to this connection
@@ -146,9 +159,9 @@ public class ConnectionSession {
             Future<Long> ret = Future.succeededFuture();
             // the connection ended while the store answered
             if (session != null) {
-                AuthenticationException ended = sessionEnded(stored);
-                if (ended != null) {
-                    close.accept(ended);
+                AuthenticationException endedCause = sessionEnded(stored);
+                if (endedCause != null) {
+                    end(endedCause);
                 } else if (stored != null) {
                     long lastUse = SessionBinding.lastUse(stored);
                     long expiresAt = Math.max(lastActivityAt, lastUse) + stored.timeout();
@@ -156,7 +169,7 @@ public class ConnectionSession {
                         // a session created for this connection lapses on its TTL, and the connection goes on without it
                         if (!createdHere) {
                             ret = services.sessionStore.delete(sessionId).map(v -> {
-                                close.accept(new AuthenticationException("The session the connection was established with has expired"));
+                                end(new AuthenticationException("The session the connection was established with has expired"));
                                 return null;
                             });
                         }
@@ -240,9 +253,9 @@ public class ConnectionSession {
         services.sessionStore.get(flushed.id()).compose(stored -> {
             Future<Void> ret = Future.succeededFuture();
             if (session == flushed) {
-                AuthenticationException ended = sessionEnded(stored);
-                if (ended != null) {
-                    close.accept(ended);
+                AuthenticationException endedCause = sessionEnded(stored);
+                if (endedCause != null) {
+                    end(endedCause);
                 } else if (stored == null) {
                     log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
                 } else {

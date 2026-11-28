@@ -135,7 +135,7 @@ public class EndpointConnectionHandler {
         Context context = services.vertx.getOrCreateContext();
         Consumer<Throwable> closeOnContext = cause -> context.runOnContext(v -> {
             revocation = cause;
-            close.accept(cause);
+            connectionSession.end(cause);
         });
         registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
                                                                connectedInfo.getParticipant().getId(),

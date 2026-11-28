@@ -366,6 +366,32 @@ public class EndpointConnectionHandlerTests {
     }
 
     @Test
+    public void testConnectionEndedByALogoutWritesNothingToTheSession() throws Exception {
+        services.sessionStore = LocalSessionStore.create(vertx, "logout-sessions", 0);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        String loginId = SessionBinding.connectedInfo(routingContext).getLoginId();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // a frame no review has saved yet
+        Thread.sleep(SESSION_TIMEOUT_MS / 5);
+        handler.unsubscribe("none");
+        long savedBefore = SessionBinding.lastUse(storedSession(session.id()));
+
+        // the logout's revocation ends the connection while the logout request is still writing the session
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, loginId));
+        Assertions.assertTrue(closed.await(5, TimeUnit.SECONDS), "the logout did not end the connection");
+        handler.shutdown();
+        Thread.sleep(200);
+
+        Assertions.assertEquals(savedBefore, SessionBinding.lastUse(storedSession(session.id())),
+                                "the connection a logout ended wrote to the session");
+    }
+
+    @Test
     public void testNoneKeepAliveConnectionOnABrowserLoginEndsWhenItsSessionExpires() throws Exception {
         services.sessionStore = LocalSessionStore.create(vertx, "none-login-sessions", 0);
         RoutingContext routingContext = sessionLoginContext();
