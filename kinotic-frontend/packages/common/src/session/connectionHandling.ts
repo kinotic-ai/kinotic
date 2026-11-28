@@ -2,11 +2,14 @@ import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
 import type { ToastServiceMethods } from 'primevue/toastservice'
 import type { Router } from 'vue-router'
 import { createDebug } from '../util/debug'
-import { showErrorToast } from '../util/helpers'
+import { apiUrl, showErrorToast } from '../util/helpers'
 import { CONNECTION_STATE } from './connectionState'
 import type { ISessionState } from './SessionState'
 
 const debug = createDebug('connection')
+
+// how long the session check waits for the server before the end is reported as a lost connection
+const SESSION_CHECK_TIMEOUT_MS = 5000
 
 /** Walks the cause chain to the innermost Error, which carries the server's actual message. */
 function rootCause(error: Error): Error {
@@ -18,16 +21,35 @@ function rootCause(error: Error): Error {
 }
 
 /**
+ * True when the server answers, within {@link SESSION_CHECK_TIMEOUT_MS}, that the page's session cookie no
+ * longer holds a login.
+ */
+async function isSignedOut(): Promise<boolean> {
+    let ret = false
+    try {
+        const res = await fetch(apiUrl('/api/auth/me'), {
+            credentials: 'include',
+            signal: AbortSignal.timeout(SESSION_CHECK_TIMEOUT_MS)
+        })
+        ret = res.status === 401
+    } catch (error) {
+        debug('Session check failed: %O', error)
+    }
+    return ret
+}
+
+/**
  * Installs the app's handling of the realtime connection every request rides on. A connection the client
  * is retrying covers the app until it is back; one the client will not retry ends the session: the
- * handler clears the authenticated state, shows why, and routes to {@code /login?referer=<fullPath>} for
- * the user to sign in again.
+ * handler clears the authenticated state, tells the user they were signed out (or, when the session is
+ * still live, why the connection was lost), and routes to {@code /login?referer=<fullPath>} for the user
+ * to sign in again.
  */
 export function installConnectionHandler(router: Router,
                                          sessionState: ISessionState,
                                          toast: ToastServiceMethods): void {
 
-    function endSession(reason: Error): void {
+    async function endSession(reason: Error): Promise<void> {
         // A failure before the first login succeeds rejects that login() call, which its caller (the auth
         // guard's session probe, or the login page) already handles, and login() and logout() clear
         // connectedInfo before they close the connection, so a teardown this client asked for never lands
@@ -38,11 +60,26 @@ export function installConnectionHandler(router: Router,
         debug('Ending the session: %O', reason)
         // Cleared so the auth guard stops admitting protected routes on the dead connection.
         sessionState.connectedInfo = null
-        showErrorToast(toast, 'Connection lost', reason)
         const current = router.currentRoute.value
         const { authenticationRequired } = current.meta
         if (authenticationRequired === undefined || authenticationRequired) {
             void router.push({ path: '/login', query: { referer: current.fullPath } })
+        }
+        // The gateway closes the connection when its login's session expires or is signed out elsewhere;
+        // the session check tells that ordinary end of the session apart from a lost connection.
+        const signedOut = await isSignedOut()
+        // a sign-in made while the server answered started a session of its own, which this end says nothing about
+        if (!sessionState.isAuthenticated()) {
+            if (signedOut) {
+                toast.add({
+                    severity: 'info',
+                    summary: 'Signed out',
+                    detail: 'Your session has ended. Sign in again to continue.',
+                    life: 5000
+                })
+            } else {
+                showErrorToast(toast, 'Connection lost', reason)
+            }
         }
     }
 
@@ -60,8 +97,8 @@ export function installConnectionHandler(router: Router,
             CONNECTION_STATE.reachable = true
             // The outer error is a generic wrapper ('STOMP connection error'); the server's reason — an
             // ERROR frame's message header, or 'Authentication required' — is the root cause.
-            endSession(reason !== null ? rootCause(reason)
-                                       : new Error('The connection to the server was closed'))
+            void endSession(reason !== null ? rootCause(reason)
+                                            : new Error('The connection to the server was closed'))
         }
     })
 

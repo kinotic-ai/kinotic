@@ -36,6 +36,10 @@ public final class SessionBinding {
     private static final String ORIGIN_KEY = SessionBinding.class.getName() + ".origin";
     private static final String PRESENTED_KEY = SessionBinding.class.getName() + ".presented";
     private static final String LOGIN_KEY = SessionBinding.class.getName() + ".login";
+    // The time of the latest activity a realtime connection recorded in the session, and the lastAccessed that
+    // recording wrote, which tells it apart from a request: a request writes a later lastAccessed
+    private static final String LAST_ACTIVITY_AT_KEY = SessionBinding.class.getName() + ".lastActivityAt";
+    private static final String ACTIVITY_RECORDED_AT_KEY = SessionBinding.class.getName() + ".activityRecordedAt";
 
     private SessionBinding() {}
 
@@ -172,10 +176,36 @@ public final class SessionBinding {
             Session session = ctx.session();
             session.remove(loginKey(origin(ctx)));
             ctx.remove(LOGIN_KEY);
-            if (session.isEmpty()) {
+            // the activity a connection recorded is no state of a page's, so it keeps no session alive
+            if (session.data().keySet().stream().allMatch(key -> key.equals(LAST_ACTIVITY_AT_KEY)
+                                                                  || key.equals(ACTIVITY_RECORDED_AT_KEY))) {
                 session.destroy();
             }
         }
+    }
+
+    /**
+     * Records in {@code session} that a realtime connection on it was last active at {@code activityAt}, so
+     * {@link #lastUse} counts that activity wherever the session is read next. Marks the session accessed, as a
+     * write of it to the store requires.
+     */
+    public static void recordActivity(Session session, long activityAt) {
+        session.setAccessed();
+        session.put(ACTIVITY_RECORDED_AT_KEY, session.lastAccessed());
+        session.put(LAST_ACTIVITY_AT_KEY, activityAt);
+    }
+
+    /**
+     * When {@code session} was last used: the latest request that wrote it, or the latest activity a connection
+     * recorded with {@link #recordActivity}, whichever is later.
+     */
+    public static long lastUse(Session session) {
+        Long lastActivityAt = session.get(LAST_ACTIVITY_AT_KEY);
+        Long recordedAt = session.get(ACTIVITY_RECORDED_AT_KEY);
+        // activity is recorded only when it is later than every use before it, so the lastAccessed the recording
+        // wrote stands for no request
+        long lastRequest = recordedAt == null || session.lastAccessed() != recordedAt ? session.lastAccessed() : 0;
+        return Math.max(lastRequest, lastActivityAt != null ? lastActivityAt : 0);
     }
 
     /** Whether {@code session} holds the login identified by {@code loginId}, for any page. */

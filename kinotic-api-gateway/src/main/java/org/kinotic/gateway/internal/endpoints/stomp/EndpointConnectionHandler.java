@@ -9,7 +9,6 @@ import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.Session;
 import io.vertx.ext.web.handler.HttpException;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
@@ -62,15 +61,9 @@ public class EndpointConnectionHandler {
     private final List<Runnable> registrations = new ArrayList<>();
     // the revocation that named this connection before its CONNECT frame arrived, which connect then refuses
     private Throwable revocation;
-    private Session session;
-    private long lastSessionFlush = 0;
+    private ConnectionSession connectionSession;
     private ConnectedInfo connectedInfo;
     private StompAuthorizer stompAuthorizer;
-    private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
-    private boolean sessionCreatedHere;
-    // the id of the browser login the connection was established on, or null when it authenticated with credentials
-    private String sessionLoginId;
-    private long sessionTimer = -1;
 
     public EndpointConnectionHandler(Services services, ReplyFlowControl replyFlowControl, Consumer<Throwable> close) {
         this.services = services;
@@ -81,11 +74,15 @@ public class EndpointConnectionHandler {
     }
 
     public Future<MultiMap> handshake(RoutingContext routingContext) {
-        session = routingContext.session();
         // the login the upgrading page made, carried by its session cookie
         this.connectedInfo = SessionBinding.connectedInfo(routingContext);
+        boolean browserLogin = connectedInfo != null && connectedInfo.getParticipant() != null;
         // an upgrade that presented no session cookie got a session created for it
-        sessionCreatedHere = !SessionBinding.sessionPresented(routingContext);
+        connectionSession = new ConnectionSession(services,
+                                                  routingContext.session(),
+                                                  !SessionBinding.sessionPresented(routingContext),
+                                                  browserLogin ? connectedInfo.getLoginId() : null,
+                                                  close);
 
         // vertx-stomp-lite upgrades the request only after this future completes, and the
         // ServerWebSocket it creates keeps the request's header MultiMap for the life of the
@@ -98,8 +95,7 @@ public class EndpointConnectionHandler {
         routingContext.request().headers().remove(HttpHeaders.AUTHORIZATION);
         routingContext.request().headers().remove(CLIENT_SECRET_HEADER);
 
-        if (connectedInfo != null && connectedInfo.getParticipant() != null) {
-            sessionLoginId = connectedInfo.getLoginId();
+        if (browserLogin) {
             registerForRevocation();
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
@@ -139,7 +135,7 @@ public class EndpointConnectionHandler {
         Context context = services.vertx.getOrCreateContext();
         Consumer<Throwable> closeOnContext = cause -> context.runOnContext(v -> {
             revocation = cause;
-            close.accept(cause);
+            connectionSession.end(cause);
         });
         registrations.add(services.connectionRegistry.register(ConnectionRevocationType.IDENTITY,
                                                                connectedInfo.getParticipant().getId(),
@@ -161,28 +157,16 @@ public class EndpointConnectionHandler {
 
         Future<Map<String, String>> ret;
         try {
-            sessionKeepAliveMode = SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
-            if (sessionKeepAliveMode != SessionKeepAliveMode.NONE && session == null) {
-                ret = Future.failedFuture(
-                        new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE"));
-            } else {
-                // The replyToId is generated server side so the client cannot pick a guessable
-                // or colliding value
-                if (connectedInfo.getReplyToId() == null) {
-                    connectedInfo.setReplyToId(UUID.randomUUID().toString());
-                }
-                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
-
-                signalActivity();
-                if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
-                    // the upgrade response never reaches the store, so the connection's first write is this one
-                    touchSession();
-                    startSessionTouchTimer();
-                }
-                ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                    services.jsonMapper.writeValueAsString(connectedInfo)));
+            connectionSession.start(SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER)));
+            // The replyToId is generated server side so the client cannot pick a guessable
+            // or colliding value
+            if (connectedInfo.getReplyToId() == null) {
+                connectedInfo.setReplyToId(UUID.randomUUID().toString());
             }
-        } catch (JacksonException e) {
+            stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+            ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                services.jsonMapper.writeValueAsString(connectedInfo)));
+        } catch (AuthenticationException | JacksonException e) {
             ret = Future.failedFuture(e);
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
@@ -190,19 +174,8 @@ public class EndpointConnectionHandler {
         return ret;
     }
 
-    public void removeSession() {
-        // a login session the client presented belongs to the browser, not to this connection
-        if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null && sessionCreatedHere) {
-            // The Vert.x SessionHandler deletes a destroyed session from the store when the response
-            // ends. A WebSocket's response ended at the upgrade, so the store entry is removed here.
-            services.sessionStore.delete(session.id())
-                                 .onFailure(throwable -> log.warn("Session {} could not be removed from the store", session.id(), throwable));
-            session.destroy();
-        }
-    }
-
     public Future<Void> send(Event<byte[]> incomingEvent) {
-        signalActivity();
+        connectionSession.activity();
 
         // The sender header names the caller to whoever receives the event, so only the gateway writes it,
         // from the participant authenticated on the connection the event arrives on
@@ -300,10 +273,6 @@ public class EndpointConnectionHandler {
     }
 
     public void shutdown() {
-        if (sessionTimer != -1) {
-            services.vertx.cancelTimer(sessionTimer);
-            sessionTimer = -1;
-        }
         subscriptions.forEach((s, subscription) -> subscription.consumer().unregister());
         subscriptions.clear();
         registrations.forEach(Runnable::run);
@@ -311,8 +280,7 @@ public class EndpointConnectionHandler {
         incomingInvocationTracker.dispose();
         outgoingInvocationTracker.dispose();
         // a NONE session ends with its connection however the connection ended
-        removeSession();
-        session = null;
+        connectionSession.stop();
         connectedInfo = null;
         stompAuthorizer = null;
     }
@@ -329,7 +297,7 @@ public class EndpointConnectionHandler {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
         Validate.notNull(subscriptionHandler, "subscriptionHandler must not be null");
 
-        signalActivity();
+        connectionSession.activity();
 
         if (!stompAuthorizer.subscribeAllowed(cri)) {
             throw new AuthorizationException("Not Authorized to subscribe to " + cri);
@@ -398,7 +366,7 @@ public class EndpointConnectionHandler {
     public Future<Void> unsubscribe(String subscriptionIdentifier) {
         Validate.notEmpty(subscriptionIdentifier, "subscriptionIdentifier must not be empty");
 
-        signalActivity();
+        connectionSession.activity();
 
         ConnectionSubscription subscription = subscriptions.remove(subscriptionIdentifier);
         Future<Void> ret;
@@ -423,77 +391,6 @@ public class EndpointConnectionHandler {
             ret.put(entry.getKey(), entry.getValue());
         }
         return ret;
-    }
-
-    private void signalActivity() {
-        if (sessionKeepAliveMode == SessionKeepAliveMode.ACTIVITY) {
-            if (session == null) {
-                log.error("Session is null while sessionKeepAliveMode is ACTIVITY");
-                throw new IllegalStateException("Internal server error");
-            }
-            touchSession();
-        }
-    }
-
-    // SessionHandler flushes a session to the store when a response ends, which on a WebSocket happened
-    // once, at the upgrade. Every touch after that has to reach the store itself or the clustered entry
-    // expires under the open connection. The write is rate limited to a fraction of the timeout, which
-    // bounds how far the stored expiry lags a busy connection.
-    private void touchSession() {
-        session.setAccessed();
-        long now = System.currentTimeMillis();
-        if (now - lastSessionFlush >= services.apiGatewayProperties.getSessionTimeout() / 4) {
-            lastSessionFlush = now;
-            flushSession(session);
-        }
-    }
-
-    // The stored copy is refreshed rather than the local one: it carries the version the store expects and
-    // whatever a request on the same cookie has put since. A session the store no longer has, deleted by a
-    // logout or expired, is never written back, because a put with no stored entry would re-create it; a
-    // connection a browser login established ends with it, since the login is gone with the session. It ends too
-    // once the stored session no longer holds its login: a logout removes the login before it publishes the
-    // revocation, so this read ends a connection the revocation missed, lost on its way or delivered before the
-    // connection registered for it.
-    private void flushSession(Session flushed) {
-        services.sessionStore.get(flushed.id()).onComplete(ar -> {
-            if (session != flushed) {
-                return;
-            }
-            if (ar.failed()) {
-                log.warn("Session {} could not be read from the store", flushed.id(), ar.cause());
-            } else if (ar.result() == null) {
-                if (sessionCreatedHere) {
-                    log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
-                } else {
-                    close.accept(new AuthenticationException("The session the connection was established with has ended"));
-                }
-            } else if (sessionLoginId != null && !SessionBinding.holdsLogin(ar.result(), sessionLoginId)) {
-                close.accept(new AuthenticationException("The login the connection was established on has ended"));
-            } else {
-                Session stored = ar.result();
-                session = stored;
-                stored.setAccessed();
-                services.sessionStore.put(stored)
-                                     .onFailure(throwable -> log.warn("Session {} could not be refreshed in the store", stored.id(), throwable));
-            }
-        });
-    }
-
-    private void startSessionTouchTimer() {
-        if (sessionTimer != -1) {
-            log.error("Session-touch timer already started");
-            throw new IllegalStateException("Internal server error");
-        }
-        // a quarter of the timeout, so a flush that fails is retried before the stored copy expires
-        long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 4;
-        sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
-            if (session == null) {
-                log.error("Session is null while session-touch timer is active");
-                throw new IllegalStateException("Internal server error");
-            }
-            touchSession();
-        });
     }
 
     private void validateReplyToForServiceRequest(Event<byte[]> event) {

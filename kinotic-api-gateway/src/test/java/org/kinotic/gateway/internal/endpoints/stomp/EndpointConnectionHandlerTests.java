@@ -37,6 +37,7 @@ import org.kinotic.core.api.event.ZoneRules;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.ConnectionRevocation;
 import org.kinotic.core.api.security.ConnectionRevocationType;
+import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.security.SessionBinding;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
@@ -48,6 +49,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.module.SimpleModule;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -73,7 +75,10 @@ import static org.mockito.Mockito.when;
 /**
  * Pins what a STOMP connection's caller side owes its client: a request whose serving node leaves the
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
- * request releases it, a session under an open connection outlives its timeout, and a connection that closes
+ * request releases it, a session under an open connection outlives its timeout, a session lasts exactly its timeout
+ * after the last frame on any of its connections, including one that has closed, a connection on a browser login
+ * ends when that login's session expires, whatever its keep-alive mode,
+ * and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
  * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
  * connection, and a client that falls behind a stream has the stream suspended until it catches up, or
@@ -114,6 +119,10 @@ public class EndpointConnectionHandlerTests {
                      .withClusterManager(new IgniteClusterManager(ignite))
                      .buildClustered()
                      .toCompletionStage().toCompletableFuture().get(2, TimeUnit.MINUTES);
+        // the clustered session store marshals the login a session holds with this mapper
+        ConnectedInfo.setSerializationMapper(JsonMapper.builder()
+                                                       .addModule(new SimpleModule().addAbstractTypeMapping(Participant.class, TestParticipant.class))
+                                                       .build());
     }
 
     @AfterAll
@@ -244,6 +253,160 @@ public class EndpointConnectionHandlerTests {
         SessionBinding.unbind(routingContext);
 
         Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 2, TimeUnit.MILLISECONDS), "the connection outlived its login");
+    }
+
+    @Test
+    public void testIdleConnectionEndsWhenItsLoginSessionExpires() throws Exception {
+        // no reaper, so only the gateway's review removes the expired session
+        services.sessionStore = LocalSessionStore.create(vertx, "idle-sessions", 0);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        AtomicReference<Throwable> closeCause = new AtomicReference<>();
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> {
+            closeCause.set(cause);
+            closed.countDown();
+        });
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // requests the page makes on the same cookie keep the session alive past the expiry the connect set
+        for (int i = 0; i < 6; i++) {
+            Thread.sleep(SESSION_TIMEOUT_MS / 2);
+            Session stored = storedSession(session.id());
+            stored.setAccessed();
+            services.sessionStore.put(stored).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        }
+        Assertions.assertEquals(1, closed.getCount(), "the connection ended while its session was live");
+
+        // with no frame and no request, the session expires and the connection ends with it
+        Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 4, TimeUnit.MILLISECONDS), "the idle connection outlived its session");
+        Assertions.assertEquals("The session the connection was established with has expired", closeCause.get().getMessage());
+    }
+
+    @Test
+    public void testSessionLastsTheFullTimeoutAfterTheLastFrame() throws Exception {
+        // The clustered store keeps its own copy of the session, so only what the connection saves reaches it, and
+        // expires that copy on the TTL of its last put
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // a frame late in the save interval the connect started
+        Thread.sleep(SESSION_TIMEOUT_MS / 5);
+        handler.unsubscribe("none");
+        long lastFrame = System.currentTimeMillis();
+
+        Thread.sleep(lastFrame + SESSION_TIMEOUT_MS - 100 - System.currentTimeMillis());
+        Assertions.assertNotNull(storedSession(session.id()), "the session expired sooner than its timeout after the last frame");
+        Assertions.assertEquals(1, closed.getCount(), "the connection ended sooner than its session's timeout after the last frame");
+
+        Assertions.assertTrue(closed.await(lastFrame + SESSION_TIMEOUT_MS * 3 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
+                              "the idle connection outlived its session's timeout after the last frame");
+        Assertions.assertNull(storedSession(session.id()), "the expired session is still in the store");
+    }
+
+    @Test
+    public void testFramesOnAnotherConnectionKeepTheSharedSessionAlive() throws Exception {
+        // no reaper, so only the gateway's review removes the expired session
+        services.sessionStore = LocalSessionStore.create(vertx, "shared-sessions", 0);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // two tabs of the same page, on the one session cookie
+        CountDownLatch idleClosed = new CountDownLatch(1);
+        EndpointConnectionHandler idle = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> idleClosed.countDown());
+        idle.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        idle.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        EndpointConnectionHandler busy = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
+        busy.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        busy.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        for (int i = 0; i < 6; i++) {
+            Thread.sleep(SESSION_TIMEOUT_MS / 2);
+            busy.unsubscribe("none");
+        }
+        Assertions.assertEquals(1, idleClosed.getCount(), "an idle tab ended the session another tab was using");
+        Assertions.assertNotNull(storedSession(session.id()), "the session another tab was using was removed");
+
+        busy.shutdown();
+        Assertions.assertTrue(idleClosed.await(SESSION_TIMEOUT_MS * 3, TimeUnit.MILLISECONDS), "the idle tab outlived the session once both went idle");
+    }
+
+    @Test
+    public void testClosingConnectionSavesItsLastFrameForTheSharedSession() throws Exception {
+        services.sessionStore = LocalSessionStore.create(vertx, "closing-sessions", 0);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch idleClosed = new CountDownLatch(1);
+        EndpointConnectionHandler idle = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> idleClosed.countDown());
+        idle.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        idle.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        EndpointConnectionHandler closing = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> { });
+        closing.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        closing.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        long connectedAt = System.currentTimeMillis();
+
+        // a frame no review has saved yet, and then the tab closes
+        Thread.sleep(SESSION_TIMEOUT_MS * 3 / 10);
+        closing.unsubscribe("none");
+        long lastFrame = System.currentTimeMillis();
+        Thread.sleep(SESSION_TIMEOUT_MS / 10);
+        closing.shutdown();
+
+        Thread.sleep(connectedAt + SESSION_TIMEOUT_MS + 150 - System.currentTimeMillis());
+        Assertions.assertEquals(1, idleClosed.getCount(), "the session expired without the closed tab's last frame");
+        Assertions.assertTrue(idleClosed.await(lastFrame + SESSION_TIMEOUT_MS * 3 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
+                              "the idle tab outlived the session's timeout after the closed tab's last frame");
+    }
+
+    @Test
+    public void testConnectionEndedByALogoutWritesNothingToTheSession() throws Exception {
+        services.sessionStore = LocalSessionStore.create(vertx, "logout-sessions", 0);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        String loginId = SessionBinding.connectedInfo(routingContext).getLoginId();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // a frame no review has saved yet
+        Thread.sleep(SESSION_TIMEOUT_MS / 5);
+        handler.unsubscribe("none");
+        long savedBefore = SessionBinding.lastUse(storedSession(session.id()));
+
+        // the logout's revocation ends the connection while the logout request is still writing the session
+        services.connectionRegistry.revoke(new ConnectionRevocation(ConnectionRevocationType.LOGIN, loginId));
+        Assertions.assertTrue(closed.await(5, TimeUnit.SECONDS), "the logout did not end the connection");
+        handler.shutdown();
+        Thread.sleep(200);
+
+        Assertions.assertEquals(savedBefore, SessionBinding.lastUse(storedSession(session.id())),
+                                "the connection a logout ended wrote to the session");
+    }
+
+    @Test
+    public void testNoneKeepAliveConnectionOnABrowserLoginEndsWhenItsSessionExpires() throws Exception {
+        services.sessionStore = LocalSessionStore.create(vertx, "none-login-sessions", 0);
+        RoutingContext routingContext = sessionLoginContext();
+        Session session = routingContext.session();
+        services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        CountDownLatch closed = new CountDownLatch(1);
+        EndpointConnectionHandler handler = new EndpointConnectionHandler(services, new ReplyFlowControl(services), cause -> closed.countDown());
+        handler.handshake(routingContext).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.connect(Map.of(EventConstants.SESSION_KEEP_ALIVE_HEADER, "NONE")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the connection's frames keep no NONE session alive
+        handler.unsubscribe("none");
+        Assertions.assertTrue(closed.await(SESSION_TIMEOUT_MS * 2, TimeUnit.MILLISECONDS), "the connection outlived its login's session");
+        Assertions.assertNull(storedSession(session.id()), "the expired session is still in the store");
     }
 
     @Test
@@ -546,18 +709,19 @@ public class EndpointConnectionHandlerTests {
 
     @Test
     public void testSessionDeletedFromTheStoreIsNotRecreatedByTheTouch() throws Exception {
-        Session session = services.sessionStore.createSession(SESSION_TIMEOUT_MS * 10);
+        Session session = services.sessionStore.createSession(SESSION_TIMEOUT_MS);
         services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
         EndpointConnectionHandler handler = connect(session, Map.of());
-        // connect() touched the session; let that write land before the delete
-        Thread.sleep(300);
+        long connectedAt = System.currentTimeMillis();
+        // connect() saved the session; let that write land before the delete
+        Thread.sleep(SESSION_TIMEOUT_MS * 3 / 10);
 
-        // a logout deletes the session; the connection's next touch must not put it back
+        // a logout deletes the session; a frame since then gives the next review activity to save, and that review,
+        // due a quarter-timeout before the expiry the connect set, must not put the session back
         services.sessionStore.delete(session.id()).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
-        Thread.sleep(SESSION_TIMEOUT_MS / 4 + 50);
         handler.unsubscribe("none");
-        Thread.sleep(500);
-        Assertions.assertNull(storedSession(session.id()), "the touch re-created a deleted session");
+        Thread.sleep(connectedAt + SESSION_TIMEOUT_MS * 9 / 10 - System.currentTimeMillis());
+        Assertions.assertNull(storedSession(session.id()), "the review re-created a deleted session");
     }
 
     @Test
