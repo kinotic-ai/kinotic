@@ -2,12 +2,18 @@ name: Dependabot Merge
 
 # Merges each open Dependabot pull request into develop once a GitHub Actions check has succeeded on
 # it and no check has failed or is still running, so a security fix lands, and its Dependabot alert
-# closes, without anyone acting on it. A pull request with a failed check, with no successful or
-# running GitHub Actions check a day after it was opened, or that GitHub refuses to merge, is assigned
-# to OWNER: the cases that need a person.
+# closes, without anyone acting on it. A pull request with a failed check that is behind develop is
+# asked to rebase, once per commit Dependabot pushes, so a failure develop caused and has since fixed
+# clears without anyone acting on it. Dependabot refuses commands from GitHub Apps, github-actions
+# included (dependabot/dependabot-core#9147), so the request is posted with DEPENDABOT_REBASE_TOKEN, a
+# fine-grained personal access token of a user with write access to the repository (Pull requests:
+# write). A pull request with a failed check while up to date with develop, behind develop while the
+# token is not set, that Dependabot has not rebased six hours after it was first asked, with no
+# successful or running GitHub Actions check a day after it was opened, or that GitHub refuses to
+# merge, is assigned to OWNER: the cases that need a person.
 on:
   schedule:
-    - cron: '17 10 * * *'
+    - cron: '17 */3 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -27,11 +33,13 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
+      REBASE_TOKEN: ${{ secrets.DEPENDABOT_REBASE_TOKEN }}
     steps:
       - name: Merge or assign
         run: |
           assign() { gh api -X POST "repos/$REPO/issues/$1/assignees" -f "assignees[]=$OWNER" > /dev/null; }
           day_ago=$(date -u -d '-1 day' +%Y-%m-%dT%H:%M:%SZ)
+          six_hours_ago=$(date -u -d '-6 hours' +%Y-%m-%dT%H:%M:%SZ)
           gh api "repos/$REPO/pulls?state=open&base=develop&per_page=100" --paginate \
             --jq '.[] | select(.user.login == "dependabot[bot]") | [.number, .head.sha, .created_at] | @tsv' |
           while IFS=$'\t' read -r pr sha created; do
@@ -40,8 +48,28 @@ jobs:
             # Other apps' checks (CodeRabbit, code scanning) gate on a failure but build nothing, and their
             # cancelled or skipped runs say nothing about the change
             if grep -qP '\tfailure$|^github-actions\t(cancelled|timed_out|action_required|stale)$' <<<"$runs"; then
-              echo "#$pr: a check failed, assigning $OWNER"
-              assign "$pr"
+              behind=$(gh api "repos/$REPO/compare/develop...$sha" --jq '.behind_by')
+              # Dependabot writes each commit through the API, so its committer date is when it pushed the head
+              pushed=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.committer.date')
+              # The first request after the push starts the six-hour deadline, whoever posted it
+              asked=$(PUSHED="$pushed" gh api "repos/$REPO/issues/$pr/comments?per_page=100" --paginate \
+                --jq '.[] | select(.body == "@dependabot rebase" and .created_at > env.PUSHED) | .created_at' |
+                head -n 1)
+              if (( behind == 0 )); then
+                echo "#$pr: a check failed on the current develop, assigning $OWNER"
+                assign "$pr"
+              elif [[ -z "$asked" && -z "$REBASE_TOKEN" ]]; then
+                echo "::warning::#$pr: a check failed $behind commits behind develop and DEPENDABOT_REBASE_TOKEN is not set, assigning $OWNER"
+                assign "$pr"
+              elif [[ -z "$asked" ]]; then
+                echo "#$pr: a check failed $behind commits behind develop, asking Dependabot to rebase"
+                GH_TOKEN="$REBASE_TOKEN" gh api -X POST "repos/$REPO/issues/$pr/comments" -f body='@dependabot rebase' > /dev/null
+              elif [[ "$asked" < "$six_hours_ago" ]]; then
+                echo "#$pr: Dependabot has not rebased since it was asked at $asked, assigning $OWNER"
+                assign "$pr"
+              else
+                echo "#$pr: waiting for Dependabot to rebase"
+              fi
             elif grep -qP '^github-actions\tpending$' <<<"$runs"; then
               echo "#$pr: workflows still running"
             elif ! grep -qP '^github-actions\tsuccess$' <<<"$runs" && [[ "$created" < "$day_ago" ]]; then
