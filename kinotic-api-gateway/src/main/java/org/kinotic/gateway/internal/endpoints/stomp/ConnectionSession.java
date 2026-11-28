@@ -17,7 +17,8 @@ import java.util.function.Consumer;
  *   <li>{@code ACTIVITY}: the session lasts until it has gone unused, by requests on its cookie and by the frames of
  *       every connection on it, for its timeout. A browser login's session is then deleted and the connection ended.</li>
  *   <li>{@code CONNECTION}: the session lasts for as long as the connection is open.</li>
- *   <li>{@code NONE}: a session created for the connection ends with it.</li>
+ *   <li>{@code NONE}: a session created for the connection ends with it, and the connection keeps no session
+ *       alive.</li>
  * </ul>
  * A connection established on a browser login also ends once its session, or the login the session holds, has
  * ended. Every method must be called on the connection's event loop.
@@ -25,10 +26,6 @@ import java.util.function.Consumer;
 @Slf4j
 public class ConnectionSession {
 
-    // Session data holding the time of the latest activity a connection saved to the session, and the lastAccessed
-    // that save wrote, which tells a save apart from a request: a request writes a later lastAccessed
-    private static final String LAST_ACTIVITY_AT_KEY = ConnectionSession.class.getName() + ".lastActivityAt";
-    private static final String SAVED_AT_KEY = ConnectionSession.class.getName() + ".savedAt";
     // how long before a session's expiry the review saves the time of the connection's last activity, so the put
     // reaches the store before the TTL of the previous put lapses
     private static final long SESSION_SAVE_MARGIN_MILLIS = 60_000;
@@ -47,7 +44,7 @@ public class ConnectionSession {
     // ACTIVITY mode: activity from this time on starts a review at once, since no review before the session's expiry
     // remains to save it; Long.MAX_VALUE while a review is in flight
     private long reviewActivityFrom;
-    // the CONNECTION mode's periodic touch, or the ACTIVITY mode's next review
+    // the CONNECTION mode's periodic touch, or the next review
     private long timer = -1;
 
     /**
@@ -82,6 +79,9 @@ public class ConnectionSession {
             // the upgrade response never reaches the store, so the connection's first write is this one
             touchSession();
             startTouchTimer();
+        } else if (session != null && !createdHere) {
+            // records no activity, so the reviews only watch for the session to expire or end
+            reviewSession();
         }
     }
 
@@ -104,13 +104,17 @@ public class ConnectionSession {
     }
 
     /**
-     * Stops keeping the session, once the connection has ended. A {@code NONE} session created for the connection
-     * is removed from the store.
+     * Stops keeping the session, once the connection has ended. Activity of an {@code ACTIVITY} connection not yet
+     * saved is saved to the session, while it lives, for the other connections and requests on it. A {@code NONE}
+     * session created for the connection is removed from the store.
      */
     public void stop() {
         if (timer != -1) {
             services.vertx.cancelTimer(timer);
             timer = -1;
+        }
+        if (keepAliveMode == SessionKeepAliveMode.ACTIVITY && session != null && !createdHere) {
+            saveLastActivity(session.id(), lastActivityAt);
         }
         // a login session the client presented belongs to the browser, not to this connection
         if (keepAliveMode == SessionKeepAliveMode.NONE && session != null && createdHere) {
@@ -146,7 +150,7 @@ public class ConnectionSession {
                 if (ended != null) {
                     close.accept(ended);
                 } else if (stored != null) {
-                    long lastUse = lastUse(stored);
+                    long lastUse = SessionBinding.lastUse(stored);
                     long expiresAt = Math.max(lastActivityAt, lastUse) + stored.timeout();
                     if (System.currentTimeMillis() >= expiresAt) {
                         // a session created for this connection lapses on its TTL, and the connection goes on without it
@@ -157,9 +161,7 @@ public class ConnectionSession {
                             });
                         }
                     } else if (lastActivityAt > lastUse) {
-                        stored.setAccessed();
-                        stored.put(SAVED_AT_KEY, stored.lastAccessed());
-                        stored.put(LAST_ACTIVITY_AT_KEY, lastActivityAt);
+                        SessionBinding.recordActivity(stored, lastActivityAt);
                         ret = services.sessionStore.put(stored).map(expiresAt);
                     } else {
                         ret = Future.succeededFuture(expiresAt);
@@ -197,14 +199,17 @@ public class ConnectionSession {
         });
     }
 
-    // The latest use of the stored session: the last activity a connection saved to it, or the last request that
-    // wrote it. A save is made only for activity later than every use before it, so a lastAccessed a save wrote is
-    // dropped.
-    private static long lastUse(Session stored) {
-        Long lastActivity = stored.get(LAST_ACTIVITY_AT_KEY);
-        Long savedAt = stored.get(SAVED_AT_KEY);
-        long lastRequest = savedAt == null || stored.lastAccessed() != savedAt ? stored.lastAccessed() : 0;
-        return Math.max(lastRequest, lastActivity != null ? lastActivity : 0);
+    // The activity would otherwise end with the connection, and another connection or request on the session could
+    // then see it expire sooner than its timeout after that activity. A session that has ended is never written back.
+    private void saveLastActivity(String sessionId, long activityAt) {
+        services.sessionStore.get(sessionId).compose(stored -> {
+            Future<Void> ret = Future.succeededFuture();
+            if (stored != null && sessionEnded(stored) == null && activityAt > SessionBinding.lastUse(stored)) {
+                SessionBinding.recordActivity(stored, activityAt);
+                ret = services.sessionStore.put(stored);
+            }
+            return ret;
+        }).onFailure(throwable -> log.warn("The last activity on session {} could not be saved", sessionId, throwable));
     }
 
     // a quarter of the timeout, so a touch that fails is retried before the stored copy expires

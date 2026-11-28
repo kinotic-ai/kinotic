@@ -8,6 +8,9 @@ import type { ISessionState } from './SessionState'
 
 const debug = createDebug('connection')
 
+// how long the session check waits for the server before the end is reported as a lost connection
+const SESSION_CHECK_TIMEOUT_MS = 5000
+
 /** Walks the cause chain to the innermost Error, which carries the server's actual message. */
 function rootCause(error: Error): Error {
     let ret = error
@@ -17,11 +20,17 @@ function rootCause(error: Error): Error {
     return ret
 }
 
-/** True when the server answers that the page's session cookie no longer holds a login. */
+/**
+ * True when the server answers, within {@link SESSION_CHECK_TIMEOUT_MS}, that the page's session cookie no
+ * longer holds a login.
+ */
 async function isSignedOut(): Promise<boolean> {
     let ret = false
     try {
-        const res = await fetch(apiUrl('/api/auth/me'), { credentials: 'include' })
+        const res = await fetch(apiUrl('/api/auth/me'), {
+            credentials: 'include',
+            signal: AbortSignal.timeout(SESSION_CHECK_TIMEOUT_MS)
+        })
         ret = res.status === 401
     } catch (error) {
         debug('Session check failed: %O', error)
@@ -51,22 +60,26 @@ export function installConnectionHandler(router: Router,
         debug('Ending the session: %O', reason)
         // Cleared so the auth guard stops admitting protected routes on the dead connection.
         sessionState.connectedInfo = null
-        // The gateway closes the connection when its login's session expires or is signed out elsewhere;
-        // the session check tells that ordinary end of the session apart from a lost connection.
-        if (await isSignedOut()) {
-            toast.add({
-                severity: 'info',
-                summary: 'Signed out',
-                detail: 'Your session has ended. Sign in again to continue.',
-                life: 5000
-            })
-        } else {
-            showErrorToast(toast, 'Connection lost', reason)
-        }
         const current = router.currentRoute.value
         const { authenticationRequired } = current.meta
         if (authenticationRequired === undefined || authenticationRequired) {
             void router.push({ path: '/login', query: { referer: current.fullPath } })
+        }
+        // The gateway closes the connection when its login's session expires or is signed out elsewhere;
+        // the session check tells that ordinary end of the session apart from a lost connection.
+        const signedOut = await isSignedOut()
+        // a sign-in made while the server answered started a session of its own, which this end says nothing about
+        if (!sessionState.isAuthenticated()) {
+            if (signedOut) {
+                toast.add({
+                    severity: 'info',
+                    summary: 'Signed out',
+                    detail: 'Your session has ended. Sign in again to continue.',
+                    life: 5000
+                })
+            } else {
+                showErrorToast(toast, 'Connection lost', reason)
+            }
         }
     }
 
