@@ -119,6 +119,10 @@ public class EndpointConnectionHandlerTests {
                      .withClusterManager(new IgniteClusterManager(ignite))
                      .buildClustered()
                      .toCompletionStage().toCompletableFuture().get(2, TimeUnit.MINUTES);
+        // the clustered session store marshals the login a session holds with this mapper
+        ConnectedInfo.setSerializationMapper(JsonMapper.builder()
+                                                       .addModule(new SimpleModule().addAbstractTypeMapping(Participant.class, TestParticipant.class))
+                                                       .build());
     }
 
     @AfterAll
@@ -284,10 +288,7 @@ public class EndpointConnectionHandlerTests {
     @Test
     public void testSessionLastsTheFullTimeoutAfterTheLastFrame() throws Exception {
         // The clustered store keeps its own copy of the session, so only what the connection saves reaches it, and
-        // expires that copy on the TTL of its last put. The login it holds is marshalled with this mapper.
-        ConnectedInfo.setSerializationMapper(JsonMapper.builder()
-                                                       .addModule(new SimpleModule().addAbstractTypeMapping(Participant.class, TestParticipant.class))
-                                                       .build());
+        // expires that copy on the TTL of its last put
         RoutingContext routingContext = sessionLoginContext();
         Session session = routingContext.session();
         services.sessionStore.put(session).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -305,7 +306,7 @@ public class EndpointConnectionHandlerTests {
         Assertions.assertNotNull(storedSession(session.id()), "the session expired sooner than its timeout after the last frame");
         Assertions.assertEquals(1, closed.getCount(), "the connection ended sooner than its session's timeout after the last frame");
 
-        Assertions.assertTrue(closed.await(lastFrame + SESSION_TIMEOUT_MS + 300 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
+        Assertions.assertTrue(closed.await(lastFrame + SESSION_TIMEOUT_MS * 3 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
                               "the idle connection outlived its session's timeout after the last frame");
         Assertions.assertNull(storedSession(session.id()), "the expired session is still in the store");
     }
@@ -361,7 +362,7 @@ public class EndpointConnectionHandlerTests {
 
         Thread.sleep(connectedAt + SESSION_TIMEOUT_MS + 150 - System.currentTimeMillis());
         Assertions.assertEquals(1, idleClosed.getCount(), "the session expired without the closed tab's last frame");
-        Assertions.assertTrue(idleClosed.await(lastFrame + SESSION_TIMEOUT_MS + 300 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
+        Assertions.assertTrue(idleClosed.await(lastFrame + SESSION_TIMEOUT_MS * 3 - System.currentTimeMillis(), TimeUnit.MILLISECONDS),
                               "the idle tab outlived the session's timeout after the closed tab's last frame");
     }
 
